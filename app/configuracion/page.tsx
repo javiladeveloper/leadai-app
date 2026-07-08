@@ -6,6 +6,7 @@ import { cerrarSesion, haySesion, leerSesion } from "@/lib/auth";
 import { listarEmpresas } from "@/lib/leads";
 import { NavInferior } from "@/components/NavInferior";
 import { IconoWhatsApp, IconoChevron } from "@/components/Iconos";
+import ConectarWhatsApp from "@/components/ConectarWhatsApp";
 
 // Bloque plegable de configuración.
 function Bloque({
@@ -114,6 +115,21 @@ export default function Configuracion() {
             <button className="w-full rounded-chip border-2 border-dashed border-linea py-2.5 text-[0.9rem] font-bold text-frio">
               + Agregar marca
             </button>
+          </div>
+        </Bloque>
+
+        <Bloque titulo="Tus canales" descripcion="Conectá WhatsApp para que LeadAI atienda por vos" defecto>
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-arena/60 p-3.5 ring-1 ring-linea">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#128C7E]/10">
+                <IconoWhatsApp className="h-5 w-5 text-[#128C7E]" />
+              </span>
+              <div>
+                <h3 className="font-bold text-tinta">WhatsApp</h3>
+                <p className="text-[0.82rem] text-frio">Recibí y respondé leads por WhatsApp Business</p>
+              </div>
+            </div>
+            <ConectarWhatsApp />
           </div>
         </Bloque>
 

@@ -20,7 +20,18 @@ declare global {
 const APP_ID = process.env.NEXT_PUBLIC_META_APP_ID ?? "";
 const CONFIG_ID = process.env.NEXT_PUBLIC_META_ES_CONFIG_ID ?? "";
 
-type Estado = "idle" | "cargando-sdk" | "abriendo" | "conectando" | "ok" | "error" | "cancelado";
+type Estado = "idle" | "abriendo" | "conectando" | "ok" | "error" | "cancelado";
+
+// Valida que el origin del postMessage sea realmente un subdominio de facebook.com
+// (un simple `includes("facebook.com")` deja pasar hosts como facebook.com.evil.io).
+function origenConfiable(origin: string): boolean {
+  try {
+    const h = new URL(origin).hostname;
+    return h === "facebook.com" || h.endsWith(".facebook.com");
+  } catch {
+    return false;
+  }
+}
 
 export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => void }) {
   const [estado, setEstado] = useState<Estado>("idle");
@@ -39,11 +50,15 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
     s.src = "https://connect.facebook.net/en_US/sdk.js";
     s.async = true;
     s.defer = true;
+    s.onerror = () => {
+      setEstado("error");
+      setError("No se pudo cargar el conector de Meta. Revisá tu conexión y recargá.");
+    };
     document.body.appendChild(s);
 
     // El Embedded Signup entrega wabaId/phoneNumberId por postMessage.
     const onMsg = (ev: MessageEvent) => {
-      if (!ev.origin.includes("facebook.com")) return;
+      if (!origenConfiable(ev.origin)) return;
       try {
         const d = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
         if (d?.type === "WA_EMBEDDED_SIGNUP" && d?.data) {

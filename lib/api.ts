@@ -111,7 +111,10 @@ export async function obtenerPerfil(): Promise<PerfilNegocio | null> {
   } catch (e) {
     // 404: todavía no hay perfil guardado para esta empresa — no es un error fatal.
     if (e instanceof ApiError && e.status === 404) return null;
-    return null;
+    // Cualquier otro error (backend caído, red, 5xx) es real: lo relanzamos.
+    // Devolver null acá haría que el formulario se muestre vacío y, si el
+    // usuario guarda, el PUT (full-replace) pisaría el perfil real con vacío.
+    throw e;
   }
 }
 

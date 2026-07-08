@@ -18,7 +18,7 @@ const PERFIL_VACIO: PerfilNegocio = {
   llamadaAccion: "",
 };
 
-type Estado = "cargando" | "idle" | "guardando" | "ok" | "error";
+type Estado = "cargando" | "idle" | "guardando" | "ok" | "error" | "error-carga";
 
 // Editor real del Playbook: carga y guarda contra el backend (`/perfil`). Es
 // el "cerebro" que usa la IA para responder — nombre, tono, catálogo,
@@ -30,11 +30,19 @@ export function PlaybookEditor() {
 
   useEffect(() => {
     let cancelado = false;
-    obtenerPerfil().then((p) => {
-      if (cancelado) return;
-      if (p) setPerfil({ ...PERFIL_VACIO, ...p });
-      setEstado("idle");
-    });
+    obtenerPerfil()
+      .then((p) => {
+        if (cancelado) return;
+        if (p) setPerfil({ ...PERFIL_VACIO, ...p });
+        setEstado("idle");
+      })
+      .catch(() => {
+        if (cancelado) return;
+        // No mostramos el formulario vacío ni el botón Guardar: si el backend
+        // está caído y el usuario guardara, el PUT (full-replace) pisaría el
+        // perfil real con vacío.
+        setEstado("error-carga");
+      });
     return () => {
       cancelado = true;
     };
@@ -52,6 +60,14 @@ export function PlaybookEditor() {
   }
 
   if (estado === "cargando") return <p className="text-frio">Cargando…</p>;
+
+  if (estado === "error-carga") {
+    return (
+      <p className="rounded-xl border border-brasa/40 bg-arena/40 p-4 text-sm text-brasa">
+        No pudimos cargar tu configuración. Recargá la página.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -91,6 +107,20 @@ export function PlaybookEditor() {
         placeholder="¿Para cuándo lo necesitás?"
         valores={perfil.preguntasClave}
         onChange={(preguntasClave) => setPerfil({ ...perfil, preguntasClave })}
+      />
+      <ListaSimple
+        titulo="Señales de que es un lead CALIENTE"
+        descripcion="Lo que dice o pregunta un cliente que está por comprar"
+        placeholder="Ej: pregunta por precios y disponibilidad"
+        valores={perfil.senalesCaliente}
+        onChange={(senalesCaliente) => setPerfil({ ...perfil, senalesCaliente })}
+      />
+      <ListaSimple
+        titulo="Señales de que es un lead FRÍO"
+        descripcion="Lo que indica que todavía no está listo para comprar"
+        placeholder="Ej: solo pregunta info general, sin urgencia"
+        valores={perfil.senalesFrio}
+        onChange={(senalesFrio) => setPerfil({ ...perfil, senalesFrio })}
       />
       <ListaObjeciones
         objeciones={perfil.objeciones}

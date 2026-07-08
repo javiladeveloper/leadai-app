@@ -42,7 +42,7 @@ export default function Login() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col px-7 pb-10 pt-[max(4rem,env(safe-area-inset-top))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-7 pb-10 pt-[max(4rem,env(safe-area-inset-top))]">
       {/* Marca */}
       <div className="flex flex-1 flex-col justify-center">
         <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brasa text-carta shadow-[0_8px_24px_rgba(226,92,67,0.35)]">

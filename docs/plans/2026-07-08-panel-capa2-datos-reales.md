@@ -14,7 +14,7 @@
 - Frontend: tokens Brasa (bg-arena, bg-carta, text-tinta, text-frio, bg-brasa, text-ok, ring-linea, bg-tibio-suave) — NUNCA hex. Copy español cercano. Producto = LeadAI.
 - `lib/api.ts` ya tiene `api<T>(ruta, opts)` que manda Authorization (token de `leerSesion()`) + X-Tenant-Id (de `leerEmpresaActiva()`), y una clase `ApiError` con `.status`.
 - Pantallas del panel: Client Component, protegen sesión (`if (!haySesion()) router.replace("/")`), estado de carga + error, estado vacío que guía.
-- Estados terminales de un Lead: `ganado`, `perdido`, `descartado`. Nivel: `frio|tibio|caliente`.
+- Enum EstadoLead real (backend): `nuevo | nutriendo | escalado | ganado | perdido`. Estados terminales: `ganado`, `perdido`. Nivel: `frio|tibio|caliente`. (Nota: la acción `descartar` existe en el POST /acciones pero NO hay estado `descartado`; no lo uses como estado.)
 - Modelo Lead (campos): `id, nombre, contactoExterno, canalOrigen, nivelInteres, estado, resumenIA, borradorIA, creadoEn, actualizadoEn`. Mensaje: `id, direccion ('entrante'|'saliente'), contenido, canal, creadoEn`.
 
 ---
@@ -87,7 +87,7 @@ En `leadia/src/routes/leads.ts`, dentro de `rutasLeads`, agregar (usa `prisma` y
   // GET /resumen — métricas del dashboard (Inicio del panel).
   app.get('/resumen', async (req) => {
     const tenantId = req.tenantId!;
-    const TERMINALES = ['ganado', 'perdido', 'descartado'];
+    const TERMINALES = ['ganado', 'perdido'];
     const [leadsActivos, calientesSinAtender, ventasCerradas] = await Promise.all([
       prisma.lead.count({ where: { tenantId, estado: { notIn: TERMINALES } } }),
       prisma.lead.count({
@@ -135,7 +135,7 @@ En `leadai-app/lib/api.ts`, agregar:
 
 ```ts
 export type NivelInteres = "frio" | "tibio" | "caliente";
-export type EstadoLead = "nuevo" | "en_conversacion" | "escalado" | "nutriendo" | "ganado" | "perdido" | "descartado";
+export type EstadoLead = "nuevo" | "nutriendo" | "escalado" | "ganado" | "perdido";
 
 export interface Lead {
   id: string;

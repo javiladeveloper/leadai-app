@@ -29,8 +29,8 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-frio">No encontramos esta conversación.</p>
-        <Link href="/bandeja" className="rounded-chip bg-tinta px-5 py-2.5 font-bold text-carta">
-          Volver a la bandeja
+        <Link href="/leads" className="rounded-chip bg-tinta px-5 py-2.5 font-bold text-carta">
+          Volver a leads
         </Link>
       </div>
     );
@@ -44,7 +44,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
       <header className="sticky top-0 z-20 border-b border-linea bg-carta/95 px-3 py-2.5 pt-[max(0.6rem,env(safe-area-inset-top))] backdrop-blur">
         <div className="flex items-center gap-2">
           <Link
-            href="/bandeja"
+            href="/leads"
             aria-label="Volver"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-tinta-2"
           >

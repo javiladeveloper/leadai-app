@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconoBandeja, IconoReportes, IconoConfig } from "./Iconos";
+import { IconoInicio, IconoConversaciones, IconoBandeja, IconoReportes, IconoConfig } from "./Iconos";
 
 const TABS = [
-  { href: "/bandeja", label: "Leads", Icono: IconoBandeja },
+  { href: "/inicio", label: "Inicio", Icono: IconoInicio },
+  { href: "/conversaciones", label: "Chats", Icono: IconoConversaciones },
+  { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
   { href: "/configuracion", label: "Ajustes", Icono: IconoConfig },
 ];

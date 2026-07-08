@@ -75,14 +75,15 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
     if (!CONFIG_ID) { setEstado("error"); setError("Falta configurar el conector de WhatsApp."); return; }
     setEstado("abriendo");
     setError("");
+    // OJO: el SDK de Facebook NO acepta un callback async ("Expression is of
+    // type asyncfunction, not function"). El callback debe ser una función
+    // normal; el trabajo async va adentro, en una función aparte.
     window.FB.login(
-      async (r) => {
+      (r) => {
         const code = r.authResponse?.code;
         if (!code) { setEstado("cancelado"); return; }
         setEstado("conectando");
-        const res = await conectarWhatsAppEmbedded({ code, ...sesionES });
-        if (res.ok) { setEstado("ok"); onConectado?.(); }
-        else { setEstado("error"); setError(res.error ?? "No se pudo conectar."); }
+        void finalizarConexion(code);
       },
       {
         config_id: CONFIG_ID,
@@ -93,8 +94,14 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
     );
   }
 
+  async function finalizarConexion(code: string) {
+    const res = await conectarWhatsAppEmbedded({ code, ...sesionES });
+    if (res.ok) { setEstado("ok"); onConectado?.(); }
+    else { setEstado("error"); setError(res.error ?? "No se pudo conectar."); }
+  }
+
   if (estado === "ok") {
-    return <p className="text-sm font-medium text-green-700">WhatsApp conectado ✅</p>;
+    return <p className="text-sm font-medium text-ok">WhatsApp conectado ✅</p>;
   }
 
   return (
@@ -103,12 +110,12 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
         type="button"
         onClick={conectar}
         disabled={estado === "abriendo" || estado === "conectando"}
-        className="rounded-full bg-[#25D366] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
+        className="rounded-full bg-ok px-5 py-2.5 text-sm font-semibold text-carta transition hover:brightness-95 disabled:opacity-60"
       >
         {estado === "conectando" ? "Conectando…" : estado === "abriendo" ? "Abriendo Meta…" : "Conectar WhatsApp"}
       </button>
-      {estado === "cancelado" && <p className="text-sm text-slate-500">Conexión cancelada.</p>}
-      {estado === "error" && <p className="text-sm text-red-600">{error}</p>}
+      {estado === "cancelado" && <p className="text-sm text-frio">Conexión cancelada.</p>}
+      {estado === "error" && <p className="text-sm text-brasa">{error}</p>}
     </div>
   );
 }

@@ -87,4 +87,44 @@ export async function conectarWhatsAppEmbedded(args: {
   }
 }
 
+// Playbook del negocio (perfil que la IA usa). Lectura y guardado reales.
+export interface PerfilNegocio {
+  rubro: string;
+  nombreNegocio: string;
+  idioma: string;
+  tono: string;
+  propuestaValor: string;
+  catalogo: { nombre: string; descripcion?: string; precio?: string }[];
+  preguntasClave: string[];
+  senalesCaliente: string[];
+  senalesFrio: string[];
+  objeciones: { objecion: string; respuesta: string }[];
+  politicas: string;
+  llamadaAccion: string;
+}
+
+export async function obtenerPerfil(): Promise<PerfilNegocio | null> {
+  try {
+    const r = await api<{ perfil: PerfilNegocio } | PerfilNegocio>("/perfil");
+    // el backend devuelve { rubro, perfil, version } o similar — normalizamos
+    return (r as { perfil?: PerfilNegocio }).perfil ?? (r as PerfilNegocio) ?? null;
+  } catch (e) {
+    // 404: todavía no hay perfil guardado para esta empresa — no es un error fatal.
+    if (e instanceof ApiError && e.status === 404) return null;
+    return null;
+  }
+}
+
+export async function guardarPerfil(
+  rubro: string,
+  perfil: PerfilNegocio,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/perfil", { method: "PUT", body: { rubro, perfil } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
+}
+
 export { API_URL };

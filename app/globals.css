@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/* ── Sistema de diseño LeadAI · app "Brasa" ──────────────────────────
+   La app de la fuerza de ventas. Cálida, táctil, para usar con el pulgar
+   en la calle. Paleta arena + brasa (coral) + marrón. Deliberadamente
+   lejos del azul-noche del landing: esto es la herramienta de trabajo,
+   no la vitrina.
+
+   Semáforo de leads: caliente (brasa) · tibio (ámbar) · frío (piedra).
+   Principio: "con un toque, sin teclear" — todo alcanzable con el pulgar.
+*/
+@theme {
+  --color-arena: #eae1d0;       /* fondo — arena/crema cálido */
+  --color-arena-2: #e0d6c2;     /* variante para separadores suaves */
+  --color-carta: #fffdf9;       /* superficie de tarjeta */
+  --color-brasa: #e25c43;       /* caliente — el momento de cerrar */
+  --color-brasa-hondo: #c4472f; /* hover / presión */
+  --color-brasa-suave: #f7ddd5; /* fondo suave de acento */
+  --color-tibio: #c98a1b;       /* lead tibio — ámbar */
+  --color-tibio-suave: #f2e3c4;
+  --color-frio: #8a8378;        /* lead frío / texto terciario — piedra */
+  --color-tinta: #33281f;       /* marrón oscuro — texto principal */
+  --color-tinta-2: #5c4f42;     /* texto secundario */
+  --color-linea: #d8ccb6;       /* bordes sobre arena */
+  --color-superficie-honda: #33281f; /* barras oscuras / modo noche parcial */
+  --color-superficie-honda-2: #3b2f21;
+  --color-ok: #4b7f52;          /* venta / éxito — verde apagado */
+
+  --font-lee: var(--font-atkinson), system-ui, sans-serif;
+
+  --radius-tarjeta: 1.1rem;
+  --radius-chip: 999px;
+
+  --sombra-tarjeta: 0 1px 2px rgba(51, 40, 31, 0.06), 0 6px 20px rgba(51, 40, 31, 0.05);
+}
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background: var(--color-arena);
+}
+
+body {
+  background: var(--color-arena);
+  color: var(--color-tinta);
+  font-family: var(--font-lee);
+  font-size: 20px;              /* base grande — legible en la calle */
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* la app vive dentro de un ancho de teléfono, centrada en pantallas grandes */
+  overscroll-behavior-y: none;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-lee);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  line-height: 1.2;
+}
+
+/* Todo lo tocable respeta el objetivo mínimo de 48px (pulgar). */
+button, a, [role="button"], input, select, textarea {
+  font-family: inherit;
+}
+button, [role="button"] {
+  min-height: 48px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* Etiqueta técnica en mayúsculas (estados, secciones). */
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-frio);
+}
+
+/* Foco visible y cálido para teclado. */
+:focus-visible {
+  outline: 3px solid var(--color-brasa);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

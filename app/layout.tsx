@@ -32,15 +32,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es" className={atkinson.variable}>
-      <body>
-        {/* La app vive en un ancho de teléfono; en desktop se centra sobre
-            un fondo más hondo para que se lea como "una app". */}
-        <div className="min-h-dvh w-full bg-tinta/95 flex justify-center">
-          <div className="w-full max-w-[460px] min-h-dvh bg-arena relative shadow-2xl">
-            {children}
-          </div>
-        </div>
-      </body>
+      {/* El root queda sin restricción de ancho: el panel de escritorio ocupa
+          todo el ancho (su propio layout maneja sidebar+contenido), y las
+          pantallas tipo login se centran ellas mismas en un ancho de teléfono. */}
+      <body className="min-h-dvh bg-arena">{children}</body>
     </html>
   );
 }

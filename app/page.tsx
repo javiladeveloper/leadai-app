@@ -8,7 +8,7 @@ import { entrarConGoogle, entrarDemo } from "@/lib/sesion";
 import { ApiError } from "@/lib/api";
 import { IconoRayo, IconoGoogle } from "@/components/Iconos";
 
-// Pantalla de entrada. Si ya hay sesión, va directo a la bandeja. Si no, ofrece
+// Pantalla de entrada. Si ya hay sesión, va directo al panel. Si no, ofrece
 // entrar con Google (cuando está configurado) o el modo demo para la reunión.
 export default function Login() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function Login() {
 
   useEffect(() => {
     if (haySesion()) {
-      router.replace("/bandeja");
+      router.replace("/inicio");
       return;
     }
     if (hayGoogle() && botonRef.current) {
@@ -27,7 +27,7 @@ export default function Login() {
         setError(null);
         try {
           await entrarConGoogle(idToken);
-          router.replace("/bandeja");
+          router.replace("/inicio");
         } catch (e) {
           setError(e instanceof ApiError ? e.message : "No se pudo iniciar sesión");
           setCargando(false);
@@ -38,11 +38,11 @@ export default function Login() {
 
   function entrarComoDemo() {
     entrarDemo();
-    router.replace("/bandeja");
+    router.replace("/inicio");
   }
 
   return (
-    <main className="flex min-h-dvh flex-col px-7 pb-10 pt-[max(4rem,env(safe-area-inset-top))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-7 pb-10 pt-[max(4rem,env(safe-area-inset-top))]">
       {/* Marca */}
       <div className="flex flex-1 flex-col justify-center">
         <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brasa text-carta shadow-[0_8px_24px_rgba(226,92,67,0.35)]">

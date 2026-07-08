@@ -58,4 +58,33 @@ export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Conecta WhatsApp por Embedded Signup: manda el code (+ ids) del popup de Meta
+// al backend, que hace el intercambio y registra el canal.
+export async function conectarWhatsAppEmbedded(args: {
+  code: string;
+  wabaId?: string;
+  phoneNumberId?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const token = leerSesion()?.token;
+  const tenant = leerEmpresaActiva();
+  try {
+    const res = await fetch(`${API_URL}/canales/whatsapp/embedded-signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenant ? { 'X-Tenant-Id': tenant } : {}),
+      },
+      body: JSON.stringify(args),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: data.error ?? `Error ${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' };
+  }
+}
+
 export { API_URL };

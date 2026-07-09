@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { obtenerComisiones, type Comision } from "@/lib/api";
+import { SkeletonReportes } from "@/components/Skeletons";
 
 const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
 
@@ -69,9 +70,7 @@ export default function ReportesPanel() {
       </header>
 
       {cargando ? (
-        <div className="flex justify-center py-12">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-arena border-t-brasa"></div>
-        </div>
+        <SkeletonReportes />
       ) : error ? (
         <div className="rounded-tarjeta bg-brasa/10 px-4 py-3 text-center text-[0.9rem] font-semibold text-brasa">
           {error}

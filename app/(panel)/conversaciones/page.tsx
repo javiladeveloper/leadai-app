@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion } from "@/lib/auth";
+import { SkeletonLista, SkeletonChat } from "@/components/Skeletons";
 import {
   listarLeads,
   obtenerLead,
@@ -80,6 +81,21 @@ export default function ConversacionesPanel() {
 
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Carga el borrador en el campo de respuesta y enfoca el cursor al final,
+  // para que el usuario vea que ya puede editarlo antes de enviar.
+  function editarBorrador(borrador: string) {
+    setTexto(borrador);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(borrador.length, borrador.length);
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+  }
   const [ventaAbierta, setVentaAbierta] = useState(false);
   const [montoVenta, setMontoVenta] = useState("");
   const [accionError, setAccionError] = useState<string | null>(null);
@@ -202,7 +218,7 @@ export default function ConversacionesPanel() {
       {/* Mobile (<lg): solo la lista, a ancho completo. Tocar un lead navega
           a /conversacion/[id] (el TarjetaLead ya es un Link). */}
       <div className="flex-1 space-y-3 overflow-y-auto p-4 lg:hidden">
-        {estadoLista === "cargando" && <p className="text-frio">Cargando…</p>}
+        {estadoLista === "cargando" && <SkeletonLista filas={5} />}
         {estadoLista === "error" && (
           <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
             <p className="font-semibold text-tinta">No pudimos cargar tus conversaciones. Recargá.</p>
@@ -230,7 +246,7 @@ export default function ConversacionesPanel() {
         {/* Columna 1: lista de leads. Acá el clic selecciona (no navega), por
             eso interceptamos el click del Link con preventDefault. */}
         <div className="flex flex-col gap-2.5 overflow-y-auto border-r border-linea p-3">
-          {estadoLista === "cargando" && <p className="text-frio">Cargando…</p>}
+          {estadoLista === "cargando" && <SkeletonLista filas={5} />}
           {estadoLista === "error" && (
             <div className="rounded-tarjeta bg-carta p-4 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
               <p className="text-[0.9rem] font-semibold text-tinta">No pudimos cargar la lista.</p>
@@ -269,11 +285,7 @@ export default function ConversacionesPanel() {
 
         {/* Columna 2: chat */}
         <div className="flex min-w-0 flex-col overflow-hidden bg-arena">
-          {estadoLead === "cargando" && (
-            <div className="flex flex-1 items-center justify-center p-6 text-center text-frio">
-              Cargando conversación…
-            </div>
-          )}
+          {estadoLead === "cargando" && <SkeletonChat />}
           {estadoLead === "error" && (
             <div className="flex flex-1 items-center justify-center p-6 text-center text-frio">
               No pudimos cargar esta conversación.
@@ -307,13 +319,13 @@ export default function ConversacionesPanel() {
                       ✦ Respuesta lista para enviar
                     </p>
                     <button
-                      onClick={() => setTexto(lead.borradorIA ?? "")}
+                      onClick={() => editarBorrador(lead.borradorIA ?? "")}
                       className="w-full rounded-xl bg-arena/70 px-3 py-2.5 text-left text-[0.92rem] leading-snug text-tinta-2 ring-1 ring-linea transition hover:bg-arena active:scale-[0.99]"
                     >
                       {lead.borradorIA}
                     </button>
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <p className="text-[0.72rem] text-frio">Tocá para editarla antes de enviar</p>
+                      <p className="text-[0.72rem] text-frio">Tocá el texto para editarlo abajo antes de enviar</p>
                       <button
                         onClick={aprobarBorrador}
                         disabled={enviando}
@@ -334,6 +346,7 @@ export default function ConversacionesPanel() {
               <div className="border-t border-linea bg-carta px-3 py-2.5">
                 <div className="flex items-end gap-2">
                   <textarea
+                    ref={textareaRef}
                     value={texto}
                     onChange={(e) => setTexto(e.target.value)}
                     onKeyDown={(e) => {

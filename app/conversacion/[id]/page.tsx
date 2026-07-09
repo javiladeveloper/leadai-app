@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion } from "@/lib/auth";
@@ -43,6 +43,21 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
   const [resumenAbierto, setResumenAbierto] = useState(true);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Carga el borrador en el campo de respuesta y enfoca el cursor al final,
+  // para que el usuario vea que ya puede editarlo antes de enviar.
+  function editarBorrador(borrador: string) {
+    setTexto(borrador);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(borrador.length, borrador.length);
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+  }
   const [ventaAbierta, setVentaAbierta] = useState(false);
   const [montoVenta, setMontoVenta] = useState("");
   const [accionError, setAccionError] = useState<string | null>(null);
@@ -216,13 +231,13 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
               ✦ Respuesta lista para enviar
             </p>
             <button
-              onClick={() => setTexto(lead.borradorIA ?? "")}
+              onClick={() => editarBorrador(lead.borradorIA ?? "")}
               className="w-full rounded-xl bg-arena/70 px-3 py-2.5 text-left text-[0.92rem] leading-snug text-tinta-2 transition hover:bg-arena active:scale-[0.99] ring-1 ring-linea"
             >
               {lead.borradorIA}
             </button>
             <div className="mt-2 flex items-center justify-between gap-2">
-              <p className="text-[0.72rem] text-frio">Tocá para editarla antes de enviar</p>
+              <p className="text-[0.72rem] text-frio">Tocá el texto para editarlo abajo antes de enviar</p>
               <button
                 onClick={aprobarBorrador}
                 disabled={enviando}
@@ -289,6 +304,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
       <div className="sticky bottom-0 border-t border-linea bg-carta px-3 py-2.5 pb-[max(0.6rem,env(safe-area-inset-bottom))]">
         <div className="flex items-end gap-2">
           <textarea
+            ref={textareaRef}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => {

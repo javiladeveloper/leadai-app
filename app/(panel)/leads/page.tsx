@@ -7,6 +7,7 @@ import { haySesion } from "@/lib/auth";
 import { listarLeads, type Lead, type NivelInteres, type EstadoLead } from "@/lib/api";
 import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { IconoRayo } from "@/components/Iconos";
+import { SkeletonLista } from "@/components/Skeletons";
 
 type Estado = "cargando" | "ok" | "error";
 type FiltroNivel = "todos" | NivelInteres;
@@ -151,7 +152,7 @@ export default function LeadsPanel() {
       </div>
 
       {/* Estados de carga */}
-      {estado === "cargando" && <p className="text-frio">Cargando…</p>}
+      {estado === "cargando" && <SkeletonLista filas={6} />}
 
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">

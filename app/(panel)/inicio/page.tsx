@@ -6,6 +6,7 @@ import Link from "next/link";
 import { haySesion, leerSesion } from "@/lib/auth";
 import { obtenerResumen, type Resumen } from "@/lib/api";
 import { IconoRayo, IconoConversaciones, IconoBandeja } from "@/components/Iconos";
+import { SkeletonMetricas } from "@/components/Skeletons";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -72,7 +73,7 @@ export default function InicioPanel() {
         </h1>
       </header>
 
-      {estado === "cargando" && <p className="text-frio">Cargando…</p>}
+      {estado === "cargando" && <SkeletonMetricas />}
 
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">

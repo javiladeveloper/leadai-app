@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import ConectarWhatsApp from "@/components/ConectarWhatsApp";
+import { PlanConsumo } from "@/components/panel/PlanConsumo";
 
 // Pantalla de Configuración del panel de escritorio: el Playbook real que usa
 // la IA (conectado a /perfil) y la conexión de canales (WhatsApp).
@@ -44,6 +45,14 @@ export default function ConfiguracionPanel() {
             Conectá WhatsApp para que LeadAI atienda por vos.
           </p>
           <ConectarWhatsApp />
+        </section>
+
+        <section className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
+          <h2 className="text-[1.05rem] font-bold text-tinta">Tu plan y consumo</h2>
+          <p className="mb-4 text-[0.82rem] text-frio">
+            Cuánto te queda, cómo comprar más respuestas y cómo poner límites a tu gasto.
+          </p>
+          <PlanConsumo />
         </section>
       </div>
     </div>

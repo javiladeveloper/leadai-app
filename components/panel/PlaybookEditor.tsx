@@ -78,23 +78,23 @@ export function PlaybookEditor() {
           onChange={(v) => setPerfil({ ...perfil, nombreNegocio: v })}
         />
         <Campo
-          label="Rubro"
+          label="A qué te dedicás"
           value={perfil.rubro}
           onChange={(v) => setPerfil({ ...perfil, rubro: v })}
         />
       </div>
 
       <CampoArea
-        label="Tono de la IA"
+        label="Cómo querés que hable el bot"
         value={perfil.tono}
         onChange={(v) => setPerfil({ ...perfil, tono: v })}
-        placeholder="Ej: cercano, directo, con humor peruano, sin tecnicismos…"
+        placeholder="Ej: Cercano y amable, tratando de usted al cliente"
       />
       <CampoArea
-        label="Propuesta de valor"
+        label="Por qué elegirte"
         value={perfil.propuestaValor}
         onChange={(v) => setPerfil({ ...perfil, propuestaValor: v })}
-        placeholder="¿Qué te hace distinto? ¿Por qué te eligen a vos?"
+        placeholder="Ej: 20 años de experiencia, atención el mismo día"
       />
 
       <ListaCatalogo
@@ -103,20 +103,20 @@ export function PlaybookEditor() {
       />
       <ListaSimple
         titulo="Preguntas clave"
-        descripcion="Lo que la IA pregunta antes de avisarte de un lead caliente"
+        descripcion="Lo que el bot pregunta antes de avisarte que un cliente está listo para comprar"
         placeholder="¿Para cuándo lo necesitás?"
         valores={perfil.preguntasClave}
         onChange={(preguntasClave) => setPerfil({ ...perfil, preguntasClave })}
       />
       <ListaSimple
-        titulo="Señales de que es un lead CALIENTE"
+        titulo="Señales de que un cliente está listo para comprar"
         descripcion="Lo que dice o pregunta un cliente que está por comprar"
         placeholder="Ej: pregunta por precios y disponibilidad"
         valores={perfil.senalesCaliente}
         onChange={(senalesCaliente) => setPerfil({ ...perfil, senalesCaliente })}
       />
       <ListaSimple
-        titulo="Señales de que es un lead FRÍO"
+        titulo="Señales de que un cliente todavía no está listo"
         descripcion="Lo que indica que todavía no está listo para comprar"
         placeholder="Ej: solo pregunta info general, sin urgencia"
         valores={perfil.senalesFrio}
@@ -128,15 +128,16 @@ export function PlaybookEditor() {
       />
 
       <CampoArea
-        label="Políticas (envíos, horarios, pagos)"
+        label="Cómo trabajás (envíos, horarios, pagos)"
         value={perfil.politicas}
         onChange={(v) => setPerfil({ ...perfil, politicas: v })}
+        placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
       />
       <CampoArea
-        label="Llamada a la acción"
+        label="Qué querés que hagan"
         value={perfil.llamadaAccion}
         onChange={(v) => setPerfil({ ...perfil, llamadaAccion: v })}
-        placeholder="Ej: invitá a agendar una llamada o a visitar la tienda"
+        placeholder="Ej: Que agenden una llamada / que hagan el pedido"
       />
 
       <div className="flex items-center gap-3 pt-1">
@@ -286,7 +287,7 @@ function ListaCatalogo({
 
   return (
     <div className="rounded-xl border border-linea bg-arena/40 p-4">
-      <p className="text-sm font-medium text-tinta">Catálogo</p>
+      <p className="text-sm font-medium text-tinta">Qué vendés</p>
       <p className="mb-2 text-xs text-frio">Productos o servicios que ofrece el negocio</p>
       <div className="space-y-3">
         {catalogo.map((item, i) => (
@@ -294,7 +295,7 @@ function ListaCatalogo({
             <input
               value={item.nombre}
               onChange={(e) => actualizar(i, "nombre", e.target.value)}
-              placeholder="Nombre"
+              placeholder="Ej: Declaración de renta"
               className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
             />
             <input
@@ -331,7 +332,7 @@ function ListaCatalogo({
   );
 }
 
-// Objeciones: objeción + respuesta sugerida por fila.
+// Dudas comunes: duda del cliente + respuesta sugerida por fila.
 function ListaObjeciones({
   objeciones,
   onChange,
@@ -352,7 +353,7 @@ function ListaObjeciones({
 
   return (
     <div className="rounded-xl border border-linea bg-arena/40 p-4">
-      <p className="text-sm font-medium text-tinta">Objeciones frecuentes</p>
+      <p className="text-sm font-medium text-tinta">Dudas comunes de tus clientes</p>
       <p className="mb-2 text-xs text-frio">Qué suele frenar la venta y cómo responderlo</p>
       <div className="space-y-3">
         {objeciones.map((item, i) => (
@@ -366,7 +367,7 @@ function ListaObjeciones({
             <input
               value={item.respuesta}
               onChange={(e) => actualizar(i, "respuesta", e.target.value)}
-              placeholder="Cómo responder"
+              placeholder="Ej: Tenemos planes a tu medida, ¿cuánto facturás al mes?"
               className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
             />
             <button
@@ -385,7 +386,7 @@ function ListaObjeciones({
         onClick={agregar}
         className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa"
       >
-        + Agregar objeción
+        + Agregar duda
       </button>
     </div>
   );

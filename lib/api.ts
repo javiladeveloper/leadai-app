@@ -252,11 +252,7 @@ export interface Catalogo {
 
 export interface MiPlan {
   plan: string;
-  limiteRespuestasDia: number | null;
-  pausarAlLimite: boolean;
-  atenderCaliente: boolean;
-  atenderTibio: boolean;
-  atenderFrio: boolean;
+  insistencia: "poca" | "normal" | "mucha";
 }
 
 export async function obtenerCatalogo(): Promise<Catalogo | null> {
@@ -276,11 +272,7 @@ export async function obtenerMiPlan(): Promise<MiPlan | null> {
 }
 
 export async function guardarMiPlan(cfg: {
-  limiteRespuestasDia?: number | null;
-  pausarAlLimite?: boolean;
-  atenderCaliente?: boolean;
-  atenderTibio?: boolean;
-  atenderFrio?: boolean;
+  insistencia?: "poca" | "normal" | "mucha";
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/mi-plan", { method: "PATCH", body: cfg });

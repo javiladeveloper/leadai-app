@@ -243,99 +243,62 @@ function TarjetaComprar({
   );
 }
 
-// ─── Tarjeta 3: El bot atiende a... ─────────────────────────────────────
+// ─── Tarjeta 3: ¿Hasta dónde insiste el bot? ───────────────────────────
 type EstadoGuardado = "idle" | "guardando" | "ok" | "error";
+type Insistencia = "poca" | "normal" | "mucha";
 
-// Switch reutilizable (mismo look que antes tenía "pausar al límite"), ahora
-// parametrizado por color de acento para diferenciar cada nivel.
-function Switch({
-  activo,
-  onToggle,
-  colorActivo,
-}: {
-  activo: boolean;
-  onToggle: () => void;
-  colorActivo: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={activo}
-      onClick={onToggle}
-      className={`relative h-7 w-12 shrink-0 rounded-full transition ${
-        activo ? colorActivo : "bg-arena-2 ring-1 ring-linea"
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 h-6 w-6 rounded-full bg-carta shadow transition-transform ${
-          activo ? "translate-x-5" : "translate-x-0.5"
-        }`}
-      />
-    </button>
-  );
-}
-
-interface NivelAtencion {
-  clave: "atenderCaliente" | "atenderTibio" | "atenderFrio";
+interface OpcionInsistencia {
+  clave: Insistencia;
   emoji: string;
   etiqueta: string;
-  colorActivo: string;
-  descOn: string;
-  descOff: string;
+  descripcion: string;
 }
 
-const NIVELES: NivelAtencion[] = [
+const OPCIONES_INSISTENCIA: OpcionInsistencia[] = [
   {
-    clave: "atenderCaliente",
+    clave: "poca",
+    emoji: "🌱",
+    etiqueta: "Poco",
+    descripcion: "Responde lo justo y te avisa. Ahorra respuestas.",
+  },
+  {
+    clave: "normal",
+    emoji: "⚖️",
+    etiqueta: "Normal",
+    descripcion: "Conversa hasta entender bien qué necesita. Recomendado.",
+  },
+  {
+    clave: "mucha",
     emoji: "🔥",
-    etiqueta: "Calientes",
-    colorActivo: "bg-brasa",
-    descOn: "El bot responde a los leads calientes.",
-    descOff: "El bot no responde a los leads calientes: quedan en tu lista sin respuesta automática.",
-  },
-  {
-    clave: "atenderTibio",
-    emoji: "🟡",
-    etiqueta: "Tibios",
-    colorActivo: "bg-tibio",
-    descOn: "El bot responde y nutre a los leads tibios.",
-    descOff: "El bot no responde a los leads tibios: quedan en tu lista sin respuesta automática.",
-  },
-  {
-    clave: "atenderFrio",
-    emoji: "❄️",
-    etiqueta: "Fríos",
-    colorActivo: "bg-frio",
-    descOn: "El bot responde a los leads fríos.",
-    descOff: "El bot no responde a los leads fríos: quedan en tu lista sin respuesta automática.",
+    etiqueta: "Al máximo",
+    descripcion: "Insiste hasta cerrar o que el cliente deje de responder.",
   },
 ];
 
-function TarjetaAtencionPorNivel({
+function TarjetaInsistencia({
   cargando,
-  valoresIniciales,
+  valorInicial,
   error,
 }: {
   cargando: boolean;
-  valoresIniciales: { atenderCaliente: boolean; atenderTibio: boolean; atenderFrio: boolean };
+  valorInicial: Insistencia;
   error: boolean;
 }) {
-  const [valores, setValores] = useState(valoresIniciales);
+  const [valor, setValor] = useState(valorInicial);
   const [estadoGuardado, setEstadoGuardado] = useState<EstadoGuardado>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    if (!cargando) setValores(valoresIniciales);
+    if (!cargando) setValor(valorInicial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cargando, valoresIniciales.atenderCaliente, valoresIniciales.atenderTibio, valoresIniciales.atenderFrio]);
+  }, [cargando, valorInicial]);
 
   if (cargando) {
     return (
       <div className="space-y-3">
-        <SkeletonBloque className="h-14 w-full" />
-        <SkeletonBloque className="h-14 w-full" />
-        <SkeletonBloque className="h-14 w-full" />
+        <SkeletonBloque className="h-20 w-full" />
+        <SkeletonBloque className="h-20 w-full" />
+        <SkeletonBloque className="h-20 w-full" />
         <SkeletonBloque className="h-9 w-32" />
       </div>
     );
@@ -344,7 +307,7 @@ function TarjetaAtencionPorNivel({
   if (error) {
     return (
       <p className="text-sm text-brasa">
-        No pudimos cargar tu configuración de atención. Recargá la página para intentar de nuevo.
+        No pudimos cargar tu configuración. Recargá la página para intentar de nuevo.
       </p>
     );
   }
@@ -352,7 +315,7 @@ function TarjetaAtencionPorNivel({
   async function guardar() {
     setEstadoGuardado("guardando");
     setErrorMsg("");
-    const r = await guardarMiPlan(valores);
+    const r = await guardarMiPlan({ insistencia: valor });
     if (r.ok) {
       setEstadoGuardado("ok");
     } else {
@@ -363,30 +326,31 @@ function TarjetaAtencionPorNivel({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
-        {NIVELES.map((n) => {
-          const activo = valores[n.clave];
+      <div className="grid gap-3 sm:grid-cols-3">
+        {OPCIONES_INSISTENCIA.map((op) => {
+          const activo = valor === op.clave;
           return (
-            <div
-              key={n.clave}
-              className="flex items-start justify-between gap-4 rounded-xl bg-arena px-4 py-3.5"
+            <button
+              key={op.clave}
+              type="button"
+              role="radio"
+              aria-checked={activo}
+              onClick={() => {
+                setValor(op.clave);
+                setEstadoGuardado("idle");
+              }}
+              className={`flex flex-col items-start gap-1 rounded-xl px-4 py-3.5 text-left transition ${
+                activo
+                  ? "bg-brasa-suave ring-2 ring-brasa"
+                  : "bg-arena ring-1 ring-linea hover:bg-arena-2"
+              }`}
             >
-              <div>
-                <p className="text-[0.88rem] font-semibold text-tinta">
-                  <span className="mr-1.5">{n.emoji}</span>
-                  {n.etiqueta}
-                </p>
-                <p className="mt-0.5 text-[0.78rem] text-frio">{activo ? n.descOn : n.descOff}</p>
-              </div>
-              <Switch
-                activo={activo}
-                colorActivo={n.colorActivo}
-                onToggle={() => {
-                  setValores((v) => ({ ...v, [n.clave]: !v[n.clave] }));
-                  setEstadoGuardado("idle");
-                }}
-              />
-            </div>
+              <p className="text-[0.88rem] font-semibold text-tinta">
+                <span className="mr-1.5">{op.emoji}</span>
+                {op.etiqueta}
+              </p>
+              <p className="text-[0.78rem] text-frio">{op.descripcion}</p>
+            </button>
           );
         })}
       </div>
@@ -417,11 +381,7 @@ export function PlanConsumo() {
   const [cargandoCatalogo, setCargandoCatalogo] = useState(true);
 
   const [cargandoPlan, setCargandoPlan] = useState(true);
-  const [atencionInicial, setAtencionInicial] = useState({
-    atenderCaliente: true,
-    atenderTibio: true,
-    atenderFrio: true,
-  });
+  const [insistenciaInicial, setInsistenciaInicial] = useState<"poca" | "normal" | "mucha">("normal");
   const [errorPlan, setErrorPlan] = useState(false);
 
   function recargarSaldo() {
@@ -441,11 +401,7 @@ export function PlanConsumo() {
     });
     obtenerMiPlan().then((p) => {
       if (p) {
-        setAtencionInicial({
-          atenderCaliente: p.atenderCaliente,
-          atenderTibio: p.atenderTibio,
-          atenderFrio: p.atenderFrio,
-        });
+        setInsistenciaInicial(p.insistencia);
       } else {
         setErrorPlan(true);
       }
@@ -470,13 +426,15 @@ export function PlanConsumo() {
       </div>
 
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-        <h3 className="text-[0.95rem] font-bold text-tinta">El bot atiende a...</h3>
+        <h3 className="text-[0.95rem] font-bold text-tinta">
+          ¿Hasta dónde querés que el bot insista con cada cliente?
+        </h3>
         <p className="mb-4 text-[0.8rem] text-frio">
-          Elegí a qué leads responde el bot automáticamente. Apagar los fríos te ahorra respuestas.
+          Definí cuánto conversa el bot antes de avisarte que un cliente necesita atención tuya.
         </p>
-        <TarjetaAtencionPorNivel
+        <TarjetaInsistencia
           cargando={cargandoPlan}
-          valoresIniciales={atencionInicial}
+          valorInicial={insistenciaInicial}
           error={errorPlan}
         />
       </div>

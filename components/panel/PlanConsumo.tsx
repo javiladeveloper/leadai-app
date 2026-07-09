@@ -243,33 +243,99 @@ function TarjetaComprar({
   );
 }
 
-// ─── Tarjeta 3: Tus límites ─────────────────────────────────────────────
+// ─── Tarjeta 3: El bot atiende a... ─────────────────────────────────────
 type EstadoGuardado = "idle" | "guardando" | "ok" | "error";
 
-function TarjetaLimites({ cargando, limiteInicial, pausarInicial, error }: {
+// Switch reutilizable (mismo look que antes tenía "pausar al límite"), ahora
+// parametrizado por color de acento para diferenciar cada nivel.
+function Switch({
+  activo,
+  onToggle,
+  colorActivo,
+}: {
+  activo: boolean;
+  onToggle: () => void;
+  colorActivo: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={activo}
+      onClick={onToggle}
+      className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+        activo ? colorActivo : "bg-arena-2 ring-1 ring-linea"
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 h-6 w-6 rounded-full bg-carta shadow transition-transform ${
+          activo ? "translate-x-5" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
+interface NivelAtencion {
+  clave: "atenderCaliente" | "atenderTibio" | "atenderFrio";
+  emoji: string;
+  etiqueta: string;
+  colorActivo: string;
+  descOn: string;
+  descOff: string;
+}
+
+const NIVELES: NivelAtencion[] = [
+  {
+    clave: "atenderCaliente",
+    emoji: "🔥",
+    etiqueta: "Calientes",
+    colorActivo: "bg-brasa",
+    descOn: "El bot responde a los leads calientes.",
+    descOff: "El bot no responde a los leads calientes: quedan en tu lista sin respuesta automática.",
+  },
+  {
+    clave: "atenderTibio",
+    emoji: "🟡",
+    etiqueta: "Tibios",
+    colorActivo: "bg-tibio",
+    descOn: "El bot responde y nutre a los leads tibios.",
+    descOff: "El bot no responde a los leads tibios: quedan en tu lista sin respuesta automática.",
+  },
+  {
+    clave: "atenderFrio",
+    emoji: "❄️",
+    etiqueta: "Fríos",
+    colorActivo: "bg-frio",
+    descOn: "El bot responde a los leads fríos.",
+    descOff: "El bot no responde a los leads fríos: quedan en tu lista sin respuesta automática.",
+  },
+];
+
+function TarjetaAtencionPorNivel({
+  cargando,
+  valoresIniciales,
+  error,
+}: {
   cargando: boolean;
-  limiteInicial: number | null;
-  pausarInicial: boolean;
+  valoresIniciales: { atenderCaliente: boolean; atenderTibio: boolean; atenderFrio: boolean };
   error: boolean;
 }) {
-  const [limiteTexto, setLimiteTexto] = useState("");
-  const [pausar, setPausar] = useState(false);
+  const [valores, setValores] = useState(valoresIniciales);
   const [estadoGuardado, setEstadoGuardado] = useState<EstadoGuardado>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    if (!cargando) {
-      setLimiteTexto(limiteInicial ? String(limiteInicial) : "");
-      setPausar(pausarInicial);
-    }
+    if (!cargando) setValores(valoresIniciales);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cargando, limiteInicial, pausarInicial]);
+  }, [cargando, valoresIniciales.atenderCaliente, valoresIniciales.atenderTibio, valoresIniciales.atenderFrio]);
 
   if (cargando) {
     return (
       <div className="space-y-3">
-        <SkeletonBloque className="h-9 w-full" />
-        <SkeletonBloque className="h-9 w-full" />
+        <SkeletonBloque className="h-14 w-full" />
+        <SkeletonBloque className="h-14 w-full" />
+        <SkeletonBloque className="h-14 w-full" />
         <SkeletonBloque className="h-9 w-32" />
       </div>
     );
@@ -278,7 +344,7 @@ function TarjetaLimites({ cargando, limiteInicial, pausarInicial, error }: {
   if (error) {
     return (
       <p className="text-sm text-brasa">
-        No pudimos cargar tus límites. Recargá la página para intentar de nuevo.
+        No pudimos cargar tu configuración de atención. Recargá la página para intentar de nuevo.
       </p>
     );
   }
@@ -286,9 +352,7 @@ function TarjetaLimites({ cargando, limiteInicial, pausarInicial, error }: {
   async function guardar() {
     setEstadoGuardado("guardando");
     setErrorMsg("");
-    const n = parseInt(limiteTexto, 10);
-    const limite = !limiteTexto || Number.isNaN(n) || n <= 0 ? null : n;
-    const r = await guardarMiPlan({ limiteRespuestasDia: limite, pausarAlLimite: pausar });
+    const r = await guardarMiPlan(valores);
     if (r.ok) {
       setEstadoGuardado("ok");
     } else {
@@ -299,46 +363,32 @@ function TarjetaLimites({ cargando, limiteInicial, pausarInicial, error }: {
 
   return (
     <div className="space-y-4">
-      <div>
-        <label htmlFor="limite-dia" className="mb-1 block text-[0.82rem] font-semibold text-tinta-2">
-          Máximo de respuestas por día
-        </label>
-        <input
-          id="limite-dia"
-          type="number"
-          min={0}
-          placeholder="Sin límite"
-          value={limiteTexto}
-          onChange={(e) => setLimiteTexto(e.target.value)}
-          className="w-full rounded-xl border border-linea bg-carta px-4 py-2.5 text-[0.95rem] text-tinta outline-none placeholder:text-frio focus-visible:border-brasa"
-        />
-        <p className="mt-1 text-[0.78rem] text-frio">Dejalo vacío para no tener límite diario.</p>
-      </div>
-
-      <div className="flex items-start justify-between gap-4 rounded-xl bg-arena px-4 py-3.5">
-        <div>
-          <p className="text-[0.88rem] font-semibold text-tinta">Pausar el bot al llegar al tope</p>
-          <p className="mt-0.5 text-[0.78rem] text-frio">
-            {pausar
-              ? "El bot deja de responder al llegar al límite (protegés tu gasto)."
-              : "Solo te avisamos, el bot sigue respondiendo."}
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={pausar}
-          onClick={() => setPausar((v) => !v)}
-          className={`relative h-7 w-12 shrink-0 rounded-full transition ${
-            pausar ? "bg-brasa" : "bg-arena-2 ring-1 ring-linea"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 h-6 w-6 rounded-full bg-carta shadow transition-transform ${
-              pausar ? "translate-x-5" : "translate-x-0.5"
-            }`}
-          />
-        </button>
+      <div className="space-y-3">
+        {NIVELES.map((n) => {
+          const activo = valores[n.clave];
+          return (
+            <div
+              key={n.clave}
+              className="flex items-start justify-between gap-4 rounded-xl bg-arena px-4 py-3.5"
+            >
+              <div>
+                <p className="text-[0.88rem] font-semibold text-tinta">
+                  <span className="mr-1.5">{n.emoji}</span>
+                  {n.etiqueta}
+                </p>
+                <p className="mt-0.5 text-[0.78rem] text-frio">{activo ? n.descOn : n.descOff}</p>
+              </div>
+              <Switch
+                activo={activo}
+                colorActivo={n.colorActivo}
+                onToggle={() => {
+                  setValores((v) => ({ ...v, [n.clave]: !v[n.clave] }));
+                  setEstadoGuardado("idle");
+                }}
+              />
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex items-center gap-3">
@@ -367,8 +417,11 @@ export function PlanConsumo() {
   const [cargandoCatalogo, setCargandoCatalogo] = useState(true);
 
   const [cargandoPlan, setCargandoPlan] = useState(true);
-  const [limiteInicial, setLimiteInicial] = useState<number | null>(null);
-  const [pausarInicial, setPausarInicial] = useState(false);
+  const [atencionInicial, setAtencionInicial] = useState({
+    atenderCaliente: true,
+    atenderTibio: true,
+    atenderFrio: true,
+  });
   const [errorPlan, setErrorPlan] = useState(false);
 
   function recargarSaldo() {
@@ -388,8 +441,11 @@ export function PlanConsumo() {
     });
     obtenerMiPlan().then((p) => {
       if (p) {
-        setLimiteInicial(p.limiteRespuestasDia);
-        setPausarInicial(p.pausarAlLimite);
+        setAtencionInicial({
+          atenderCaliente: p.atenderCaliente,
+          atenderTibio: p.atenderTibio,
+          atenderFrio: p.atenderFrio,
+        });
       } else {
         setErrorPlan(true);
       }
@@ -414,14 +470,13 @@ export function PlanConsumo() {
       </div>
 
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-        <h3 className="text-[0.95rem] font-bold text-tinta">Tus límites</h3>
+        <h3 className="text-[0.95rem] font-bold text-tinta">El bot atiende a...</h3>
         <p className="mb-4 text-[0.8rem] text-frio">
-          Poné un tope diario para controlar el gasto, aunque no cambies de plan.
+          Elegí a qué leads responde el bot automáticamente. Apagar los fríos te ahorra respuestas.
         </p>
-        <TarjetaLimites
+        <TarjetaAtencionPorNivel
           cargando={cargandoPlan}
-          limiteInicial={limiteInicial}
-          pausarInicial={pausarInicial}
+          valoresIniciales={atencionInicial}
           error={errorPlan}
         />
       </div>

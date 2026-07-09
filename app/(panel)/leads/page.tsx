@@ -1,29 +1,64 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { haySesion } from "@/lib/auth";
-import { contarCalientesSinAtender, listarLeads } from "@/lib/leads";
-import type { Temperatura } from "@/lib/tipos";
-import { TarjetaLead } from "@/components/TarjetaLead";
+import { listarLeads, type Lead, type NivelInteres, type EstadoLead } from "@/lib/api";
+import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { IconoRayo } from "@/components/Iconos";
 
-type Filtro = "todos" | Temperatura;
+type Estado = "cargando" | "ok" | "error";
+type FiltroNivel = "todos" | NivelInteres;
 
-const FILTROS: { id: Filtro; label: string }[] = [
+const FILTROS_NIVEL: { id: FiltroNivel; label: string }[] = [
   { id: "todos", label: "Todos" },
   { id: "caliente", label: "Calientes" },
   { id: "tibio", label: "Tibios" },
   { id: "frio", label: "Fríos" },
 ];
 
+const FILTROS_ESTADO: { id: "todos" | EstadoLead; label: string }[] = [
+  { id: "todos", label: "Todos los estados" },
+  { id: "nuevo", label: "Nuevos" },
+  { id: "nutriendo", label: "Nutriendo" },
+  { id: "escalado", label: "Escalados" },
+  { id: "ganado", label: "Ganados" },
+  { id: "perdido", label: "Perdidos" },
+];
+
+// Convierte un timestamp ISO en minutos transcurridos hasta ahora, para
+// reusar el formato "hace X" de TarjetaLead.
+function minutosDesde(iso: string): number {
+  const ms = Date.now() - new Date(iso).getTime();
+  return Math.max(0, Math.floor(ms / 60000));
+}
+
+// Adapta el Lead real del backend (lib/api) al shape mínimo que TarjetaLead
+// necesita para renderizarse (ver components/TarjetaLead.tsx).
+function aTarjeta(lead: Lead): TarjetaLeadProps {
+  return {
+    id: lead.id,
+    nombre: lead.nombre ?? lead.contactoExterno,
+    canal: lead.canalOrigen,
+    temperatura: lead.nivelInteres,
+    urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
+    resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
+    haceMinutos: minutosDesde(lead.actualizadoEn),
+  };
+}
+
 // Leads del panel de escritorio: misma lógica de filtros que la bandeja móvil
 // (app/bandeja), pero en grilla ancha para aprovechar el espacio de escritorio.
+// Datos reales desde el backend (GET /leads), con filtros por nivel de interés
+// y por estado del lead.
 export default function LeadsPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
-  const [filtro, setFiltro] = useState<Filtro>("todos");
-  const [empresa, setEmpresa] = useState<string>("todas");
+  const [estado, setEstado] = useState<Estado>("cargando");
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [filtroNivel, setFiltroNivel] = useState<FiltroNivel>("todos");
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoLead>("todos");
 
   useEffect(() => {
     if (!haySesion()) {
@@ -33,18 +68,29 @@ export default function LeadsPanel() {
     setListo(true);
   }, [router]);
 
-  const leads = listarLeads();
-  const calientes = contarCalientesSinAtender();
+  const cargar = useCallback(async () => {
+    setEstado("cargando");
+    try {
+      const r = await listarLeads({
+        nivel: filtroNivel === "todos" ? undefined : filtroNivel,
+        estado: filtroEstado === "todos" ? undefined : filtroEstado,
+      });
+      setLeads(r);
+      setEstado("ok");
+    } catch (e) {
+      void e;
+      setEstado("error");
+    }
+  }, [filtroNivel, filtroEstado]);
 
-  const empresas = useMemo(
-    () => Array.from(new Set(leads.map((l) => l.empresa))),
+  useEffect(() => {
+    if (!listo) return;
+    cargar();
+  }, [listo, cargar]);
+
+  const calientes = useMemo(
+    () => leads.filter((l) => l.nivelInteres === "caliente" && l.estado === "nuevo").length,
     [leads],
-  );
-
-  const visibles = leads.filter(
-    (l) =>
-      (filtro === "todos" || l.temperatura === filtro) &&
-      (empresa === "todas" || l.empresa === empresa),
   );
 
   if (!listo) return null;
@@ -56,15 +102,10 @@ export default function LeadsPanel() {
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Leads</h1>
       </header>
 
-      {/* Aviso de datos de ejemplo */}
-      <div className="rounded-tarjeta bg-tibio-suave px-4 py-2.5 text-center text-[0.82rem] font-semibold text-tinta-2">
-        Estás viendo datos de ejemplo — cuando conectes tu canal, acá verás tus leads reales.
-      </div>
-
       {/* Card destacada: calientes sin atender */}
-      {calientes > 0 && (
+      {estado === "ok" && calientes > 0 && (
         <button
-          onClick={() => setFiltro("caliente")}
+          onClick={() => setFiltroNivel("caliente")}
           className="flex w-full items-center gap-3 rounded-tarjeta bg-brasa px-5 py-4 text-left text-carta shadow-[0_8px_24px_rgba(226,92,67,0.3)] transition active:scale-[0.99]"
         >
           <IconoRayo className="h-7 w-7 shrink-0" />
@@ -77,14 +118,14 @@ export default function LeadsPanel() {
         </button>
       )}
 
-      {/* Filtros de temperatura */}
+      {/* Filtros de nivel de interés */}
       <div className="flex flex-wrap gap-2">
-        {FILTROS.map((f) => (
+        {FILTROS_NIVEL.map((f) => (
           <button
             key={f.id}
-            onClick={() => setFiltro(f.id)}
+            onClick={() => setFiltroNivel(f.id)}
             className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
-              filtro === f.id
+              filtroNivel === f.id
                 ? "bg-tinta text-carta"
                 : "bg-carta text-tinta-2 ring-1 ring-linea"
             }`}
@@ -94,38 +135,48 @@ export default function LeadsPanel() {
         ))}
       </div>
 
-      {/* Filtro de empresa */}
+      {/* Filtros de estado */}
       <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setEmpresa("todas")}
-          className={`shrink-0 rounded-chip px-3.5 py-1.5 text-[0.82rem] font-semibold transition ${
-            empresa === "todas" ? "bg-tibio-suave text-tibio" : "bg-carta text-frio ring-1 ring-linea"
-          }`}
-        >
-          Todas las marcas
-        </button>
-        {empresas.map((e) => (
+        {FILTROS_ESTADO.map((f) => (
           <button
-            key={e}
-            onClick={() => setEmpresa(e)}
+            key={f.id}
+            onClick={() => setFiltroEstado(f.id)}
             className={`shrink-0 rounded-chip px-3.5 py-1.5 text-[0.82rem] font-semibold transition ${
-              empresa === e ? "bg-tibio-suave text-tibio" : "bg-carta text-frio ring-1 ring-linea"
+              filtroEstado === f.id ? "bg-tibio-suave text-tibio" : "bg-carta text-frio ring-1 ring-linea"
             }`}
           >
-            {e}
+            {f.label}
           </button>
         ))}
       </div>
 
-      {/* Lista en grilla ancha */}
-      {visibles.length === 0 ? (
-        <p className="rounded-tarjeta bg-carta px-4 py-8 text-center text-frio ring-1 ring-linea">
-          No hay leads con este filtro.
-        </p>
-      ) : (
+      {/* Estados de carga */}
+      {estado === "cargando" && <p className="text-frio">Cargando…</p>}
+
+      {estado === "error" && (
+        <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+          <p className="font-semibold text-tinta">No pudimos cargar los leads. Recargá.</p>
+        </div>
+      )}
+
+      {estado === "ok" && leads.length === 0 && (
+        <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+          <p className="text-[1.05rem] font-bold text-tinta">
+            Aún no tenés leads. Conectá WhatsApp para empezar
+          </p>
+          <Link
+            href="/configuracion"
+            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-carta transition active:scale-[0.99]"
+          >
+            Conectar WhatsApp
+          </Link>
+        </div>
+      )}
+
+      {estado === "ok" && leads.length > 0 && (
         <div className="grid gap-3 lg:grid-cols-2">
-          {visibles.map((l) => (
-            <TarjetaLead key={l.id} lead={l} />
+          {leads.map((l) => (
+            <TarjetaLead key={l.id} lead={aTarjeta(l)} />
           ))}
         </div>
       )}

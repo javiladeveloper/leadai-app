@@ -51,7 +51,10 @@ export default function ConversacionesPanel() {
           a /conversacion/[id] (el TarjetaLead ya es un Link). */}
       <div className="flex-1 space-y-3 overflow-y-auto p-4 lg:hidden">
         {leads.map((lead) => (
-          <TarjetaLead key={lead.id} lead={lead} />
+          <TarjetaLead
+            key={lead.id}
+            lead={{ ...lead, urgente: lead.temperatura === "caliente" && lead.estado === "sin_atender" }}
+          />
         ))}
       </div>
 
@@ -71,7 +74,9 @@ export default function ConversacionesPanel() {
                 }}
                 className={activo ? "rounded-tarjeta ring-2 ring-brasa" : ""}
               >
-                <TarjetaLead lead={lead} />
+                <TarjetaLead
+                  lead={{ ...lead, urgente: lead.temperatura === "caliente" && lead.estado === "sin_atender" }}
+                />
               </div>
             );
           })}

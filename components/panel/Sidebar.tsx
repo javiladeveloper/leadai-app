@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { leerSesion } from "@/lib/auth";
+import { ContadorHits } from "@/components/panel/ContadorHits";
 import {
   IconoInicio, IconoConversaciones, IconoSeguimiento,
   IconoBandeja, IconoReportes, IconoConfig, IconoRayo,
@@ -49,6 +50,7 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <ContadorHits />
       <div className="border-t border-white/10 px-5 py-4 text-sm">
         <p className="font-semibold text-arena">{nombre}</p>
         <p className="text-arena/60 text-xs">{sesion?.usuario?.email}</p>

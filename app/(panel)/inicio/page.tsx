@@ -52,7 +52,8 @@ export default function InicioPanel() {
     estado === "ok" &&
     !!resumen &&
     resumen.leadsActivos === 0 &&
-    resumen.ventasCerradas === 0;
+    resumen.ventasCerradas === 0 &&
+    resumen.calientesSinAtender === 0;
 
   const metricas = resumen
     ? [

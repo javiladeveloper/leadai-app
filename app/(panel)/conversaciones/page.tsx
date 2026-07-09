@@ -108,6 +108,9 @@ export default function ConversacionesPanel() {
       const r = await obtenerLead(id);
       setLead(r);
       setEstadoLead("ok");
+      // Si el backend ya no encuentra este lead (404 → null), no dejamos la
+      // selección atascada apuntando a algo que nunca va a cargar.
+      if (!r) setSeleccionadoId(null);
     } catch (e) {
       void e;
       setEstadoLead("error");
@@ -135,9 +138,11 @@ export default function ConversacionesPanel() {
   }, [seleccionadoId, cargarLead]);
 
   // Polling: refresca la lista y, si hay un lead seleccionado, su detalle.
+  // Si hay una acción en curso (enviando) no refrescamos el lead seleccionado
+  // para no pisar el estado optimista mientras la acción todavía no terminó.
   usePolling(() => {
     cargarLista();
-    if (seleccionadoId) cargarLead(seleccionadoId);
+    if (seleccionadoId && !enviando) cargarLead(seleccionadoId);
   }, 10000);
 
   async function enviarRespuesta() {

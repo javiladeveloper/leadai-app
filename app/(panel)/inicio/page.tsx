@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion, leerSesion } from "@/lib/auth";
-import { contarCalientesSinAtender, listarLeads } from "@/lib/leads";
+import { obtenerResumen, type Resumen } from "@/lib/api";
 import { IconoRayo, IconoConversaciones, IconoBandeja } from "@/components/Iconos";
 
-// Inicio del panel de escritorio: saludo, aviso de calientes sin atender,
-// métricas rápidas (demo) y accesos directos a las secciones más usadas.
+type Estado = "cargando" | "ok" | "error";
+
+// Inicio del panel de escritorio: saludo, métricas reales del tenant activo
+// (GET /resumen) y accesos directos a las secciones más usadas. Si el tenant
+// todavía no tiene actividad, guía al usuario a conectar WhatsApp.
 export default function InicioPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
+  const [estado, setEstado] = useState<Estado>("cargando");
+  const [resumen, setResumen] = useState<Resumen | null>(null);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -21,19 +26,41 @@ export default function InicioPanel() {
     setListo(true);
   }, [router]);
 
+  const cargar = useCallback(async () => {
+    setEstado("cargando");
+    try {
+      const r = await obtenerResumen();
+      setResumen(r);
+      setEstado("ok");
+    } catch (e) {
+      void e;
+      setEstado("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!listo) return;
+    cargar();
+  }, [listo, cargar]);
+
   if (!listo) return null;
 
   const sesion = leerSesion();
   const nombre = sesion?.usuario.nombre?.split(" ")[0] ?? "";
-  const leads = listarLeads();
-  const calientes = contarCalientesSinAtender();
-  const ventas = leads.filter((l) => l.estado === "ganado").length;
 
-  const metricas = [
-    { n: leads.length, l: "Leads activos", c: "text-tinta" },
-    { n: calientes, l: "Calientes sin atender", c: "text-brasa" },
-    { n: ventas, l: "Ventas cerradas", c: "text-ok" },
-  ];
+  const vacio =
+    estado === "ok" &&
+    !!resumen &&
+    resumen.leadsActivos === 0 &&
+    resumen.ventasCerradas === 0;
+
+  const metricas = resumen
+    ? [
+        { n: resumen.leadsActivos, l: "Leads activos", c: "text-tinta" },
+        { n: resumen.calientesSinAtender, l: "Calientes sin atender", c: "text-brasa" },
+        { n: resumen.ventasCerradas, l: "Ventas cerradas", c: "text-ok" },
+      ]
+    : [];
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-5 py-6 lg:px-8">
@@ -44,71 +71,96 @@ export default function InicioPanel() {
         </h1>
       </header>
 
-      {/* Aviso de datos de ejemplo */}
-      <div className="rounded-tarjeta bg-tibio-suave px-4 py-2.5 text-center text-[0.82rem] font-semibold text-tinta-2">
-        Estás viendo datos de ejemplo — cuando conectes tu canal, acá verás tu actividad real.
-      </div>
+      {estado === "cargando" && <p className="text-frio">Cargando…</p>}
 
-      {/* Card destacada: calientes sin atender */}
-      {calientes > 0 && (
-        <Link
-          href="/leads"
-          className="flex items-center gap-3 rounded-tarjeta bg-brasa px-5 py-4 text-carta shadow-[0_8px_24px_rgba(226,92,67,0.3)] transition active:scale-[0.99]"
-        >
-          <IconoRayo className="h-8 w-8 shrink-0" />
-          <div>
-            <p className="text-[1.15rem] font-bold leading-tight">
-              {calientes} {calientes === 1 ? "lead caliente" : "leads calientes"} sin atender
-            </p>
-            <p className="text-[0.88rem] text-carta/85">Tocá para verlos — están listos para cerrar</p>
-          </div>
-        </Link>
+      {estado === "error" && (
+        <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+          <p className="font-semibold text-tinta">
+            No pudimos cargar tus datos. Recargá.
+          </p>
+        </div>
       )}
 
-      {/* Métricas rápidas */}
-      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-3">
-        {metricas.map((m) => (
-          <div
-            key={m.l}
-            className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea"
-          >
-            <p className={`text-[2.2rem] font-bold leading-none ${m.c}`}>{m.n}</p>
-            <p className="mt-2 text-[0.85rem] font-semibold text-frio">{m.l}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Accesos rápidos */}
-      <div>
-        <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Accesos rápidos</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+      {estado === "ok" && vacio && (
+        <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+          <p className="text-[1.05rem] font-bold text-tinta">
+            Aún no tenés leads. Conectá WhatsApp para empezar a recibirlos
+          </p>
           <Link
-            href="/conversaciones"
-            className="flex items-center gap-3 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
+            href="/configuracion"
+            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-carta transition active:scale-[0.99]"
           >
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-tibio-suave text-tinta">
-              <IconoConversaciones className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="font-bold text-tinta">Conversaciones</p>
-              <p className="text-[0.82rem] text-frio">Chateá con tus leads en vivo</p>
-            </div>
-          </Link>
-
-          <Link
-            href="/leads"
-            className="flex items-center gap-3 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
-          >
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-tibio-suave text-tinta">
-              <IconoBandeja className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="font-bold text-tinta">Leads</p>
-              <p className="text-[0.82rem] text-frio">Revisá y filtrá toda tu bandeja</p>
-            </div>
+            Conectar WhatsApp
           </Link>
         </div>
-      </div>
+      )}
+
+      {estado === "ok" && resumen && !vacio && (
+        <>
+          {/* Card destacada: calientes sin atender */}
+          {resumen.calientesSinAtender > 0 && (
+            <Link
+              href="/leads"
+              className="flex items-center gap-3 rounded-tarjeta bg-brasa px-5 py-4 text-carta shadow-[0_8px_24px_rgba(226,92,67,0.3)] transition active:scale-[0.99]"
+            >
+              <IconoRayo className="h-8 w-8 shrink-0" />
+              <div>
+                <p className="text-[1.15rem] font-bold leading-tight">
+                  {resumen.calientesSinAtender}{" "}
+                  {resumen.calientesSinAtender === 1 ? "lead caliente" : "leads calientes"} sin
+                  atender
+                </p>
+                <p className="text-[0.88rem] text-carta/85">Tocá para verlos — están listos para cerrar</p>
+              </div>
+            </Link>
+          )}
+
+          {/* Métricas reales */}
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-3">
+            {metricas.map((m) => (
+              <div
+                key={m.l}
+                className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea"
+              >
+                <p className={`text-[2.2rem] font-bold leading-none ${m.c}`}>{m.n}</p>
+                <p className="mt-2 text-[0.85rem] font-semibold text-frio">{m.l}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Accesos rápidos */}
+          <div>
+            <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Accesos rápidos</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Link
+                href="/conversaciones"
+                className="flex items-center gap-3 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
+              >
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-tibio-suave text-tinta">
+                  <IconoConversaciones className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="font-bold text-tinta">Conversaciones</p>
+                  <p className="text-[0.82rem] text-frio">Chateá con tus leads en vivo</p>
+                </div>
+              </Link>
+
+              <Link
+                href="/leads"
+                className="flex items-center gap-3 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
+              >
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-tibio-suave text-tinta">
+                  <IconoBandeja className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="font-bold text-tinta">Leads</p>
+                  <p className="text-[0.82rem] text-frio">Revisá y filtrá toda tu bandeja</p>
+                </div>
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

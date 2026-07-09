@@ -130,4 +130,100 @@ export async function guardarPerfil(
   }
 }
 
+export type NivelInteres = "frio" | "tibio" | "caliente";
+export type EstadoLead = "nuevo" | "nutriendo" | "escalado" | "ganado" | "perdido";
+
+export interface Lead {
+  id: string;
+  nombre: string | null;
+  contactoExterno: string;
+  canalOrigen: string;
+  nivelInteres: NivelInteres;
+  estado: EstadoLead;
+  resumenIA: string | null;
+  borradorIA: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
+export interface Mensaje {
+  id: string;
+  direccion: "entrante" | "saliente";
+  contenido: string;
+  canal: string;
+  creadoEn: string;
+}
+
+export interface LeadDetalle extends Lead {
+  mensajes: Mensaje[];
+}
+
+export interface Comision {
+  id: string;
+  estado: string;
+  monto: number;
+  leadId: string;
+  creadoEn: string;
+}
+
+export interface Resumen {
+  leadsActivos: number;
+  calientesSinAtender: number;
+  ventasCerradas: number;
+}
+
+export async function listarLeads(
+  filtros?: { estado?: string; nivel?: string },
+): Promise<Lead[]> {
+  const qs = new URLSearchParams();
+  if (filtros?.estado) qs.set("estado", filtros.estado);
+  if (filtros?.nivel) qs.set("nivel", filtros.nivel);
+  const q = qs.toString();
+  const r = await api<{ items: Lead[]; siguienteCursor: string | null }>(
+    `/leads${q ? `?${q}` : ""}`,
+  );
+  return r.items;
+}
+
+export async function obtenerLead(id: string): Promise<LeadDetalle | null> {
+  try {
+    return await api<LeadDetalle>(`/leads/${id}`);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+export async function accionLead(
+  id: string,
+  accion: {
+    tipo: "aprobar_borrador" | "marcar_ganado" | "descartar" | "responder";
+    texto?: string;
+    monto?: number;
+  },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/leads/${id}/acciones`, { method: "POST", body: accion });
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "No se pudo completar la acción",
+    };
+  }
+}
+
+export async function obtenerComisiones(): Promise<{
+  items: Comision[];
+  resumen: Record<string, number>;
+}> {
+  return api<{ items: Comision[]; resumen: Record<string, number> }>(
+    "/comisiones",
+  );
+}
+
+export async function obtenerResumen(): Promise<Resumen> {
+  return api<Resumen>("/resumen");
+}
+
 export { API_URL };

@@ -21,7 +21,10 @@ export function HeaderPanel() {
   function cambiarEmpresa(id: string) {
     setActiva(id);
     guardarEmpresaActiva(id);
-    router.refresh();
+    // Reload completo: las pantallas fetchean en useEffect sin dependencia del
+    // tenant activo, así que router.refresh() no alcanza para que re-fetcheen
+    // con el nuevo X-Tenant-Id. Un reload total es aceptable en un panel.
+    window.location.reload();
   }
 
   function salir() {

@@ -1,13 +1,67 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { haySesion } from "@/lib/auth";
-import { listarLeads, obtenerConversacion } from "@/lib/leads";
-import { TarjetaLead } from "@/components/TarjetaLead";
+import {
+  listarLeads,
+  obtenerLead,
+  accionLead,
+  type Lead,
+  type LeadDetalle,
+  type Mensaje as MensajeApi,
+} from "@/lib/api";
+import { usePolling } from "@/lib/usePolling";
+import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { Burbuja } from "@/components/Burbuja";
 import { ChipTemp } from "@/components/ChipTemp";
 import { IconoMic, IconoEnviar } from "@/components/Iconos";
+import type { Mensaje as MensajeUI } from "@/lib/tipos";
+
+type Estado = "cargando" | "ok" | "error";
+
+// "hace X" legible en español, a partir de minutos.
+function haceTexto(min: number): string {
+  if (min < 1) return "ahora";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24);
+  return `hace ${d} d`;
+}
+
+// Convierte un timestamp ISO en minutos transcurridos hasta ahora.
+function minutosDesde(iso: string): number {
+  const ms = Date.now() - new Date(iso).getTime();
+  return Math.max(0, Math.floor(ms / 60000));
+}
+
+// Adapta el Lead real (lib/api) al shape mínimo que TarjetaLead necesita.
+function aTarjeta(lead: Lead): TarjetaLeadProps {
+  return {
+    id: lead.id,
+    nombre: lead.nombre ?? lead.contactoExterno,
+    canal: lead.canalOrigen,
+    temperatura: lead.nivelInteres,
+    urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
+    resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
+    haceMinutos: minutosDesde(lead.actualizadoEn),
+  };
+}
+
+// Adapta un Mensaje real (lib/api: direccion/contenido/creadoEn) al shape que
+// Burbuja espera (lib/tipos: autor/texto/haceMinutos). "saliente" es lo que
+// mandamos nosotros (o la IA en automático) → se muestra a la derecha, "tu".
+// "entrante" es lo que escribió el lead → izquierda.
+function aBurbuja(m: MensajeApi): MensajeUI {
+  return {
+    id: m.id,
+    autor: m.direccion === "saliente" ? "tu" : "lead",
+    texto: m.contenido,
+    haceMinutos: minutosDesde(m.creadoEn),
+  };
+}
 
 // Pantalla principal del panel: bandeja + chat + contexto IA en 3 columnas
 // (desktop). En mobile se muestra solo la lista de leads; tocar un lead
@@ -16,11 +70,19 @@ import { IconoMic, IconoEnviar } from "@/components/Iconos";
 export default function ConversacionesPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
-  const [texto, setTexto] = useState("");
-  const [ventaAbierta, setVentaAbierta] = useState(false);
 
-  const leads = useMemo(() => listarLeads(), []);
+  const [estadoLista, setEstadoLista] = useState<Estado>("cargando");
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
+
+  const [estadoLead, setEstadoLead] = useState<Estado>("cargando");
+  const [lead, setLead] = useState<LeadDetalle | null>(null);
+
+  const [texto, setTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [ventaAbierta, setVentaAbierta] = useState(false);
+  const [montoVenta, setMontoVenta] = useState("");
+  const [accionError, setAccionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -30,32 +92,132 @@ export default function ConversacionesPanel() {
     setListo(true);
   }, [router]);
 
+  const cargarLista = useCallback(async () => {
+    try {
+      const r = await listarLeads();
+      setLeads(r);
+      setEstadoLista("ok");
+    } catch (e) {
+      void e;
+      setEstadoLista("error");
+    }
+  }, []);
+
+  const cargarLead = useCallback(async (id: string) => {
+    try {
+      const r = await obtenerLead(id);
+      setLead(r);
+      setEstadoLead("ok");
+    } catch (e) {
+      void e;
+      setEstadoLead("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!listo) return;
+    cargarLista();
+  }, [listo, cargarLista]);
+
+  // Selecciona el primer lead de la lista automáticamente si no hay nada elegido.
   useEffect(() => {
     if (leads.length > 0 && !seleccionadoId) {
       setSeleccionadoId(leads[0].id);
     }
   }, [leads, seleccionadoId]);
 
+  useEffect(() => {
+    if (!seleccionadoId) return;
+    setEstadoLead("cargando");
+    setVentaAbierta(false);
+    setAccionError(null);
+    cargarLead(seleccionadoId);
+  }, [seleccionadoId, cargarLead]);
+
+  // Polling: refresca la lista y, si hay un lead seleccionado, su detalle.
+  usePolling(() => {
+    cargarLista();
+    if (seleccionadoId) cargarLead(seleccionadoId);
+  }, 10000);
+
+  async function enviarRespuesta() {
+    if (!seleccionadoId || !texto.trim() || enviando) return;
+    setEnviando(true);
+    setAccionError(null);
+    const r = await accionLead(seleccionadoId, { tipo: "responder", texto: texto.trim() });
+    if (r.ok) {
+      setTexto("");
+      await cargarLead(seleccionadoId);
+    } else {
+      setAccionError(r.error ?? "No se pudo enviar la respuesta.");
+    }
+    setEnviando(false);
+  }
+
+  async function aprobarBorrador() {
+    if (!seleccionadoId || enviando) return;
+    setEnviando(true);
+    setAccionError(null);
+    const r = await accionLead(seleccionadoId, { tipo: "aprobar_borrador" });
+    if (r.ok) {
+      await cargarLead(seleccionadoId);
+    } else {
+      setAccionError(r.error ?? "No se pudo aprobar el borrador.");
+    }
+    setEnviando(false);
+  }
+
+  async function registrarVenta() {
+    if (!seleccionadoId || enviando) return;
+    const monto = Number(montoVenta);
+    if (!montoVenta || Number.isNaN(monto) || monto <= 0) {
+      setAccionError("Ingresá un monto válido.");
+      return;
+    }
+    setEnviando(true);
+    setAccionError(null);
+    const r = await accionLead(seleccionadoId, { tipo: "marcar_ganado", monto });
+    if (r.ok) {
+      setVentaAbierta(false);
+      setMontoVenta("");
+      await cargarLead(seleccionadoId);
+      await cargarLista();
+    } else {
+      setAccionError(r.error ?? "No se pudo registrar la venta.");
+    }
+    setEnviando(false);
+  }
+
   if (!listo) return null;
 
-  const conv = seleccionadoId ? obtenerConversacion(seleccionadoId) : null;
+  const listaVacia = estadoLista === "ok" && leads.length === 0;
 
   return (
     <div className="flex min-h-full flex-col">
-      {/* Aviso de datos de ejemplo */}
-      <div className="bg-tibio-suave px-4 py-2 text-center text-[0.8rem] font-semibold text-tinta-2">
-        Estás viendo datos de ejemplo — cuando conectes tu canal, acá verás tus conversaciones reales.
-      </div>
-
       {/* Mobile (<lg): solo la lista, a ancho completo. Tocar un lead navega
           a /conversacion/[id] (el TarjetaLead ya es un Link). */}
       <div className="flex-1 space-y-3 overflow-y-auto p-4 lg:hidden">
-        {leads.map((lead) => (
-          <TarjetaLead
-            key={lead.id}
-            lead={{ ...lead, urgente: lead.temperatura === "caliente" && lead.estado === "sin_atender" }}
-          />
-        ))}
+        {estadoLista === "cargando" && <p className="text-frio">Cargando…</p>}
+        {estadoLista === "error" && (
+          <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+            <p className="font-semibold text-tinta">No pudimos cargar tus conversaciones. Recargá.</p>
+          </div>
+        )}
+        {listaVacia && (
+          <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+            <p className="text-[1.05rem] font-bold text-tinta">
+              Aún no tenés conversaciones. Conectá WhatsApp para empezar
+            </p>
+            <Link
+              href="/configuracion"
+              className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-carta transition active:scale-[0.99]"
+            >
+              Conectar WhatsApp
+            </Link>
+          </div>
+        )}
+        {estadoLista === "ok" &&
+          leads.map((l) => <TarjetaLead key={l.id} lead={aTarjeta(l)} />)}
       </div>
 
       {/* Desktop (lg+): 3 columnas */}
@@ -63,83 +225,105 @@ export default function ConversacionesPanel() {
         {/* Columna 1: lista de leads. Acá el clic selecciona (no navega), por
             eso interceptamos el click del Link con preventDefault. */}
         <div className="flex flex-col gap-2.5 overflow-y-auto border-r border-linea p-3">
-          {leads.map((lead) => {
-            const activo = lead.id === seleccionadoId;
-            return (
-              <div
-                key={lead.id}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSeleccionadoId(lead.id);
-                }}
-                className={activo ? "rounded-tarjeta ring-2 ring-brasa" : ""}
+          {estadoLista === "cargando" && <p className="text-frio">Cargando…</p>}
+          {estadoLista === "error" && (
+            <div className="rounded-tarjeta bg-carta p-4 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+              <p className="text-[0.9rem] font-semibold text-tinta">No pudimos cargar la lista.</p>
+            </div>
+          )}
+          {listaVacia && (
+            <div className="rounded-tarjeta bg-carta p-4 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+              <p className="text-[0.9rem] font-bold text-tinta">
+                Aún no tenés conversaciones. Conectá WhatsApp para empezar
+              </p>
+              <Link
+                href="/configuracion"
+                className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-carta transition active:scale-[0.99]"
               >
-                <TarjetaLead
-                  lead={{ ...lead, urgente: lead.temperatura === "caliente" && lead.estado === "sin_atender" }}
-                />
-              </div>
-            );
-          })}
+                Conectar WhatsApp
+              </Link>
+            </div>
+          )}
+          {estadoLista === "ok" &&
+            leads.map((l) => {
+              const activo = l.id === seleccionadoId;
+              return (
+                <div
+                  key={l.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSeleccionadoId(l.id);
+                  }}
+                  className={activo ? "rounded-tarjeta ring-2 ring-brasa" : ""}
+                >
+                  <TarjetaLead lead={aTarjeta(l)} />
+                </div>
+              );
+            })}
         </div>
 
         {/* Columna 2: chat */}
         <div className="flex min-w-0 flex-col overflow-hidden bg-arena">
-          {conv ? (
+          {estadoLead === "cargando" && (
+            <div className="flex flex-1 items-center justify-center p-6 text-center text-frio">
+              Cargando conversación…
+            </div>
+          )}
+          {estadoLead === "error" && (
+            <div className="flex flex-1 items-center justify-center p-6 text-center text-frio">
+              No pudimos cargar esta conversación.
+            </div>
+          )}
+          {estadoLead === "ok" && lead ? (
             <>
               {/* Resumen de la IA */}
-              <section className="border-b border-linea bg-tibio-suave/60 px-4 py-3">
-                <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-tibio">
-                  Lo que la IA entendió
-                </p>
-                <dl className="grid gap-1.5 text-[0.88rem]">
-                  {conv.lead.quiere && (
-                    <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 font-bold text-tinta-2">Quiere</dt>
-                      <dd className="text-tinta">{conv.lead.quiere}</dd>
-                    </div>
-                  )}
-                  {conv.lead.presupuesto && (
-                    <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 font-bold text-tinta-2">Presupuesto</dt>
-                      <dd className="text-tinta">{conv.lead.presupuesto}</dd>
-                    </div>
-                  )}
-                  {conv.lead.urgencia && (
-                    <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 font-bold text-tinta-2">Urgencia</dt>
-                      <dd className="text-tinta">{conv.lead.urgencia}</dd>
-                    </div>
-                  )}
-                </dl>
-              </section>
+              {lead.resumenIA && (
+                <section className="border-b border-linea bg-tibio-suave/60 px-4 py-3">
+                  <p className="mb-1.5 text-[0.75rem] font-bold uppercase tracking-wide text-tibio">
+                    Lo que la IA entendió
+                  </p>
+                  <p className="text-[0.9rem] text-tinta">{lead.resumenIA}</p>
+                </section>
+              )}
 
               {/* Burbujas del chat */}
               <main className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
-                {conv.mensajes.map((m) => (
-                  <Burbuja key={m.id} m={m} />
+                {lead.mensajes.length === 0 && (
+                  <p className="text-center text-frio">Todavía no hay mensajes en esta conversación.</p>
+                )}
+                {lead.mensajes.map((m) => (
+                  <Burbuja key={m.id} m={aBurbuja(m)} />
                 ))}
 
-                {/* Borradores listos para enviar */}
-                {conv.borradores.length > 0 && (
+                {/* Borrador listo para enviar */}
+                {lead.borradorIA && (
                   <div className="mt-2 rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                     <p className="mb-2 flex items-center gap-1.5 text-[0.78rem] font-bold uppercase tracking-wide text-brasa">
-                      ✦ Respuestas listas para enviar
+                      ✦ Respuesta lista para enviar
                     </p>
-                    <div className="flex flex-col gap-2">
-                      {conv.borradores.map((b, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setTexto(b)}
-                          className="rounded-xl bg-arena/70 px-3 py-2.5 text-left text-[0.92rem] leading-snug text-tinta-2 ring-1 ring-linea transition hover:bg-arena active:scale-[0.99]"
-                        >
-                          {b}
-                        </button>
-                      ))}
+                    <button
+                      onClick={() => setTexto(lead.borradorIA ?? "")}
+                      className="w-full rounded-xl bg-arena/70 px-3 py-2.5 text-left text-[0.92rem] leading-snug text-tinta-2 ring-1 ring-linea transition hover:bg-arena active:scale-[0.99]"
+                    >
+                      {lead.borradorIA}
+                    </button>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className="text-[0.72rem] text-frio">Tocá para editarla antes de enviar</p>
+                      <button
+                        onClick={aprobarBorrador}
+                        disabled={enviando}
+                        className="shrink-0 rounded-chip bg-brasa px-3 py-1.5 text-[0.78rem] font-bold text-carta transition active:scale-[0.99] disabled:opacity-60"
+                      >
+                        o aprobar y enviar tal cual
+                      </button>
                     </div>
-                    <p className="mt-2 text-[0.72rem] text-frio">Tocá una para editarla antes de enviar.</p>
                   </div>
                 )}
               </main>
+
+              {accionError && (
+                <p className="px-4 pb-1 text-[0.8rem] font-semibold text-brasa">{accionError}</p>
+              )}
 
               {/* Campo de envío */}
               <div className="border-t border-linea bg-carta px-3 py-2.5">
@@ -147,6 +331,12 @@ export default function ConversacionesPanel() {
                   <textarea
                     value={texto}
                     onChange={(e) => setTexto(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        enviarRespuesta();
+                      }
+                    }}
                     rows={1}
                     placeholder="Escribí o tocá el micrófono…"
                     className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
@@ -154,8 +344,9 @@ export default function ConversacionesPanel() {
                   {texto.trim() ? (
                     <button
                       aria-label="Enviar"
-                      onClick={() => setTexto("")}
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brasa text-carta"
+                      onClick={enviarRespuesta}
+                      disabled={enviando}
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brasa text-carta disabled:opacity-60"
                     >
                       <IconoEnviar className="h-6 w-6" />
                     </button>
@@ -170,50 +361,73 @@ export default function ConversacionesPanel() {
                 </div>
               </div>
             </>
-          ) : (
+          ) : estadoLead === "ok" ? (
             <div className="flex flex-1 items-center justify-center p-6 text-center text-frio">
               Elegí un lead de la lista para ver la conversación.
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Columna 3: contexto IA + acciones */}
         <div className="flex flex-col overflow-y-auto border-l border-linea p-4">
-          {conv ? (
+          {estadoLead === "ok" && lead ? (
             <>
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[1.05rem] font-bold text-tinta">{conv.lead.nombre}</h2>
-                <ChipTemp t={conv.lead.temperatura} />
+                <h2 className="text-[1.05rem] font-bold text-tinta">
+                  {lead.nombre ?? lead.contactoExterno}
+                </h2>
+                <ChipTemp t={lead.nivelInteres} />
               </div>
-              <p className="mt-0.5 text-[0.8rem] text-frio">{conv.lead.empresa}</p>
+              <p className="mt-0.5 text-[0.8rem] text-frio">{lead.contactoExterno}</p>
 
               <div className="mt-4 rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-tibio">
                   Contexto IA
                 </p>
-                <dl className="grid gap-2 text-[0.85rem]">
-                  <div>
-                    <dt className="font-bold text-tinta-2">Quiere</dt>
-                    <dd className="text-tinta">{conv.lead.quiere ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-bold text-tinta-2">Presupuesto</dt>
-                    <dd className="text-tinta">{conv.lead.presupuesto ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-bold text-tinta-2">Urgencia</dt>
-                    <dd className="text-tinta">{conv.lead.urgencia ?? "—"}</dd>
-                  </div>
-                </dl>
+                <p className="text-[0.85rem] text-tinta">
+                  {lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead."}
+                </p>
+                <p className="mt-2 text-[0.75rem] text-frio">
+                  Actualizado {haceTexto(minutosDesde(lead.actualizadoEn))}
+                </p>
               </div>
 
               <div className="mt-4 flex flex-col gap-2">
-                {ventaAbierta ? (
+                {lead.estado === "ganado" ? (
                   <div className="rounded-tarjeta bg-ok/10 p-3.5 ring-1 ring-ok/30">
                     <p className="text-[0.9rem] font-bold text-ok">✓ Venta registrada</p>
-                    <p className="text-[0.8rem] text-tinta-2">
-                      Se sumó a tus comisiones de {conv.lead.empresa}. La verás en Reportes.
-                    </p>
+                    <p className="text-[0.8rem] text-tinta-2">La verás en Reportes.</p>
+                  </div>
+                ) : ventaAbierta ? (
+                  <div className="flex flex-col gap-2 rounded-tarjeta bg-carta p-3 ring-1 ring-linea">
+                    <label className="text-[0.8rem] font-bold text-tinta-2">Monto de la venta (S/)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={montoVenta}
+                      onChange={(e) => setMontoVenta(e.target.value)}
+                      placeholder="0.00"
+                      className="rounded-xl bg-arena px-3 py-2 text-[0.95rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={registrarVenta}
+                        disabled={enviando}
+                        className="flex-1 rounded-chip bg-ok py-2 text-[0.85rem] font-bold text-carta transition active:scale-[0.99] disabled:opacity-60"
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        onClick={() => {
+                          setVentaAbierta(false);
+                          setMontoVenta("");
+                        }}
+                        className="flex-1 rounded-chip bg-arena-2 py-2 text-[0.85rem] font-bold text-tinta-2 transition active:scale-[0.99]"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <button
@@ -223,9 +437,6 @@ export default function ConversacionesPanel() {
                     Registrar venta
                   </button>
                 )}
-                <button className="rounded-chip bg-tinta py-2.5 text-[0.9rem] font-bold text-carta transition active:scale-[0.99]">
-                  Tomar conversación
-                </button>
               </div>
             </>
           ) : (

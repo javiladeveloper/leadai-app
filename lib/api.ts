@@ -226,4 +226,23 @@ export async function obtenerResumen(): Promise<Resumen> {
   return api<Resumen>("/resumen");
 }
 
+export interface Uso {
+  plan: string;
+  bolsa: {
+    mensual: { total: number; usado: number; restante: number };
+    prepago: { total: number; restante: number };
+    totalDisponible: number;
+    seResetea: string; // fecha ISO del reseteo
+  };
+}
+
+// Consumo del plan: cuántas "respuestas" (hits) le quedan al tenant activo.
+export async function obtenerUso(): Promise<Uso | null> {
+  try {
+    return await api<Uso>("/uso");
+  } catch {
+    return null;
+  }
+}
+
 export { API_URL };

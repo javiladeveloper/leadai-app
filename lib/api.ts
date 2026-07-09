@@ -245,4 +245,56 @@ export async function obtenerUso(): Promise<Uso | null> {
   }
 }
 
+export interface Catalogo {
+  planes: Record<string, { hitsMes: number; maxCanales: number; precioCentavos: number }>;
+  recargaDinamica: { minHits: number; tramos: { hastaHits: number; centavosPorHit: number }[] };
+}
+
+export interface MiPlan {
+  plan: string;
+  limiteRespuestasDia: number | null;
+  pausarAlLimite: boolean;
+}
+
+export async function obtenerCatalogo(): Promise<Catalogo | null> {
+  try {
+    return await api<Catalogo>("/catalogo", { conAuth: false, conEmpresa: false });
+  } catch {
+    return null;
+  }
+}
+
+export async function obtenerMiPlan(): Promise<MiPlan | null> {
+  try {
+    return await api<MiPlan>("/mi-plan");
+  } catch {
+    return null;
+  }
+}
+
+export async function guardarMiPlan(cfg: {
+  limiteRespuestasDia?: number | null;
+  pausarAlLimite?: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/mi-plan", { method: "PATCH", body: cfg });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
+}
+
+export async function iniciarRecarga(
+  hits: number,
+  email: string,
+  sourceId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/recargas", { method: "POST", body: { hits, email, sourceId } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo procesar el pago" };
+  }
+}
+
 export { API_URL };

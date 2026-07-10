@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion } from "@/lib/auth";
+import { haySesion, leerSesion } from "@/lib/auth";
 import { Sidebar } from "@/components/panel/Sidebar";
 import { HeaderPanel } from "@/components/panel/HeaderPanel";
 import { NavInferior } from "@/components/NavInferior";
@@ -14,6 +14,9 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   const [listo, setListo] = useState(false);
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
+    // Red de seguridad: si el usuario no tiene ningún negocio, va al onboarding.
+    const sesion = leerSesion();
+    if (sesion && sesion.empresas.length === 0) { router.replace("/bienvenida"); return; }
     setListo(true);
   }, [router]);
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion } from "@/lib/auth";
+import { haySesion, leerSesion } from "@/lib/auth";
 import { hayGoogle, renderBotonGoogle } from "@/lib/google";
 import { entrarConGoogle, entrarDemo } from "@/lib/sesion";
 import { ApiError } from "@/lib/api";
@@ -16,9 +16,16 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
+  // Tras entrar: si el usuario aún no tiene un negocio, lo mandamos al
+  // onboarding (/bienvenida); si ya tiene, al panel.
+  function destinoTrasEntrar(): string {
+    const sesion = leerSesion();
+    return sesion && sesion.empresas.length > 0 ? "/inicio" : "/bienvenida";
+  }
+
   useEffect(() => {
     if (haySesion()) {
-      router.replace("/inicio");
+      router.replace(destinoTrasEntrar());
       return;
     }
     if (hayGoogle() && botonRef.current) {
@@ -27,7 +34,7 @@ export default function Login() {
         setError(null);
         try {
           await entrarConGoogle(idToken);
-          router.replace("/inicio");
+          router.replace(destinoTrasEntrar());
         } catch (e) {
           setError(e instanceof ApiError ? e.message : "No se pudo iniciar sesión");
           setCargando(false);
@@ -38,7 +45,7 @@ export default function Login() {
 
   function entrarComoDemo() {
     entrarDemo();
-    router.replace("/inicio");
+    router.replace(destinoTrasEntrar());
   }
 
   return (

@@ -2,7 +2,7 @@
 // Autenticación: token de usuario (Bearer) + header X-Tenant-Id para elegir la
 // empresa activa. El token y la empresa se guardan en el navegador (ver auth.ts).
 
-import { leerSesion, leerEmpresaActiva } from "./auth";
+import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, type EmpresaResumen } from "./auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -296,6 +296,25 @@ export async function iniciarRecarga(
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo procesar el pago" };
+  }
+}
+
+// Crea el primer negocio del usuario (onboarding). El backend crea la empresa y
+// hace owner al usuario. Actualizamos la sesión local con la nueva empresa y la
+// dejamos activa, para que el panel la use al entrar.
+export async function crearEmpresa(nombre: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const empresa = await api<EmpresaResumen>("/empresas", { method: "POST", body: { nombre } });
+    const sesion = leerSesion();
+    if (sesion) {
+      const yaEsta = sesion.empresas.some((e) => e.tenantId === empresa.tenantId);
+      const empresas = yaEsta ? sesion.empresas : [...sesion.empresas, empresa];
+      guardarSesion({ ...sesion, empresas });
+      guardarEmpresaActiva(empresa.tenantId);
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el negocio" };
   }
 }
 

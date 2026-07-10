@@ -11,6 +11,7 @@ import { IconoRayo } from "@/components/Iconos";
 export default function BienvenidaPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
+  const [agregar, setAgregar] = useState(false);
   const [nombre, setNombre] = useState("");
   const [estado, setEstado] = useState<"idle" | "creando" | "error">("idle");
   const [error, setError] = useState("");
@@ -20,9 +21,12 @@ export default function BienvenidaPanel() {
       router.replace("/");
       return;
     }
-    // Si ya tiene empresa, no corresponde el onboarding: al panel.
+    // Modo "agregar otro negocio": viene desde el selector del header con ?agregar=1.
+    // En ese caso NO redirigimos aunque ya tenga empresas (quiere crear otra).
+    const esAgregar = new URLSearchParams(window.location.search).get("agregar") === "1";
+    setAgregar(esAgregar);
     const sesion = leerSesion();
-    if (sesion && sesion.empresas.length > 0) {
+    if (!esAgregar && sesion && sesion.empresas.length > 0) {
       router.replace("/inicio");
       return;
     }
@@ -61,10 +65,12 @@ export default function BienvenidaPanel() {
         </div>
 
         <h1 className="mt-8 text-[1.8rem] font-bold leading-tight text-tinta">
-          ¡Bienvenido{primerNombre ? `, ${primerNombre}` : ""}! 👋
+          {agregar ? "Agregá otro negocio" : `¡Bienvenido${primerNombre ? `, ${primerNombre}` : ""}! 👋`}
         </h1>
         <p className="mt-2 text-[1.02rem] text-tinta-2">
-          Para empezar, contanos cómo se llama tu negocio.
+          {agregar
+            ? "¿Cómo se llama la nueva marca o empresa que querés sumar?"
+            : "Para empezar, contanos cómo se llama tu negocio."}
         </p>
 
         <form onSubmit={crear} className="mt-8 space-y-4">
@@ -92,7 +98,7 @@ export default function BienvenidaPanel() {
             disabled={estado === "creando" || !nombre.trim()}
             className="w-full rounded-tarjeta bg-brasa px-6 py-3.5 text-[1rem] font-semibold text-carta transition hover:bg-brasa-hondo active:scale-[0.99] disabled:opacity-60"
           >
-            {estado === "creando" ? "Creando tu negocio…" : "Crear mi negocio"}
+            {estado === "creando" ? "Creando…" : agregar ? "Agregar negocio" : "Crear mi negocio"}
           </button>
 
           <p className="text-center text-[0.82rem] text-frio">

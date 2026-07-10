@@ -19,11 +19,13 @@ const FILTROS_NIVEL: { id: FiltroNivel; label: string }[] = [
   { id: "frio", label: "Fríos" },
 ];
 
+// Los `id` son los valores reales del backend; los `label` son en lenguaje
+// simple para el cliente (sin jerga tipo "nutriendo"/"escalado").
 const FILTROS_ESTADO: { id: "todos" | EstadoLead; label: string }[] = [
-  { id: "todos", label: "Todos los estados" },
+  { id: "todos", label: "Todos" },
   { id: "nuevo", label: "Nuevos" },
-  { id: "nutriendo", label: "Nutriendo" },
-  { id: "escalado", label: "Escalados" },
+  { id: "nutriendo", label: "En seguimiento" },
+  { id: "escalado", label: "Para atender" },
   { id: "ganado", label: "Ganados" },
   { id: "perdido", label: "Perdidos" },
 ];

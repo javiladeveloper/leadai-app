@@ -20,6 +20,10 @@ export function HeaderPanel() {
   }, [empresas]);
 
   function cambiarEmpresa(id: string) {
+    if (id === "__nuevo__") {
+      router.push("/bienvenida?agregar=1");
+      return;
+    }
     setActiva(id);
     guardarEmpresaActiva(id);
     // Reload completo: las pantallas fetchean en useEffect sin dependencia del
@@ -33,24 +37,20 @@ export function HeaderPanel() {
     router.replace("/");
   }
 
-  const nombreActiva = empresas.find((e) => e.tenantId === activa)?.nombre ?? "Elegí empresa";
-
   return (
     <header className="flex items-center justify-between border-b border-linea bg-carta px-5 py-3">
       <div className="relative">
-        {empresas.length > 1 ? (
-          <select
-            value={activa}
-            onChange={(e) => cambiarEmpresa(e.target.value)}
-            className="rounded-lg border border-linea bg-arena/50 px-3 py-1.5 text-sm font-semibold text-tinta"
-          >
-            {empresas.map((e) => (
-              <option key={e.tenantId} value={e.tenantId}>{e.nombre}</option>
-            ))}
-          </select>
-        ) : (
-          <span className="text-sm font-semibold text-tinta">{nombreActiva}</span>
-        )}
+        <select
+          value={activa}
+          onChange={(e) => cambiarEmpresa(e.target.value)}
+          className="rounded-lg border border-linea bg-arena/50 px-3 py-1.5 text-sm font-semibold text-tinta"
+          aria-label="Elegí tu negocio"
+        >
+          {empresas.map((e) => (
+            <option key={e.tenantId} value={e.tenantId}>{e.nombre}</option>
+          ))}
+          <option value="__nuevo__">＋ Agregar otro negocio</option>
+        </select>
       </div>
       <div className="flex items-center gap-3">
         <CampanaAlertas />

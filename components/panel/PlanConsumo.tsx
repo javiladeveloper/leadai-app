@@ -243,6 +243,87 @@ function TarjetaComprar({
   );
 }
 
+// ─── Tarjeta destacada: ¿El bot está atendiendo? ───────────────────────
+function TarjetaBotActivo({
+  cargando,
+  valorInicial,
+  error,
+}: {
+  cargando: boolean;
+  valorInicial: boolean;
+  error: boolean;
+}) {
+  const [activo, setActivo] = useState(valorInicial);
+  const [estadoGuardado, setEstadoGuardado] = useState<EstadoGuardado>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (!cargando) setActivo(valorInicial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cargando, valorInicial]);
+
+  if (cargando) {
+    return <SkeletonBloque className="h-16 w-full" />;
+  }
+
+  if (error) {
+    return (
+      <p className="text-sm text-brasa">
+        No pudimos cargar tu configuración. Recargá la página para intentar de nuevo.
+      </p>
+    );
+  }
+
+  async function alternar() {
+    const nuevo = !activo;
+    setActivo(nuevo);
+    setEstadoGuardado("guardando");
+    setErrorMsg("");
+    const r = await guardarMiPlan({ botActivo: nuevo });
+    if (r.ok) {
+      setEstadoGuardado("ok");
+    } else {
+      // si falló el guardado, volvemos al valor anterior para no mentirle al usuario
+      setActivo(!nuevo);
+      setEstadoGuardado("error");
+      setErrorMsg(r.error ?? "No se pudo guardar.");
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <p className="text-[0.95rem] font-bold text-tinta">
+          {activo ? "Activo — el bot responde a tus clientes" : "Pausado — el bot no responde (atendés vos)"}
+        </p>
+        <p className="text-[0.8rem] text-frio">
+          {activo
+            ? "Apagalo un momento si querés atender vos mismo, sin que el bot conteste."
+            : "Los mensajes se siguen guardando; el bot no va a contestar hasta que lo actives de nuevo."}
+        </p>
+        {estadoGuardado === "error" && <p className="mt-1 text-[0.8rem] text-brasa">{errorMsg}</p>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={activo}
+        aria-label="¿El bot está atendiendo?"
+        onClick={alternar}
+        disabled={estadoGuardado === "guardando"}
+        className={`relative h-9 w-16 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+          activo ? "bg-ok" : "bg-arena-2 ring-1 ring-linea"
+        }`}
+      >
+        <span
+          className={`absolute top-1 h-7 w-7 rounded-full bg-carta shadow-[var(--sombra-tarjeta)] transition-transform ${
+            activo ? "translate-x-8" : "translate-x-1"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
 // ─── Tarjeta 3: ¿Hasta dónde insiste el bot? ───────────────────────────
 type EstadoGuardado = "idle" | "guardando" | "ok" | "error";
 type Insistencia = "poca" | "normal" | "mucha";
@@ -382,6 +463,7 @@ export function PlanConsumo() {
 
   const [cargandoPlan, setCargandoPlan] = useState(true);
   const [insistenciaInicial, setInsistenciaInicial] = useState<"poca" | "normal" | "mucha">("normal");
+  const [botActivoInicial, setBotActivoInicial] = useState(true);
   const [errorPlan, setErrorPlan] = useState(false);
 
   function recargarSaldo() {
@@ -402,6 +484,7 @@ export function PlanConsumo() {
     obtenerMiPlan().then((p) => {
       if (p) {
         setInsistenciaInicial(p.insistencia);
+        setBotActivoInicial(p.botActivo);
       } else {
         setErrorPlan(true);
       }
@@ -411,6 +494,14 @@ export function PlanConsumo() {
 
   return (
     <div className="grid gap-6">
+      <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-2 ring-brasa/30 lg:p-6">
+        <h3 className="text-[0.95rem] font-bold text-tinta">¿El bot está atendiendo?</h3>
+        <p className="mb-4 text-[0.8rem] text-frio">
+          El interruptor principal: prendé o apagá al bot cuando quieras.
+        </p>
+        <TarjetaBotActivo cargando={cargandoPlan} valorInicial={botActivoInicial} error={errorPlan} />
+      </div>
+
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
         <h3 className="text-[0.95rem] font-bold text-tinta">Tu saldo</h3>
         <p className="mb-4 text-[0.8rem] text-frio">Cuántas respuestas te quedan y cuándo se renuevan.</p>

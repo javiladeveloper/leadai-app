@@ -101,6 +101,8 @@ export interface PerfilNegocio {
   objeciones: { objecion: string; respuesta: string }[];
   politicas: string;
   llamadaAccion: string;
+  mensajeBienvenida?: string;
+  respuestasFijas?: { palabra: string; respuesta: string }[];
 }
 
 export async function obtenerPerfil(): Promise<PerfilNegocio | null> {
@@ -253,6 +255,7 @@ export interface Catalogo {
 export interface MiPlan {
   plan: string;
   insistencia: "poca" | "normal" | "mucha";
+  botActivo: boolean;
 }
 
 export async function obtenerCatalogo(): Promise<Catalogo | null> {
@@ -273,6 +276,7 @@ export async function obtenerMiPlan(): Promise<MiPlan | null> {
 
 export async function guardarMiPlan(cfg: {
   insistencia?: "poca" | "normal" | "mucha";
+  botActivo?: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/mi-plan", { method: "PATCH", body: cfg });

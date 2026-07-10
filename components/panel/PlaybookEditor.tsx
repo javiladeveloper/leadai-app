@@ -16,6 +16,8 @@ const PERFIL_VACIO: PerfilNegocio = {
   objeciones: [],
   politicas: "",
   llamadaAccion: "",
+  mensajeBienvenida: "",
+  respuestasFijas: [],
 };
 
 type Estado = "cargando" | "idle" | "guardando" | "ok" | "error" | "error-carga";
@@ -125,6 +127,23 @@ export function PlaybookEditor() {
       <ListaObjeciones
         objeciones={perfil.objeciones}
         onChange={(objeciones) => setPerfil({ ...perfil, objeciones })}
+      />
+
+      <div>
+        <p className="mb-1 text-xs text-frio">
+          Es lo primero que el cliente lee cuando te escribe por primera vez.
+        </p>
+        <CampoArea
+          label="El primer saludo del bot"
+          value={perfil.mensajeBienvenida ?? ""}
+          onChange={(v) => setPerfil({ ...perfil, mensajeBienvenida: v })}
+          placeholder="Ej: ¡Hola! Soy el asistente de [tu negocio] 😊 ¿En qué te puedo ayudar?"
+        />
+      </div>
+
+      <ListaRespuestasFijas
+        respuestasFijas={perfil.respuestasFijas ?? []}
+        onChange={(respuestasFijas) => setPerfil({ ...perfil, respuestasFijas })}
       />
 
       <CampoArea
@@ -327,6 +346,71 @@ function ListaCatalogo({
         className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa"
       >
         + Agregar producto
+      </button>
+    </div>
+  );
+}
+
+// Respuestas listas: palabra clave + respuesta fija por fila. Si el cliente
+// escribe algo que contiene esa palabra, el bot responde esto directo, sin
+// pensarlo (útil para preguntas repetidas como precio, horario, ubicación).
+function ListaRespuestasFijas({
+  respuestasFijas,
+  onChange,
+}: {
+  respuestasFijas: { palabra: string; respuesta: string }[];
+  onChange: (v: { palabra: string; respuesta: string }[]) => void;
+}) {
+  function actualizar(i: number, campo: "palabra" | "respuesta", v: string) {
+    const copia = respuestasFijas.map((it, idx) => (idx === i ? { ...it, [campo]: v } : it));
+    onChange(copia);
+  }
+  function quitar(i: number) {
+    onChange(respuestasFijas.filter((_, idx) => idx !== i));
+  }
+  function agregar() {
+    onChange([...respuestasFijas, { palabra: "", respuesta: "" }]);
+  }
+
+  return (
+    <div className="rounded-xl border border-linea bg-arena/40 p-4">
+      <p className="text-sm font-medium text-tinta">Respuestas listas</p>
+      <p className="mb-2 text-xs text-frio">
+        Para preguntas que se repiten mucho: si el cliente escribe esa palabra, el bot contesta esto
+        directo, sin pensarlo.
+      </p>
+      <div className="space-y-3">
+        {respuestasFijas.map((item, i) => (
+          <div key={i} className="grid gap-2 rounded-lg bg-carta p-3 ring-1 ring-linea sm:grid-cols-[1fr_1fr_auto]">
+            <input
+              value={item.palabra}
+              onChange={(e) => actualizar(i, "palabra", e.target.value)}
+              placeholder="Si preguntan por... Ej: precio"
+              className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
+            />
+            <input
+              value={item.respuesta}
+              onChange={(e) => actualizar(i, "respuesta", e.target.value)}
+              placeholder="El bot responde... Ej: Depende de tu caso, ¿cuánto facturás al mes?"
+              className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
+            />
+            <button
+              type="button"
+              onClick={() => quitar(i)}
+              aria-label="Quitar"
+              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={agregar}
+        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa"
+      >
+        + Agregar respuesta lista
       </button>
     </div>
   );

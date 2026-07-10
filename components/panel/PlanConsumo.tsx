@@ -310,13 +310,13 @@ function TarjetaBotActivo({
         aria-label="¿El bot está atendiendo?"
         onClick={alternar}
         disabled={estadoGuardado === "guardando"}
-        className={`relative h-9 w-16 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
           activo ? "bg-ok" : "bg-arena-2 ring-1 ring-linea"
         }`}
       >
         <span
-          className={`absolute top-1 h-7 w-7 rounded-full bg-carta shadow-[var(--sombra-tarjeta)] transition-transform ${
-            activo ? "translate-x-8" : "translate-x-1"
+          className={`inline-block h-5 w-5 transform rounded-full bg-carta shadow transition-transform ${
+            activo ? "translate-x-6" : "translate-x-1"
           }`}
         />
       </button>

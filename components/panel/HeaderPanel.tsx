@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, cerrarSesion } from "@/lib/auth";
 import { IconoChevron } from "@/components/Iconos";
+import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
 
 // Header del panel: selector de empresa activa (Guisella maneja varias marcas)
 // + menú de usuario (cerrar sesión).
@@ -51,13 +52,16 @@ export function HeaderPanel() {
           <span className="text-sm font-semibold text-tinta">{nombreActiva}</span>
         )}
       </div>
-      <button
-        type="button"
-        onClick={salir}
-        className="flex items-center gap-1.5 text-sm font-medium text-frio hover:text-tinta"
-      >
-        Cerrar sesión <IconoChevron className="h-4 w-4" />
-      </button>
+      <div className="flex items-center gap-3">
+        <CampanaAlertas />
+        <button
+          type="button"
+          onClick={salir}
+          className="flex items-center gap-1.5 text-sm font-medium text-frio hover:text-tinta"
+        >
+          Cerrar sesión <IconoChevron className="h-4 w-4" />
+        </button>
+      </div>
     </header>
   );
 }

@@ -22,6 +22,10 @@ export function aReactFlow(grafo: GrafoFlujo): { nodes: Node[]; edges: Edge[] } 
     type: "brasa", // usamos un solo nodo custom que renderiza según n.tipo
     position: n.pos,
     data: { tipo: n.tipo, ...n.datos },
+    // El backend exige exactamente 1 nodo "inicio": no debe poder borrarse
+    // con Backspace/Delete ni dejar el grafo inválido.
+    deletable: n.tipo !== "inicio",
+    draggable: true,
   }));
   const edges: Edge[] = grafo.conexiones.map((c) => ({
     id: c.id, source: c.desde, target: c.hacia, sourceHandle: c.puerto ?? null,

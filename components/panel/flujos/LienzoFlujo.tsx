@@ -28,6 +28,13 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
       if (!f) { setEstado("no-encontrado"); return; }
       const { nodes, edges } = aReactFlow(f.grafo);
       setNodes(nodes); setEdges(edges); setNombre(f.nombre); setEstado("ok");
+      // Evita colisión de ids: el próximo nodo agregado debe arrancar después
+      // del mayor número visto entre los ids "nodo-N" ya existentes.
+      const maxN = nodes.reduce((max, n) => {
+        const m = /^nodo-(\d+)$/.exec(n.id);
+        return m ? Math.max(max, Number(m[1])) : max;
+      }, 0);
+      contadorRef.current = maxN;
     });
   }, [flujoId]);
 
@@ -65,7 +72,7 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
 
   if (estado === "no-encontrado") {
     return (
-      <div className="flex h-dvh flex-col items-center justify-center p-8">
+      <div className="flex h-full flex-col items-center justify-center p-8">
         <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
           <p className="text-sm font-semibold text-tinta">No encontramos este flujo</p>
           <button onClick={() => router.push("/flujos")}
@@ -78,7 +85,7 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
   }
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       <div className="flex items-center gap-3 border-b border-linea bg-carta px-5 py-3">
         <input value={nombre} onChange={(e) => setNombre(e.target.value)}
           className="flex-1 rounded-lg border border-linea bg-arena/40 px-3 py-1.5 text-sm font-semibold text-tinta outline-none focus:border-brasa" />

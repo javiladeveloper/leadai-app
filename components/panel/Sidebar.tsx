@@ -13,6 +13,7 @@ const SECCIONES = [
   { href: "/inicio", label: "Inicio", Icono: IconoInicio },
   { href: "/conversaciones", label: "Conversaciones", Icono: IconoConversaciones },
   { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
+  { href: "/flujos", label: "Flujos", Icono: IconoConversaciones },
   { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
   { href: "/configuracion", label: "Configuración", Icono: IconoConfig },

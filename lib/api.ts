@@ -318,4 +318,41 @@ export async function crearEmpresa(nombre: string): Promise<{ ok: boolean; error
   }
 }
 
+// Flujos: editor visual de bots con nodos y conexiones (Fase 4).
+export type NodoFlujo = { id: string; tipo: string; pos: { x: number; y: number }; datos: Record<string, unknown> };
+export type ConexionFlujo = { id: string; desde: string; hacia: string; puerto?: string };
+export type GrafoFlujo = { nodos: NodoFlujo[]; conexiones: ConexionFlujo[] };
+export interface Flujo { id: string; nombre: string; activo: boolean; grafo: GrafoFlujo }
+
+export async function listarFlujos(): Promise<Flujo[]> {
+  try { return await api<Flujo[]>("/flujos"); } catch { return []; }
+}
+
+export async function obtenerFlujo(id: string): Promise<Flujo | null> {
+  try { return await api<Flujo>(`/flujos/${id}`); } catch { return null; }
+}
+
+export async function crearFlujo(
+  nombre: string, grafo: GrafoFlujo,
+): Promise<{ ok: boolean; flujo?: Flujo; error?: string }> {
+  try {
+    const flujo = await api<Flujo>("/flujos", { method: "POST", body: { nombre, grafo } });
+    return { ok: true, flujo };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el flujo" }; }
+}
+
+export async function actualizarFlujo(
+  id: string, cambios: { nombre?: string; activo?: boolean; grafo?: GrafoFlujo },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/flujos/${id}`, { method: "PATCH", body: cambios });
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" }; }
+}
+
+export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
+  try { await api(`/flujos/${id}`, { method: "DELETE" }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
 export { API_URL };

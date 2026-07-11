@@ -23,11 +23,11 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   if (!listo) return null;
 
   return (
-    <div className="flex min-h-dvh bg-arena">
+    <div className="flex h-dvh bg-arena">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <HeaderPanel />
-        <main className="flex-1 overflow-x-hidden">{children}</main>
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">{children}</main>
         <div className="lg:hidden">
           <NavInferior />
         </div>

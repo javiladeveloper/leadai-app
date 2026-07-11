@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ReactFlow, Background, Controls, addEdge, applyNodeChanges, applyEdgeChanges,
@@ -9,6 +9,8 @@ import "@xyflow/react/dist/style.css";
 import { obtenerFlujo, actualizarFlujo } from "@/lib/api";
 import { aReactFlow, aBackend } from "@/lib/flujos";
 import { NodoTarjeta } from "./NodoTarjeta";
+import { PaletaNodos } from "./PaletaNodos";
+import { PanelPropiedades } from "./PanelPropiedades";
 
 export function LienzoFlujo({ flujoId }: { flujoId: string }) {
   const router = useRouter();
@@ -17,6 +19,8 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
   const [nombre, setNombre] = useState("");
   const [estado, setEstado] = useState<"cargando" | "ok" | "guardando" | "no-encontrado">("cargando");
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  const [selId, setSelId] = useState<string | null>(null);
+  const contadorRef = useRef(0);
   const nodeTypes = useMemo(() => ({ brasa: NodoTarjeta }), []);
 
   useEffect(() => {
@@ -30,6 +34,21 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
   const onNodesChange: OnNodesChange = useCallback((ch) => setNodes((ns) => applyNodeChanges(ch, ns)), []);
   const onEdgesChange: OnEdgesChange = useCallback((ch) => setEdges((es) => applyEdgeChanges(ch, es)), []);
   const onConnect = useCallback((c: Connection) => setEdges((es) => addEdge(c, es)), []);
+
+  const agregarNodo = useCallback((tipo: string) => {
+    contadorRef.current += 1;
+    const id = `nodo-${contadorRef.current}`;
+    setNodes((ns) => [
+      ...ns,
+      { id, type: "brasa", position: { x: 300, y: 120 + ns.length * 90 }, data: { tipo } },
+    ]);
+  }, []);
+
+  const cambiarDatos = useCallback((id: string, datos: Record<string, unknown>) => {
+    setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: datos } : n)));
+  }, []);
+
+  const nodoSel = nodes.find((n) => n.id === selId) ?? null;
 
   async function guardar() {
     setEstado("guardando");
@@ -69,14 +88,19 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
           {estado === "guardando" ? "Guardando…" : "Guardar"}
         </button>
       </div>
-      <div className="flex-1 min-h-0">
-        <ReactFlow
-          nodes={nodes} edges={edges} nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
-          fitView>
-          <Background />
-          <Controls />
-        </ReactFlow>
+      <div className="flex flex-1 min-h-0">
+        <PaletaNodos onAgregar={agregarNodo} />
+        <div className="flex-1 min-h-0">
+          <ReactFlow
+            nodes={nodes} edges={edges} nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
+            onNodeClick={(_, n) => setSelId(n.id)}
+            fitView>
+            <Background />
+            <Controls />
+          </ReactFlow>
+        </div>
+        <PanelPropiedades nodo={nodoSel} onCambiar={cambiarDatos} />
       </div>
     </div>
   );

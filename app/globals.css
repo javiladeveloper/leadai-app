@@ -92,6 +92,19 @@ button, [role="button"] {
   border-radius: 6px;
 }
 
+/* Campana que se agita cuando entra un lead caliente nuevo. */
+@keyframes campana {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(9deg); }
+  60% { transform: rotate(-6deg); }
+  75% { transform: rotate(3deg); }
+}
+.animate-campana {
+  animation: campana 0.9s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;

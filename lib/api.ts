@@ -402,4 +402,36 @@ export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
   catch { return { ok: false }; }
 }
 
+// ── Canales (redes conectadas) ──────────────────────────────
+export type TipoCanal = "whatsapp" | "instagram" | "messenger" | "tiktok";
+
+export interface Canal {
+  id: string;
+  tipo: TipoCanal;
+  cuentaExterna: string;   // número / handle / id de la cuenta conectada
+  nombre: string | null;
+  activo: boolean;
+  creadoEn: string;
+}
+
+export async function listarCanales(): Promise<Canal[]> {
+  try { return await api<Canal[]>("/canales"); } catch { return []; }
+}
+
+// URL de autorización OAuth para conectar una red (abre el popup de la red).
+export async function obtenerUrlOAuth(tipo: TipoCanal): Promise<string | null> {
+  try {
+    const r = await api<{ url: string }>(`/canales/${tipo}/oauth/url`);
+    return r.url;
+  } catch { return null; }
+}
+
+// Activar/desactivar o renombrar un canal conectado.
+export async function actualizarCanal(
+  id: string, cambios: { activo?: boolean; nombre?: string },
+): Promise<{ ok: boolean }> {
+  try { await api(`/canales/${id}`, { method: "PATCH", body: cambios }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
 export { API_URL };

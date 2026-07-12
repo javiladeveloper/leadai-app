@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
-import ConectarWhatsApp from "@/components/ConectarWhatsApp";
+import { PanelCanales } from "@/components/panel/PanelCanales";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
 
 // Pantalla de Configuración del panel, organizada en pestañas para no apilar
@@ -77,11 +77,11 @@ export default function ConfiguracionPanel() {
 
         {tab === "canales" && (
           <>
-            <h2 className="text-[1.05rem] font-bold text-tinta">Tus canales</h2>
+            <h2 className="text-[1.05rem] font-bold text-tinta">Tus redes</h2>
             <p className="mb-4 text-[0.82rem] text-frio">
-              Conectá WhatsApp para que LeadAI atienda por vos.
+              Conectá tus redes para que LeadAI atienda por vos en cada una.
             </p>
-            <ConectarWhatsApp />
+            <PanelCanales />
           </>
         )}
 

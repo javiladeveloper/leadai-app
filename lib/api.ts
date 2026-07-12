@@ -402,6 +402,34 @@ export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
   catch { return { ok: false }; }
 }
 
+// ── Oportunidades (marketplace de referidos) ────────────────
+export interface Oportunidad {
+  id: string;
+  rubro: string;
+  titulo: string;
+  descripcion: string;
+  comision: string;
+  zona: string;
+  contacto: string;
+  creadoEn: string;
+  tomada: boolean;
+}
+
+export async function listarOportunidades(rubro?: string): Promise<Oportunidad[]> {
+  const qs = rubro ? `?rubro=${encodeURIComponent(rubro)}` : "";
+  try { return await api<Oportunidad[]>(`/oportunidades${qs}`); } catch { return []; }
+}
+
+export async function tomarOportunidad(id: string): Promise<{ ok: boolean }> {
+  try { await api(`/oportunidades/${id}/tomar`, { method: "POST" }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
+export async function soltarOportunidad(id: string): Promise<{ ok: boolean }> {
+  try { await api(`/oportunidades/${id}/tomar`, { method: "DELETE" }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
 // Respuestas de un toque: las frases que la vendedora más usó (backend las
 // aprende de su uso). Para reenviar sin escribir. [] si falla.
 export async function obtenerFrasesRapidas(): Promise<{ id: string; texto: string }[]> {

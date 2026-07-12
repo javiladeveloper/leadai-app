@@ -6,7 +6,7 @@ import { leerSesion } from "@/lib/auth";
 import { ContadorHits } from "@/components/panel/ContadorHits";
 import {
   IconoInicio, IconoConversaciones, IconoSeguimiento, IconoFlujos,
-  IconoBandeja, IconoReportes, IconoConfig, IconoRayo,
+  IconoBandeja, IconoReportes, IconoConfig, IconoRayo, IconoOportunidades,
 } from "@/components/Iconos";
 
 const SECCIONES = [
@@ -14,6 +14,7 @@ const SECCIONES = [
   { href: "/conversaciones", label: "Conversaciones", Icono: IconoConversaciones },
   { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
+  { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
   { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
   { href: "/configuracion", label: "Configuración", Icono: IconoConfig },

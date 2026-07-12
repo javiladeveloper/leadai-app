@@ -102,7 +102,16 @@ function OpcionesEditor({
   const set = (i: number, etiqueta: string) => {
     const copia = [...opciones]; copia[i] = { ...copia[i], etiqueta }; onCambiar(copia);
   };
-  const agregar = () => onCambiar([...opciones, { id: `op${opciones.length + 1}`, etiqueta: "" }]);
+  // Id único basado en el máximo existente (no en .length): una secuencia
+  // agregar/quitar/agregar no debe reusar un id vivo (con multi-handle, un id
+  // duplicado engancharía la conexión a la opción equivocada).
+  const agregar = () => {
+    const maxN = opciones.reduce((m, o) => {
+      const n = Number(/^op(\d+)$/.exec(o.id)?.[1] ?? 0);
+      return n > m ? n : m;
+    }, 0);
+    onCambiar([...opciones, { id: `op${maxN + 1}`, etiqueta: "" }]);
+  };
   const quitar = (i: number) => onCambiar(opciones.filter((_, j) => j !== i));
   return (
     <div className="space-y-2">

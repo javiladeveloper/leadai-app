@@ -11,6 +11,7 @@ import {
   type EstadoLead,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { BadgeCanal } from "@/components/BadgeCanal";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -194,9 +195,9 @@ export default function SeguimientoPanel() {
                           </p>
                         )}
 
-                        <p className="mt-2 text-[0.72rem] font-medium uppercase tracking-wide text-frio">
-                          {lead.canalOrigen}
-                        </p>
+                        <div className="mt-2">
+                          <BadgeCanal canal={lead.canalOrigen} tamano="chico" />
+                        </div>
 
                         {/* Acciones de cierre — solo en etapas activas */}
                         {cerrable && (

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Temperatura } from "@/lib/tipos";
 import { haceTexto } from "@/lib/leads";
 import { ChipTemp } from "./ChipTemp";
-import { IconoWhatsApp, IconoInstagram } from "./Iconos";
+import { BadgeCanal } from "./BadgeCanal";
 
 // Shape mínimo que la tarjeta necesita para renderizarse. Tanto el `Lead` de
 // demo (lib/tipos, usado hoy en Conversaciones) como el `Lead` real del
@@ -20,13 +20,6 @@ export interface TarjetaLeadProps {
   haceMinutos?: number;
 }
 
-function CanalIcono({ canal }: { canal?: string }) {
-  if (!canal) return null;
-  if (canal === "whatsapp") return <IconoWhatsApp className="h-4 w-4 text-[#25D366]" />;
-  if (canal === "instagram") return <IconoInstagram className="h-4 w-4 text-[#C13584]" />;
-  return <span className="text-[0.7rem] text-frio">{canal}</span>;
-}
-
 // Tarjeta de un lead en la bandeja. Muestra el resumen que arma la IA — la
 // vendedora entiende de qué se trata sin abrir la conversación. Un toque entra.
 export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
@@ -40,11 +33,11 @@ export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate text-[1.05rem] font-bold text-tinta">{lead.nombre}</h3>
-            <CanalIcono canal={lead.canal} />
+          <h3 className="truncate text-[1.05rem] font-bold text-tinta">{lead.nombre}</h3>
+          <div className="mt-1 flex items-center gap-2">
+            <BadgeCanal canal={lead.canal} tamano="chico" />
+            {lead.empresa && <p className="truncate text-[0.8rem] text-frio">{lead.empresa}</p>}
           </div>
-          {lead.empresa && <p className="mt-0.5 text-[0.8rem] text-frio">{lead.empresa}</p>}
         </div>
         <ChipTemp t={lead.temperatura} />
       </div>

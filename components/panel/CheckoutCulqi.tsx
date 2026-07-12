@@ -190,7 +190,25 @@ export default function CheckoutCulqi({ hits, montoCentavos, onExito }: Props) {
       {estado === "cancelado" && (
         <p className="text-sm text-frio">Pago cancelado. Podés intentarlo de nuevo cuando quieras.</p>
       )}
-      {estado === "error" && <p className="text-sm text-brasa">{error}</p>}
+      {/* Error destacado (antes quedaba tapado por el widget de Culqi) */}
+      {estado === "error" && (
+        <div className="rounded-tarjeta bg-brasa-suave px-4 py-3">
+          <p className="text-sm font-semibold text-brasa-hondo">No se pudo completar el pago</p>
+          <p className="mt-0.5 text-[0.82rem] text-tinta-2">{error}</p>
+        </div>
+      )}
+
+      {/* Overlay de carga a pantalla completa: mientras se cobra con el backend,
+          el widget de Culqi ya se cerró y sin esto quedaba sin feedback. */}
+      {estado === "procesando" && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-tinta/40 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-tarjeta bg-carta px-8 py-7 shadow-[0_8px_24px_rgba(51,40,31,0.2)]">
+            <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-linea border-t-brasa" />
+            <p className="text-sm font-semibold text-tinta">Procesando tu pago…</p>
+            <p className="text-[0.78rem] text-frio">No cierres esta ventana</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

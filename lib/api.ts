@@ -402,6 +402,13 @@ export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
   catch { return { ok: false }; }
 }
 
+// Respuestas de un toque: las frases que la vendedora más usó (backend las
+// aprende de su uso). Para reenviar sin escribir. [] si falla.
+export async function obtenerFrasesRapidas(): Promise<{ id: string; texto: string }[]> {
+  try { return await api<{ id: string; texto: string }[]>("/frases-rapidas"); }
+  catch { return []; }
+}
+
 // ── Canales (redes conectadas) ──────────────────────────────
 export type TipoCanal = "whatsapp" | "instagram" | "messenger" | "tiktok";
 

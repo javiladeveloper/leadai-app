@@ -144,8 +144,22 @@ export interface Lead {
   estado: EstadoLead;
   resumenIA: string | null;
   borradorIA: string | null;
+  nota: string | null;
   creadoEn: string;
   actualizadoEn: string;
+}
+
+// Edita datos manuales del lead: nombre y/o nota privada. Backend: PATCH /leads/:id.
+export async function actualizarLead(
+  id: string,
+  cambios: { nombre?: string | null; nota?: string | null },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/leads/${id}`, { method: "PATCH", body: cambios });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
 }
 
 export interface Mensaje {

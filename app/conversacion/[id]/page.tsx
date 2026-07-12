@@ -16,6 +16,7 @@ import { usePolling } from "@/lib/usePolling";
 import { ChipTemp } from "@/components/ChipTemp";
 import { BadgeCanal } from "@/components/BadgeCanal";
 import { AccionesContacto } from "@/components/AccionesContacto";
+import { NotaLead } from "@/components/panel/NotaLead";
 import { Burbuja } from "@/components/Burbuja";
 import { IconoChevron, IconoMic, IconoEnviar } from "@/components/Iconos";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
@@ -429,6 +430,9 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
             <AccionesContacto canal={lead.canalOrigen} contacto={lead.contactoExterno} />
           </div>
         </div>
+
+        {/* Nombre editable + nota privada de la vendedora */}
+        <NotaLead leadId={lead.id} nombre={lead.nombre} nota={lead.nota} onGuardado={cargar} />
 
         {/* Lo que ofrecés */}
         {catalogo.length > 0 ? (

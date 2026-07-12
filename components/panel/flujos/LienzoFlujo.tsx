@@ -7,7 +7,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { obtenerFlujo, actualizarFlujo } from "@/lib/api";
-import { aReactFlow, aBackend } from "@/lib/flujos";
+import { aReactFlow, aBackend, validarGrafoUI } from "@/lib/flujos";
 import { NodoTarjeta } from "./NodoTarjeta";
 import { PaletaNodos } from "./PaletaNodos";
 import { PanelPropiedades } from "./PanelPropiedades";
@@ -58,6 +58,9 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
   const nodoSel = nodes.find((n) => n.id === selId) ?? null;
 
   async function guardar() {
+    // Validación amigable antes de tocar la API: avisa con lenguaje simple.
+    const problema = validarGrafoUI(nodes, edges);
+    if (problema) { setErrorGuardar(problema); return; }
     setEstado("guardando");
     const r = await actualizarFlujo(flujoId, { nombre, grafo: aBackend(nodes, edges) });
     if (!r.ok) {

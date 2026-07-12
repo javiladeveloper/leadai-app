@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { usePolling } from "@/lib/usePolling";
 import { ChipTemp } from "@/components/ChipTemp";
+import { BadgeCanal } from "@/components/BadgeCanal";
 import { Burbuja } from "@/components/Burbuja";
 import { IconoChevron, IconoMic, IconoEnviar } from "@/components/Iconos";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
@@ -291,7 +292,10 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
             </Link>
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-[1.1rem] font-bold text-tinta">{nombre}</h1>
-              <p className="truncate text-[0.78rem] text-frio">{lead.contactoExterno}</p>
+              <div className="mt-0.5 flex items-center gap-2">
+                <BadgeCanal canal={lead.canalOrigen} tamano="chico" />
+                <p className="truncate text-[0.78rem] text-frio">{lead.contactoExterno}</p>
+              </div>
             </div>
             <ChipTemp t={lead.nivelInteres} />
           </div>

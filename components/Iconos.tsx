@@ -70,6 +70,22 @@ export function IconoInstagram({ className }: P) {
   );
 }
 
+export function IconoMessenger({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2C6.3 2 2 6.2 2 11.7c0 2.9 1.2 5.4 3.1 7.1.2.1.3.3.3.6l.1 1.7c0 .5.6.9 1.1.7l1.9-.8c.2-.1.4-.1.6-.1 1 .3 2 .4 3.1.4 5.7 0 10-4.2 10-9.7C22 6.2 17.7 2 12 2Zm6 7.5-2.9 4.7c-.5.7-1.5.9-2.2.4l-2.3-1.7a.6.6 0 0 0-.7 0l-3.1 2.4c-.4.3-1-.2-.7-.6l2.9-4.7c.5-.7 1.5-.9 2.2-.4l2.3 1.7c.2.2.5.2.7 0l3.1-2.4c.4-.3 1 .2.7.6Z" />
+    </svg>
+  );
+}
+
+export function IconoTikTok({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M16.5 3c.3 2 1.5 3.6 3.5 3.9v2.6c-1.3.1-2.5-.3-3.6-1v5.9c0 3.4-2.5 5.6-5.6 5.6-3 0-5.3-2.3-5.3-5.2 0-3.1 2.6-5.4 6-5v2.7c-.4-.1-.8-.2-1.2-.2-1.3 0-2.3 1-2.3 2.4 0 1.4 1 2.4 2.4 2.4 1.4 0 2.4-1 2.4-2.6V3h3.3Z" />
+    </svg>
+  );
+}
+
 export function IconoChevron({ className }: P) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>

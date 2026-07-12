@@ -44,6 +44,53 @@ export function PanelPropiedades({
       )}
       {tipo === "ia" && <p className="text-[0.85rem] text-frio">La IA toma la conversación con el perfil del negocio.</p>}
       {tipo === "escalar" && <p className="text-[0.85rem] text-frio">Le avisa a una persona con lo que se sabe del cliente.</p>}
+      {tipo === "condicion" && (
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-tinta">Si el lead…</span>
+            <select value={String(data.campo ?? "nivelInteres")} onChange={(e) => set("campo", e.target.value)}
+              className="w-full rounded-lg border border-linea bg-arena/30 px-3 py-2 text-sm text-tinta outline-none focus:border-brasa">
+              <option value="nivelInteres">Su interés</option>
+              <option value="estado">Su etapa</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-tinta">es igual a</span>
+            <input value={String(data.valor ?? "")} onChange={(e) => onCambiar(nodo.id, { ...data, operador: "es", valor: e.target.value })}
+              placeholder="ej: caliente, ganado"
+              className="w-full rounded-lg border border-linea bg-arena/30 px-3 py-2 text-sm text-tinta outline-none focus:border-brasa" />
+          </label>
+          <p className="text-[0.78rem] text-frio">Conectá la salida &quot;Sí&quot; y la &quot;No&quot; a distintos pasos.</p>
+        </div>
+      )}
+      {tipo === "accion" && (
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-tinta">¿Qué hago?</span>
+            <select value={String(data.accion ?? "etiquetar")} onChange={(e) => set("accion", e.target.value)}
+              className="w-full rounded-lg border border-linea bg-arena/30 px-3 py-2 text-sm text-tinta outline-none focus:border-brasa">
+              <option value="etiquetar">Ponerle una etiqueta</option>
+              <option value="notificar">Avisarme a mí</option>
+            </select>
+          </label>
+          {String(data.accion ?? "etiquetar") === "etiquetar" && (
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-tinta">Etiqueta</span>
+              <input value={String(data.etiqueta ?? "")} onChange={(e) => set("etiqueta", e.target.value)}
+                placeholder="ej: interesado-vip"
+                className="w-full rounded-lg border border-linea bg-arena/30 px-3 py-2 text-sm text-tinta outline-none focus:border-brasa" />
+            </label>
+          )}
+          {String(data.accion ?? "") === "notificar" && (
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-tinta">Mensaje del aviso</span>
+              <input value={String(data.mensaje ?? "")} onChange={(e) => set("mensaje", e.target.value)}
+                placeholder="ej: Nuevo lead VIP"
+                className="w-full rounded-lg border border-linea bg-arena/30 px-3 py-2 text-sm text-tinta outline-none focus:border-brasa" />
+            </label>
+          )}
+        </div>
+      )}
       {tipo === "inicio" && <p className="text-[0.85rem] text-frio">Es donde empieza el flujo. No se edita.</p>}
     </div>
   );

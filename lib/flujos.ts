@@ -13,6 +13,8 @@ export const TIPOS_NODO_UI: {
   { tipo: "ia", etiqueta: "Pasar a la IA", descripcion: "La IA toma la conversación", acento: "brasa" },
   { tipo: "pedir_dato", etiqueta: "Pedir un dato", descripcion: "Pregunta y guarda la respuesta", acento: "tibio" },
   { tipo: "escalar", etiqueta: "Avisar a una persona", descripcion: "Escala a un humano", acento: "brasa" },
+  { tipo: "condicion", etiqueta: "Condición (sí/no)", descripcion: "Ramifica según cómo esté el lead", acento: "tibio" },
+  { tipo: "accion", etiqueta: "Acción", descripcion: "Etiqueta el lead o te avisa", acento: "ok" },
 ];
 
 // Backend -> React Flow.

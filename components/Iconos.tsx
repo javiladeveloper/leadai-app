@@ -112,3 +112,15 @@ export function IconoSeguimiento({ className }: P) {
     </svg>
   );
 }
+
+// Diagrama de nodos conectados — para la sección Flujos del bot.
+export function IconoFlujos({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="4" y="3" width="7" height="5" rx="1" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <rect x="3" y="16" width="7" height="5" rx="1" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <rect x="14" y="16" width="7" height="5" rx="1" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M7.5 8v4m0 0h10v4m-10-4v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

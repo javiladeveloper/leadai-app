@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { leerSesion } from "@/lib/auth";
 import { ContadorHits } from "@/components/panel/ContadorHits";
 import {
-  IconoInicio, IconoConversaciones, IconoSeguimiento,
+  IconoInicio, IconoConversaciones, IconoSeguimiento, IconoFlujos,
   IconoBandeja, IconoReportes, IconoConfig, IconoRayo,
 } from "@/components/Iconos";
 
@@ -13,7 +13,7 @@ const SECCIONES = [
   { href: "/inicio", label: "Inicio", Icono: IconoInicio },
   { href: "/conversaciones", label: "Conversaciones", Icono: IconoConversaciones },
   { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
-  { href: "/flujos", label: "Flujos", Icono: IconoConversaciones },
+  { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
   { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
   { href: "/configuracion", label: "Configuración", Icono: IconoConfig },

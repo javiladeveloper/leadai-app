@@ -4,13 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { listarFlujos, crearFlujo, eliminarFlujo, actualizarFlujo, type Flujo } from "@/lib/api";
+import { PLANTILLA_FLUJO } from "@/lib/flujos";
 import { SkeletonLista } from "@/components/Skeletons";
-
-// Grafo mínimo para un flujo nuevo: solo el nodo inicio (el backend exige uno).
-const GRAFO_INICIAL = {
-  nodos: [{ id: "inicio", tipo: "inicio", pos: { x: 250, y: 40 }, datos: {} }],
-  conexiones: [],
-};
 
 export default function FlujosPanel() {
   const router = useRouter();
@@ -33,7 +28,7 @@ export default function FlujosPanel() {
 
   async function nuevo() {
     setCreando(true);
-    const r = await crearFlujo("Flujo sin nombre", GRAFO_INICIAL);
+    const r = await crearFlujo("Flujo sin nombre", PLANTILLA_FLUJO);
     setCreando(false);
     if (r.ok && r.flujo) router.push(`/flujos/${r.flujo.id}`);
   }

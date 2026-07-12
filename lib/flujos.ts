@@ -1,6 +1,46 @@
 import type { GrafoFlujo, NodoFlujo } from "./api";
 import type { Node, Edge } from "@xyflow/react";
 
+// Plantilla inicial al crear un flujo: un ejemplo armado para no arrancar de cero.
+export const PLANTILLA_FLUJO: GrafoFlujo = {
+  nodos: [
+    { id: "inicio", tipo: "inicio", pos: { x: 300, y: 20 }, datos: {} },
+    { id: "nodo-1", tipo: "mensaje", pos: { x: 280, y: 120 }, datos: { texto: "¡Hola! 👋 ¿En qué te puedo ayudar?" } },
+    { id: "nodo-2", tipo: "opciones", pos: { x: 280, y: 240 }, datos: {
+      pregunta: "Elegí una opción:",
+      opciones: [
+        { id: "op1", etiqueta: "Ver precios" },
+        { id: "op2", etiqueta: "Hablar con alguien" },
+      ],
+    } },
+    { id: "nodo-3", tipo: "fija", pos: { x: 120, y: 400 }, datos: { texto: "Nuestros precios son… (editá este texto)" } },
+    { id: "nodo-4", tipo: "ia", pos: { x: 440, y: 400 }, datos: {} },
+  ],
+  conexiones: [
+    { id: "c1", desde: "inicio", hacia: "nodo-1" },
+    { id: "c2", desde: "nodo-1", hacia: "nodo-2" },
+    { id: "c3", desde: "nodo-2", hacia: "nodo-3", puerto: "op1" },
+    { id: "c4", desde: "nodo-2", hacia: "nodo-4", puerto: "op2" },
+  ],
+};
+
+// Validación amigable antes de guardar. Devuelve un mensaje en lenguaje simple
+// si algo está mal, o null si el flujo está OK.
+export function validarGrafoUI(nodes: Node[], edges: Edge[]): string | null {
+  const inicios = nodes.filter((n) => (n.data as { tipo?: string })?.tipo === "inicio");
+  if (inicios.length !== 1) {
+    return "El flujo necesita un único paso de Inicio.";
+  }
+  const conEntrada = new Set(edges.map((e) => e.target));
+  const sueltos = nodes.filter(
+    (n) => (n.data as { tipo?: string })?.tipo !== "inicio" && !conEntrada.has(n.id),
+  );
+  if (sueltos.length > 0) {
+    return `Hay ${sueltos.length} paso(s) sin conectar. Conectá cada paso al flujo antes de guardar.`;
+  }
+  return null;
+}
+
 // Metadatos de cada tipo de nodo: etiqueta legible, descripción y acento (token
 // Brasa) para la paleta y el estilo del nodo en el canvas.
 export const TIPOS_NODO_UI: {

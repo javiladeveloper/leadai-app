@@ -22,6 +22,15 @@ import type { Mensaje as MensajeUI } from "@/lib/tipos";
 
 type Estado = "cargando" | "ok" | "error" | "no-encontrado";
 
+// Estado del lead en lenguaje simple (mismo criterio que la pantalla de Leads).
+const ESTADO_SIMPLE: Record<string, string> = {
+  nuevo: "Nuevo",
+  nutriendo: "En seguimiento",
+  escalado: "Para atender",
+  ganado: "Ganado",
+  perdido: "Perdido",
+};
+
 // Convierte un timestamp ISO en minutos transcurridos hasta ahora.
 function minutosDesde(iso: string): number {
   const ms = Date.now() - new Date(iso).getTime();
@@ -254,7 +263,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           }
         }}
         rows={1}
-        placeholder="Escribí o tocá el micrófono…"
+        placeholder="Escribí tu mensaje…"
         className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
       />
       {texto.trim() ? (
@@ -268,8 +277,11 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
         </button>
       ) : (
         <button
-          aria-label="Grabar nota de voz"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tinta text-carta"
+          type="button"
+          aria-label="Notas de voz (próximamente)"
+          title="Notas de voz — próximamente"
+          disabled
+          className="flex h-12 w-12 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-arena-2 text-frio opacity-60"
         >
           <IconoMic className="h-6 w-6" />
         </button>
@@ -409,7 +421,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
             </div>
             <div className="flex items-center justify-between gap-2">
               <dt className="text-frio">Estado</dt>
-              <dd className="truncate text-right text-tinta-2">{lead.estado}</dd>
+              <dd className="truncate text-right text-tinta-2">{ESTADO_SIMPLE[lead.estado] ?? lead.estado}</dd>
             </div>
           </dl>
           {/* Contactar directo: llamar o abrir WhatsApp (solo si hay número). */}

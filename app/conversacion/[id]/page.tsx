@@ -8,6 +8,7 @@ import {
   obtenerLead,
   accionLead,
   obtenerPerfil,
+  obtenerFrasesRapidas,
   type LeadDetalle,
   type Mensaje as MensajeApi,
   type PerfilNegocio,
@@ -68,6 +69,9 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
   const dictado = useDictado((fragmento) =>
     setTexto((t) => (t ? `${t} ${fragmento}` : fragmento)),
   );
+  // Respuestas de un toque (las frases que más usa). Se cargan una vez.
+  const [frases, setFrases] = useState<{ id: string; texto: string }[]>([]);
+  useEffect(() => { obtenerFrasesRapidas().then(setFrases); }, []);
 
   // Carga el borrador en el campo de respuesta y enfoca el cursor al final,
   // para que el usuario vea que ya puede editarlo antes de enviar.
@@ -257,7 +261,24 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
 
   // Composición (textarea + enviar/mic) — compartida entre mobile y desktop.
   const composicion = (
-    <div className="flex items-end gap-2">
+    <div className="space-y-2">
+      {/* Respuestas de un toque: tocá una y se pone en el mensaje, listo para
+          enviar o editar. Se aprenden de lo que más usás. */}
+      {frases.length > 0 && !texto.trim() && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {frases.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setTexto(f.texto)}
+              className="shrink-0 rounded-chip bg-arena px-3 py-1.5 text-[0.82rem] font-medium text-tinta-2 ring-1 ring-linea transition hover:bg-arena-2 hover:text-tinta"
+            >
+              {f.texto.length > 40 ? f.texto.slice(0, 38) + "…" : f.texto}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex items-end gap-2">
       <textarea
         ref={textareaRef}
         value={texto}
@@ -299,6 +320,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           <IconoEnviar className="h-6 w-6" />
         </button>
       )}
+      </div>
     </div>
   );
 

@@ -29,6 +29,8 @@ function resumenDeDatos(tipo: string, data: Record<string, unknown>): string {
   if (tipo === "opciones" || tipo === "pedir_dato") return String(data.pregunta ?? "");
   if (tipo === "ia") return "La IA responde";
   if (tipo === "escalar") return "Avisa a una persona";
+  if (tipo === "condicion") return `Si ${String(data.campo ?? "")} = ${String(data.valor ?? "")}`;
+  if (tipo === "accion") return String(data.accion === "notificar" ? "Avisar a la dueña" : `Etiqueta: ${data.etiqueta ?? ""}`);
   if (tipo === "inicio") return "Empieza acá";
   return "";
 }

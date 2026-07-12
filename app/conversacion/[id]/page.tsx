@@ -15,6 +15,7 @@ import {
 import { usePolling } from "@/lib/usePolling";
 import { ChipTemp } from "@/components/ChipTemp";
 import { BadgeCanal } from "@/components/BadgeCanal";
+import { AccionesContacto } from "@/components/AccionesContacto";
 import { Burbuja } from "@/components/Burbuja";
 import { IconoChevron, IconoMic, IconoEnviar } from "@/components/Iconos";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
@@ -297,6 +298,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
                 <p className="truncate text-[0.78rem] text-frio">{lead.contactoExterno}</p>
               </div>
             </div>
+            <AccionesContacto canal={lead.canalOrigen} contacto={lead.contactoExterno} compacto />
             <ChipTemp t={lead.nivelInteres} />
           </div>
         </header>
@@ -397,7 +399,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
             </div>
             <div className="flex items-center justify-between gap-2">
               <dt className="text-frio">Canal</dt>
-              <dd className="truncate text-right text-tinta-2">{lead.canalOrigen}</dd>
+              <dd><BadgeCanal canal={lead.canalOrigen} tamano="chico" /></dd>
             </div>
             <div className="flex items-center justify-between gap-2">
               <dt className="text-frio">Nivel</dt>
@@ -410,6 +412,10 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
               <dd className="truncate text-right text-tinta-2">{lead.estado}</dd>
             </div>
           </dl>
+          {/* Contactar directo: llamar o abrir WhatsApp (solo si hay número). */}
+          <div className="mt-3">
+            <AccionesContacto canal={lead.canalOrigen} contacto={lead.contactoExterno} />
+          </div>
         </div>
 
         {/* Lo que ofrecés */}

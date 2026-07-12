@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
-import { obtenerComisiones, type Comision } from "@/lib/api";
+import { obtenerComisiones, actualizarComision, type Comision } from "@/lib/api";
 import { SkeletonReportes } from "@/components/Skeletons";
 
 const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
@@ -36,26 +36,30 @@ export default function ReportesPanel() {
     setListo(true);
   }, [router]);
 
+  const cargarComisiones = useCallback(async () => {
+    try {
+      setCargando(true);
+      setError(null);
+      const { items, resumen: res } = await obtenerComisiones();
+      setComisiones(items);
+      setResumen(res);
+    } catch (err) {
+      setError("No pudimos cargar los reportes. Recargá.");
+      console.error(err);
+    } finally {
+      setCargando(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!listo) return;
-
-    const cargarComisiones = async () => {
-      try {
-        setCargando(true);
-        setError(null);
-        const { items, resumen: res } = await obtenerComisiones();
-        setComisiones(items);
-        setResumen(res);
-      } catch (err) {
-        setError("No pudimos cargar los reportes. Recargá.");
-        console.error(err);
-      } finally {
-        setCargando(false);
-      }
-    };
-
     cargarComisiones();
-  }, [listo]);
+  }, [listo, cargarComisiones]);
+
+  async function marcarCobrada(id: string) {
+    const r = await actualizarComision(id, "pagada");
+    if (r.ok) cargarComisiones();
+  }
 
   if (!listo) return null;
 
@@ -106,12 +110,15 @@ export default function ReportesPanel() {
                     <th className="px-6 py-4 text-right text-[0.85rem] font-bold text-tinta-2">Monto</th>
                     <th className="px-6 py-4 text-center text-[0.85rem] font-bold text-tinta-2">Estado</th>
                     <th className="px-6 py-4 text-right text-[0.85rem] font-bold text-tinta-2">Fecha</th>
+                    <th className="px-6 py-4 text-right text-[0.85rem] font-bold text-tinta-2"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {comisiones.map((c) => (
                     <tr key={c.id} className="border-b border-arena last:border-b-0">
-                      <td className="px-6 py-4 text-[0.95rem] font-semibold text-tinta">{c.leadId}</td>
+                      <td className="px-6 py-4 text-[0.95rem] font-semibold text-tinta">
+                        {c.lead?.nombre?.trim() || "Sin nombre"}
+                      </td>
                       <td className="px-6 py-4 text-right text-[0.95rem] font-bold text-tinta">{soles(c.monto)}</td>
                       <td className="px-6 py-4 text-center">
                         <span
@@ -124,6 +131,16 @@ export default function ReportesPanel() {
                       </td>
                       <td className="px-6 py-4 text-right text-[0.9rem] text-tinta-2">
                         {new Date(c.creadoEn).toLocaleDateString("es-PE")}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {c.estado === "pendiente" && (
+                          <button
+                            onClick={() => marcarCobrada(c.id)}
+                            className="rounded-chip bg-ok/12 px-3 py-1.5 text-[0.78rem] font-bold text-ok transition hover:bg-ok/20"
+                          >
+                            Marcar cobrada
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

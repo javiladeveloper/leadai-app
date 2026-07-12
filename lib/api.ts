@@ -144,8 +144,22 @@ export interface Lead {
   estado: EstadoLead;
   resumenIA: string | null;
   borradorIA: string | null;
+  nota: string | null;
   creadoEn: string;
   actualizadoEn: string;
+}
+
+// Edita datos manuales del lead: nombre y/o nota privada. Backend: PATCH /leads/:id.
+export async function actualizarLead(
+  id: string,
+  cambios: { nombre?: string | null; nota?: string | null },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/leads/${id}`, { method: "PATCH", body: cambios });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
 }
 
 export interface Mensaje {
@@ -166,6 +180,21 @@ export interface Comision {
   monto: number;
   leadId: string;
   creadoEn: string;
+  // El backend incluye el lead (nombre para mostrar en Reportes).
+  lead?: { id: string; nombre: string | null; canalOrigen?: string };
+}
+
+// Marca una comisión como cobrada (o cambia su estado). Backend: PATCH /comisiones/:id.
+export async function actualizarComision(
+  id: string,
+  estado: "pendiente" | "pagada",
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/comisiones/${id}`, { method: "PATCH", body: { estado } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo actualizar" };
+  }
 }
 
 export interface Resumen {
@@ -226,6 +255,24 @@ export async function obtenerComisiones(): Promise<{
 
 export async function obtenerResumen(): Promise<Resumen> {
   return api<Resumen>("/resumen");
+}
+
+export interface Alerta {
+  tipo: "umbral" | "bloqueo";
+  usado: number;
+  limite: number;
+  mensaje: string;
+  ts: string;
+}
+
+// Avisos reales del backend: cuota por agotarse (umbral) o bot pausado por falta
+// de saldo (bloqueo). Devuelve [] si no hay o si falla (no rompe la campana).
+export async function obtenerAlertas(): Promise<Alerta[]> {
+  try {
+    return await api<Alerta[]>("/alertas");
+  } catch {
+    return [];
+  }
 }
 
 export interface Uso {

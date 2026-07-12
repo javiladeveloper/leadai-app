@@ -356,7 +356,7 @@ export default function ConversacionesPanel() {
                       }
                     }}
                     rows={1}
-                    placeholder="Escribí o tocá el micrófono…"
+                    placeholder="Escribí tu mensaje…"
                     className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
                   />
                   {texto.trim() ? (
@@ -370,8 +370,11 @@ export default function ConversacionesPanel() {
                     </button>
                   ) : (
                     <button
-                      aria-label="Grabar nota de voz"
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tinta text-carta"
+                      type="button"
+                      aria-label="Notas de voz (próximamente)"
+                      title="Notas de voz — próximamente"
+                      disabled
+                      className="flex h-12 w-12 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-arena-2 text-frio opacity-60"
                     >
                       <IconoMic className="h-6 w-6" />
                     </button>

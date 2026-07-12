@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion, leerSesion } from "@/lib/auth";
+import { haySesion, leerSesion, guardarSesion } from "@/lib/auth";
 import { hayGoogle, renderBotonGoogle } from "@/lib/google";
-import { entrarConGoogle, entrarDemo } from "@/lib/sesion";
+import { entrarConGoogle, entrarConEmail, entrarDemo } from "@/lib/sesion";
 import { ApiError } from "@/lib/api";
 import { IconoRayo, IconoGoogle } from "@/components/Iconos";
 
@@ -15,6 +15,10 @@ export default function Login() {
   const botonRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  // Login por correo (para cuentas con contraseña, ej. el revisor de pagos).
+  const [verCorreo, setVerCorreo] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   // Tras entrar: si el usuario aún no tiene un negocio, lo mandamos al
   // onboarding (/bienvenida); si ya tiene, al panel.
@@ -46,6 +50,20 @@ export default function Login() {
   function entrarComoDemo() {
     entrarDemo();
     router.replace(destinoTrasEntrar());
+  }
+
+  async function entrarPorCorreo(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setCargando(true);
+    try {
+      const sesion = await entrarConEmail(email.trim(), password);
+      guardarSesion(sesion);
+      router.replace(destinoTrasEntrar());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Correo o contraseña incorrectos.");
+      setCargando(false);
+    }
   }
 
   return (
@@ -88,6 +106,42 @@ export default function Login() {
           <p className="text-center text-[0.85rem] text-frio">
             Modo demostración · se conecta con Google al configurar la cuenta
           </p>
+        )}
+
+        {/* Login por correo (cuentas con contraseña). Colapsado por defecto. */}
+        {!verCorreo ? (
+          <button
+            onClick={() => setVerCorreo(true)}
+            className="text-center text-[0.82rem] font-semibold text-tinta-2 underline-offset-2 hover:underline"
+          >
+            Entrar con correo y contraseña
+          </button>
+        ) : (
+          <form onSubmit={entrarPorCorreo} className="flex flex-col gap-2.5">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Correo"
+              autoComplete="email"
+              className="rounded-tarjeta border border-linea bg-carta px-4 py-3 text-[0.95rem] text-tinta outline-none focus:border-brasa"
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Contraseña"
+              autoComplete="current-password"
+              className="rounded-tarjeta border border-linea bg-carta px-4 py-3 text-[0.95rem] text-tinta outline-none focus:border-brasa"
+            />
+            <button
+              type="submit"
+              disabled={cargando || !email.trim() || !password}
+              className="rounded-chip bg-brasa px-6 py-3 text-[1rem] font-bold text-carta transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-60"
+            >
+              {cargando ? "Entrando…" : "Entrar"}
+            </button>
+          </form>
         )}
 
         <p className="mt-2 text-center text-[0.8rem] text-frio">

@@ -2,10 +2,9 @@ import { IconoWhatsApp, IconoInstagram, IconoMessenger, IconoTikTok } from "./Ic
 
 // Metadatos por canal: ícono, nombre legible y color de marca. Cubre los canales
 // que el backend puede reportar en Lead.canalOrigen (TipoCanal).
-const CANALES: Record<
-  string,
-  { nombre: string; Icono: (p: { className?: string }) => React.ReactElement; color: string }
-> = {
+type IconoComp = (p: { className?: string }) => React.ReactNode;
+
+const CANALES: Record<string, { nombre: string; Icono: IconoComp; color: string }> = {
   whatsapp: { nombre: "WhatsApp", Icono: IconoWhatsApp, color: "#25D366" },
   instagram: { nombre: "Instagram", Icono: IconoInstagram, color: "#C13584" },
   messenger: { nombre: "Messenger", Icono: IconoMessenger, color: "#0084FF" },

@@ -30,7 +30,7 @@ export function aReactFlow(grafo: GrafoFlujo): { nodes: Node[]; edges: Edge[] } 
     draggable: true,
   }));
   const edges: Edge[] = grafo.conexiones.map((c) => ({
-    id: c.id, source: c.desde, target: c.hacia, sourceHandle: c.puerto ?? null,
+    id: c.id, source: c.desde, target: c.hacia, sourceHandle: c.puerto ?? "default",
   }));
   return { nodes, edges };
 }
@@ -43,7 +43,7 @@ export function aBackend(nodes: Node[], edges: Edge[]): GrafoFlujo {
   });
   const conexiones = edges.map((e) => ({
     id: e.id, desde: e.source, hacia: e.target,
-    ...(e.sourceHandle ? { puerto: e.sourceHandle } : {}),
+    ...(e.sourceHandle && e.sourceHandle !== "default" ? { puerto: e.sourceHandle } : {}),
   }));
   return { nodos, conexiones };
 }

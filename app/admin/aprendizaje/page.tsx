@@ -1,41 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { haySesion, esSuperAdmin } from "@/lib/auth";
 import { obtenerProgresoEntrenamiento, type ProgresoRubro } from "@/lib/api";
 import { RUBROS, etiquetaRubro } from "@/lib/rubros";
 import { SkeletonLista } from "@/components/Skeletons";
 
-// Umbral orientativo de ejemplos "ganados" para que un rubro tenga datos
-// suficientes para pensar en un fine-tuning. Es una guía visual, no una regla.
+// Umbral orientativo de ejemplos "ganados" para pensar en un fine-tuning por
+// rubro. Guía visual, no una regla dura.
 const META_ENTRENAMIENTO = 500;
-
-// Etiqueta y emoji del rubro salen de la lista canónica (lib/rubros).
 const emojiRubro = (id: string) => RUBROS.find((r) => r.id === id)?.emoji ?? "💼";
 
-export default function EntrenamientoPanel() {
-  const router = useRouter();
-  const [listo, setListo] = useState(false);
-  const [estado, setEstado] = useState<"cargando" | "ok" | "error">("cargando");
+// Panel de super admin: progreso del dataset de entrenamiento por rubro (dato
+// global de plataforma). El guard de super admin lo hace app/admin/layout.tsx.
+export default function AdminAprendizaje() {
   const [rubros, setRubros] = useState<ProgresoRubro[]>([]);
+  const [estado, setEstado] = useState<"cargando" | "ok" | "error">("cargando");
 
   useEffect(() => {
-    if (!haySesion()) { router.replace("/"); return; }
-    // Panel de plataforma (datos globales): solo super admin. Un socio que
-    // llegue por URL directa se va a su inicio. El backend igual bloquea (403).
-    if (!esSuperAdmin()) { router.replace("/inicio"); return; }
-    setListo(true);
-  }, [router]);
-
-  useEffect(() => {
-    if (!listo) return;
     obtenerProgresoEntrenamiento()
       .then((r) => { setRubros(r); setEstado("ok"); })
       .catch(() => setEstado("error"));
-  }, [listo]);
-
-  if (!listo) return null;
+  }, []);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 px-5 py-6 lg:px-8">
@@ -68,7 +53,7 @@ export default function EntrenamientoPanel() {
         <div className="space-y-3">
           {rubros.map((r) => {
             const pct = Math.min(100, Math.round((r.ganados / META_ENTRENAMIENTO) * 100));
-            const listo = r.ganados >= META_ENTRENAMIENTO;
+            const completo = r.ganados >= META_ENTRENAMIENTO;
             return (
               <div key={r.rubro} className="rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <div className="flex items-center justify-between gap-2">
@@ -76,16 +61,15 @@ export default function EntrenamientoPanel() {
                     <span className="text-xl">{emojiRubro(r.rubro)}</span>
                     <h3 className="text-[1.05rem] font-bold text-tinta">{etiquetaRubro(r.rubro)}</h3>
                   </div>
-                  {listo && (
+                  {completo && (
                     <span className="rounded-chip bg-ok/12 px-2.5 py-1 text-[0.72rem] font-bold text-ok">
                       Listo para entrenar
                     </span>
                   )}
                 </div>
 
-                {/* Barra de progreso hacia la meta */}
                 <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-arena">
-                  <div className={`h-full rounded-full transition-all ${listo ? "bg-ok" : "bg-brasa"}`} style={{ width: `${pct}%` }} />
+                  <div className={`h-full rounded-full transition-all ${completo ? "bg-ok" : "bg-brasa"}`} style={{ width: `${pct}%` }} />
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.8rem]">

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion, leerSesion, guardarSesion } from "@/lib/auth";
+import { haySesion, leerSesion, guardarSesion, esSuperAdmin } from "@/lib/auth";
 import { hayGoogle, renderBotonGoogle } from "@/lib/google";
 import { entrarConGoogle, entrarConEmail, entrarDemo } from "@/lib/sesion";
 import { ApiError } from "@/lib/api";
@@ -30,7 +30,11 @@ export default function Login() {
       return `/invitacion?token=${invit}`;
     }
     const sesion = leerSesion();
-    return sesion && sesion.empresas.length > 0 ? "/inicio" : "/bienvenida";
+    if (sesion && sesion.empresas.length > 0) return "/inicio";
+    // Super admin sin negocio → panel de plataforma (no lo forzamos a crear un
+    // negocio). Un usuario normal sin negocio sí va al onboarding.
+    if (esSuperAdmin()) return "/admin";
+    return "/bienvenida";
   }
 
   useEffect(() => {

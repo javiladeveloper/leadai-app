@@ -402,6 +402,33 @@ export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
   catch { return { ok: false }; }
 }
 
+// ── Perfil de vendedor (marketplace) ───────────────────────
+export interface PerfilVendedor {
+  nombre: string | null;
+  bio: string;
+  aniosExp: number;
+  rubros: string[];
+  instagram: string;
+  linkedin: string;
+  whatsapp: string;
+  publico: boolean;
+  ventasCerradas: number;
+}
+
+export async function miPerfilVendedor(): Promise<PerfilVendedor | null> {
+  try { return await api<PerfilVendedor>("/vendedor/yo"); } catch { return null; }
+}
+
+export async function guardarPerfilVendedor(data: {
+  bio: string; aniosExp: number; rubros: string[];
+  instagram: string; linkedin: string; whatsapp: string; publico: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/vendedor/yo", { method: "PUT", body: data });
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" }; }
+}
+
 // ── Equipo (trabajadores del negocio) ──────────────────────
 export type RolMiembro = "owner" | "admin" | "agente";
 export interface MiembroEquipo { usuarioId: string; email: string; nombre: string | null; rol: RolMiembro }

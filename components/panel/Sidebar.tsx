@@ -9,8 +9,8 @@ import {
   IconoBandeja, IconoReportes, IconoConfig, IconoRayo, IconoOportunidades,
 } from "@/components/Iconos";
 
-// soloSuperAdmin: paneles de plataforma (datos globales de TODOS los negocios).
-// No los ve un socio/negocio, solo el dueño de LeadAI.
+// Panel de NEGOCIO (dueño de un negocio). El panel de plataforma (Aprendizaje,
+// Métricas, Negocios) vive aparte en /admin, solo para super admins.
 const SECCIONES = [
   { href: "/inicio", label: "Inicio", Icono: IconoInicio },
   { href: "/conversaciones", label: "Conversaciones", Icono: IconoConversaciones },
@@ -19,7 +19,6 @@ const SECCIONES = [
   { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
   { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
   { href: "/mi-perfil", label: "Mi perfil", Icono: IconoConfig },
-  { href: "/entrenamiento", label: "Aprendizaje", Icono: IconoRayo, soloSuperAdmin: true },
   { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
   { href: "/equipo", label: "Equipo", Icono: IconoConversaciones },
@@ -33,7 +32,6 @@ export function Sidebar() {
   const sesion = leerSesion();
   const superAdmin = esSuperAdmin();
   const nombre = sesion?.usuario?.nombre ?? sesion?.usuario?.email ?? "Mi cuenta";
-  const secciones = SECCIONES.filter((s) => !s.soloSuperAdmin || superAdmin);
   return (
     <aside className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col bg-superficie-honda text-arena">
       <div className="flex items-center gap-2 px-5 py-5">
@@ -43,7 +41,7 @@ export function Sidebar() {
         <span className="text-lg font-bold">Lead<span className="text-brasa">AI</span></span>
       </div>
       <nav className="flex-1 space-y-1 px-3">
-        {secciones.map(({ href, label, Icono }) => {
+        {SECCIONES.map(({ href, label, Icono }) => {
           const activo = path.startsWith(href);
           return (
             <Link
@@ -59,6 +57,16 @@ export function Sidebar() {
             </Link>
           );
         })}
+        {/* Acceso al panel de plataforma, solo para super admins. */}
+        {superAdmin && (
+          <Link
+            href="/admin"
+            className="mt-2 flex items-center gap-3 rounded-xl border border-brasa/30 px-3 py-2.5 text-sm font-semibold text-brasa transition-colors hover:bg-brasa/10"
+          >
+            <IconoRayo className="h-5 w-5" />
+            Panel de plataforma
+          </Link>
+        )}
       </nav>
       <ContadorHits />
       <div className="border-t border-white/10 px-5 py-4 text-sm">

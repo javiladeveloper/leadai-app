@@ -470,8 +470,35 @@ export interface ProgresoRubro {
   total: number;
 }
 
+// Panel de super admin: sin empresa activa (conEmpresa:false), son datos de
+// plataforma. El backend valida que el token sea de un super admin (403 si no).
 export async function obtenerProgresoEntrenamiento(): Promise<ProgresoRubro[]> {
-  try { return await api<ProgresoRubro[]>("/entrenamiento/progreso"); }
+  try { return await api<ProgresoRubro[]>("/admin/entrenamiento", { conEmpresa: false }); }
+  catch { return []; }
+}
+
+export interface MetricasPlataforma {
+  negocios: number;
+  negociosPorPlan: Record<string, number>;
+  leads: { total: number; porNivel: Record<string, number>; porEstado: Record<string, number> };
+  mensajes: number;
+  ejemplosEntrenamiento: number;
+}
+export async function obtenerMetricasPlataforma(): Promise<MetricasPlataforma | null> {
+  try { return await api<MetricasPlataforma>("/admin/metricas", { conEmpresa: false }); }
+  catch { return null; }
+}
+
+export interface NegocioAdmin {
+  id: string;
+  nombre: string;
+  plan: string;
+  saldoPrepagoHits: number;
+  leads: number;
+  creadoEn: string;
+}
+export async function obtenerNegociosAdmin(): Promise<NegocioAdmin[]> {
+  try { return await api<NegocioAdmin[]>("/admin/negocios", { conEmpresa: false }); }
   catch { return []; }
 }
 

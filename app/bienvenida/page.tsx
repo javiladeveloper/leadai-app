@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion, leerSesion } from "@/lib/auth";
 import { crearEmpresa } from "@/lib/api";
+import { RUBROS } from "@/lib/rubros";
 import { IconoRayo } from "@/components/Iconos";
 
 // Onboarding: primer ingreso de un cliente sin empresa. Le pedimos SOLO el
@@ -13,6 +14,7 @@ export default function BienvenidaPanel() {
   const [listo, setListo] = useState(false);
   const [agregar, setAgregar] = useState(false);
   const [nombre, setNombre] = useState("");
+  const [rubro, setRubro] = useState("");
   const [estado, setEstado] = useState<"idle" | "creando" | "error">("idle");
   const [error, setError] = useState("");
 
@@ -39,7 +41,7 @@ export default function BienvenidaPanel() {
     if (!limpio) return;
     setEstado("creando");
     setError("");
-    const r = await crearEmpresa(limpio);
+    const r = await crearEmpresa(limpio, rubro || undefined);
     if (r.ok) {
       router.replace("/inicio");
     } else {
@@ -85,6 +87,22 @@ export default function BienvenidaPanel() {
               placeholder="Ej: Estudio Contable Vega"
               className="w-full rounded-tarjeta border border-linea bg-carta px-4 py-3 text-[1rem] text-tinta outline-none transition focus:border-brasa"
             />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-tinta">
+              ¿A qué se dedica?
+            </span>
+            <select
+              value={rubro}
+              onChange={(e) => setRubro(e.target.value)}
+              className="w-full rounded-tarjeta border border-linea bg-carta px-4 py-3 text-[1rem] text-tinta outline-none transition focus:border-brasa"
+            >
+              <option value="">Elegí tu rubro…</option>
+              {RUBROS.map((r) => (
+                <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>
+              ))}
+            </select>
           </label>
 
           {estado === "error" && (

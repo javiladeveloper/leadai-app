@@ -402,6 +402,19 @@ export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
   catch { return { ok: false }; }
 }
 
+// ── Entrenamiento por rubro (dataset para fine-tuning futuro) ─
+export interface ProgresoRubro {
+  rubro: string;
+  ganados: number;
+  perdidos: number;
+  total: number;
+}
+
+export async function obtenerProgresoEntrenamiento(): Promise<ProgresoRubro[]> {
+  try { return await api<ProgresoRubro[]>("/entrenamiento/progreso"); }
+  catch { return []; }
+}
+
 // ── Simulador de chat (probar la IA desde el panel) ─────────
 export interface RespuestaSimulador {
   nivelInteres: string;

@@ -23,6 +23,7 @@ export default function EquipoPanel() {
   const [rol, setRol] = useState<"admin" | "agente">("agente");
   const [invitando, setInvitando] = useState(false);
   const [error, setError] = useState("");
+  const [aviso, setAviso] = useState("");
   const [linkCopiado, setLinkCopiado] = useState("");
 
   useEffect(() => {
@@ -46,10 +47,18 @@ export default function EquipoPanel() {
     e.preventDefault();
     setInvitando(true);
     setError("");
-    const r = await invitarMiembro(email.trim(), rol);
+    setAviso("");
+    const destino = email.trim();
+    const r = await invitarMiembro(destino, rol);
     setInvitando(false);
     if (r.ok) {
       setEmail("");
+      setAviso(
+        r.correoEnviado
+          ? `Le enviamos un correo a ${destino} con el enlace para unirse.`
+          : `Invitación creada. Copiale el enlace de abajo a ${destino} para que se una.`,
+      );
+      setTimeout(() => setAviso(""), 6000);
       cargar();
     } else {
       setError(r.error ?? "No se pudo invitar.");
@@ -77,7 +86,7 @@ export default function EquipoPanel() {
         <p className="eyebrow">Tu negocio</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Equipo</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
-          Sumá trabajadores para que te ayuden a atender. Les llega un enlace para unirse.
+          Sumá trabajadores para que te ayuden a atender. Les llega un correo con el enlace para unirse.
         </p>
       </header>
 
@@ -109,6 +118,7 @@ export default function EquipoPanel() {
           </button>
         </div>
         {error && <p className="mt-2 text-[0.82rem] text-brasa-hondo">{error}</p>}
+        {aviso && <p className="mt-2 text-[0.82rem] font-semibold text-ok">{aviso}</p>}
       </form>
 
       {estado === "cargando" && <SkeletonLista filas={3} />}
@@ -181,7 +191,7 @@ export default function EquipoPanel() {
                         {linkCopiado === inv.token ? "¡Copiado!" : "Copiar enlace"}
                       </button>
                     </div>
-                    <p className="mt-1 text-[0.72rem] text-frio">Pasale este enlace por WhatsApp. Al abrirlo e iniciar sesión, se une.</p>
+                    <p className="mt-1 text-[0.72rem] text-frio">Ya le enviamos el correo. Si no le llega, pasale este enlace por WhatsApp: al abrirlo e iniciar sesión, se une.</p>
                   </div>
                 ))}
               </div>

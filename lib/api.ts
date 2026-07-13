@@ -438,10 +438,10 @@ export async function obtenerEquipo(): Promise<{ miembros: MiembroEquipo[]; invi
   try { return await api("/equipo"); } catch { return { miembros: [], invitaciones: [] }; }
 }
 
-export async function invitarMiembro(email: string, rol: "admin" | "agente"): Promise<{ ok: boolean; token?: string; error?: string }> {
+export async function invitarMiembro(email: string, rol: "admin" | "agente"): Promise<{ ok: boolean; token?: string; correoEnviado?: boolean; error?: string }> {
   try {
-    const r = await api<{ ok: boolean; token: string }>("/equipo/invitar", { method: "POST", body: { email, rol } });
-    return { ok: true, token: r.token };
+    const r = await api<{ ok: boolean; token: string; correoEnviado?: boolean }>("/equipo/invitar", { method: "POST", body: { email, rol } });
+    return { ok: true, token: r.token, correoEnviado: r.correoEnviado };
   } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo invitar" }; }
 }
 

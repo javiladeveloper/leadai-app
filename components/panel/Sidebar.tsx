@@ -16,6 +16,7 @@ const SECCIONES = [
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
   { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
   { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
+  { href: "/entrenamiento", label: "Aprendizaje", Icono: IconoRayo },
   { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
   { href: "/configuracion", label: "Configuración", Icono: IconoConfig },

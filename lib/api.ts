@@ -402,6 +402,22 @@ export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
   catch { return { ok: false }; }
 }
 
+// ── Simulador de chat (probar la IA desde el panel) ─────────
+export interface RespuestaSimulador {
+  nivelInteres: string;
+  estado: string;
+  mensajes: { direccion: "entrante" | "saliente"; texto: string }[];
+}
+
+export async function simularMensaje(texto: string): Promise<RespuestaSimulador> {
+  return api<RespuestaSimulador>("/simular-mensaje", { method: "POST", body: { texto } });
+}
+
+export async function resetSimulador(): Promise<{ ok: boolean }> {
+  try { await api("/simular-reset", { method: "POST" }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
 // ── Oportunidades (marketplace de referidos) ────────────────
 export interface Oportunidad {
   id: string;

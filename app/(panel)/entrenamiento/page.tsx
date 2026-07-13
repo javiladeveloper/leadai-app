@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion } from "@/lib/auth";
+import { haySesion, esSuperAdmin } from "@/lib/auth";
 import { obtenerProgresoEntrenamiento, type ProgresoRubro } from "@/lib/api";
 import { RUBROS, etiquetaRubro } from "@/lib/rubros";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -22,6 +22,9 @@ export default function EntrenamientoPanel() {
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
+    // Panel de plataforma (datos globales): solo super admin. Un socio que
+    // llegue por URL directa se va a su inicio. El backend igual bloquea (403).
+    if (!esSuperAdmin()) { router.replace("/inicio"); return; }
     setListo(true);
   }, [router]);
 

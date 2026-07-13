@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { leerSesion } from "@/lib/auth";
+import { leerSesion, esSuperAdmin } from "@/lib/auth";
 import { ContadorHits } from "@/components/panel/ContadorHits";
 import {
   IconoInicio, IconoConversaciones, IconoSeguimiento, IconoFlujos,
   IconoBandeja, IconoReportes, IconoConfig, IconoRayo, IconoOportunidades,
 } from "@/components/Iconos";
 
+// soloSuperAdmin: paneles de plataforma (datos globales de TODOS los negocios).
+// No los ve un socio/negocio, solo el dueño de LeadAI.
 const SECCIONES = [
   { href: "/inicio", label: "Inicio", Icono: IconoInicio },
   { href: "/conversaciones", label: "Conversaciones", Icono: IconoConversaciones },
@@ -17,7 +19,7 @@ const SECCIONES = [
   { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
   { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
   { href: "/mi-perfil", label: "Mi perfil", Icono: IconoConfig },
-  { href: "/entrenamiento", label: "Aprendizaje", Icono: IconoRayo },
+  { href: "/entrenamiento", label: "Aprendizaje", Icono: IconoRayo, soloSuperAdmin: true },
   { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
   { href: "/equipo", label: "Equipo", Icono: IconoConversaciones },
@@ -29,7 +31,9 @@ const SECCIONES = [
 export function Sidebar() {
   const path = usePathname();
   const sesion = leerSesion();
+  const superAdmin = esSuperAdmin();
   const nombre = sesion?.usuario?.nombre ?? sesion?.usuario?.email ?? "Mi cuenta";
+  const secciones = SECCIONES.filter((s) => !s.soloSuperAdmin || superAdmin);
   return (
     <aside className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col bg-superficie-honda text-arena">
       <div className="flex items-center gap-2 px-5 py-5">
@@ -39,7 +43,7 @@ export function Sidebar() {
         <span className="text-lg font-bold">Lead<span className="text-brasa">AI</span></span>
       </div>
       <nav className="flex-1 space-y-1 px-3">
-        {SECCIONES.map(({ href, label, Icono }) => {
+        {secciones.map(({ href, label, Icono }) => {
           const activo = path.startsWith(href);
           return (
             <Link

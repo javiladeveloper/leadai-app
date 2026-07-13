@@ -12,6 +12,7 @@ export interface Sesion {
   token: string;
   usuario: { id: string; email: string; nombre: string | null };
   empresas: EmpresaResumen[];
+  esSuperAdmin?: boolean; // dueño de la plataforma LeadAI (ve paneles globales)
 }
 
 const CLAVE_SESION = "leadai.sesion";
@@ -57,4 +58,11 @@ export function leerEmpresaActiva(): string | null {
 
 export function haySesion(): boolean {
   return leerSesion() !== null;
+}
+
+// ¿El usuario logueado es super admin de la plataforma? Solo entonces se
+// muestran paneles globales (Aprendizaje). La autorización REAL la hace el
+// backend; esto es solo para no mostrar lo que igual daría 403.
+export function esSuperAdmin(): boolean {
+  return leerSesion()?.esSuperAdmin === true;
 }

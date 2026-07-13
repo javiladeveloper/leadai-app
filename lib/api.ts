@@ -349,9 +349,9 @@ export async function iniciarRecarga(
 // Crea el primer negocio del usuario (onboarding). El backend crea la empresa y
 // hace owner al usuario. Actualizamos la sesión local con la nueva empresa y la
 // dejamos activa, para que el panel la use al entrar.
-export async function crearEmpresa(nombre: string): Promise<{ ok: boolean; error?: string }> {
+export async function crearEmpresa(nombre: string, rubro?: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const empresa = await api<EmpresaResumen>("/empresas", { method: "POST", body: { nombre } });
+    const empresa = await api<EmpresaResumen>("/empresas", { method: "POST", body: { nombre, rubro } });
     const sesion = leerSesion();
     if (sesion) {
       const yaEsta = sesion.empresas.some((e) => e.tenantId === empresa.tenantId);

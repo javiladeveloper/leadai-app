@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
+import { RUBROS } from "@/lib/rubros";
 
 const PERFIL_VACIO: PerfilNegocio = {
   rubro: "",
@@ -79,11 +80,19 @@ export function PlaybookEditor() {
           value={perfil.nombreNegocio}
           onChange={(v) => setPerfil({ ...perfil, nombreNegocio: v })}
         />
-        <Campo
-          label="A qué te dedicás"
-          value={perfil.rubro}
-          onChange={(v) => setPerfil({ ...perfil, rubro: v })}
-        />
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-tinta">A qué te dedicás</span>
+          <select
+            value={perfil.rubro}
+            onChange={(e) => setPerfil({ ...perfil, rubro: e.target.value })}
+            className="w-full rounded-tarjeta border border-linea bg-carta px-3.5 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa"
+          >
+            <option value="">Elegí tu rubro…</option>
+            {RUBROS.map((r) => (
+              <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <CampoArea

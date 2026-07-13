@@ -4,22 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { obtenerProgresoEntrenamiento, type ProgresoRubro } from "@/lib/api";
+import { RUBROS, etiquetaRubro } from "@/lib/rubros";
 import { SkeletonLista } from "@/components/Skeletons";
 
 // Umbral orientativo de ejemplos "ganados" para que un rubro tenga datos
 // suficientes para pensar en un fine-tuning. Es una guía visual, no una regla.
 const META_ENTRENAMIENTO = 500;
 
-const NOMBRE_RUBRO: Record<string, string> = {
-  contable: "Contabilidad",
-  ventas: "Ventas",
-  inmobiliaria: "Inmobiliaria",
-  gimnasio: "Gimnasio",
-};
-
-const EMOJI: Record<string, string> = {
-  contable: "📊", ventas: "🛒", inmobiliaria: "🏠", gimnasio: "💪",
-};
+// Etiqueta y emoji del rubro salen de la lista canónica (lib/rubros).
+const emojiRubro = (id: string) => RUBROS.find((r) => r.id === id)?.emoji ?? "💼";
 
 export default function EntrenamientoPanel() {
   const router = useRouter();
@@ -77,8 +70,8 @@ export default function EntrenamientoPanel() {
               <div key={r.rubro} className="rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{EMOJI[r.rubro] ?? "💼"}</span>
-                    <h3 className="text-[1.05rem] font-bold text-tinta">{NOMBRE_RUBRO[r.rubro] ?? r.rubro}</h3>
+                    <span className="text-xl">{emojiRubro(r.rubro)}</span>
+                    <h3 className="text-[1.05rem] font-bold text-tinta">{etiquetaRubro(r.rubro)}</h3>
                   </div>
                   {listo && (
                     <span className="rounded-chip bg-ok/12 px-2.5 py-1 text-[0.72rem] font-bold text-ok">

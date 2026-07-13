@@ -402,6 +402,39 @@ export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
   catch { return { ok: false }; }
 }
 
+// ── Equipo (trabajadores del negocio) ──────────────────────
+export type RolMiembro = "owner" | "admin" | "agente";
+export interface MiembroEquipo { usuarioId: string; email: string; nombre: string | null; rol: RolMiembro }
+export interface InvitacionPendiente { id: string; email: string; rol: RolMiembro; token: string; creadoEn: string }
+
+export async function obtenerEquipo(): Promise<{ miembros: MiembroEquipo[]; invitaciones: InvitacionPendiente[] }> {
+  try { return await api("/equipo"); } catch { return { miembros: [], invitaciones: [] }; }
+}
+
+export async function invitarMiembro(email: string, rol: "admin" | "agente"): Promise<{ ok: boolean; token?: string; error?: string }> {
+  try {
+    const r = await api<{ ok: boolean; token: string }>("/equipo/invitar", { method: "POST", body: { email, rol } });
+    return { ok: true, token: r.token };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo invitar" }; }
+}
+
+export async function cancelarInvitacion(id: string): Promise<{ ok: boolean }> {
+  try { await api(`/equipo/invitacion/${id}`, { method: "DELETE" }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
+export async function quitarMiembro(usuarioId: string): Promise<{ ok: boolean; error?: string }> {
+  try { await api(`/equipo/miembro/${usuarioId}`, { method: "DELETE" }); return { ok: true }; }
+  catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo quitar" }; }
+}
+
+export async function aceptarInvitacion(token: string): Promise<{ ok: boolean; tenantId?: string; error?: string }> {
+  try {
+    const r = await api<{ ok: boolean; tenantId: string }>("/equipo/aceptar", { method: "POST", body: { token } });
+    return { ok: true, tenantId: r.tenantId };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo aceptar la invitación" }; }
+}
+
 // ── Entrenamiento por rubro (dataset para fine-tuning futuro) ─
 export interface ProgresoRubro {
   rubro: string;

@@ -23,6 +23,12 @@ export default function Login() {
   // Tras entrar: si el usuario aún no tiene un negocio, lo mandamos al
   // onboarding (/bienvenida); si ya tiene, al panel.
   function destinoTrasEntrar(): string {
+    // Si venía de un enlace de invitación, va a aceptarla tras loguearse.
+    const invit = typeof window !== "undefined" ? sessionStorage.getItem("invitacion_token") : null;
+    if (invit) {
+      sessionStorage.removeItem("invitacion_token");
+      return `/invitacion?token=${invit}`;
+    }
     const sesion = leerSesion();
     return sesion && sesion.empresas.length > 0 ? "/inicio" : "/bienvenida";
   }

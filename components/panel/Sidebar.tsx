@@ -19,6 +19,7 @@ const SECCIONES = [
   { href: "/entrenamiento", label: "Aprendizaje", Icono: IconoRayo },
   { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
+  { href: "/equipo", label: "Equipo", Icono: IconoConversaciones },
   { href: "/configuracion", label: "Configuración", Icono: IconoConfig },
 ];
 

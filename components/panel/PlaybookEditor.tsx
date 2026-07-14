@@ -309,14 +309,24 @@ function ListaCatalogo({
   function quitar(i: number) {
     onChange(catalogo.filter((_, idx) => idx !== i));
   }
+  const MAX = 50; // debe coincidir con LIMITES_PERFIL.catalogoMax del backend
+  const lleno = catalogo.length >= MAX;
   function agregar() {
+    if (lleno) return;
     onChange([...catalogo, { nombre: "", descripcion: "", precio: "" }]);
   }
 
   return (
     <div className="rounded-xl border border-linea bg-arena/40 p-4">
-      <p className="text-sm font-medium text-tinta">Qué vendés</p>
-      <p className="mb-2 text-xs text-frio">Productos o servicios que ofrece el negocio</p>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium text-tinta">Qué vendés</p>
+          <p className="text-xs text-frio">Productos o servicios que ofrece el negocio</p>
+        </div>
+        <span className={`shrink-0 text-xs font-semibold ${lleno ? "text-brasa-hondo" : "text-frio"}`}>
+          {catalogo.length}/{MAX}
+        </span>
+      </div>
       <div className="space-y-3">
         {catalogo.map((item, i) => (
           <div key={i} className="grid gap-2 rounded-lg bg-carta p-3 ring-1 ring-linea sm:grid-cols-[1fr_1fr_auto_auto]">
@@ -352,10 +362,16 @@ function ListaCatalogo({
       <button
         type="button"
         onClick={agregar}
-        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa"
+        disabled={lleno}
+        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-linea disabled:hover:text-frio"
       >
         + Agregar producto
       </button>
+      {lleno && (
+        <p className="mt-1.5 text-xs text-brasa-hondo">
+          Llegaste al máximo de {MAX} productos. Es para que la IA no se sobrecargue y responda mejor.
+        </p>
+      )}
     </div>
   );
 }

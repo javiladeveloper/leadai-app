@@ -257,6 +257,29 @@ export async function obtenerResumen(): Promise<Resumen> {
   return api<Resumen>("/resumen");
 }
 
+// ── Reportes de ventas ──────────────────────────────────────
+export interface ReporteNegocio {
+  comisiones: { ganada: number; porCobrar: number; total: number };
+  leadsPorNivel: Record<string, number>;
+  cierre: { ganados: number; perdidos: number; enJuego: number; tasa: number };
+  evolucion: { mes: string; comisiones: number; ventas: number }[];
+}
+export async function obtenerReporteNegocio(): Promise<ReporteNegocio | null> {
+  try { return await api<ReporteNegocio>("/reportes/negocio"); } catch { return null; }
+}
+
+export interface ReporteGlobalNegocio {
+  tenantId: string; nombre: string; ganada: number; porCobrar: number; ventas: number;
+}
+export interface ReporteGlobal {
+  totalGanada: number; totalPorCobrar: number; totalVentas: number;
+  negocios: ReporteGlobalNegocio[];
+}
+export async function obtenerReporteGlobal(): Promise<ReporteGlobal | null> {
+  // Cruza todos los negocios del usuario: sin empresa activa (conEmpresa:false).
+  try { return await api<ReporteGlobal>("/reportes/global", { conEmpresa: false }); } catch { return null; }
+}
+
 export interface Alerta {
   tipo: "umbral" | "bloqueo";
   usado: number;

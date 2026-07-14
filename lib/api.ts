@@ -408,9 +408,14 @@ export interface PerfilVendedor {
   bio: string;
   aniosExp: number;
   rubros: string[];
+  fotoUrl: string;
   instagram: string;
   linkedin: string;
   whatsapp: string;
+  telefono: string;
+  email: string;
+  ciudad: string;
+  web: string;
   publico: boolean;
   ventasCerradas: number;
 }
@@ -420,8 +425,9 @@ export async function miPerfilVendedor(): Promise<PerfilVendedor | null> {
 }
 
 export async function guardarPerfilVendedor(data: {
-  bio: string; aniosExp: number; rubros: string[];
-  instagram: string; linkedin: string; whatsapp: string; publico: boolean;
+  bio: string; aniosExp: number; rubros: string[]; fotoUrl: string;
+  instagram: string; linkedin: string; whatsapp: string;
+  telefono: string; email: string; ciudad: string; web: string; publico: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/vendedor/yo", { method: "PUT", body: data });

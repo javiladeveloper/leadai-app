@@ -42,7 +42,9 @@ export default function MiPerfilPanel() {
     setGuardando(true);
     const r = await guardarPerfilVendedor({
       bio: perfil.bio, aniosExp: perfil.aniosExp, rubros: perfil.rubros,
+      fotoUrl: perfil.fotoUrl,
       instagram: perfil.instagram, linkedin: perfil.linkedin, whatsapp: perfil.whatsapp,
+      telefono: perfil.telefono, email: perfil.email, ciudad: perfil.ciudad, web: perfil.web,
       publico: perfil.publico,
     });
     setGuardando(false);
@@ -89,6 +91,28 @@ export default function MiPerfilPanel() {
       </label>
 
       <div className="space-y-4 rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+        {/* Foto de perfil (por URL) con preview */}
+        <div className="flex items-center gap-4">
+          {perfil.fotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={perfil.fotoUrl}
+              alt="Tu foto"
+              className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-linea"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          ) : (
+            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-arena text-2xl font-bold text-frio ring-1 ring-linea">
+              {(perfil.nombre ?? "V").charAt(0).toUpperCase()}
+            </span>
+          )}
+          <label className="block flex-1">
+            <span className="mb-1 block text-sm font-medium text-tinta">Foto de perfil (link)</span>
+            <input value={perfil.fotoUrl} onChange={(e) => set("fotoUrl", e.target.value)}
+              placeholder="https://... (link a tu foto)" className={inputCls} />
+          </label>
+        </div>
+
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-tinta">Sobre vos</span>
           <textarea value={perfil.bio} onChange={(e) => set("bio", e.target.value)} rows={3}
@@ -131,6 +155,25 @@ export default function MiPerfilPanel() {
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-tinta">WhatsApp</span>
             <input value={perfil.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="+51 9xx…" className={inputCls} />
+          </label>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-tinta">Teléfono</span>
+            <input value={perfil.telefono} onChange={(e) => set("telefono", e.target.value)} placeholder="+51 1 xxx…" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-tinta">Email de contacto</span>
+            <input type="email" value={perfil.email} onChange={(e) => set("email", e.target.value)} placeholder="tucorreo@…" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-tinta">Ciudad</span>
+            <input value={perfil.ciudad} onChange={(e) => set("ciudad", e.target.value)} placeholder="Ej: Lima" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-tinta">Sitio web / portfolio</span>
+            <input value={perfil.web} onChange={(e) => set("web", e.target.value)} placeholder="https://…" className={inputCls} />
           </label>
         </div>
       </div>

@@ -13,6 +13,7 @@ export function NodoTarjeta({ data, selected }: NodeProps) {
   const tipo = String(d.tipo ?? "mensaje");
   const meta = TIPOS_NODO_UI.find((t) => t.tipo === tipo);
   const resumen = resumenDeDatos(tipo, d);
+  const apagado = d.activo === false; // paso desactivado por el usuario → se salta
 
   // Salidas del nodo: opciones → una por opción; condición → sí/no; resto → una default.
   const salidas = salidasDe(tipo, d);
@@ -20,9 +21,12 @@ export function NodoTarjeta({ data, selected }: NodeProps) {
   return (
     <div className={`min-w-[180px] max-w-[240px] rounded-tarjeta bg-carta p-3 shadow-[var(--sombra-tarjeta)] ring-1 transition ${
       selected ? "ring-2 ring-brasa" : "ring-linea"
-    } ${ACENTO[meta?.acento ?? "tinta-2"]} border-l-4`}>
+    } ${ACENTO[meta?.acento ?? "tinta-2"]} border-l-4 ${apagado ? "opacity-50" : ""}`}>
       {tipo !== "inicio" && <Handle type="target" position={Position.Top} />}
-      <p className="text-[0.62rem] font-bold uppercase tracking-wide text-frio">{meta?.etiqueta ?? tipo}</p>
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-[0.62rem] font-bold uppercase tracking-wide text-frio">{meta?.etiqueta ?? tipo}</p>
+        {apagado && <span className="rounded-chip bg-linea px-1.5 py-0.5 text-[0.55rem] font-bold text-frio">APAGADO</span>}
+      </div>
       {resumen && <p className="mt-1 line-clamp-2 text-[0.82rem] text-tinta">{resumen}</p>}
 
       {/* Salidas etiquetadas (multi-handle) */}

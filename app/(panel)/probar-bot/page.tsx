@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
-import { simularMensaje, resetSimulador } from "@/lib/api";
+import { simularMensaje, resetSimulador, obtenerHistorialSimulador } from "@/lib/api";
 import { IconoEnviar } from "@/components/Iconos";
 
 type Msg = { direccion: "entrante" | "saliente"; texto: string };
@@ -26,6 +26,14 @@ export default function ProbarBotPanel() {
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
+    // Cargamos la conversación de prueba que ya existía, para no perderla al
+    // volver a esta pantalla.
+    obtenerHistorialSimulador().then((h) => {
+      if (h && h.mensajes.length > 0) {
+        setMensajes(h.mensajes);
+        setNivel(h.nivelInteres);
+      }
+    });
   }, [router]);
 
   useEffect(() => {

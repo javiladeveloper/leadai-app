@@ -556,7 +556,11 @@ export async function obtenerNegociosAdmin(): Promise<NegocioAdmin[]> {
 export interface RespuestaSimulador {
   nivelInteres: string;
   estado: string;
-  mensajes: { direccion: "entrante" | "saliente"; texto: string }[];
+  mensajes: {
+    direccion: "entrante" | "saliente";
+    texto: string;
+    botones?: { id: string; etiqueta: string }[];
+  }[];
 }
 
 export async function simularMensaje(texto: string): Promise<RespuestaSimulador> {

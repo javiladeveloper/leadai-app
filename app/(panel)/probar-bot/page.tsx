@@ -6,7 +6,8 @@ import { haySesion } from "@/lib/auth";
 import { simularMensaje, resetSimulador, obtenerHistorialSimulador } from "@/lib/api";
 import { IconoEnviar } from "@/components/Iconos";
 
-type Msg = { direccion: "entrante" | "saliente"; texto: string };
+type Boton = { id: string; etiqueta: string };
+type Msg = { direccion: "entrante" | "saliente"; texto: string; botones?: Boton[] };
 
 const NIVEL_ETIQUETA: Record<string, { txt: string; clase: string }> = {
   caliente: { txt: "🔴 Caliente", clase: "bg-brasa-suave text-brasa-hondo" },
@@ -40,10 +41,12 @@ export default function ProbarBotPanel() {
     finRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensajes, enviando]);
 
-  async function enviar() {
-    const t = texto.trim();
+  // `directo` se usa al tocar un botón (mandamos su etiqueta como si el cliente
+  // la hubiera escrito). Sin argumento, toma lo escrito en el input.
+  async function enviar(directo?: string) {
+    const t = (directo ?? texto).trim();
     if (!t || enviando) return;
-    setTexto("");
+    if (!directo) setTexto("");
     // Pinta el mensaje del "cliente" al instante (optimista).
     setMensajes((m) => [...m, { direccion: "entrante", texto: t }]);
     setEnviando(true);
@@ -105,19 +108,42 @@ export default function ProbarBotPanel() {
           </div>
         )}
         <div className="space-y-2">
-          {mensajes.map((m, i) => (
-            <div key={i} className={`flex ${m.direccion === "entrante" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-[0.95rem] shadow-sm ${
-                  m.direccion === "entrante"
-                    ? "rounded-br-sm bg-[#d9fdd3] text-tinta"
-                    : "rounded-bl-sm bg-carta text-tinta ring-1 ring-linea"
-                }`}
-              >
-                {m.texto}
+          {mensajes.map((m, i) => {
+            // Los botones se pueden tocar solo si es el ÚLTIMO mensaje (los de
+            // mensajes viejos se muestran deshabilitados, como en WhatsApp).
+            const esUltimo = i === mensajes.length - 1;
+            return (
+              <div key={i}>
+                <div className={`flex ${m.direccion === "entrante" ? "justify-end" : "justify-start"}`}>
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-[0.95rem] shadow-sm ${
+                      m.direccion === "entrante"
+                        ? "rounded-br-sm bg-[#d9fdd3] text-tinta"
+                        : "rounded-bl-sm bg-carta text-tinta ring-1 ring-linea"
+                    }`}
+                  >
+                    {m.texto}
+                  </div>
+                </div>
+                {/* Botones interactivos del nodo 'opciones' */}
+                {m.botones && m.botones.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap justify-start gap-2">
+                    {m.botones.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        disabled={!esUltimo || enviando}
+                        onClick={() => enviar(b.etiqueta)}
+                        className="rounded-full border border-brasa/40 bg-carta px-4 py-1.5 text-[0.88rem] font-semibold text-brasa-hondo transition hover:bg-brasa-suave disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-carta"
+                      >
+                        {b.etiqueta}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
           {enviando && (
             <div className="flex justify-start">
               <div className="rounded-2xl rounded-bl-sm bg-carta px-4 py-3 ring-1 ring-linea">
@@ -144,7 +170,7 @@ export default function ProbarBotPanel() {
           className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
         />
         <button
-          onClick={enviar}
+          onClick={() => enviar()}
           disabled={enviando || !texto.trim()}
           aria-label="Enviar"
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brasa text-carta disabled:opacity-60"

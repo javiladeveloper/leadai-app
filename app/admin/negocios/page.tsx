@@ -5,7 +5,7 @@ import { obtenerNegociosAdmin, type NegocioAdmin } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 
 const PLAN_LABEL: Record<string, string> = {
-  free: "Free", light: "Emprende", pro: "Pro", business: "Business",
+  free: "Free", flujos: "Flujos", light: "Emprende", pro: "Pro", business: "Business",
 };
 
 export default function AdminNegocios() {

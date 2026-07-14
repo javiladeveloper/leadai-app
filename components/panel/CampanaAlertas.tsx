@@ -92,15 +92,15 @@ export function CampanaAlertas() {
             {/* Aviso crítico de saldo */}
             {bloqueo && (
               <div className="border-b border-linea bg-brasa-suave px-4 py-3">
-                <p className="text-[0.9rem] font-bold text-brasa-hondo">⚠️ Te quedaste sin respuestas</p>
+                <p className="text-[0.9rem] font-bold text-brasa-hondo">⚠️ Llegaste al tope de clientes del mes</p>
                 <p className="mt-0.5 text-[0.82rem] text-tinta-2">
-                  El bot dejó de responder. Comprá más respuestas para reactivarlo.
+                  El bot dejó de atender nuevos clientes. Ampliá tu plan para reactivarlo.
                 </p>
                 <button
                   onClick={() => { setAbierto(false); router.push("/configuracion"); }}
                   className="mt-2 rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-semibold text-carta transition hover:bg-brasa-hondo"
                 >
-                  Comprar respuestas
+                  Ampliar plan
                 </button>
               </div>
             )}
@@ -108,7 +108,7 @@ export function CampanaAlertas() {
             {/* Aviso de cuota por agotarse (umbral), si no hay bloqueo */}
             {!bloqueo && alertas.find((a) => a.tipo === "umbral") && (
               <div className="border-b border-linea bg-tibio-suave px-4 py-3">
-                <p className="text-[0.88rem] font-semibold text-tibio">Se te están por acabar las respuestas</p>
+                <p className="text-[0.88rem] font-semibold text-tibio">Se te están por acabar los clientes del mes</p>
                 <button
                   onClick={() => { setAbierto(false); router.push("/configuracion"); }}
                   className="mt-2 text-[0.8rem] font-semibold text-brasa-hondo"

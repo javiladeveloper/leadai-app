@@ -328,6 +328,7 @@ export interface MiPlan {
   plan: string;
   insistencia: "poca" | "normal" | "mucha";
   botActivo: boolean;
+  iaActiva: boolean;
 }
 
 export async function obtenerCatalogo(): Promise<Catalogo | null> {
@@ -349,6 +350,7 @@ export async function obtenerMiPlan(): Promise<MiPlan | null> {
 export async function guardarMiPlan(cfg: {
   insistencia?: "poca" | "normal" | "mucha";
   botActivo?: boolean;
+  iaActiva?: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/mi-plan", { method: "PATCH", body: cfg });

@@ -249,15 +249,27 @@ function TarjetaComprar({
   );
 }
 
-// ─── Tarjeta destacada: ¿El bot está atendiendo? ───────────────────────
-function TarjetaBotActivo({
+// ─── Tarjeta de interruptor genérica (bot activo, IA activa, etc.) ───────
+function TarjetaSwitch({
   cargando,
   valorInicial,
   error,
+  campo,
+  textoOn,
+  textoOff,
+  subtextoOn,
+  subtextoOff,
+  aria,
 }: {
   cargando: boolean;
   valorInicial: boolean;
   error: boolean;
+  campo: "botActivo" | "iaActiva";
+  textoOn: string;
+  textoOff: string;
+  subtextoOn: string;
+  subtextoOff: string;
+  aria: string;
 }) {
   const [activo, setActivo] = useState(valorInicial);
   const [estadoGuardado, setEstadoGuardado] = useState<EstadoGuardado>("idle");
@@ -285,7 +297,7 @@ function TarjetaBotActivo({
     setActivo(nuevo);
     setEstadoGuardado("guardando");
     setErrorMsg("");
-    const r = await guardarMiPlan({ botActivo: nuevo });
+    const r = await guardarMiPlan({ [campo]: nuevo });
     if (r.ok) {
       setEstadoGuardado("ok");
     } else {
@@ -299,21 +311,15 @@ function TarjetaBotActivo({
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <p className="text-[0.95rem] font-bold text-tinta">
-          {activo ? "Activo — el bot responde a tus clientes" : "Pausado — el bot no responde (atendés vos)"}
-        </p>
-        <p className="text-[0.8rem] text-frio">
-          {activo
-            ? "Apagalo un momento si querés atender vos mismo, sin que el bot conteste."
-            : "Los mensajes se siguen guardando; el bot no va a contestar hasta que lo actives de nuevo."}
-        </p>
+        <p className="text-[0.95rem] font-bold text-tinta">{activo ? textoOn : textoOff}</p>
+        <p className="text-[0.8rem] text-frio">{activo ? subtextoOn : subtextoOff}</p>
         {estadoGuardado === "error" && <p className="mt-1 text-[0.8rem] text-brasa">{errorMsg}</p>}
       </div>
       <button
         type="button"
         role="switch"
         aria-checked={activo}
-        aria-label="¿El bot está atendiendo?"
+        aria-label={aria}
         onClick={alternar}
         disabled={estadoGuardado === "guardando"}
         className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
@@ -470,6 +476,7 @@ export function PlanConsumo() {
   const [cargandoPlan, setCargandoPlan] = useState(true);
   const [insistenciaInicial, setInsistenciaInicial] = useState<"poca" | "normal" | "mucha">("normal");
   const [botActivoInicial, setBotActivoInicial] = useState(true);
+  const [iaActivaInicial, setIaActivaInicial] = useState(true);
   const [errorPlan, setErrorPlan] = useState(false);
 
   function recargarSaldo() {
@@ -491,6 +498,7 @@ export function PlanConsumo() {
       if (p) {
         setInsistenciaInicial(p.insistencia);
         setBotActivoInicial(p.botActivo);
+        setIaActivaInicial(p.iaActiva);
       } else {
         setErrorPlan(true);
       }
@@ -505,7 +513,29 @@ export function PlanConsumo() {
         <p className="mb-4 text-[0.8rem] text-frio">
           El interruptor principal: prendé o apagá al bot cuando quieras.
         </p>
-        <TarjetaBotActivo cargando={cargandoPlan} valorInicial={botActivoInicial} error={errorPlan} />
+        <TarjetaSwitch
+          cargando={cargandoPlan} valorInicial={botActivoInicial} error={errorPlan} campo="botActivo"
+          aria="¿El bot está atendiendo?"
+          textoOn="Activo — el bot responde a tus clientes"
+          textoOff="Pausado — el bot no responde (atendés vos)"
+          subtextoOn="Apagalo un momento si querés atender vos mismo, sin que el bot conteste."
+          subtextoOff="Los mensajes se siguen guardando; el bot no va a contestar hasta que lo actives de nuevo."
+        />
+      </div>
+
+      <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
+        <h3 className="text-[0.95rem] font-bold text-tinta">Usar inteligencia artificial</h3>
+        <p className="mb-4 text-[0.8rem] text-frio">
+          Si la apagás, tu bot sigue funcionando solo con tu árbol de flujos (sin IA). No consume clientes de tu plan.
+        </p>
+        <TarjetaSwitch
+          cargando={cargandoPlan} valorInicial={iaActivaInicial} error={errorPlan} campo="iaActiva"
+          aria="¿Usar la IA?"
+          textoOn="IA activada — atiende y califica sola"
+          textoOff="IA apagada — solo responde tu árbol de flujos"
+          subtextoOn="La IA responde lo que el árbol no cubre y califica a tus clientes."
+          subtextoOff="Solo corre tu árbol de flujos (gratis). Prendé la IA para que atienda lo demás."
+        />
       </div>
 
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">

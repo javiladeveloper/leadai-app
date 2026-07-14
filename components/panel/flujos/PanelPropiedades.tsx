@@ -12,9 +12,34 @@ export function PanelPropiedades({
   const tipo = data.tipo;
   const set = (campo: string, valor: unknown) => onCambiar(nodo.id, { ...data, [campo]: valor });
 
+  // El inicio no se puede apagar. Para el resto, un toggle "activo": si se
+  // apaga, el motor SALTA este paso (datos.activo === false).
+  const activo = data.activo !== false;
+
   return (
     <div className="w-72 shrink-0 space-y-3 border-l border-linea bg-carta p-4">
       <p className="eyebrow">Editar paso</p>
+
+      {tipo !== "inicio" && (
+        <label className="flex items-center justify-between gap-2 rounded-lg bg-arena/40 px-3 py-2">
+          <span className="text-sm font-medium text-tinta">
+            {activo ? "Paso activo" : "Paso apagado (se salta)"}
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={activo}
+            aria-label="Activar o apagar este paso"
+            onClick={() => set("activo", !activo)}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+              activo ? "bg-ok" : "bg-linea"
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-carta shadow transition-transform ${activo ? "translate-x-6" : "translate-x-1"}`} />
+          </button>
+        </label>
+      )}
+
       {(tipo === "mensaje" || tipo === "fija") && (
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-tinta">Texto</span>

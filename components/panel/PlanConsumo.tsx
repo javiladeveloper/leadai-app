@@ -21,7 +21,8 @@ const aClientes = (hits: number) => Math.floor(hits / HITS_POR_CLIENTE);
 
 const NOMBRE_PLAN: Record<string, string> = {
   free: "Gratis",
-  light: "Light",
+  flujos: "Flujos",
+  light: "Emprende",
   pro: "Pro",
   business: "Business",
 };

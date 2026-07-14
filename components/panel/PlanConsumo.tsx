@@ -14,6 +14,11 @@ import CheckoutCulqi from "@/components/panel/CheckoutCulqi";
 
 const PRESETS = [500, 1000, 5000];
 
+// Un cliente atendido de punta a punta ≈ 8 hits (calificar + responder por
+// mensaje). La unidad que ve el negocio es "clientes", no hits internos.
+const HITS_POR_CLIENTE = 8;
+const aClientes = (hits: number) => Math.floor(hits / HITS_POR_CLIENTE);
+
 const NOMBRE_PLAN: Record<string, string> = {
   free: "Gratis",
   light: "Light",
@@ -81,9 +86,9 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
 
       <div>
         <div className="flex items-baseline justify-between">
-          <p className="text-[0.82rem] font-semibold text-tinta-2">Respuestas del mes</p>
+          <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes atendidos este mes</p>
           <p className="text-[0.82rem] text-frio">
-            {usadoMensual.toLocaleString("es-PE")} / {totalMensual.toLocaleString("es-PE")}
+            {aClientes(usadoMensual).toLocaleString("es-PE")} / {aClientes(totalMensual).toLocaleString("es-PE")}
           </p>
         </div>
         <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-arena">
@@ -96,17 +101,17 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
 
       {hayPrepago && (
         <div className="flex items-center justify-between rounded-xl bg-arena px-4 py-3">
-          <p className="text-[0.82rem] font-semibold text-tinta-2">Respuestas prepago</p>
+          <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes extra (prepago)</p>
           <p className="text-[0.9rem] font-bold text-tinta">
-            {bolsa.prepago.restante.toLocaleString("es-PE")}{" "}
-            <span className="font-normal text-frio">/ {bolsa.prepago.total.toLocaleString("es-PE")}</span>
+            {aClientes(bolsa.prepago.restante).toLocaleString("es-PE")}{" "}
+            <span className="font-normal text-frio">/ {aClientes(bolsa.prepago.total).toLocaleString("es-PE")}</span>
           </p>
         </div>
       )}
 
       <div className="flex items-center justify-between rounded-xl bg-arena px-4 py-3">
-        <p className="text-[0.82rem] font-semibold text-tinta-2">Total disponible</p>
-        <p className="text-[1rem] font-bold text-tinta">{restante.toLocaleString("es-PE")}</p>
+        <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes disponibles</p>
+        <p className="text-[1rem] font-bold text-tinta">{aClientes(restante).toLocaleString("es-PE")}</p>
       </div>
     </div>
   );
@@ -504,7 +509,7 @@ export function PlanConsumo() {
 
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
         <h3 className="text-[0.95rem] font-bold text-tinta">Tu saldo</h3>
-        <p className="mb-4 text-[0.8rem] text-frio">Cuántas respuestas te quedan y cuándo se renuevan.</p>
+        <p className="mb-4 text-[0.8rem] text-frio">Cuántos clientes podés atender este mes y cuándo se renueva.</p>
         <TarjetaSaldo uso={uso} cargando={cargandoUso} error={errorUso} />
       </div>
 

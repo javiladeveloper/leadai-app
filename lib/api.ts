@@ -403,6 +403,13 @@ export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
 }
 
 // ── Perfil de vendedor (marketplace) ───────────────────────
+export interface Experiencia {
+  cargo: string;
+  lugar: string;
+  desde: string;
+  hasta: string;
+}
+
 export interface PerfilVendedor {
   nombre: string | null;
   bio: string;
@@ -416,6 +423,7 @@ export interface PerfilVendedor {
   email: string;
   ciudad: string;
   web: string;
+  experiencia: Experiencia[];
   publico: boolean;
   ventasCerradas: number;
 }
@@ -427,7 +435,8 @@ export async function miPerfilVendedor(): Promise<PerfilVendedor | null> {
 export async function guardarPerfilVendedor(data: {
   bio: string; aniosExp: number; rubros: string[]; fotoUrl: string;
   instagram: string; linkedin: string; whatsapp: string;
-  telefono: string; email: string; ciudad: string; web: string; publico: boolean;
+  telefono: string; email: string; ciudad: string; web: string;
+  experiencia: Experiencia[]; publico: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/vendedor/yo", { method: "PUT", body: data });

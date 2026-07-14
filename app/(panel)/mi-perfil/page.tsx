@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
-import { miPerfilVendedor, guardarPerfilVendedor, type PerfilVendedor } from "@/lib/api";
+import { miPerfilVendedor, guardarPerfilVendedor, type PerfilVendedor, type Experiencia } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
 
 const inputCls =
@@ -37,6 +37,20 @@ export default function MiPerfilPanel() {
     set("rubros", tiene ? perfil.rubros.filter((r) => r !== id) : [...perfil.rubros, id]);
   }
 
+  // ── Experiencia profesional (mini-CV: dónde trabajó) ──
+  function agregarExperiencia() {
+    if (!perfil) return;
+    set("experiencia", [...perfil.experiencia, { cargo: "", lugar: "", desde: "", hasta: "" }]);
+  }
+  function quitarExperiencia(i: number) {
+    if (!perfil) return;
+    set("experiencia", perfil.experiencia.filter((_, idx) => idx !== i));
+  }
+  function editarExperiencia(i: number, campo: keyof Experiencia, valor: string) {
+    if (!perfil) return;
+    set("experiencia", perfil.experiencia.map((e, idx) => (idx === i ? { ...e, [campo]: valor } : e)));
+  }
+
   async function guardar() {
     if (!perfil) return;
     setGuardando(true);
@@ -45,6 +59,7 @@ export default function MiPerfilPanel() {
       fotoUrl: perfil.fotoUrl,
       instagram: perfil.instagram, linkedin: perfil.linkedin, whatsapp: perfil.whatsapp,
       telefono: perfil.telefono, email: perfil.email, ciudad: perfil.ciudad, web: perfil.web,
+      experiencia: perfil.experiencia,
       publico: perfil.publico,
     });
     setGuardando(false);
@@ -176,6 +191,45 @@ export default function MiPerfilPanel() {
             <input value={perfil.web} onChange={(e) => set("web", e.target.value)} placeholder="https://…" className={inputCls} />
           </label>
         </div>
+      </div>
+
+      {/* Experiencia profesional (dónde trabajó) */}
+      <div className="space-y-3 rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-tinta">Experiencia profesional</h2>
+            <p className="text-[0.8rem] text-frio">Dónde trabajaste. Le da confianza a los negocios que te contactan.</p>
+          </div>
+          <button type="button" onClick={agregarExperiencia}
+            className="shrink-0 rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea hover:bg-linea">
+            + Agregar
+          </button>
+        </div>
+
+        {perfil.experiencia.length === 0 && (
+          <p className="rounded-tarjeta bg-arena/40 px-4 py-3 text-[0.85rem] text-frio">
+            Todavía no agregaste experiencia. Tocá “+ Agregar”.
+          </p>
+        )}
+
+        {perfil.experiencia.map((exp, i) => (
+          <div key={i} className="rounded-tarjeta bg-arena/40 p-3 ring-1 ring-linea">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <input value={exp.cargo} onChange={(e) => editarExperiencia(i, "cargo", e.target.value)}
+                placeholder="Cargo (ej. Vendedora)" className={inputCls} />
+              <input value={exp.lugar} onChange={(e) => editarExperiencia(i, "lugar", e.target.value)}
+                placeholder="Lugar / empresa (ej. Estudio Vega)" className={inputCls} />
+              <input value={exp.desde} onChange={(e) => editarExperiencia(i, "desde", e.target.value)}
+                placeholder="Desde (ej. 2020)" className={inputCls} />
+              <input value={exp.hasta} onChange={(e) => editarExperiencia(i, "hasta", e.target.value)}
+                placeholder="Hasta (ej. 2023 o Actual)" className={inputCls} />
+            </div>
+            <button type="button" onClick={() => quitarExperiencia(i)}
+              className="mt-2 text-[0.78rem] font-semibold text-frio hover:text-brasa-hondo">
+              Quitar
+            </button>
+          </div>
+        ))}
       </div>
 
       <div className="flex items-center gap-3">

@@ -568,6 +568,11 @@ export async function resetSimulador(): Promise<{ ok: boolean }> {
   catch { return { ok: false }; }
 }
 
+// Trae la conversación de prueba ya existente (para no perderla al volver).
+export async function obtenerHistorialSimulador(): Promise<RespuestaSimulador | null> {
+  try { return await api<RespuestaSimulador>("/simular-historial"); } catch { return null; }
+}
+
 // ── Oportunidades (marketplace de referidos) ────────────────
 export interface Oportunidad {
   id: string;

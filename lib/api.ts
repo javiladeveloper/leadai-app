@@ -300,6 +300,8 @@ export async function obtenerAlertas(): Promise<Alerta[]> {
 
 export interface Uso {
   plan: string;
+  // Unidad REAL de cobro: clientes únicos atendidos por la IA este mes.
+  clientes?: { usados: number; limite: number; restante: number };
   bolsa: {
     mensual: { total: number; usado: number; restante: number };
     prepago: { total: number; restante: number };

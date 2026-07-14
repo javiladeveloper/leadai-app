@@ -42,13 +42,11 @@ export function ContadorHits() {
   if (!uso) return null;
 
   const { bolsa } = uso;
-  // El porcentaje se calcula sobre los hits reales (preciso). El número que se
-  // muestra se convierte a CLIENTES (la unidad que entiende el negocio).
-  const restanteHits = bolsa.totalDisponible;
-  const totalHits = bolsa.mensual.total + bolsa.prepago.total;
-  const pct = totalHits > 0 ? restanteHits / totalHits : 0;
-  const restante = aClientes(restanteHits);
-  const total = aClientes(totalHits);
+  // Conteo REAL de clientes (nuevo backend). Fallback al estimado hits÷8 si el
+  // backend aún no expone `clientes` (durante el deploy).
+  const restante = uso.clientes ? uso.clientes.restante : aClientes(bolsa.totalDisponible);
+  const total = uso.clientes ? uso.clientes.limite : aClientes(bolsa.mensual.total + bolsa.prepago.total);
+  const pct = total > 0 ? restante / total : 0;
   const color = pct > 0.4 ? "bg-ok" : pct >= 0.15 ? "bg-tibio" : "bg-brasa";
   const dias = Math.max(
     0,

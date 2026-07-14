@@ -476,7 +476,6 @@ export function PlanConsumo() {
   const [cargandoPlan, setCargandoPlan] = useState(true);
   const [insistenciaInicial, setInsistenciaInicial] = useState<"poca" | "normal" | "mucha">("normal");
   const [botActivoInicial, setBotActivoInicial] = useState(true);
-  const [iaActivaInicial, setIaActivaInicial] = useState(true);
   const [errorPlan, setErrorPlan] = useState(false);
 
   function recargarSaldo() {
@@ -498,7 +497,6 @@ export function PlanConsumo() {
       if (p) {
         setInsistenciaInicial(p.insistencia);
         setBotActivoInicial(p.botActivo);
-        setIaActivaInicial(p.iaActiva);
       } else {
         setErrorPlan(true);
       }
@@ -520,21 +518,6 @@ export function PlanConsumo() {
           textoOff="Pausado — el bot no responde (atendés vos)"
           subtextoOn="Apagalo un momento si querés atender vos mismo, sin que el bot conteste."
           subtextoOff="Los mensajes se siguen guardando; el bot no va a contestar hasta que lo actives de nuevo."
-        />
-      </div>
-
-      <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-        <h3 className="text-[0.95rem] font-bold text-tinta">Usar inteligencia artificial</h3>
-        <p className="mb-4 text-[0.8rem] text-frio">
-          Si la apagás, tu bot sigue funcionando solo con tu árbol de flujos (sin IA). No consume clientes de tu plan.
-        </p>
-        <TarjetaSwitch
-          cargando={cargandoPlan} valorInicial={iaActivaInicial} error={errorPlan} campo="iaActiva"
-          aria="¿Usar la IA?"
-          textoOn="IA activada — atiende y califica sola"
-          textoOff="IA apagada — solo responde tu árbol de flujos"
-          subtextoOn="La IA responde lo que el árbol no cubre y califica a tus clientes."
-          subtextoOff="Solo corre tu árbol de flujos (gratis). Prendé la IA para que atienda lo demás."
         />
       </div>
 

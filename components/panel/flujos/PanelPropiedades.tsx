@@ -3,8 +3,12 @@ import type { Node } from "@xyflow/react";
 
 // Edita los `datos` del nodo seleccionado según su tipo. Cambios en vivo via onCambiar.
 export function PanelPropiedades({
-  nodo, onCambiar,
-}: { nodo: Node | null; onCambiar: (id: string, datos: Record<string, unknown>) => void }) {
+  nodo, onCambiar, onEliminar,
+}: {
+  nodo: Node | null;
+  onCambiar: (id: string, datos: Record<string, unknown>) => void;
+  onEliminar?: (id: string) => void;
+}) {
   if (!nodo) {
     return <div className="w-72 shrink-0 border-l border-linea bg-carta p-4 text-[0.85rem] text-frio">Tocá un paso para editarlo.</div>;
   }
@@ -117,6 +121,18 @@ export function PanelPropiedades({
         </div>
       )}
       {tipo === "inicio" && <p className="text-[0.85rem] text-frio">Es donde empieza el flujo. No se edita.</p>}
+
+      {/* Eliminar paso (el inicio no se puede borrar). También funciona con la
+          tecla Delete al tener un paso seleccionado. */}
+      {tipo !== "inicio" && onEliminar && (
+        <button
+          type="button"
+          onClick={() => onEliminar(nodo.id)}
+          className="mt-4 w-full rounded-lg border border-brasa/40 px-3 py-2 text-sm font-semibold text-brasa-hondo transition hover:bg-brasa-suave"
+        >
+          🗑 Eliminar este paso
+        </button>
+      )}
     </div>
   );
 }

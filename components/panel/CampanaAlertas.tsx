@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { obtenerResumen, obtenerAlertas, type Alerta } from "@/lib/api";
+import { obtenerAlertas, listarLeads, type Alerta, type Lead } from "@/lib/api";
 
 // Campana de avisos del header. Junta dos cosas:
 //  1) leads calientes sin atender (del /resumen) — el número del badge.
@@ -12,7 +12,7 @@ import { obtenerResumen, obtenerAlertas, type Alerta } from "@/lib/api";
 // Se refresca sola cada 30s. Al tocarla abre un panel con los avisos.
 export function CampanaAlertas() {
   const router = useRouter();
-  const [calientes, setCalientes] = useState(0);
+  const [calientesLeads, setCalientesLeads] = useState<Lead[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [abierto, setAbierto] = useState(false);
   const [agita, setAgita] = useState(false);
@@ -21,16 +21,19 @@ export function CampanaAlertas() {
   useEffect(() => {
     let vivo = true;
     const cargar = () => {
-      obtenerResumen().then((r) => {
-        if (!vivo || !r) return;
-        const nuevo = r.calientesSinAtender;
+      // Traemos los leads calientes REALES (no solo el número) y nos quedamos
+      // con los "sin atender" (no ganados/perdidos): son los que hay que llamar.
+      listarLeads({ nivel: "caliente" }).then((leads) => {
+        if (!vivo) return;
+        const sinAtender = leads.filter((l) => l.estado !== "ganado" && l.estado !== "perdido");
+        const nuevo = sinAtender.length;
         if (previo.current >= 0 && nuevo > previo.current) {
           sonarAviso();
           setAgita(true);
           setTimeout(() => setAgita(false), 900);
         }
         previo.current = nuevo;
-        setCalientes(nuevo);
+        setCalientesLeads(sinAtender);
       });
       obtenerAlertas().then((a) => {
         if (vivo) setAlertas(a);
@@ -46,6 +49,7 @@ export function CampanaAlertas() {
 
   // La alerta más grave que exista: "bloqueo" (sin saldo, bot pausado) manda.
   const bloqueo = alertas.find((a) => a.tipo === "bloqueo");
+  const calientes = calientesLeads.length;
   const totalAvisos = calientes + (bloqueo ? 1 : 0);
   const hay = totalAvisos > 0;
 
@@ -114,17 +118,36 @@ export function CampanaAlertas() {
               </div>
             )}
 
-            {/* Leads calientes */}
+            {/* Leads calientes sin atender: lista con nombres, cada uno lleva
+                a su conversación. Mostramos hasta 5 y un "ver todos" si hay más. */}
             {calientes > 0 && (
-              <button
-                onClick={() => { setAbierto(false); router.push("/leads"); }}
-                className="flex w-full items-center gap-2 px-4 py-3 text-left transition hover:bg-arena/50"
-              >
-                <span className="text-lg">🔴</span>
-                <span className="text-[0.88rem] text-tinta">
-                  <b>{calientes}</b> {calientes === 1 ? "lead caliente sin atender" : "leads calientes sin atender"}
-                </span>
-              </button>
+              <div>
+                <p className="flex items-center gap-1.5 px-4 pt-3 pb-1 text-[0.78rem] font-bold text-brasa-hondo">
+                  🔴 {calientes} {calientes === 1 ? "lead caliente sin atender" : "leads calientes sin atender"}
+                </p>
+                {calientesLeads.slice(0, 5).map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => { setAbierto(false); router.push(`/conversacion/${l.id}`); }}
+                    className="flex w-full flex-col gap-0.5 px-4 py-2 text-left transition hover:bg-arena/50"
+                  >
+                    <span className="text-[0.9rem] font-semibold text-tinta">
+                      {l.nombre ?? l.contactoExterno}
+                    </span>
+                    {l.resumenIA && (
+                      <span className="line-clamp-1 text-[0.78rem] text-frio">{l.resumenIA}</span>
+                    )}
+                  </button>
+                ))}
+                {calientes > 5 && (
+                  <button
+                    onClick={() => { setAbierto(false); router.push("/leads"); }}
+                    className="w-full px-4 py-2 text-left text-[0.8rem] font-semibold text-brasa-hondo transition hover:bg-arena/50"
+                  >
+                    Ver los {calientes} →
+                  </button>
+                )}
+              </div>
             )}
 
             {/* Nada */}

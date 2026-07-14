@@ -20,6 +20,7 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
   const [estado, setEstado] = useState<"cargando" | "ok" | "guardando" | "no-encontrado">("cargando");
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   const [selId, setSelId] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const contadorRef = useRef(0);
   const nodeTypes = useMemo(() => ({ brasa: NodoTarjeta }), []);
 
@@ -45,14 +46,33 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
   const agregarNodo = useCallback((tipo: string) => {
     contadorRef.current += 1;
     const id = `nodo-${contadorRef.current}`;
-    setNodes((ns) => [
-      ...ns,
-      { id, type: "brasa", position: { x: 300, y: 120 + ns.length * 90 }, data: { tipo } },
-    ]);
+    // Posición apenas escalonada respecto al último, cerca del centro, para que
+    // el paso nuevo aparezca A LA VISTA (no perdido abajo). Queda SELECCIONADO
+    // (abre su panel a la derecha) como feedback de que se agregó.
+    setNodes((ns) => {
+      const base = ns[ns.length - 1]?.position ?? { x: 400, y: 200 };
+      const nuevo: Node = {
+        id, type: "brasa",
+        position: { x: base.x + 40, y: base.y + 60 },
+        data: { tipo }, selected: true,
+      };
+      return [...ns.map((n) => ({ ...n, selected: false })), nuevo];
+    });
+    setSelId(id);
+    setAviso("Paso agregado. Editalo a la derecha y conectalo arrastrando desde el punto de otro paso.");
+    window.setTimeout(() => setAviso(null), 4000);
   }, []);
 
   const cambiarDatos = useCallback((id: string, datos: Record<string, unknown>) => {
     setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: datos } : n)));
+  }, []);
+
+  // Borra un nodo y todas sus conexiones (entrantes y salientes). Se usa desde
+  // el panel de propiedades y con la tecla Delete.
+  const borrarNodo = useCallback((id: string) => {
+    setNodes((ns) => ns.filter((n) => n.id !== id));
+    setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
+    setSelId((sel) => (sel === id ? null : sel));
   }, []);
 
   const nodoSel = nodes.find((n) => n.id === selId) ?? null;
@@ -92,6 +112,7 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
       <div className="flex items-center gap-3 border-b border-linea bg-carta px-5 py-3">
         <input value={nombre} onChange={(e) => setNombre(e.target.value)}
           className="flex-1 rounded-lg border border-linea bg-arena/40 px-3 py-1.5 text-sm font-semibold text-tinta outline-none focus:border-brasa" />
+        {aviso && !errorGuardar && <span className="text-sm font-medium text-ok">{aviso}</span>}
         {errorGuardar && <span className="text-sm text-brasa-hondo">{errorGuardar}</span>}
         <button onClick={guardar} disabled={estado === "guardando"}
           className="rounded-tarjeta bg-brasa px-4 py-2 text-sm font-semibold text-carta hover:bg-brasa-hondo disabled:opacity-60">
@@ -105,12 +126,18 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
             nodes={nodes} edges={edges} nodeTypes={nodeTypes}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
             onNodeClick={(_, n) => setSelId(n.id)}
+            onNodesDelete={(borrados) => {
+              const ids = new Set(borrados.map((n) => n.id));
+              setEdges((es) => es.filter((e) => !ids.has(e.source) && !ids.has(e.target)));
+              setSelId((sel) => (sel && ids.has(sel) ? null : sel));
+            }}
+            deleteKeyCode={["Delete", "Backspace"]}
             fitView>
             <Background />
             <Controls />
           </ReactFlow>
         </div>
-        <PanelPropiedades nodo={nodoSel} onCambiar={cambiarDatos} />
+        <PanelPropiedades nodo={nodoSel} onCambiar={cambiarDatos} onEliminar={borrarNodo} />
       </div>
     </div>
   );

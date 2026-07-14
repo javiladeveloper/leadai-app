@@ -471,6 +471,14 @@ export async function guardarPerfilVendedor(data: {
   } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" }; }
 }
 
+// Sube una foto de perfil (data URL base64) y devuelve la URL pública guardada.
+export async function subirFotoVendedor(imagen: string): Promise<{ ok: boolean; fotoUrl?: string; error?: string }> {
+  try {
+    const r = await api<{ fotoUrl: string }>("/vendedor/foto", { method: "POST", body: { imagen } });
+    return { ok: true, fotoUrl: r.fotoUrl };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo subir la foto" }; }
+}
+
 // ── Equipo (trabajadores del negocio) ──────────────────────
 export type RolMiembro = "owner" | "admin" | "agente";
 export interface MiembroEquipo { usuarioId: string; email: string; nombre: string | null; rol: RolMiembro }

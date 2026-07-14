@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
-import { miPerfilVendedor, guardarPerfilVendedor, type PerfilVendedor, type Experiencia } from "@/lib/api";
+import { miPerfilVendedor, guardarPerfilVendedor, subirFotoVendedor, type PerfilVendedor, type Experiencia } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
 
 const inputCls =
@@ -16,6 +16,8 @@ export default function MiPerfilPanel() {
   const [perfil, setPerfil] = useState<PerfilVendedor | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [errorFoto, setErrorFoto] = useState("");
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -46,6 +48,28 @@ export default function MiPerfilPanel() {
     if (!perfil) return;
     set("experiencia", perfil.experiencia.filter((_, idx) => idx !== i));
   }
+  // Subir foto desde el dispositivo: leemos el archivo como data URL, lo
+  // mandamos al backend (que lo sube a Storage) y actualizamos la foto en vivo.
+  async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = ""; // permite volver a elegir el mismo archivo
+    if (!archivo) return;
+    if (archivo.size > 5 * 1024 * 1024) { setErrorFoto("La imagen es muy pesada (máximo 5MB)."); return; }
+    setErrorFoto("");
+    setSubiendoFoto(true);
+    const dataUrl = await new Promise<string>((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(String(fr.result));
+      fr.onerror = () => rej(new Error("No se pudo leer el archivo"));
+      fr.readAsDataURL(archivo);
+    }).catch(() => "");
+    if (!dataUrl) { setSubiendoFoto(false); setErrorFoto("No se pudo leer la imagen."); return; }
+    const r = await subirFotoVendedor(dataUrl);
+    setSubiendoFoto(false);
+    if (r.ok && r.fotoUrl) set("fotoUrl", r.fotoUrl);
+    else setErrorFoto(r.error ?? "No se pudo subir la foto.");
+  }
+
   function editarExperiencia(i: number, campo: keyof Experiencia, valor: string) {
     if (!perfil) return;
     set("experiencia", perfil.experiencia.map((e, idx) => (idx === i ? { ...e, [campo]: valor } : e)));
@@ -106,7 +130,7 @@ export default function MiPerfilPanel() {
       </label>
 
       <div className="space-y-4 rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
-        {/* Foto de perfil (por URL) con preview */}
+        {/* Foto de perfil: subir desde el dispositivo (o pegar un link) */}
         <div className="flex items-center gap-4">
           {perfil.fotoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -114,18 +138,22 @@ export default function MiPerfilPanel() {
               src={perfil.fotoUrl}
               alt="Tu foto"
               className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-linea"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           ) : (
             <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-arena text-2xl font-bold text-frio ring-1 ring-linea">
               {(perfil.nombre ?? "V").charAt(0).toUpperCase()}
             </span>
           )}
-          <label className="block flex-1">
-            <span className="mb-1 block text-sm font-medium text-tinta">Foto de perfil (link)</span>
-            <input value={perfil.fotoUrl} onChange={(e) => set("fotoUrl", e.target.value)}
-              placeholder="https://... (link a tu foto)" className={inputCls} />
-          </label>
+          <div className="flex-1">
+            <span className="mb-1 block text-sm font-medium text-tinta">Foto de perfil</span>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-tarjeta bg-arena px-4 py-2 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-linea">
+              {subiendoFoto ? "Subiendo…" : perfil.fotoUrl ? "Cambiar foto" : "Subir foto"}
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                disabled={subiendoFoto} onChange={subirFoto} />
+            </label>
+            <p className="mt-1 text-[0.78rem] text-frio">JPG, PNG o WebP. Máximo 5MB.</p>
+            {errorFoto && <p className="mt-1 text-[0.8rem] text-brasa-hondo">{errorFoto}</p>}
+          </div>
         </div>
 
         <label className="block">

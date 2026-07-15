@@ -1,14 +1,16 @@
 "use client";
+import Link from "next/link";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import {
   obtenerComisiones, actualizarComision, type Comision,
-  obtenerReporteNegocio, obtenerReporteGlobal,
+  obtenerReporteNegocio, obtenerReporteGlobal, obtenerMiPlan,
   type ReporteNegocio, type ReporteGlobal,
 } from "@/lib/api";
 import { SkeletonReportes } from "@/components/Skeletons";
+import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
 
 const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
 
@@ -39,10 +41,12 @@ export default function ReportesPanel() {
   const [comisiones, setComisiones] = useState<Comision[]>([]);
   const [rep, setRep] = useState<ReporteNegocio | null>(null);
   const [global, setGlobal] = useState<ReporteGlobal | null>(null);
+  const [avanzados, setAvanzados] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
+    obtenerMiPlan().then((p) => setAvanzados(p?.features?.reportesAvanzados ?? false));
   }, [router]);
 
   const cargar = useCallback(async () => {
@@ -92,6 +96,21 @@ export default function ReportesPanel() {
         <div className="rounded-tarjeta bg-brasa/10 px-4 py-3 text-center text-[0.9rem] font-semibold text-brasa">{error}</div>
       ) : (
         <div className="space-y-6">
+          {/* Reportes avanzados bloqueados por plan: candado compacto (las
+              comisiones basicas de abajo siguen visibles para todos). */}
+          {avanzados === false && (
+            <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
+              <span className="text-2xl">🔒</span>
+              <p className="mt-2 text-[1rem] font-bold text-tinta">Reportes avanzados</p>
+              <p className="mt-1 text-[0.88rem] text-frio">
+                Tasa de cierre, evolución mensual y comisiones por negocio están desde el plan Emprende.
+              </p>
+              <Link href="/configuracion" className="mt-4 inline-flex rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-carta transition hover:bg-brasa-hondo">
+                Mejorá tu plan
+              </Link>
+            </div>
+          )}
+
           {/* KPIs del negocio */}
           {rep && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

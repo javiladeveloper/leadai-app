@@ -324,11 +324,21 @@ export interface Catalogo {
   recargaDinamica: { minHits: number; tramos: { hastaHits: number; centavosPorHit: number }[] };
 }
 
+export interface FeaturesPlan {
+  ia: boolean;
+  equipo: boolean;
+  reportesAvanzados: boolean;
+  nodosAvanzados: boolean;
+  marketplace: boolean;
+  maxFlujos: number;
+}
+
 export interface MiPlan {
   plan: string;
   insistencia: "poca" | "normal" | "mucha";
   botActivo: boolean;
   iaActiva: boolean;
+  features: FeaturesPlan;
 }
 
 export async function obtenerCatalogo(): Promise<Catalogo | null> {

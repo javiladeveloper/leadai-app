@@ -55,16 +55,14 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
   }
 
   const { bolsa } = uso;
-  const restante = bolsa.totalDisponible;
-  const totalMensual = bolsa.mensual.total;
-  const usadoMensual = bolsa.mensual.usado;
-  const pctMensual = totalMensual > 0 ? Math.min(1, usadoMensual / totalMensual) : 0;
-  const pctRestanteDelTotal =
-    totalMensual + bolsa.prepago.total > 0
-      ? restante / (totalMensual + bolsa.prepago.total)
-      : 0;
-  const color =
-    pctRestanteDelTotal > 0.4 ? "bg-ok" : pctRestanteDelTotal >= 0.15 ? "bg-tibio" : "bg-brasa";
+  // Conteo REAL de clientes (del backend). Fallback al estimado hits÷8 solo si
+  // el backend viejo aún no expone `clientes` (durante un deploy).
+  const usadosCli = uso.clientes ? uso.clientes.usados : aClientes(bolsa.mensual.usado);
+  const totalCli = uso.clientes ? uso.clientes.limite : aClientes(bolsa.mensual.total);
+  const restanteCli = uso.clientes ? uso.clientes.restante : aClientes(bolsa.totalDisponible);
+  const pctUsado = totalCli > 0 ? Math.min(100, Math.round((usadosCli / totalCli) * 100)) : 0;
+  const pctRestante = totalCli > 0 ? restanteCli / totalCli : 0;
+  const color = pctRestante > 0.4 ? "bg-ok" : pctRestante >= 0.15 ? "bg-tibio" : "bg-brasa";
   const dias = Math.max(
     0,
     Math.ceil((new Date(bolsa.seResetea).getTime() - Date.now()) / 86_400_000),
@@ -89,13 +87,14 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
         <div className="flex items-baseline justify-between">
           <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes atendidos este mes</p>
           <p className="text-[0.82rem] text-frio">
-            {aClientes(usadoMensual).toLocaleString("es-PE")} / {aClientes(totalMensual).toLocaleString("es-PE")}
+            {usadosCli.toLocaleString("es-PE")} de {totalCli.toLocaleString("es-PE")}
           </p>
         </div>
         <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-arena">
+          {/* La barra crece con lo USADO. */}
           <div
             className={`h-full rounded-full ${color} transition-[width] duration-500`}
-            style={{ width: `${Math.round(pctMensual * 100)}%` }}
+            style={{ width: `${pctUsado}%` }}
           />
         </div>
       </div>
@@ -104,15 +103,14 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
         <div className="flex items-center justify-between rounded-xl bg-arena px-4 py-3">
           <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes extra (prepago)</p>
           <p className="text-[0.9rem] font-bold text-tinta">
-            {aClientes(bolsa.prepago.restante).toLocaleString("es-PE")}{" "}
-            <span className="font-normal text-frio">/ {aClientes(bolsa.prepago.total).toLocaleString("es-PE")}</span>
+            Te quedan {aClientes(bolsa.prepago.restante).toLocaleString("es-PE")}
           </p>
         </div>
       )}
 
       <div className="flex items-center justify-between rounded-xl bg-arena px-4 py-3">
-        <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes disponibles</p>
-        <p className="text-[1rem] font-bold text-tinta">{aClientes(restante).toLocaleString("es-PE")}</p>
+        <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes que te quedan</p>
+        <p className="text-[1rem] font-bold text-tinta">{restanteCli.toLocaleString("es-PE")}</p>
       </div>
     </div>
   );

@@ -206,14 +206,26 @@ export interface Resumen {
 export async function listarLeads(
   filtros?: { estado?: string; nivel?: string },
 ): Promise<Lead[]> {
-  const qs = new URLSearchParams();
-  if (filtros?.estado) qs.set("estado", filtros.estado);
-  if (filtros?.nivel) qs.set("nivel", filtros.nivel);
-  const q = qs.toString();
-  const r = await api<{ items: Lead[]; siguienteCursor: string | null }>(
-    `/leads${q ? `?${q}` : ""}`,
-  );
-  return r.items;
+  // El backend pagina por cursor (máx 100 por página). Seguimos el cursor hasta
+  // agotar para que el pipeline no se quede con solo la primera página (antes
+  // mostraba máx 20 leads en total). Tope de seguridad: 20 páginas (2000 leads)
+  // para no colgar el navegador si el volumen es enorme.
+  const acumulado: Lead[] = [];
+  let cursor: string | null = null;
+  for (let pagina = 0; pagina < 20; pagina++) {
+    const qs = new URLSearchParams();
+    if (filtros?.estado) qs.set("estado", filtros.estado);
+    if (filtros?.nivel) qs.set("nivel", filtros.nivel);
+    qs.set("limit", "100");
+    if (cursor) qs.set("cursor", cursor);
+    const r: { items: Lead[]; siguienteCursor: string | null } = await api(
+      `/leads?${qs.toString()}`,
+    );
+    acumulado.push(...r.items);
+    if (!r.siguienteCursor) break;
+    cursor = r.siguienteCursor;
+  }
+  return acumulado;
 }
 
 export async function obtenerLead(id: string): Promise<LeadDetalle | null> {

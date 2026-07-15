@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
+import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { PanelCanales } from "@/components/panel/PanelCanales";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
 
@@ -72,6 +73,7 @@ export default function ConfiguracionPanel() {
               El playbook que usa la IA para responder por vos: tono, catálogo, preguntas clave y objeciones.
             </p>
             <PlaybookEditor />
+            <RitmoSeguimiento />
           </>
         )}
 

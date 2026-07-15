@@ -37,6 +37,10 @@ const NIVEL_ETIQUETA: Record<Lead["nivelInteres"], { texto: string; clase: strin
   frio: { texto: "⚪ Frío", clase: "bg-arena text-frio" },
 };
 
+// Cuántas tarjetas se muestran por columna de arranque y cuántas suma cada
+// "ver más". La columna tiene scroll interno, así que nunca crece infinito.
+const PAGINA_ETAPA = 12;
+
 // Seguimiento: tablero por etapas de venta. Cada columna es un estado del lead;
 // las tarjetas se pueden marcar como ganado o descartar sin salir de la vista.
 export default function SeguimientoPanel() {
@@ -49,6 +53,9 @@ export default function SeguimientoPanel() {
   // la conversación directamente. Usamos un timer para distinguir 1 de 2 clicks.
   const [leadAbierto, setLeadAbierto] = useState<Lead | null>(null);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Cuántas tarjetas mostrar por etapa (paginación en cliente con "ver más").
+  // Cada columna arranca mostrando PAGINA_ETAPA y crece de a tandas.
+  const [visiblePorEtapa, setVisiblePorEtapa] = useState<Record<string, number>>({});
 
   // 1 click abre el popup; 2 clicks entran a la conversación (cancela el popup).
   const alHacerClick = useCallback(
@@ -179,6 +186,9 @@ export default function SeguimientoPanel() {
           {ETAPAS.map((et) => {
             const items = porEtapa.get(et.estado) ?? [];
             const cerrable = et.estado !== "ganado" && et.estado !== "perdido";
+            const visible = visiblePorEtapa[et.estado] ?? PAGINA_ETAPA;
+            const mostrados = items.slice(0, visible);
+            const restantes = items.length - mostrados.length;
             return (
               <section key={et.estado} className="flex min-w-0 flex-col">
                 {/* Encabezado de columna */}
@@ -190,14 +200,16 @@ export default function SeguimientoPanel() {
                   </span>
                 </div>
 
-                <div className="flex flex-col gap-2.5">
+                {/* Columna con altura máxima y scroll interno: nunca crece
+                    infinito por más leads que tenga la etapa. */}
+                <div className="flex max-h-[calc(100vh-13rem)] flex-col gap-2.5 overflow-y-auto pr-0.5">
                   {items.length === 0 && (
                     <p className="rounded-tarjeta border border-dashed border-linea px-3 py-6 text-center text-[0.8rem] text-frio">
                       {et.ayuda}
                     </p>
                   )}
 
-                  {items.map((lead) => {
+                  {mostrados.map((lead) => {
                     const nivel = NIVEL_ETIQUETA[lead.nivelInteres];
                     const trabajando = ocupado === lead.id;
                     return (
@@ -252,6 +264,21 @@ export default function SeguimientoPanel() {
                       </article>
                     );
                   })}
+
+                  {/* Ver más: carga otra tanda de esta etapa (sin recargar). */}
+                  {restantes > 0 && (
+                    <button
+                      onClick={() =>
+                        setVisiblePorEtapa((prev) => ({
+                          ...prev,
+                          [et.estado]: visible + PAGINA_ETAPA,
+                        }))
+                      }
+                      className="rounded-chip bg-arena px-3 py-2 text-[0.8rem] font-semibold text-tinta-2 transition hover:bg-linea"
+                    >
+                      Ver más ({restantes})
+                    </button>
+                  )}
                 </div>
               </section>
             );

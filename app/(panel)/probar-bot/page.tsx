@@ -54,6 +54,8 @@ export default function ProbarBotPanel() {
       const r = await simularMensaje(t);
       setMensajes(r.mensajes); // la fuente de verdad: toda la conversación real
       setNivel(r.nivelInteres);
+      // Avisamos al contador del sidebar que el consumo pudo cambiar (refresca en vivo).
+      window.dispatchEvent(new Event("leadai:uso-cambio"));
     } catch {
       setMensajes((m) => [...m, { direccion: "saliente", texto: "⚠️ Hubo un error al procesar. Probá de nuevo." }]);
     } finally {

@@ -28,9 +28,9 @@ export default function AdminAprendizaje() {
         <p className="eyebrow">Inteligencia de LeadAI</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Aprendizaje por rubro</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
-          Cada venta cerrada alimenta un dataset por rubro. Con suficientes datos, entrenamos un
-          modelo especializado que hace que el bot venda mejor en ese rubro — para todos los
-          negocios de ese rubro.
+          Cada conversación cerrada (por vos o automática por inactividad) se guarda completa y
+          anonimizada. Con suficientes datos por rubro, entrenamos un modelo propio que hace que el
+          bot venda mejor — para todos los negocios de ese rubro.
         </p>
       </header>
 
@@ -79,6 +79,22 @@ export default function AdminAprendizaje() {
                     {r.ganados.toLocaleString("es-PE")} / {META_ENTRENAMIENTO.toLocaleString("es-PE")} para entrenar
                   </span>
                 </div>
+
+                {/* Dataset estructurado: el activo real de fine-tuning
+                    (conversaciones completas, no solo pares). */}
+                {r.conversaciones > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-chip bg-arena/60 px-3 py-2 text-[0.76rem] text-tinta-2">
+                    <span className="font-semibold text-tinta">
+                      💬 {r.conversaciones.toLocaleString("es-PE")} conversaciones completas
+                    </span>
+                    {r.turnosProm > 0 && <span>~{r.turnosProm} mensajes c/u</span>}
+                    {r.autoCerradas > 0 && (
+                      <span className="text-frio">
+                        {r.autoCerradas.toLocaleString("es-PE")} capturadas solas
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

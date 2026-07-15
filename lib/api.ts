@@ -528,6 +528,10 @@ export interface ProgresoRubro {
   ganados: number;
   perdidos: number;
   total: number;
+  // Dataset estructurado (conversaciones completas) — el activo de fine-tuning.
+  conversaciones: number;
+  turnosProm: number;
+  autoCerradas: number;
 }
 
 // Panel de super admin: sin empresa activa (conEmpresa:false), son datos de

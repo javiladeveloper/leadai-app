@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import {
-  obtenerEquipo, invitarMiembro, cancelarInvitacion, quitarMiembro,
+  obtenerEquipo, invitarMiembro, cancelarInvitacion, quitarMiembro, obtenerMiPlan,
   type MiembroEquipo, type InvitacionPendiente,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
 
 const ROL_LABEL: Record<string, string> = {
   owner: "Dueño", admin: "Administrador", agente: "Vendedor",
@@ -25,10 +26,12 @@ export default function EquipoPanel() {
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
   const [linkCopiado, setLinkCopiado] = useState("");
+  const [tieneEquipo, setTieneEquipo] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
+    obtenerMiPlan().then((p) => setTieneEquipo(p?.features?.equipo ?? false));
   }, [router]);
 
   const cargar = useCallback(async () => {
@@ -79,6 +82,18 @@ export default function EquipoPanel() {
   }
 
   if (!listo) return null;
+
+  // Feature de plan: invitar equipo es de Pro+. Si el plan no lo tiene, candado.
+  if (tieneEquipo === false) {
+    return (
+      <div className="px-5 py-10 lg:px-8">
+        <BloqueoPlan
+          titulo="Sumá trabajadores a tu equipo"
+          descripcion="Invitar trabajadores está disponible desde el plan Pro. Mejorá tu plan para que te ayuden a atender."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 px-5 py-6 lg:px-8">

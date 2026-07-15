@@ -12,8 +12,6 @@ import {
 import { precioRecargaCentavos, soles } from "@/lib/precio";
 import CheckoutCulqi from "@/components/panel/CheckoutCulqi";
 
-const PRESETS = [500, 1000, 5000];
-
 // Un cliente atendido de punta a punta ≈ 8 hits (calificar + responder por
 // mensaje). La unidad que ve el negocio es "clientes", no hits internos.
 const HITS_POR_CLIENTE = 8;
@@ -116,7 +114,9 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
   );
 }
 
-// ─── Tarjeta 2: Comprar más respuestas ─────────────────────────────────
+// ─── Tarjeta 2: Comprar más clientes ───────────────────────────────────
+// Se vende en CLIENTES (la unidad que entiende el negocio). Por dentro se
+// convierte a hits (1 cliente ≈ 8) para el backend/catálogo, que trabaja en hits.
 function TarjetaComprar({
   catalogo,
   cargando,
@@ -126,15 +126,16 @@ function TarjetaComprar({
   cargando: boolean;
   onExito: () => void;
 }) {
-  const minHits = catalogo?.recargaDinamica.minHits ?? 100;
-  const [hits, setHits] = useState(1000);
-  const [textoHits, setTextoHits] = useState("1000");
+  // Mínimo del catálogo (en hits) → mínimo en clientes.
+  const minClientes = Math.max(10, aClientes(catalogo?.recargaDinamica.minHits ?? 100));
+  const PRESETS_CLIENTES = [50, 150, 500]; // clientes extra
+  const [clientes, setClientes] = useState(150);
+  const [texto, setTexto] = useState("150");
 
-  // Cuando llega el catálogo, aseguramos que el valor inicial respete el mínimo.
   useEffect(() => {
-    if (catalogo && hits < minHits) {
-      setHits(minHits);
-      setTextoHits(String(minHits));
+    if (catalogo && clientes < minClientes) {
+      setClientes(minClientes);
+      setTexto(String(minClientes));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogo]);
@@ -152,46 +153,45 @@ function TarjetaComprar({
   if (!catalogo) {
     return (
       <p className="text-sm text-brasa">
-        No pudimos cargar los precios de recarga. Recargá la página para intentar de nuevo.
+        No pudimos cargar los precios. Recargá la página para intentar de nuevo.
       </p>
     );
   }
 
   const tramos = catalogo.recargaDinamica.tramos;
-  const hitsValidos = Math.max(minHits, hits || 0);
-  const precio = precioRecargaCentavos(hitsValidos, tramos);
-  const centavosPorHit = hitsValidos > 0 ? precio / hitsValidos : 0;
+  const clientesValidos = Math.max(minClientes, clientes || 0);
+  const hits = clientesValidos * HITS_POR_CLIENTE; // conversión a la unidad del backend
+  const precio = precioRecargaCentavos(hits, tramos);
+  const centavosPorCliente = clientesValidos > 0 ? precio / clientesValidos : 0;
 
-  // Ahorro por volumen: comparamos contra el tramo de menor volumen (el más
-  // caro por respuesta), que es el precio "de entrada" sin descuento.
+  // Ahorro por volumen vs. el tramo más caro por hit (precio "de entrada").
   const tramoMasCaro = [...tramos].sort((a, b) => b.centavosPorHit - a.centavosPorHit)[0];
-  const precioSinDescuento = tramoMasCaro ? hitsValidos * tramoMasCaro.centavosPorHit : precio;
+  const precioSinDescuento = tramoMasCaro ? hits * tramoMasCaro.centavosPorHit : precio;
   const ahorro = Math.round(precioSinDescuento - precio);
   const hayAhorro = ahorro > 0;
 
   function elegirPreset(n: number) {
-    setHits(n);
-    setTextoHits(String(n));
+    setClientes(n);
+    setTexto(String(n));
   }
-
   function onCambiarInput(v: string) {
-    setTextoHits(v);
+    setTexto(v);
     const n = parseInt(v, 10);
-    if (!Number.isNaN(n)) setHits(n);
+    if (!Number.isNaN(n)) setClientes(n);
   }
 
-  const bajoMinimo = (hits || 0) > 0 && hits < minHits;
+  const bajoMinimo = (clientes || 0) > 0 && clientes < minClientes;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        {PRESETS.map((n) => (
+        {PRESETS_CLIENTES.map((n) => (
           <button
             key={n}
             type="button"
             onClick={() => elegirPreset(n)}
             className={`rounded-chip px-4 py-2 text-[0.85rem] font-semibold transition ${
-              hits === n
+              clientes === n
                 ? "bg-brasa text-carta"
                 : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-arena-2"
             }`}
@@ -202,35 +202,29 @@ function TarjetaComprar({
       </div>
 
       <div>
-        <label htmlFor="hits-libres" className="mb-1 block text-[0.82rem] font-semibold text-tinta-2">
+        <label htmlFor="clientes-libres" className="mb-1 block text-[0.82rem] font-semibold text-tinta-2">
           O elegí una cantidad
         </label>
         <input
-          id="hits-libres"
+          id="clientes-libres"
           type="number"
-          min={minHits}
-          step={100}
-          value={textoHits}
+          min={minClientes}
+          step={10}
+          value={texto}
           onChange={(e) => onCambiarInput(e.target.value)}
           className="w-full rounded-xl border border-linea bg-carta px-4 py-2.5 text-[0.95rem] text-tinta outline-none focus-visible:border-brasa"
         />
-        {bajoMinimo ? (
-          <p className="mt-1 text-[0.78rem] text-brasa">
-            El mínimo por compra es {minHits.toLocaleString("es-PE")} respuestas.
-          </p>
-        ) : (
-          <p className="mt-1 text-[0.78rem] text-frio">
-            Mínimo {minHits.toLocaleString("es-PE")} respuestas por compra.
-          </p>
-        )}
+        <p className={`mt-1 text-[0.78rem] ${bajoMinimo ? "text-brasa" : "text-frio"}`}>
+          {bajoMinimo ? "El mínimo por compra es" : "Mínimo"} {minClientes.toLocaleString("es-PE")} clientes.
+        </p>
       </div>
 
       <div className="rounded-xl bg-arena px-4 py-3.5">
         <p className="text-[1.05rem] font-bold text-tinta">
-          {hitsValidos.toLocaleString("es-PE")} respuestas = {soles(precio)}
+          {clientesValidos.toLocaleString("es-PE")} clientes = {soles(precio)}
         </p>
         <p className="text-[0.78rem] text-frio">
-          {(centavosPorHit).toFixed(1)} centavos por respuesta
+          {soles(centavosPorCliente)} por cliente
           {hayAhorro && (
             <span className="ml-1 font-semibold text-ok">· Ahorrás {soles(ahorro)}</span>
           )}
@@ -238,8 +232,9 @@ function TarjetaComprar({
       </div>
 
       <CheckoutCulqi
-        key={hitsValidos}
-        hits={hitsValidos}
+        key={hits}
+        hits={hits}
+        clientes={clientesValidos}
         montoCentavos={precio}
         onExito={onExito}
       />
@@ -350,7 +345,7 @@ const OPCIONES_INSISTENCIA: OpcionInsistencia[] = [
     clave: "poca",
     emoji: "🌱",
     etiqueta: "Poco",
-    descripcion: "Responde lo justo y te avisa. Ahorra respuestas.",
+    descripcion: "Responde lo justo y te avisa. Aprovecha mejor tus clientes.",
   },
   {
     clave: "normal",
@@ -526,9 +521,9 @@ export function PlanConsumo() {
       </div>
 
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-        <h3 className="text-[0.95rem] font-bold text-tinta">Comprar más respuestas</h3>
+        <h3 className="text-[0.95rem] font-bold text-tinta">Comprar más clientes</h3>
         <p className="mb-4 text-[0.8rem] text-frio">
-          Sumá respuestas prepago que no vencen con el mes. Cuanto más comprás, más barato sale.
+          Sumá clientes extra que no vencen con el mes. Cuantos más comprás, más barato sale.
         </p>
         <TarjetaComprar catalogo={catalogo} cargando={cargandoCatalogo} onExito={recargarSaldo} />
       </div>

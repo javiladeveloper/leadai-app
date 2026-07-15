@@ -39,12 +39,13 @@ const CULQI_SCRIPT_SRC = "https://checkout.culqi.com/js/v4";
 type Estado = "idle" | "cargando-sdk" | "abriendo" | "procesando" | "ok" | "error" | "cancelado";
 
 interface Props {
-  hits: number;
+  hits: number; // unidad que el backend consume (se envía en la recarga)
+  clientes?: number; // lo que ve el usuario (para textos); hits = clientes × 8
   montoCentavos: number;
   onExito: () => void;
 }
 
-export default function CheckoutCulqi({ hits, montoCentavos, onExito }: Props) {
+export default function CheckoutCulqi({ hits, clientes, montoCentavos, onExito }: Props) {
   const [estado, setEstado] = useState<Estado>("idle");
   const [error, setError] = useState("");
   const [sdkListo, setSdkListo] = useState(false);
@@ -136,7 +137,7 @@ export default function CheckoutCulqi({ hits, montoCentavos, onExito }: Props) {
       title: "LeadAI",
       currency: "PEN",
       amount: montoCentavos,
-      description: `${hits.toLocaleString("es-PE")} respuestas`,
+      description: clientes ? `${clientes.toLocaleString("es-PE")} clientes` : `${hits.toLocaleString("es-PE")} clientes`,
     });
     culqi.options?.({
       lang: "auto",
@@ -166,7 +167,7 @@ export default function CheckoutCulqi({ hits, montoCentavos, onExito }: Props) {
   }
 
   if (estado === "ok") {
-    return <p className="text-sm font-medium text-ok">Pago aprobado, sumando tus respuestas…</p>;
+    return <p className="text-sm font-medium text-ok">Pago aprobado, sumando tus clientes…</p>;
   }
 
   const cargandoBoton = estado === "abriendo" || estado === "procesando" || !sdkListo;

@@ -96,11 +96,16 @@ export default function SeguimientoPanel() {
     cargar();
   }, [listo, cargar]);
 
-  // Agrupa los leads por etapa una sola vez por render.
+  // Agrupa los leads por etapa y, dentro de cada una, ordena por temperatura:
+  // los calientes arriba (lo más urgente), luego tibios, luego fríos.
   const porEtapa = useMemo(() => {
+    const ORDEN_NIVEL: Record<Lead["nivelInteres"], number> = { caliente: 0, tibio: 1, frio: 2 };
     const mapa = new Map<EstadoLead, Lead[]>();
     for (const et of ETAPAS) mapa.set(et.estado, []);
     for (const l of leads) mapa.get(l.estado)?.push(l);
+    for (const lista of mapa.values()) {
+      lista.sort((a, b) => ORDEN_NIVEL[a.nivelInteres] - ORDEN_NIVEL[b.nivelInteres]);
+    }
     return mapa;
   }, [leads]);
 

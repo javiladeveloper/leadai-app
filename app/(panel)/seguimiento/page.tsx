@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion } from "@/lib/auth";
@@ -44,6 +44,32 @@ export default function SeguimientoPanel() {
   const [estado, setEstado] = useState<Estado>("cargando");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  // Lead abierto en el popup de vista rápida (1 click). El doble click entra a
+  // la conversación directamente. Usamos un timer para distinguir 1 de 2 clicks.
+  const [leadAbierto, setLeadAbierto] = useState<Lead | null>(null);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 1 click abre el popup; 2 clicks entran a la conversación (cancela el popup).
+  const alHacerClick = useCallback(
+    (lead: Lead) => {
+      if (clickTimer.current) clearTimeout(clickTimer.current);
+      clickTimer.current = setTimeout(() => {
+        setLeadAbierto(lead);
+        clickTimer.current = null;
+      }, 220);
+    },
+    [],
+  );
+  const alDobleClick = useCallback(
+    (lead: Lead) => {
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
+        clickTimer.current = null;
+      }
+      router.push(`/conversacion/${lead.id}`);
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (!haySesion()) {
@@ -171,17 +197,15 @@ export default function SeguimientoPanel() {
                     return (
                       <article
                         key={lead.id}
-                        className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea"
+                        onClick={() => alHacerClick(lead)}
+                        onDoubleClick={() => alDobleClick(lead)}
+                        title="Un click: ver detalle · Doble click: abrir conversación"
+                        className="cursor-pointer rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <Link
-                            href={`/conversacion/${lead.id}`}
-                            className="min-w-0 flex-1 font-semibold text-tinta hover:text-brasa"
-                          >
-                            <span className="block truncate">
-                              {lead.nombre ?? lead.contactoExterno}
-                            </span>
-                          </Link>
+                          <span className="block min-w-0 flex-1 truncate font-semibold text-tinta">
+                            {lead.nombre ?? lead.contactoExterno}
+                          </span>
                           <span
                             className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${nivel.clase}`}
                           >
@@ -199,19 +223,20 @@ export default function SeguimientoPanel() {
                           <BadgeCanal canal={lead.canalOrigen} tamano="chico" />
                         </div>
 
-                        {/* Acciones de cierre — solo en etapas activas */}
+                        {/* Acciones de cierre — solo en etapas activas.
+                            stopPropagation: no abrir el popup al usar los botones. */}
                         {cerrable && (
                           <div className="mt-3 flex gap-2">
                             <button
                               disabled={trabajando}
-                              onClick={() => mover(lead, { tipo: "marcar_ganado" })}
+                              onClick={(e) => { e.stopPropagation(); mover(lead, { tipo: "marcar_ganado" }); }}
                               className="flex-1 rounded-chip bg-ok/12 px-2.5 py-1.5 text-[0.78rem] font-bold text-ok transition hover:bg-ok/20 disabled:opacity-50"
                             >
                               Gané
                             </button>
                             <button
                               disabled={trabajando}
-                              onClick={() => mover(lead, { tipo: "descartar" })}
+                              onClick={(e) => { e.stopPropagation(); mover(lead, { tipo: "descartar" }); }}
                               className="flex-1 rounded-chip bg-arena px-2.5 py-1.5 text-[0.78rem] font-bold text-frio transition hover:bg-linea disabled:opacity-50"
                             >
                               Descartar
@@ -225,6 +250,80 @@ export default function SeguimientoPanel() {
               </section>
             );
           })}
+        </div>
+      )}
+
+      {/* Popup de vista rápida (1 click sobre una tarjeta). Muestra los datos
+          del lead sin salir del tablero. Doble click en la tarjeta, o el botón
+          de abajo, entra a la conversación completa. */}
+      {leadAbierto && (
+        <div
+          onClick={() => setLeadAbierto(null)}
+          className="fixed inset-0 z-50 grid place-items-center bg-tinta/40 p-4 backdrop-blur-sm"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-tarjeta bg-carta p-5 shadow-[0_8px_24px_rgba(51,40,31,0.2)] ring-1 ring-linea"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="min-w-0 flex-1 truncate text-[1.1rem] font-bold text-tinta">
+                {leadAbierto.nombre ?? leadAbierto.contactoExterno}
+              </h3>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-0.5 text-[0.72rem] font-bold ${NIVEL_ETIQUETA[leadAbierto.nivelInteres].clase}`}
+              >
+                {NIVEL_ETIQUETA[leadAbierto.nivelInteres].texto}
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center gap-2">
+              <BadgeCanal canal={leadAbierto.canalOrigen} tamano="chico" />
+              <span className="text-[0.78rem] text-frio">{leadAbierto.contactoExterno}</span>
+            </div>
+
+            {leadAbierto.resumenIA && (
+              <div className="mt-3.5">
+                <p className="text-[0.72rem] font-bold uppercase tracking-wide text-frio">Resumen</p>
+                <p className="mt-1 text-[0.9rem] text-tinta-2">{leadAbierto.resumenIA}</p>
+              </div>
+            )}
+
+            {leadAbierto.nota && (
+              <div className="mt-3.5">
+                <p className="text-[0.72rem] font-bold uppercase tracking-wide text-frio">Tu nota</p>
+                <p className="mt-1 text-[0.9rem] text-tinta-2">{leadAbierto.nota}</p>
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => router.push(`/conversacion/${leadAbierto.id}`)}
+                className="flex-1 rounded-chip bg-brasa px-4 py-2 text-sm font-semibold text-carta transition hover:bg-brasa-hondo"
+              >
+                Abrir conversación
+              </button>
+              {leadAbierto.estado !== "ganado" && leadAbierto.estado !== "perdido" && (
+                <>
+                  <button
+                    onClick={() => { mover(leadAbierto, { tipo: "marcar_ganado" }); setLeadAbierto(null); }}
+                    className="rounded-chip bg-ok/12 px-3.5 py-2 text-sm font-bold text-ok transition hover:bg-ok/20"
+                  >
+                    Gané
+                  </button>
+                  <button
+                    onClick={() => { mover(leadAbierto, { tipo: "descartar" }); setLeadAbierto(null); }}
+                    className="rounded-chip bg-arena px-3.5 py-2 text-sm font-bold text-frio transition hover:bg-linea"
+                  >
+                    Descartar
+                  </button>
+                </>
+              )}
+            </div>
+
+            <p className="mt-3 text-center text-[0.72rem] text-frio">
+              Tip: doble click en la tarjeta entra directo a la conversación
+            </p>
+          </div>
         </div>
       )}
     </div>

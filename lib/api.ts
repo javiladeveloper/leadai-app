@@ -333,11 +333,14 @@ export interface FeaturesPlan {
   maxFlujos: number;
 }
 
+export type RitmoSeguimiento = "suave" | "normal" | "insistente";
+
 export interface MiPlan {
   plan: string;
   insistencia: "poca" | "normal" | "mucha";
   botActivo: boolean;
   iaActiva: boolean;
+  ritmoSeguimiento: RitmoSeguimiento;
   features: FeaturesPlan;
 }
 
@@ -361,6 +364,7 @@ export async function guardarMiPlan(cfg: {
   insistencia?: "poca" | "normal" | "mucha";
   botActivo?: boolean;
   iaActiva?: boolean;
+  ritmoSeguimiento?: RitmoSeguimiento;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/mi-plan", { method: "PATCH", body: cfg });

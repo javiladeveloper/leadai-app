@@ -9,6 +9,7 @@ import {
   listarLeads,
   obtenerLead,
   accionLead,
+  calcularComision,
   type Lead,
   type LeadDetalle,
   type Mensaje as MensajeApi,
@@ -102,7 +103,17 @@ export default function ConversacionesPanel() {
   }
   const [ventaAbierta, setVentaAbierta] = useState(false);
   const [montoVenta, setMontoVenta] = useState("");
+  const [comisionCalc, setComisionCalc] = useState<number | null>(null);
   const [accionError, setAccionError] = useState<string | null>(null);
+
+  // Calcula la comisión sugerida según la config del negocio cuando cambia el
+  // monto (debounce corto para no llamar en cada tecla).
+  useEffect(() => {
+    const monto = Number(montoVenta);
+    if (!ventaAbierta || !monto || monto <= 0) { setComisionCalc(null); return; }
+    const t = setTimeout(() => { calcularComision(monto).then(setComisionCalc); }, 350);
+    return () => clearTimeout(t);
+  }, [montoVenta, ventaAbierta]);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -440,6 +451,12 @@ export default function ConversacionesPanel() {
                       placeholder="0.00"
                       className="rounded-xl bg-arena px-3 py-2 text-[0.95rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
                     />
+                    {comisionCalc !== null && (
+                      <p className="text-[0.82rem] text-tinta-2">
+                        Tu comisión: <b className="text-ok">S/{comisionCalc.toLocaleString("es-PE", { minimumFractionDigits: 2 })}</b>
+                        <span className="text-frio"> (según tu config)</span>
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <button
                         onClick={registrarVenta}

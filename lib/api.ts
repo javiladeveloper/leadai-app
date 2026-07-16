@@ -367,6 +367,8 @@ export interface MiPlan {
   ritmoSeguimiento: RitmoSeguimiento;
   comentariosActivo: boolean;
   comentariosMensaje: string;
+  comisionTipo: "porcentaje" | "fijo";
+  comisionValor: number;
   features: FeaturesPlan;
 }
 
@@ -393,6 +395,8 @@ export async function guardarMiPlan(cfg: {
   ritmoSeguimiento?: RitmoSeguimiento;
   comentariosActivo?: boolean;
   comentariosMensaje?: string;
+  comisionTipo?: "porcentaje" | "fijo";
+  comisionValor?: number;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/mi-plan", { method: "PATCH", body: cfg });
@@ -812,6 +816,17 @@ export async function crearPublicacion(input: {
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear" };
+  }
+}
+
+// Calcula la comisión sugerida para un monto de venta, según la config del
+// negocio. Devuelve null si el negocio no configuró comisión.
+export async function calcularComision(monto: number): Promise<number | null> {
+  try {
+    const r = await api<{ comision: number | null }>(`/comisiones/calcular?monto=${monto}`);
+    return r.comision;
+  } catch {
+    return null;
   }
 }
 

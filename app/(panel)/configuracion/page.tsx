@@ -7,6 +7,7 @@ import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { PanelCanales } from "@/components/panel/PanelCanales";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
+import { ConfigComision } from "@/components/panel/ConfigComision";
 
 // Pantalla de Configuración del panel, organizada en pestañas para no apilar
 // todo en una página larga: Tu negocio (playbook IA), Canales (WhatsApp) y
@@ -94,6 +95,7 @@ export default function ConfiguracionPanel() {
               Cuánto te queda, cómo comprar más respuestas y cómo poner límites a tu gasto.
             </p>
             <PlanConsumo />
+            <ConfigComision />
           </>
         )}
       </section>

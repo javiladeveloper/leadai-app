@@ -419,6 +419,17 @@ export async function iniciarRecarga(
   }
 }
 
+// Lista las empresas del usuario EN VIVO desde el backend. La sesión cachea la
+// lista del momento del login, así que un negocio nuevo (invitación, seed,
+// creado en otro dispositivo) no aparecería sin este refresco.
+export async function misEmpresas(): Promise<EmpresaResumen[]> {
+  try {
+    return await api<EmpresaResumen[]>("/empresas");
+  } catch {
+    return [];
+  }
+}
+
 // Crea el primer negocio del usuario (onboarding). El backend crea la empresa y
 // hace owner al usuario. Actualizamos la sesión local con la nueva empresa y la
 // dejamos activa, para que el panel la use al entrar.

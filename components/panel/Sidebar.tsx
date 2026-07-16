@@ -43,6 +43,16 @@ export function Sidebar() {
         </span>
         <span className="text-lg font-bold">Lead<span className="text-brasa">AI</span></span>
       </div>
+      {/* Alta manual de lead (diseño Stitch): para el contacto que la vendedora
+          conoció en la calle o le refirieron. */}
+      <div className="px-3 pb-3">
+        <Link
+          href="/leads?nuevo=1"
+          className="flex items-center justify-center gap-1.5 rounded-chip bg-brasa px-4 py-2.5 text-sm font-bold text-carta transition hover:bg-brasa-hondo"
+        >
+          ＋ Nuevo lead
+        </Link>
+      </div>
       <nav className="flex-1 space-y-1 px-3">
         {SECCIONES.map(({ href, label, Icono }) => {
           const activo = path.startsWith(href);

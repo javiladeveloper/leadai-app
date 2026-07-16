@@ -229,6 +229,21 @@ export async function listarLeads(
   return acumulado;
 }
 
+// Crea un lead a mano (contacto conocido en la calle / referido). Canal
+// 'externo', origen 'manual'.
+export async function crearLeadManual(input: {
+  nombre: string;
+  contacto: string;
+  nota?: string;
+}): Promise<{ ok: boolean; leadId?: string; error?: string }> {
+  try {
+    const r = await api<{ id: string }>("/leads", { method: "POST", body: input });
+    return { ok: true, leadId: r.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el lead" };
+  }
+}
+
 // Solo los últimos N leads (primera página) — para "Actividad reciente" del
 // Inicio sin pagar el costo de paginar toda la bandeja.
 export async function leadsRecientes(n = 5): Promise<Lead[]> {

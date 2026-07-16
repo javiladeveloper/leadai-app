@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion, leerSesion } from "@/lib/auth";
 import {
-  obtenerResumen, obtenerUso, leadsRecientes,
-  type Resumen, type Uso, type Lead,
+  obtenerResumen, obtenerUso, leadsRecientes, obtenerReporteNegocio,
+  type Resumen, type Uso, type Lead, type ReporteNegocio,
 } from "@/lib/api";
 import { IconoRayo, IconoConversaciones, IconoBandeja, IconoSeguimiento, IconoReportes } from "@/components/Iconos";
 import { SkeletonMetricas } from "@/components/Skeletons";
@@ -46,6 +46,7 @@ export default function InicioPanel() {
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [uso, setUso] = useState<Uso | null>(null);
   const [recientes, setRecientes] = useState<Lead[]>([]);
+  const [rep, setRep] = useState<ReporteNegocio | null>(null);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -59,14 +60,16 @@ export default function InicioPanel() {
     setEstado("cargando");
     try {
       // El resumen es lo esencial; uso y recientes son secundarios (best-effort).
-      const [r, u, l] = await Promise.all([
+      const [r, u, l, rn] = await Promise.all([
         obtenerResumen(),
         obtenerUso().catch(() => null),
         leadsRecientes(3).catch(() => []),
+        obtenerReporteNegocio().catch(() => null), // best-effort (gated por plan)
       ]);
       setResumen(r);
       setUso(u);
       setRecientes(l);
+      setRep(rn);
       setEstado("ok");
     } catch {
       setEstado("error");
@@ -203,19 +206,79 @@ export default function InicioPanel() {
             {recientes.length > 0 && (
               <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <p className="mb-3 text-[0.85rem] font-bold text-tinta">Actividad reciente</p>
-                <div className="space-y-2.5">
-                  {recientes.map((l) => (
-                    <Link key={l.id} href={`/conversacion/${l.id}`} className="flex items-center gap-2.5 rounded-xl px-1 py-0.5 transition hover:bg-arena/50">
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${NIVEL_PUNTO[l.nivelInteres] ?? "bg-frio"}`} />
-                      <span className="min-w-0 flex-1 truncate text-[0.88rem] font-semibold text-tinta">
-                        {l.nombre ?? l.contactoExterno}
-                      </span>
-                      <span className="shrink-0 text-[0.74rem] text-frio">{haceTexto(l.actualizadoEn)}</span>
-                    </Link>
-                  ))}
+                <div className="space-y-2">
+                  {recientes.map((l) => {
+                    const inicial = (l.nombre ?? l.contactoExterno).trim().charAt(0).toUpperCase();
+                    return (
+                      <Link key={l.id} href={`/conversacion/${l.id}`} className="flex items-center gap-3 rounded-xl px-1 py-1 transition hover:bg-arena/50">
+                        {/* Avatar con inicial, teñido por el nivel (diseño Stitch) */}
+                        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-[0.85rem] font-bold text-carta ${NIVEL_PUNTO[l.nivelInteres] ?? "bg-frio"}`}>
+                          {inicial}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[0.88rem] font-semibold leading-tight text-tinta">
+                            {l.nombre ?? l.contactoExterno}
+                          </p>
+                          <p className="text-[0.72rem] text-frio">{haceTexto(l.actualizadoEn)}</p>
+                        </div>
+                        <span className="shrink-0 text-lg leading-none text-frio">›</span>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Línea de ventas + ayuda (fila final del diseño Stitch) */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Mini gráfico de ventas (datos reales de reportes); si no hay
+                ventas aún, invita a configurar los flujos (como el mock). */}
+            {rep && rep.evolucion.some((e) => e.ventas > 0) ? (
+              <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+                <p className="mb-3 text-[0.85rem] font-bold text-tinta">Tus ventas, últimos 6 meses</p>
+                <div className="flex h-24 items-end gap-2">
+                  {rep.evolucion.map((e) => {
+                    const max = Math.max(1, ...rep.evolucion.map((x) => x.ventas));
+                    const alto = Math.max(6, Math.round((e.ventas / max) * 100));
+                    return (
+                      <div key={e.mes} className="flex flex-1 flex-col items-center gap-1">
+                        <div className="w-full rounded-t-md bg-brasa/80 transition-all" style={{ height: `${alto}%` }} title={`${e.ventas} ventas`} />
+                        <span className="text-[0.62rem] text-frio">{e.mes.slice(5)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <Link
+                href="/flujos"
+                className="grid place-items-center rounded-tarjeta border-2 border-dashed border-linea bg-carta/50 p-6 text-center transition hover:border-brasa/40"
+              >
+                <div>
+                  <p className="text-[0.9rem] font-bold text-tinta-2">📈 Línea de tiempo de ventas</p>
+                  <p className="mt-1 text-[0.8rem] text-frio">
+                    Cuando cierres tus primeras ventas, acá vas a ver cómo evolucionan mes a mes.
+                  </p>
+                </div>
+              </Link>
+            )}
+
+            {/* Tarjeta de ayuda (slate navy, como el mock) */}
+            <div className="flex flex-col justify-between rounded-tarjeta bg-superficie-honda p-5 text-arena shadow-[var(--sombra-tarjeta)]">
+              <div>
+                <p className="text-[1rem] font-bold leading-snug">¿Todavía no conectaste tus redes?</p>
+                <p className="mt-1 text-[0.84rem] text-arena/70">
+                  Probá tu bot y dejá todo listo — cuando conectes, arrancás al toque.
+                </p>
+              </div>
+              <Link
+                href="/probar-bot"
+                className="mt-4 inline-flex w-fit items-center rounded-chip bg-brasa px-4 py-2 text-sm font-bold text-carta transition hover:bg-brasa-hondo"
+              >
+                Probar mi bot
+              </Link>
+            </div>
           </div>
         </>
       )}

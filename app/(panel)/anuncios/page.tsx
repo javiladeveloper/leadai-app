@@ -19,6 +19,17 @@ const ESTADO_AD: Record<string, { texto: string; clase: string }> = {
   rechazado: { texto: "Rechazado", clase: "bg-brasa-suave text-brasa-hondo" },
 };
 
+// Zonas seleccionables (sin texto libre → sin typos tipo "takna"). Cuando se
+// conecte Meta, esto evoluciona al buscador de geolocalización real de Meta
+// (Targeting Search API), que valida ciudades/regiones exactas.
+const ZONAS = [
+  "Todo Perú",
+  "Amazonas", "Áncash", "Apurímac", "Arequipa", "Ayacucho", "Cajamarca",
+  "Callao", "Cusco", "Huancavelica", "Huánuco", "Ica", "Junín", "La Libertad",
+  "Lambayeque", "Lima", "Loreto", "Madre de Dios", "Moquegua", "Pasco",
+  "Piura", "Puno", "San Martín", "Tacna", "Tumbes", "Ucayali",
+];
+
 // Creador de anuncios guiado (Fase 3B): wizard en pasos que pregunta qué querés
 // conseguir y arma el ad con las mejores configuraciones. La publicación real
 // espera la conexión de Meta; hoy se simula.
@@ -36,7 +47,9 @@ export default function AnunciosPanel() {
   const [campania, setCampania] = useState("");
   const [texto, setTexto] = useState("");
   const [publico, setPublico] = useState<PublicoAd | null>(null);
-  const [zona, setZona] = useState("");
+  const [zona, setZona] = useState("Todo Perú");
+  const [edadMin, setEdadMin] = useState("18");
+  const [edadMax, setEdadMax] = useState("55");
   const [total, setTotal] = useState("100");
   const [dias, setDias] = useState("7");
   const [recom, setRecom] = useState<RecomPresupuesto | null>(null);
@@ -61,9 +74,15 @@ export default function AnunciosPanel() {
 
   useEffect(() => { if (listo) cargar(); }, [listo, cargar]);
 
-  // Al entrar al paso de público, carga el sugerido por rubro.
+  // Al entrar al paso de público, carga el sugerido por rubro. La edad sugerida
+  // precarga los campos, pero el usuario la puede ajustar libremente.
   useEffect(() => {
-    if (paso === 2 && !publico) publicoSugeridoAd().then(setPublico);
+    if (paso === 2 && !publico) {
+      publicoSugeridoAd().then((p) => {
+        setPublico(p);
+        if (p) { setEdadMin(String(p.edadMin)); setEdadMax(String(p.edadMax)); }
+      });
+    }
   }, [paso, publico]);
 
   // Al entrar al paso de presupuesto (o cambiar total/días), recalcula.
@@ -92,7 +111,14 @@ export default function AnunciosPanel() {
       objetivo,
       campaniaNombre: campania.trim(),
       texto: texto.trim(),
-      publico: publico ? { zona, edadMin: publico.edadMin, edadMax: publico.edadMax, intereses: publico.intereses } : { zona },
+      // Se envía la edad EDITADA por el usuario (no la sugerida): estos valores
+      // van después directo al AdSet de Meta (age_min/age_max, geo_locations).
+      publico: {
+        zona,
+        edadMin: Number(edadMin),
+        edadMax: Number(edadMax),
+        intereses: publico?.intereses ?? [],
+      },
       presupuestoTotal: Number(total),
       dias: Number(dias),
     });
@@ -109,10 +135,11 @@ export default function AnunciosPanel() {
   if (!listo) return null;
 
   const objSel = objetivos.find((o) => o.id === objetivo);
+  const edadValida = Number(edadMin) >= 18 && Number(edadMax) <= 65 && Number(edadMin) <= Number(edadMax);
   const puedeAvanzar =
     (paso === 0) ||
     (paso === 1 && campania.trim() && texto.trim()) ||
-    (paso === 2) ||
+    (paso === 2 && edadValida) ||
     (paso === 3 && Number(total) > 0 && Number(dias) > 0);
 
   return (
@@ -216,26 +243,49 @@ export default function AnunciosPanel() {
             <div className="space-y-3">
               <h2 className="text-[1.05rem] font-bold text-tinta">¿A quién le mostramos el anuncio?</h2>
               <p className="text-[0.82rem] text-frio">
-                Elegimos un público según tu rubro. Meta encuentra a los más interesados solo — con
-                un público amplio suele rendir mejor.
+                Te sugerimos un público según tu rubro — ajustalo como quieras. Con un público
+                amplio Meta suele rendir mejor (su sistema encuentra a los interesados solo).
               </p>
               {publico && (
                 <div className="rounded-tarjeta bg-arena/50 p-3.5">
-                  <p className="text-[0.85rem] font-semibold text-tinta">{publico.nota}</p>
-                  <p className="mt-1 text-[0.82rem] text-tinta-2">
-                    Edad {publico.edadMin}–{publico.edadMax}
-                    {publico.intereses.length > 0 && <> · {publico.intereses.join(", ")}</>}
-                  </p>
+                  <p className="text-[0.85rem] font-semibold text-tinta">Sugerido para tu rubro: {publico.nota}</p>
+                  {publico.intereses.length > 0 && (
+                    <p className="mt-1 text-[0.82rem] text-tinta-2">Intereses: {publico.intereses.join(", ")}</p>
+                  )}
                 </div>
               )}
-              <div>
-                <label className="text-[0.85rem] font-bold text-tinta">Zona</label>
-                <input
-                  value={zona}
-                  onChange={(e) => setZona(e.target.value)}
-                  placeholder="Ej: Lima, Perú"
-                  className="mt-1 w-full rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
-                />
+              <div className="flex flex-wrap gap-3">
+                <div>
+                  <label className="text-[0.85rem] font-bold text-tinta">Zona</label>
+                  <select
+                    value={zona}
+                    onChange={(e) => setZona(e.target.value)}
+                    className="mt-1 block w-52 rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
+                  >
+                    {ZONAS.map((z) => <option key={z} value={z}>{z}</option>)}
+                  </select>
+                  <p className="mt-1 text-[0.72rem] text-frio">Al conectar Meta vas a poder afinar por ciudad exacta.</p>
+                </div>
+                <div>
+                  <label className="text-[0.85rem] font-bold text-tinta">Edad</label>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <input
+                      type="number" min={18} max={65} value={edadMin}
+                      onChange={(e) => setEdadMin(e.target.value)}
+                      className="w-20 rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
+                    />
+                    <span className="text-frio">a</span>
+                    <input
+                      type="number" min={18} max={65} value={edadMax}
+                      onChange={(e) => setEdadMax(e.target.value)}
+                      className="w-20 rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
+                    />
+                    <span className="text-[0.82rem] text-frio">años</span>
+                  </div>
+                  {Number(edadMin) > Number(edadMax) && (
+                    <p className="mt-1 text-[0.74rem] font-semibold text-brasa-hondo">La edad mínima no puede superar la máxima.</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -244,6 +294,12 @@ export default function AnunciosPanel() {
           {paso === 3 && (
             <div className="space-y-3">
               <h2 className="text-[1.05rem] font-bold text-tinta">¿Cuánto querés invertir?</h2>
+              <p className="text-[0.82rem] text-frio">
+                Así funciona: vos ponés el monto total y Meta lo reparte en los días que elijas
+                (ese es el gasto por día). Lo que varía es el <b>resultado</b> — cuánta gente ve tu
+                anuncio y cuántos te escriben depende de tu público, la competencia y qué tan bueno
+                sea el anuncio. Por eso la estimación es un rango, no una promesa.
+              </p>
               <div className="flex flex-wrap gap-3">
                 <div>
                   <label className="text-[0.85rem] font-bold text-tinta">Total (S/)</label>
@@ -272,7 +328,7 @@ export default function AnunciosPanel() {
                 <p><b className="text-tinta">Objetivo:</b> {objSel?.pregunta}</p>
                 <p><b className="text-tinta">Campaña:</b> {campania}</p>
                 <p><b className="text-tinta">Texto:</b> “{texto}”</p>
-                <p><b className="text-tinta">Público:</b> {zona || "tu zona"}{publico && <> · {publico.edadMin}–{publico.edadMax} años</>}</p>
+                <p><b className="text-tinta">Público:</b> {zona} · {edadMin}–{edadMax} años</p>
                 <p className="text-brasa-hondo"><b>Vas a gastar hasta S/{total} en {dias} días</b> (S/{(Number(total) / Number(dias) || 0).toFixed(2)}/día).</p>
               </div>
               <p className="text-[0.78rem] text-frio">

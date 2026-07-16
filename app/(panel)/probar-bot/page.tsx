@@ -51,13 +51,22 @@ export default function ProbarBotPanel() {
     setMensajes((m) => [...m, { direccion: "entrante", texto: t }]);
     setEnviando(true);
     try {
-      const r = await simularMensaje(t);
+      // Reintento automático: un fallo suele ser transitorio (ej. el servidor
+      // reiniciando por un deploy). Esperamos un momento y probamos una vez más
+      // antes de mostrar el error.
+      let r;
+      try {
+        r = await simularMensaje(t);
+      } catch {
+        await new Promise((ok) => setTimeout(ok, 1500));
+        r = await simularMensaje(t);
+      }
       setMensajes(r.mensajes); // la fuente de verdad: toda la conversación real
       setNivel(r.nivelInteres);
       // Avisamos al contador del sidebar que el consumo pudo cambiar (refresca en vivo).
       window.dispatchEvent(new Event("leadai:uso-cambio"));
     } catch {
-      setMensajes((m) => [...m, { direccion: "saliente", texto: "⚠️ Hubo un error al procesar. Probá de nuevo." }]);
+      setMensajes((m) => [...m, { direccion: "saliente", texto: "⚠️ No pudimos procesar el mensaje. Esperá unos segundos y probá de nuevo." }]);
     } finally {
       setEnviando(false);
     }

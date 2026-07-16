@@ -32,7 +32,7 @@ const ETAPAS: {
 ];
 
 const NIVEL_ETIQUETA: Record<Lead["nivelInteres"], { texto: string; clase: string }> = {
-  caliente: { texto: "🔴 Caliente", clase: "bg-brasa-suave text-brasa-hondo" },
+  caliente: { texto: "🔴 Caliente", clase: "bg-calor-suave text-calor-hondo" },
   tibio: { texto: "🟡 Tibio", clase: "bg-tibio-suave text-tibio" },
   frio: { texto: "⚪ Frío", clase: "bg-arena text-frio" },
 };

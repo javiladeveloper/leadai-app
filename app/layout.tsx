@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-// Atkinson Hyperlegible: diseñada para máxima legibilidad. Se auto-hostea
-// (next/font), sin CDN — sin problemas de CSP.
-const atkinson = Atkinson_Hyperlegible({
-  variable: "--font-atkinson",
+// Plus Jakarta Sans: geometría amigable pero profesional (design system
+// "Brand Harmony" de Stitch). Se auto-hostea (next/font), sin CDN.
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: ["400", "600", "700", "800"],
   display: "swap",
 });
 
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#eae1d0",
+  themeColor: "#f7f9fb",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -31,7 +31,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={atkinson.variable}>
+    <html lang="es" className={jakarta.variable}>
       {/* El root queda sin restricción de ancho: el panel de escritorio ocupa
           todo el ancho (su propio layout maneja sidebar+contenido), y las
           pantallas tipo login se centran ellas mismas en un ancho de teléfono. */}

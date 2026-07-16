@@ -23,7 +23,7 @@ const estadoLabel: Record<string, string> = {
   pagada: "Pagada", pendiente: "Pendiente", por_cobrar: "Por cobrar",
 };
 const NIVEL: Record<string, { label: string; color: string }> = {
-  caliente: { label: "🔥 Calientes", color: "text-brasa-hondo" },
+  caliente: { label: "🔥 Calientes", color: "text-calor-hondo" },
   tibio: { label: "🌤 Tibios", color: "text-tibio" },
   frio: { label: "❄️ Fríos", color: "text-frio" },
 };

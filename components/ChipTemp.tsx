@@ -1,7 +1,7 @@
 import type { Temperatura } from "@/lib/tipos";
 
 const MAPA: Record<Temperatura, { texto: string; clase: string; punto: string }> = {
-  caliente: { texto: "Caliente", clase: "bg-brasa-suave text-brasa-hondo", punto: "bg-brasa" },
+  caliente: { texto: "Caliente", clase: "bg-calor-suave text-calor-hondo", punto: "bg-calor" },
   tibio: { texto: "Tibio", clase: "bg-tibio-suave text-tibio", punto: "bg-tibio" },
   frio: { texto: "Frío", clase: "bg-arena-2 text-frio", punto: "bg-frio" },
 };

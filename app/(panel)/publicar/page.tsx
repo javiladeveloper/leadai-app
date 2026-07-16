@@ -23,7 +23,7 @@ const ESTADO_POST: Record<string, { texto: string; clase: string }> = {
   programada: { texto: "Programada", clase: "bg-tibio-suave text-tibio" },
   publicando: { texto: "Publicando…", clase: "bg-tibio-suave text-tibio" },
   publicada: { texto: "Publicada", clase: "bg-ok/12 text-ok" },
-  fallida: { texto: "Falló", clase: "bg-brasa-suave text-brasa-hondo" },
+  fallida: { texto: "Falló", clase: "bg-calor-suave text-calor-hondo" },
 };
 
 // Publicador multi-red (Fase 2 embudo): crear un post una vez, la IA ayuda con

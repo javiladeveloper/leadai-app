@@ -112,9 +112,15 @@ export default function ComentariosPanel() {
               <span className="font-bold">{INTENCION[ultimo.intencion ?? "otro"]?.texto ?? ultimo.intencion}</span>
             </p>
             {ultimo.respondido && ultimo.respuesta ? (
-              <p className="mt-1.5 text-[0.88rem] text-tinta">
-                <span className="text-frio">Respuesta pública: </span>“{ultimo.respuesta}”
-              </p>
+              <>
+                <p className="mt-1.5 text-[0.88rem] text-tinta">
+                  <span className="text-frio">Así respondería en el comentario: </span>“{ultimo.respuesta}”
+                </p>
+                <p className="mt-1 text-[0.78rem] text-frio">
+                  Y le abriría un DM para seguir en privado. (Es una simulación — la respuesta real
+                  se envía cuando conectes tus redes.)
+                </p>
+              </>
             ) : (
               <p className="mt-1.5 text-[0.84rem] text-frio">
                 No es intención de compra → la IA no responde (no gasta). Queda registrado igual.
@@ -164,9 +170,9 @@ export default function ComentariosPanel() {
 
                   {c.respondido && c.respuestaTexto && (
                     <div className="mt-2 rounded-chip bg-brasa-suave/40 px-3 py-2 text-[0.84rem] text-tinta-2">
-                      <span className="font-semibold text-brasa-hondo">La IA respondió: </span>
+                      <span className="font-semibold text-brasa-hondo">La IA respondería: </span>
                       “{c.respuestaTexto}”
-                      {c.dmAbierto && <span className="ml-1 text-frio">· abrió DM 📩</span>}
+                      {c.dmAbierto && <span className="ml-1 text-frio">· y abriría un DM 📩</span>}
                     </div>
                   )}
 

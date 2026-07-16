@@ -145,6 +145,7 @@ export interface Lead {
   resumenIA: string | null;
   borradorIA: string | null;
   nota: string | null;
+  origenEtiqueta: string | null; // de dónde vino (ej. "comentario")
   creadoEn: string;
   actualizadoEn: string;
 }
@@ -702,11 +703,11 @@ export async function listarComentarios(): Promise<Comentario[]> {
 export async function simularComentario(input: {
   texto: string;
   autorNombre?: string;
-}): Promise<{ ok: boolean; intencion?: string; respondido?: boolean; respuesta?: string; error?: string }> {
+}): Promise<{ ok: boolean; intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string; error?: string }> {
   try {
     // Ids únicos por simulación (evita chocar con el unique de idempotencia).
     const n = `sim-${Math.random().toString(36).slice(2, 10)}`;
-    const r = await api<{ procesado: boolean; intencion?: string; respondido?: boolean; respuesta?: string }>(
+    const r = await api<{ procesado: boolean; intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string }>(
       "/comentarios/simular",
       {
         method: "POST",
@@ -719,7 +720,7 @@ export async function simularComentario(input: {
         },
       },
     );
-    return { ok: true, intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta };
+    return { ok: true, intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, leadId: r.leadId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo simular" };
   }

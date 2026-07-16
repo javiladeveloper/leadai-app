@@ -1,37 +1,42 @@
 @import "tailwindcss";
 
-/* ── Sistema de diseño LeadAI · app "Brasa" ──────────────────────────
-   La app de la fuerza de ventas. Cálida, táctil, para usar con el pulgar
-   en la calle. Paleta arena + brasa (coral) + marrón. Deliberadamente
-   lejos del azul-noche del landing: esto es la herramienta de trabajo,
-   no la vitrina.
+/* ── Sistema de diseño LeadAI · "Brand Harmony" (Stitch) ─────────────
+   Corporate Modernism con borde high-tech: claridad extrema y elegancia
+   funcional. Teal marino como color de acción, slate navy para las barras
+   oscuras, coral SOLO para lo caliente (hot leads / urgencia / error).
 
-   Semáforo de leads: caliente (brasa) · tibio (ámbar) · frío (piedra).
+   Semáforo de leads: caliente (calor/coral) · tibio (ámbar) · frío (gris).
+   NOTA: los nombres de tokens se conservan ("brasa" = color de ACCIÓN
+   primaria, hoy teal) para no tocar cientos de usos; el rol semántico
+   "caliente" migró a los tokens `calor-*`.
    Principio: "con un toque, sin teclear" — todo alcanzable con el pulgar.
 */
 @theme {
-  --color-arena: #eae1d0;       /* fondo — arena/crema cálido */
-  --color-arena-2: #e0d6c2;     /* variante para separadores suaves */
-  --color-carta: #fffdf9;       /* superficie de tarjeta */
-  --color-brasa: #e25c43;       /* caliente — el momento de cerrar */
-  --color-brasa-hondo: #c4472f; /* hover / presión */
-  --color-brasa-suave: #f7ddd5; /* fondo suave de acento */
+  --color-arena: #f7f9fb;       /* fondo — blanco frío (background) */
+  --color-arena-2: #e6e8ea;     /* variante para separadores suaves */
+  --color-carta: #ffffff;       /* superficie de tarjeta */
+  --color-brasa: #006b5d;       /* ACCIÓN primaria — seafoam teal */
+  --color-brasa-hondo: #005046; /* hover / presión */
+  --color-brasa-suave: #d5f2ec; /* fondo suave de acento teal */
+  --color-calor: #f0704f;       /* CALIENTE — coral (hot leads, urgencia) */
+  --color-calor-hondo: #a53b22; /* texto/hover coral profundo */
+  --color-calor-suave: #ffdad2; /* fondo suave coral */
   --color-tibio: #c98a1b;       /* lead tibio — ámbar */
-  --color-tibio-suave: #f2e3c4;
-  --color-frio: #8a8378;        /* lead frío / texto terciario — piedra */
-  --color-tinta: #33281f;       /* marrón oscuro — texto principal */
-  --color-tinta-2: #5c4f42;     /* texto secundario */
-  --color-linea: #d8ccb6;       /* bordes sobre arena */
-  --color-superficie-honda: #33281f; /* barras oscuras / modo noche parcial */
-  --color-superficie-honda-2: #3b2f21;
-  --color-ok: #4b7f52;          /* venta / éxito — verde apagado */
+  --color-tibio-suave: #fbf0d9;
+  --color-frio: #6e7a76;        /* lead frío / texto terciario — outline */
+  --color-tinta: #191c1e;       /* slate casi negro — texto principal */
+  --color-tinta-2: #3e4946;     /* texto secundario */
+  --color-linea: #e0e3e5;       /* bordes sobre fondo claro */
+  --color-superficie-honda: #0f172a; /* slate navy — sidebar / barras oscuras */
+  --color-superficie-honda-2: #1e293b;
+  --color-ok: #1d7a4f;          /* venta / éxito — verde */
 
-  --font-lee: var(--font-atkinson), system-ui, sans-serif;
+  --font-lee: var(--font-jakarta), system-ui, sans-serif;
 
-  --radius-tarjeta: 1.1rem;
+  --radius-tarjeta: 1rem;       /* 16px — tarjetas amigables (Brand Harmony) */
   --radius-chip: 999px;
 
-  --sombra-tarjeta: 0 1px 2px rgba(51, 40, 31, 0.06), 0 6px 20px rgba(51, 40, 31, 0.05);
+  --sombra-tarjeta: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 20px rgba(15, 23, 42, 0.05);
 }
 
 :root {

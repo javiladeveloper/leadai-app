@@ -10,7 +10,7 @@ type Boton = { id: string; etiqueta: string };
 type Msg = { direccion: "entrante" | "saliente"; texto: string; botones?: Boton[] };
 
 const NIVEL_ETIQUETA: Record<string, { txt: string; clase: string }> = {
-  caliente: { txt: "🔴 Caliente", clase: "bg-brasa-suave text-brasa-hondo" },
+  caliente: { txt: "🔴 Caliente", clase: "bg-calor-suave text-calor-hondo" },
   tibio: { txt: "🟡 Tibio", clase: "bg-tibio-suave text-tibio" },
   frio: { txt: "⚪ Frío", clase: "bg-arena text-frio" },
 };

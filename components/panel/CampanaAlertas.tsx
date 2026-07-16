@@ -68,14 +68,14 @@ export function CampanaAlertas() {
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`h-5 w-5 ${bloqueo ? "text-brasa-hondo" : hay ? "text-brasa" : "text-frio"} ${agita ? "animate-campana" : ""}`}
+          className={`h-5 w-5 ${bloqueo ? "text-calor-hondo" : hay ? "text-calor" : "text-frio"} ${agita ? "animate-campana" : ""}`}
           style={{ transformOrigin: "top center" }}
         >
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {hay && (
-          <span className={`absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[0.62rem] font-bold text-carta ${bloqueo ? "bg-brasa-hondo" : "bg-brasa"}`}>
+          <span className={`absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[0.62rem] font-bold text-carta ${bloqueo ? "bg-calor-hondo" : "bg-calor"}`}>
             {totalAvisos > 9 ? "9+" : totalAvisos}
           </span>
         )}
@@ -91,8 +91,8 @@ export function CampanaAlertas() {
 
             {/* Aviso crítico de saldo */}
             {bloqueo && (
-              <div className="border-b border-linea bg-brasa-suave px-4 py-3">
-                <p className="text-[0.9rem] font-bold text-brasa-hondo">⚠️ Llegaste al tope de clientes del mes</p>
+              <div className="border-b border-linea bg-calor-suave px-4 py-3">
+                <p className="text-[0.9rem] font-bold text-calor-hondo">⚠️ Llegaste al tope de clientes del mes</p>
                 <p className="mt-0.5 text-[0.82rem] text-tinta-2">
                   El bot dejó de atender nuevos clientes. Ampliá tu plan para reactivarlo.
                 </p>
@@ -122,7 +122,7 @@ export function CampanaAlertas() {
                 a su conversación. Mostramos hasta 5 y un "ver todos" si hay más. */}
             {calientes > 0 && (
               <div>
-                <p className="flex items-center gap-1.5 px-4 pt-3 pb-1 text-[0.78rem] font-bold text-brasa-hondo">
+                <p className="flex items-center gap-1.5 px-4 pt-3 pb-1 text-[0.78rem] font-bold text-calor-hondo">
                   🔴 {calientes} {calientes === 1 ? "lead caliente sin atender" : "leads calientes sin atender"}
                 </p>
                 {calientesLeads.slice(0, 5).map((l) => (

@@ -22,7 +22,7 @@ const ACCESOS = [
 ];
 
 const NIVEL_PUNTO: Record<string, string> = {
-  caliente: "bg-brasa",
+  caliente: "bg-calor",
   tibio: "bg-tibio",
   frio: "bg-frio",
 };
@@ -130,7 +130,7 @@ export default function InicioPanel() {
           {resumen.calientesSinAtender > 0 && (
             <Link
               href="/leads"
-              className="flex items-center gap-4 rounded-tarjeta bg-brasa px-5 py-4 text-carta shadow-[0_8px_24px_rgba(226,92,67,0.3)] transition active:scale-[0.99]"
+              className="flex items-center gap-4 rounded-tarjeta bg-calor px-5 py-4 text-carta shadow-[0_8px_24px_rgba(240,112,79,0.3)] transition active:scale-[0.99]"
             >
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-carta/20">
                 <IconoRayo className="h-6 w-6" />
@@ -154,7 +154,7 @@ export default function InicioPanel() {
             </div>
             <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
               <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">Calientes 🔥</p>
-              <p className="mt-2 text-[2.3rem] font-bold leading-none text-brasa">{resumen.calientesSinAtender}</p>
+              <p className="mt-2 text-[2.3rem] font-bold leading-none text-calor">{resumen.calientesSinAtender}</p>
             </div>
             <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
               <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">Ventas cerradas ✓</p>

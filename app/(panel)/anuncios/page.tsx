@@ -16,7 +16,7 @@ const ESTADO_AD: Record<string, { texto: string; clase: string }> = {
   activo: { texto: "Activo", clase: "bg-ok/12 text-ok" },
   pausado: { texto: "Pausado", clase: "bg-tibio-suave text-tibio" },
   finalizado: { texto: "Finalizado", clase: "bg-arena text-frio" },
-  rechazado: { texto: "Rechazado", clase: "bg-brasa-suave text-brasa-hondo" },
+  rechazado: { texto: "Rechazado", clase: "bg-calor-suave text-calor-hondo" },
 };
 
 // Zonas seleccionables (sin texto libre → sin typos tipo "takna"). Cuando se
@@ -283,7 +283,7 @@ export default function AnunciosPanel() {
                     <span className="text-[0.82rem] text-frio">años</span>
                   </div>
                   {Number(edadMin) > Number(edadMax) && (
-                    <p className="mt-1 text-[0.74rem] font-semibold text-brasa-hondo">La edad mínima no puede superar la máxima.</p>
+                    <p className="mt-1 text-[0.74rem] font-semibold text-calor-hondo">La edad mínima no puede superar la máxima.</p>
                   )}
                 </div>
               </div>
@@ -334,7 +334,7 @@ export default function AnunciosPanel() {
               <p className="text-[0.78rem] text-frio">
                 ⏳ Los primeros 3-7 días el anuncio "aprende" — no lo pauses ni edites en ese tiempo para que rinda mejor.
               </p>
-              {msg && <p className="text-[0.84rem] font-semibold text-brasa-hondo">{msg}</p>}
+              {msg && <p className="text-[0.84rem] font-semibold text-calor-hondo">{msg}</p>}
             </div>
           )}
 

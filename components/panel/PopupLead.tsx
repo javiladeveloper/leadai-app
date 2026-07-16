@@ -11,7 +11,7 @@ import {
 import { BadgeCanal } from "@/components/BadgeCanal";
 
 const NIVEL_ETIQUETA: Record<Lead["nivelInteres"], { texto: string; clase: string }> = {
-  caliente: { texto: "🔴 Caliente", clase: "bg-brasa-suave text-brasa-hondo" },
+  caliente: { texto: "🔴 Caliente", clase: "bg-calor-suave text-calor-hondo" },
   tibio: { texto: "🟡 Tibio", clase: "bg-tibio-suave text-tibio" },
   frio: { texto: "⚪ Frío", clase: "bg-arena text-frio" },
 };
@@ -154,7 +154,7 @@ export default function PopupLead({ lead, onCerrar, onCambio }: Props) {
               </button>
             </div>
           )}
-          {error && <p className="mt-2 text-[0.8rem] text-brasa-hondo">{error}</p>}
+          {error && <p className="mt-2 text-[0.8rem] text-calor-hondo">{error}</p>}
 
           <div className="mt-3 flex flex-wrap gap-2">
             <button

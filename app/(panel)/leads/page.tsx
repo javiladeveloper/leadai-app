@@ -109,7 +109,7 @@ export default function LeadsPanel() {
       {estado === "ok" && calientes > 0 && (
         <button
           onClick={() => setFiltroNivel("caliente")}
-          className="flex w-full items-center gap-3 rounded-tarjeta bg-brasa px-5 py-4 text-left text-carta shadow-[0_8px_24px_rgba(226,92,67,0.3)] transition active:scale-[0.99]"
+          className="flex w-full items-center gap-3 rounded-tarjeta bg-calor px-5 py-4 text-left text-carta shadow-[0_8px_24px_rgba(240,112,79,0.3)] transition active:scale-[0.99]"
         >
           <IconoRayo className="h-7 w-7 shrink-0" />
           <div>

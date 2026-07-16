@@ -193,8 +193,8 @@ export default function CheckoutCulqi({ hits, clientes, montoCentavos, onExito }
       )}
       {/* Error destacado (antes quedaba tapado por el widget de Culqi) */}
       {estado === "error" && (
-        <div className="rounded-tarjeta bg-brasa-suave px-4 py-3">
-          <p className="text-sm font-semibold text-brasa-hondo">No se pudo completar el pago</p>
+        <div className="rounded-tarjeta bg-calor-suave px-4 py-3">
+          <p className="text-sm font-semibold text-calor-hondo">No se pudo completar el pago</p>
           <p className="mt-0.5 text-[0.82rem] text-tinta-2">{error}</p>
         </div>
       )}

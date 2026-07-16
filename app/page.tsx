@@ -80,7 +80,7 @@ export default function Login() {
     <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-7 pb-10 pt-[max(4rem,env(safe-area-inset-top))]">
       {/* Marca */}
       <div className="flex flex-1 flex-col justify-center">
-        <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brasa text-carta shadow-[0_8px_24px_rgba(226,92,67,0.35)]">
+        <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brasa text-carta shadow-[0_8px_24px_rgba(0,107,93,0.35)]">
           <IconoRayo className="h-8 w-8" />
         </div>
         <h1 className="text-[2.6rem] leading-[1.05] font-bold text-tinta">

@@ -12,7 +12,7 @@ type Estado = "cargando" | "ok" | "error";
 
 // Etiqueta visual por intención detectada por la IA.
 const INTENCION: Record<string, { texto: string; clase: string }> = {
-  compra: { texto: "🛒 Intención de compra", clase: "bg-brasa-suave text-brasa-hondo" },
+  compra: { texto: "🛒 Intención de compra", clase: "bg-calor-suave text-calor-hondo" },
   halago: { texto: "💬 Halago", clase: "bg-tibio-suave text-tibio" },
   spam: { texto: "🚫 Spam", clase: "bg-arena text-frio" },
   otro: { texto: "· Otro", clase: "bg-arena text-frio" },

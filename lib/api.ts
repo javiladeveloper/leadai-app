@@ -229,6 +229,17 @@ export async function listarLeads(
   return acumulado;
 }
 
+// Solo los últimos N leads (primera página) — para "Actividad reciente" del
+// Inicio sin pagar el costo de paginar toda la bandeja.
+export async function leadsRecientes(n = 5): Promise<Lead[]> {
+  try {
+    const r = await api<{ items: Lead[] }>(`/leads?limit=${Math.min(20, Math.max(1, n))}`);
+    return r.items.slice(0, n);
+  } catch {
+    return [];
+  }
+}
+
 export async function obtenerLead(id: string): Promise<LeadDetalle | null> {
   try {
     return await api<LeadDetalle>(`/leads/${id}`);

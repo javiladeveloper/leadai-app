@@ -13,7 +13,9 @@ type Estado = "cargando" | "ok" | "error";
 
 const REDES = [
   { id: "instagram", label: "Instagram" },
-  { id: "messenger", label: "Facebook" },
+  // "messenger" = una Página de Facebook (Meta solo permite publicar en Páginas,
+  // no en perfiles personales). El label lo deja claro para el negocio.
+  { id: "messenger", label: "Página de Facebook" },
 ];
 
 const ESTADO_POST: Record<string, { texto: string; clase: string }> = {
@@ -37,6 +39,7 @@ export default function PublicarPanel() {
   // Editor
   const [texto, setTexto] = useState("");
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [tipoMedia, setTipoMedia] = useState<"imagen" | "video">("imagen");
   const [redes, setRedes] = useState<string[]>(["instagram"]);
   const [programar, setProgramar] = useState(false);
   const [fecha, setFecha] = useState("");
@@ -97,8 +100,12 @@ export default function PublicarPanel() {
     reader.onload = async () => {
       const r = await subirMediaPost(String(reader.result));
       setSubiendo(false);
-      if (r.ok && r.url) setMediaUrl(r.url);
-      else setMsg(r.error ?? "No se pudo subir la imagen.");
+      if (r.ok && r.url) {
+        setMediaUrl(r.url);
+        setTipoMedia(r.tipoMedia === "video" ? "video" : "imagen");
+      } else {
+        setMsg(r.error ?? "No se pudo subir el archivo.");
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -110,6 +117,7 @@ export default function PublicarPanel() {
     const r = await crearPublicacion({
       texto: texto.trim(),
       mediaUrls: mediaUrl ? [mediaUrl] : [],
+      tipoMedia,
       canales: redes,
       programadaPara: programar && fecha ? new Date(fecha).toISOString() : undefined,
     });
@@ -184,15 +192,19 @@ export default function PublicarPanel() {
 
         {/* Media */}
         <div className="mt-3">
-          <input ref={fileRef} type="file" accept="image/*" onChange={elegirArchivo} className="hidden" />
+          <input ref={fileRef} type="file" accept="image/*,video/mp4,video/quicktime" onChange={elegirArchivo} className="hidden" />
           {mediaUrl ? (
             <div className="relative inline-block">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={mediaUrl} alt="media" className="h-28 w-28 rounded-tarjeta object-cover ring-1 ring-linea" />
+              {tipoMedia === "video" ? (
+                <video src={mediaUrl} className="h-28 w-28 rounded-tarjeta object-cover ring-1 ring-linea" muted />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={mediaUrl} alt="media" className="h-28 w-28 rounded-tarjeta object-cover ring-1 ring-linea" />
+              )}
               <button
-                onClick={() => setMediaUrl(null)}
+                onClick={() => { setMediaUrl(null); setTipoMedia("imagen"); }}
                 className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-tinta text-carta text-xs"
-                aria-label="Quitar imagen"
+                aria-label="Quitar archivo"
               >
                 ✕
               </button>
@@ -203,7 +215,7 @@ export default function PublicarPanel() {
               disabled={subiendo}
               className="rounded-tarjeta border border-dashed border-linea px-4 py-3 text-[0.84rem] font-semibold text-frio transition hover:border-brasa/40 hover:text-tinta-2 disabled:opacity-50"
             >
-              {subiendo ? "Subiendo…" : "📷 Agregar imagen"}
+              {subiendo ? "Subiendo…" : "📷 Agregar imagen o video"}
             </button>
           )}
         </div>
@@ -275,8 +287,12 @@ export default function PublicarPanel() {
               return (
                 <article key={p.id} className="flex gap-3 rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                   {p.mediaUrls[0] && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.mediaUrls[0]} alt="" className="h-16 w-16 shrink-0 rounded-tarjeta object-cover" />
+                    p.tipoMedia === "video" ? (
+                      <video src={p.mediaUrls[0]} className="h-16 w-16 shrink-0 rounded-tarjeta object-cover" muted />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.mediaUrls[0]} alt="" className="h-16 w-16 shrink-0 rounded-tarjeta object-cover" />
+                    )
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
@@ -288,7 +304,7 @@ export default function PublicarPanel() {
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[0.74rem] text-frio">
                       {p.destinos.map((d) => (
                         <span key={d.id} className="rounded-full bg-arena px-2 py-0.5 font-semibold">
-                          {d.canal === "instagram" ? "Instagram" : "Facebook"}
+                          {d.canal === "instagram" ? "Instagram" : "Página de FB"}
                           {d.estado === "publicada" ? " ✓" : d.estado === "fallida" ? " ✕" : ""}
                         </span>
                       ))}

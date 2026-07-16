@@ -774,10 +774,12 @@ export async function sugerirCopyPost(idea: string): Promise<string> {
   }
 }
 
-export async function subirMediaPost(imagen: string): Promise<{ ok: boolean; url?: string; error?: string }> {
+export async function subirMediaPost(
+  imagen: string,
+): Promise<{ ok: boolean; url?: string; tipoMedia?: string; error?: string }> {
   try {
-    const r = await api<{ url: string }>("/publicaciones/media", { method: "POST", body: { imagen } });
-    return { ok: true, url: r.url };
+    const r = await api<{ url: string; tipoMedia?: string }>("/publicaciones/media", { method: "POST", body: { imagen } });
+    return { ok: true, url: r.url, tipoMedia: r.tipoMedia };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo subir" };
   }

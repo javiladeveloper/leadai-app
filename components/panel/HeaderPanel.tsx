@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, cerrarSesion } from "@/lib/auth";
+import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cerrarSesion, type EmpresaResumen } from "@/lib/auth";
+import { misEmpresas } from "@/lib/api";
 import { IconoChevron } from "@/components/Iconos";
 import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
 
@@ -10,9 +11,20 @@ import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
 // + menú de usuario (cerrar sesión).
 export function HeaderPanel() {
   const router = useRouter();
-  const sesion = leerSesion();
-  const empresas = sesion?.empresas ?? [];
+  const [empresas, setEmpresas] = useState<EmpresaResumen[]>(() => leerSesion()?.empresas ?? []);
   const [activa, setActiva] = useState<string>("");
+
+  // La sesión cachea las empresas del momento del login → un negocio nuevo
+  // (invitación, creado en otro lado) no aparecería. Refrescamos EN VIVO al
+  // montar y actualizamos la sesión guardada.
+  useEffect(() => {
+    misEmpresas().then((lista) => {
+      if (lista.length === 0) return; // error o sin datos: conservar el cache
+      setEmpresas(lista);
+      const s = leerSesion();
+      if (s) guardarSesion({ ...s, empresas: lista });
+    });
+  }, []);
 
   useEffect(() => {
     const guardada = leerEmpresaActiva();

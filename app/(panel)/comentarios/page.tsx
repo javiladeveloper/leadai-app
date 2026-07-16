@@ -27,7 +27,7 @@ export default function ComentariosPanel() {
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [texto, setTexto] = useState("");
   const [simulando, setSimulando] = useState(false);
-  const [ultimo, setUltimo] = useState<{ intencion?: string; respondido?: boolean; respuesta?: string } | null>(null);
+  const [ultimo, setUltimo] = useState<{ intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string } | null>(null);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -57,7 +57,7 @@ export default function ComentariosPanel() {
     const r = await simularComentario({ texto: t, autorNombre: "Cliente de prueba" });
     setSimulando(false);
     if (r.ok) {
-      setUltimo({ intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta });
+      setUltimo({ intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, leadId: r.leadId });
       setTexto("");
       cargar(); // refresca el log con el nuevo comentario
     }
@@ -116,9 +116,22 @@ export default function ComentariosPanel() {
                 <p className="mt-1.5 text-[0.88rem] text-tinta">
                   <span className="text-frio">Así respondería en el comentario: </span>“{ultimo.respuesta}”
                 </p>
-                <p className="mt-1 text-[0.78rem] text-frio">
-                  Y le abriría un DM para seguir en privado. (Es una simulación — la respuesta real
-                  se envía cuando conectes tus redes.)
+                {/* El ciclo completo: comentario → DM → lead en el pipeline */}
+                <div className="mt-2.5 space-y-1 rounded-chip bg-carta px-3 py-2 text-[0.8rem] text-tinta-2 ring-1 ring-linea">
+                  <p className="font-semibold text-tinta">El ciclo completo:</p>
+                  <p>1️⃣ Responde el comentario e invita al privado</p>
+                  <p>2️⃣ Abre un DM y la IA sigue la venta ahí (como en WhatsApp)</p>
+                  <p>
+                    3️⃣ Entra al pipeline como lead{" "}
+                    {ultimo.leadId && (
+                      <Link href={`/conversacion/${ultimo.leadId}`} className="font-semibold text-brasa hover:text-brasa-hondo">
+                        — ver la conversación →
+                      </Link>
+                    )}
+                  </p>
+                </div>
+                <p className="mt-1.5 text-[0.76rem] text-frio">
+                  (Es una simulación — el envío real a Instagram se activa al conectar tus redes.)
                 </p>
               </>
             ) : (

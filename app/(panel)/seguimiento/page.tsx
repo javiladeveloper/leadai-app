@@ -237,8 +237,13 @@ export default function SeguimientoPanel() {
                           </p>
                         )}
 
-                        <div className="mt-2">
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <BadgeCanal canal={lead.canalOrigen} tamano="chico" />
+                          {lead.origenEtiqueta === "comentario" && (
+                            <span className="rounded-full bg-tibio-suave px-2 py-0.5 text-[0.66rem] font-bold text-tibio">
+                              💬 vino de un comentario
+                            </span>
+                          )}
                         </div>
 
                         {/* Acciones de cierre — solo en etapas activas.

@@ -674,4 +674,55 @@ export async function actualizarCanal(
   catch { return { ok: false }; }
 }
 
+// ── Comentarios como leads (Fase 1 embudo) ──────────────────────
+export interface Comentario {
+  id: string;
+  canal: string;
+  postExterno: string;
+  autorNombre: string | null;
+  texto: string;
+  intencion: string | null; // compra | halago | spam | otro
+  respondido: boolean;
+  respuestaTexto: string | null;
+  dmAbierto: boolean;
+  leadId: string | null;
+  creadoEn: string;
+}
+
+export async function listarComentarios(): Promise<Comentario[]> {
+  try {
+    const r = await api<{ items: Comentario[] }>("/comentarios");
+    return r.items;
+  } catch {
+    return [];
+  }
+}
+
+// Simula un comentario entrante (para probar el flujo sin Meta conectado).
+export async function simularComentario(input: {
+  texto: string;
+  autorNombre?: string;
+}): Promise<{ ok: boolean; intencion?: string; respondido?: boolean; respuesta?: string; error?: string }> {
+  try {
+    // Ids únicos por simulación (evita chocar con el unique de idempotencia).
+    const n = `sim-${Math.random().toString(36).slice(2, 10)}`;
+    const r = await api<{ procesado: boolean; intencion?: string; respondido?: boolean; respuesta?: string }>(
+      "/comentarios/simular",
+      {
+        method: "POST",
+        body: {
+          canal: "instagram",
+          comentarioExterno: n,
+          autorExterno: `user-${n}`,
+          autorNombre: input.autorNombre,
+          texto: input.texto,
+        },
+      },
+    );
+    return { ok: true, intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo simular" };
+  }
+}
+
 export { API_URL };

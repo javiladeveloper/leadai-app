@@ -23,6 +23,7 @@ const RAPIDOS = [
 const TODAS = [
   { href: "/inicio", label: "Inicio", Icono: IconoInicio },
   { href: "/conversaciones", label: "Conversaciones", Icono: IconoConversaciones },
+  { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones },
   { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
   { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },

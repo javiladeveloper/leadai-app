@@ -354,6 +354,8 @@ export interface MiPlan {
   botActivo: boolean;
   iaActiva: boolean;
   ritmoSeguimiento: RitmoSeguimiento;
+  comentariosActivo: boolean;
+  comentariosMensaje: string;
   features: FeaturesPlan;
 }
 
@@ -378,6 +380,8 @@ export async function guardarMiPlan(cfg: {
   botActivo?: boolean;
   iaActiva?: boolean;
   ritmoSeguimiento?: RitmoSeguimiento;
+  comentariosActivo?: boolean;
+  comentariosMensaje?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/mi-plan", { method: "PATCH", body: cfg });

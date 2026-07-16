@@ -6,6 +6,7 @@ import Link from "next/link";
 import { haySesion } from "@/lib/auth";
 import { listarComentarios, simularComentario, type Comentario } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { AjustesComentarios } from "@/components/panel/AjustesComentarios";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -81,6 +82,9 @@ export default function ComentariosPanel() {
         📸 La captación automática de comentarios de Instagram/Facebook se activa cuando conectes
         tus redes (requiere la aprobación de Meta). Mientras tanto, probá cómo responde la IA acá abajo.
       </div>
+
+      {/* Ajustes: activar/desactivar + mensaje personalizado */}
+      <AjustesComentarios />
 
       {/* Simulador: probar el flujo sin Meta */}
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">

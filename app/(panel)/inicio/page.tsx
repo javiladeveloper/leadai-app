@@ -5,10 +5,20 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion, leerSesion } from "@/lib/auth";
 import { obtenerResumen, type Resumen } from "@/lib/api";
-import { IconoRayo, IconoConversaciones, IconoBandeja } from "@/components/Iconos";
+import { IconoRayo, IconoConversaciones, IconoBandeja, IconoSeguimiento, IconoReportes } from "@/components/Iconos";
 import { SkeletonMetricas } from "@/components/Skeletons";
 
 type Estado = "cargando" | "ok" | "error";
+
+// Accesos rápidos del Inicio — las secciones más útiles del día a día. Antes
+// solo había 2 (Conversaciones, Leads); sumamos Pipeline y Reportes para que
+// el cliente descubra el producto completo desde la primera pantalla.
+const ACCESOS = [
+  { href: "/conversaciones", titulo: "Conversaciones", desc: "Chateá con tus leads en vivo", Icono: IconoConversaciones },
+  { href: "/seguimiento", titulo: "Pipeline", desc: "Mirá en qué etapa está cada venta", Icono: IconoSeguimiento },
+  { href: "/leads", titulo: "Leads", desc: "Revisá y filtrá toda tu bandeja", Icono: IconoBandeja },
+  { href: "/reportes", titulo: "Reportes", desc: "Cómo viene tu negocio en números", Icono: IconoReportes },
+];
 
 // Inicio del panel de escritorio: saludo, métricas reales del tenant activo
 // (GET /resumen) y accesos directos a las secciones más usadas. Si el tenant
@@ -130,35 +140,25 @@ export default function InicioPanel() {
             ))}
           </div>
 
-          {/* Accesos rápidos */}
+          {/* Accesos rápidos — a las secciones más útiles del día a día */}
           <div>
             <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Accesos rápidos</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Link
-                href="/conversaciones"
-                className="flex items-center gap-3 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
-              >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-tibio-suave text-tinta">
-                  <IconoConversaciones className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="font-bold text-tinta">Conversaciones</p>
-                  <p className="text-[0.82rem] text-frio">Chateá con tus leads en vivo</p>
-                </div>
-              </Link>
-
-              <Link
-                href="/leads"
-                className="flex items-center gap-3 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
-              >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-tibio-suave text-tinta">
-                  <IconoBandeja className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="font-bold text-tinta">Leads</p>
-                  <p className="text-[0.82rem] text-frio">Revisá y filtrá toda tu bandeja</p>
-                </div>
-              </Link>
+              {ACCESOS.map((a) => (
+                <Link
+                  key={a.href}
+                  href={a.href}
+                  className="flex items-center gap-3 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
+                >
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-tibio-suave text-tinta">
+                    <a.Icono className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="font-bold text-tinta">{a.titulo}</p>
+                    <p className="text-[0.82rem] text-frio">{a.desc}</p>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         </>

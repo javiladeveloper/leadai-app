@@ -830,4 +830,70 @@ export async function calcularComision(monto: number): Promise<number | null> {
   }
 }
 
+// ── Creador de Ads guiado (Fase 3B) ─────────────────────────────
+export interface ObjetivoAd {
+  id: string;
+  pregunta: string;
+  recomendado?: boolean;
+  porque: string;
+}
+export interface PublicoAd {
+  zona?: string;
+  edadMin: number;
+  edadMax: number;
+  intereses: string[];
+  nota?: string;
+}
+export interface RecomPresupuesto {
+  diario: number;
+  minimoOk: boolean;
+  minimoSugeridoDiario: number;
+  mensajesEstimados: { min: number; max: number };
+  aviso: string;
+}
+export interface Anuncio {
+  id: string;
+  objetivo: string;
+  campaniaNombre: string;
+  texto: string;
+  mediaUrl: string | null;
+  presupuestoTotal: number;
+  dias: number;
+  estado: string;
+  creadoEn: string;
+}
+
+export async function objetivosAd(): Promise<ObjetivoAd[]> {
+  try { return (await api<{ objetivos: ObjetivoAd[] }>("/anuncios/objetivos")).objetivos; } catch { return []; }
+}
+export async function publicoSugeridoAd(): Promise<PublicoAd | null> {
+  try { return (await api<{ publico: PublicoAd }>("/anuncios/publico-sugerido")).publico; } catch { return null; }
+}
+export async function presupuestoAd(total: number, dias: number): Promise<RecomPresupuesto | null> {
+  try { return await api<RecomPresupuesto>(`/anuncios/presupuesto?total=${total}&dias=${dias}`); } catch { return null; }
+}
+export async function sugerirTextoAd(idea: string): Promise<string> {
+  try { return (await api<{ texto: string }>("/anuncios/sugerir-texto", { method: "POST", body: { idea } })).texto; } catch { return ""; }
+}
+export async function listarAnuncios(): Promise<Anuncio[]> {
+  try { return (await api<{ items: Anuncio[] }>("/anuncios")).items; } catch { return []; }
+}
+export async function crearAnuncio(input: {
+  objetivo: string;
+  campaniaNombre: string;
+  texto: string;
+  mediaUrl?: string;
+  publicacionId?: string;
+  publico: { zona?: string; edadMin?: number; edadMax?: number; intereses?: string[] };
+  presupuestoTotal: number;
+  dias: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/anuncios", { method: "POST", body: input });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el anuncio" };
+  }
+}
+
 export { API_URL };

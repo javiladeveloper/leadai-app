@@ -169,6 +169,30 @@ export default function ReportesPanel() {
             </div>
           )}
 
+          {/* De dónde vienen los leads (origen: ads, comentarios, directo) */}
+          {rep && rep.leadsPorOrigen && Object.keys(rep.leadsPorOrigen).length > 0 && (
+            <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              <p className="mb-3 text-[0.85rem] font-bold uppercase tracking-wide text-frio">De dónde vienen tus leads</p>
+              <div className="space-y-2">
+                {Object.entries(rep.leadsPorOrigen)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([origen, n]) => {
+                    const esAd = origen.startsWith("ad:");
+                    const label = esAd ? `📣 ${origen.slice(3)}` : origen === "comentario" ? "💬 Comentarios" : "💬 Mensaje directo";
+                    return (
+                      <div key={origen} className="flex items-center justify-between rounded-xl bg-arena/40 px-4 py-2.5">
+                        <span className="text-[0.9rem] font-medium text-tinta-2">{label}</span>
+                        <span className="text-[1rem] font-bold text-tinta tabular-nums">{n}</span>
+                      </div>
+                    );
+                  })}
+              </div>
+              <p className="mt-3 text-[0.76rem] text-frio">
+                Los leads que llegan por tus anuncios aparecen con el nombre de la campaña 📣.
+              </p>
+            </div>
+          )}
+
           {/* Resumen global: comisiones por negocio (solo si tiene varios) */}
           {mostrarGlobal && global && (
             <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">

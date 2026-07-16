@@ -244,6 +244,11 @@ export default function SeguimientoPanel() {
                               💬 vino de un comentario
                             </span>
                           )}
+                          {lead.origenEtiqueta?.startsWith("ad:") && (
+                            <span className="rounded-full bg-brasa-suave px-2 py-0.5 text-[0.66rem] font-bold text-brasa-hondo">
+                              📣 {lead.origenEtiqueta.slice(3)}
+                            </span>
+                          )}
                         </div>
 
                         {/* Acciones de cierre — solo en etapas activas.

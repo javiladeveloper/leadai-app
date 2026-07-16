@@ -276,9 +276,20 @@ export interface ReporteNegocio {
   leadsPorNivel: Record<string, number>;
   cierre: { ganados: number; perdidos: number; enJuego: number; tasa: number };
   evolucion: { mes: string; comisiones: number; ventas: number }[];
+  leadsPorOrigen: Record<string, number>; // de dónde vienen (ad:..., comentario, directo)
 }
 export async function obtenerReporteNegocio(): Promise<ReporteNegocio | null> {
   try { return await api<ReporteNegocio>("/reportes/negocio"); } catch { return null; }
+}
+
+// Simula un lead entrante desde un anuncio (para probar el tracking sin Meta).
+export async function simularLeadAd(campania: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/ads/simular-lead", { method: "POST", body: { campania, nombre: "Cliente de un ad" } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo simular" };
+  }
 }
 
 export interface ReporteGlobalNegocio {

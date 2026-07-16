@@ -49,13 +49,31 @@ export function HeaderPanel() {
     router.replace("/");
   }
 
+  // Búsqueda global (diseño Stitch): navega a Leads con el término; la bandeja
+  // filtra por nombre/contacto/resumen.
+  function buscar(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const q = new FormData(e.currentTarget).get("q")?.toString().trim();
+    if (q) router.push(`/leads?buscar=${encodeURIComponent(q)}`);
+  }
+
   return (
-    <header className="flex items-center justify-between border-b border-linea bg-carta px-5 py-3">
-      <div className="relative">
+    <header className="flex items-center gap-3 border-b border-linea bg-carta px-5 py-3">
+      {/* Buscador (oculto en pantallas muy chicas para no apretar el header) */}
+      <form onSubmit={buscar} className="hidden min-w-0 flex-1 sm:block sm:max-w-md">
+        <input
+          name="q"
+          type="search"
+          placeholder="🔍 Buscar leads o mensajes…"
+          className="w-full rounded-chip bg-arena px-4 py-2 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40"
+          aria-label="Buscar leads"
+        />
+      </form>
+      <div className="ml-auto flex items-center gap-3">
         <select
           value={activa}
           onChange={(e) => cambiarEmpresa(e.target.value)}
-          className="rounded-lg border border-linea bg-arena/50 px-3 py-1.5 text-sm font-semibold text-tinta"
+          className="max-w-44 rounded-lg border border-linea bg-arena/50 px-3 py-1.5 text-sm font-semibold text-tinta"
           aria-label="Elegí tu negocio"
         >
           {empresas.map((e) => (
@@ -63,15 +81,13 @@ export function HeaderPanel() {
           ))}
           <option value="__nuevo__">＋ Agregar otro negocio</option>
         </select>
-      </div>
-      <div className="flex items-center gap-3">
         <CampanaAlertas />
         <button
           type="button"
           onClick={salir}
           className="flex items-center gap-1.5 text-sm font-medium text-frio hover:text-tinta"
         >
-          Cerrar sesión <IconoChevron className="h-4 w-4" />
+          Salir <IconoChevron className="h-4 w-4" />
         </button>
       </div>
     </header>

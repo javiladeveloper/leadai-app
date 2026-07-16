@@ -726,4 +726,76 @@ export async function simularComentario(input: {
   }
 }
 
+// ── Publicador multi-red (Fase 2 embudo) ────────────────────────
+export interface PublicacionDestino {
+  id: string;
+  canal: string;
+  estado: string; // pendiente | publicada | fallida
+}
+export interface Publicacion {
+  id: string;
+  texto: string;
+  mediaUrls: string[];
+  tipoMedia: string;
+  estado: string; // borrador | programada | publicando | publicada | fallida
+  programadaPara: string | null;
+  creadoEn: string;
+  destinos: PublicacionDestino[];
+}
+export interface PlantillaPost {
+  titulo: string;
+  prompt: string;
+}
+
+export async function listarPublicaciones(): Promise<Publicacion[]> {
+  try {
+    const r = await api<{ items: Publicacion[] }>("/publicaciones");
+    return r.items;
+  } catch {
+    return [];
+  }
+}
+
+export async function plantillasPost(): Promise<PlantillaPost[]> {
+  try {
+    const r = await api<{ plantillas: PlantillaPost[] }>("/publicaciones/plantillas");
+    return r.plantillas;
+  } catch {
+    return [];
+  }
+}
+
+export async function sugerirCopyPost(idea: string): Promise<string> {
+  try {
+    const r = await api<{ texto: string }>("/publicaciones/sugerir", { method: "POST", body: { idea } });
+    return r.texto;
+  } catch {
+    return "";
+  }
+}
+
+export async function subirMediaPost(imagen: string): Promise<{ ok: boolean; url?: string; error?: string }> {
+  try {
+    const r = await api<{ url: string }>("/publicaciones/media", { method: "POST", body: { imagen } });
+    return { ok: true, url: r.url };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo subir" };
+  }
+}
+
+export async function crearPublicacion(input: {
+  texto: string;
+  mediaUrls?: string[];
+  tipoMedia?: string;
+  canales: string[];
+  programadaPara?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/publicaciones", { method: "POST", body: input });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear" };
+  }
+}
+
 export { API_URL };

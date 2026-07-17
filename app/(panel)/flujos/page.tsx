@@ -13,6 +13,7 @@ export default function FlujosPanel() {
   const [estado, setEstado] = useState<"cargando" | "ok" | "error">("cargando");
   const [flujos, setFlujos] = useState<Flujo[]>([]);
   const [creando, setCreando] = useState(false);
+  const [errorCrear, setErrorCrear] = useState("");
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -28,9 +29,13 @@ export default function FlujosPanel() {
 
   async function nuevo() {
     setCreando(true);
+    setErrorCrear("");
     const r = await crearFlujo("Flujo sin nombre", PLANTILLA_FLUJO);
     setCreando(false);
     if (r.ok && r.flujo) router.push(`/flujos/${r.flujo.id}`);
+    // Antes el error se tragaba en silencio (ej. límite de flujos del plan):
+    // el botón "cargaba" y no pasaba nada.
+    else setErrorCrear(r.error ?? "No se pudo crear el flujo.");
   }
 
   async function alternarActivo(f: Flujo) {
@@ -58,6 +63,12 @@ export default function FlujosPanel() {
           {creando ? "Creando…" : "+ Nuevo flujo"}
         </button>
       </header>
+
+      {errorCrear && (
+        <div className="rounded-tarjeta bg-calor/10 px-4 py-3 text-[0.9rem] font-semibold text-calor ring-1 ring-calor/30">
+          {errorCrear}
+        </div>
+      )}
 
       {estado === "cargando" && <SkeletonLista filas={3} />}
       {estado === "error" && (

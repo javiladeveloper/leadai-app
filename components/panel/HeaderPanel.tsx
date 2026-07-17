@@ -28,7 +28,11 @@ export function HeaderPanel() {
 
   useEffect(() => {
     const guardada = leerEmpresaActiva();
-    setActiva(guardada ?? empresas[0]?.tenantId ?? "");
+    const elegida = guardada ?? empresas[0]?.tenantId ?? "";
+    setActiva(elegida);
+    // Sin empresa guardada, el selector mostraba la primera pero las llamadas a
+    // la API podían ir con otro tenant: persistimos la elegida para alinearlos.
+    if (!guardada && elegida) guardarEmpresaActiva(elegida);
   }, [empresas]);
 
   function cambiarEmpresa(id: string) {

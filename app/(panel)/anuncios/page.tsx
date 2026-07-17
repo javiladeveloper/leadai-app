@@ -125,7 +125,7 @@ export default function AnunciosPanel() {
     setPublicando(false);
     if (r.ok) {
       // Reset del wizard
-      setCreando(false); setPaso(0); setCampania(""); setTexto(""); setPublico(null); setZona(""); setTotal("100"); setDias("7"); setRecom(null);
+      setCreando(false); setPaso(0); setCampania(""); setTexto(""); setPublico(null); setZona("Todo Perú"); setTotal("100"); setDias("7"); setRecom(null);
       cargar();
     } else {
       setMsg(r.error ?? "No se pudo crear el anuncio.");

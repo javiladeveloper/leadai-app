@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { haySesion } from "@/lib/auth";
 import { listarLeads, crearLeadManual, type Lead, type NivelInteres, type EstadoLead } from "@/lib/api";
@@ -55,8 +55,9 @@ function aTarjeta(lead: Lead): TarjetaLeadProps {
 // (app/bandeja), pero en grilla ancha para aprovechar el espacio de escritorio.
 // Datos reales desde el backend (GET /leads), con filtros por nivel de interés
 // y por estado del lead.
-export default function LeadsPanel() {
+function LeadsPanelInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -77,14 +78,18 @@ export default function LeadsPanel() {
       router.replace("/");
       return;
     }
-    // Lee los parámetros de la URL una vez (sin useSearchParams para evitar el
-    // requisito de Suspense en el prerender).
-    const params = new URLSearchParams(window.location.search);
-    const q = params.get("buscar");
-    if (q) setBusqueda(q);
-    if (params.get("nuevo") === "1") setNuevoAbierto(true);
     setListo(true);
   }, [router]);
+
+  // Reactivo a la URL: el buscador del header hace push a /leads?buscar=… y el
+  // sidebar a /leads?nuevo=1; si ya estamos en /leads, Next no remonta la
+  // página, así que hay que escuchar los cambios de searchParams (no leer la
+  // URL una sola vez al montar).
+  useEffect(() => {
+    const q = searchParams.get("buscar");
+    if (q) setBusqueda(q);
+    if (searchParams.get("nuevo") === "1") setNuevoAbierto(true);
+  }, [searchParams]);
 
   const cargar = useCallback(async () => {
     setEstado("cargando");
@@ -311,5 +316,14 @@ export default function LeadsPanel() {
         </div>
       )}
     </div>
+  );
+}
+
+// useSearchParams exige Suspense en el prerender de Next (App Router).
+export default function LeadsPanel() {
+  return (
+    <Suspense fallback={null}>
+      <LeadsPanelInner />
+    </Suspense>
   );
 }

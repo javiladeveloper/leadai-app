@@ -21,19 +21,24 @@ interface Opciones {
   conEmpresa?: boolean;
   // por defecto se manda el token de usuario; se puede desactivar (login).
   conAuth?: boolean;
+  // fuerza un X-Tenant-Id distinto de la empresa activa (bandeja global: crear
+  // un lead manual en el negocio elegido sin cambiar la empresa activa).
+  tenant?: string;
 }
 
 // Llamada genérica al backend. Arma headers de auth y empresa, parsea el error
 // del backend y lo levanta como ApiError con el status real.
 export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
-  const { method = "GET", body, conEmpresa = true, conAuth = true } = opts;
+  const { method = "GET", body, conEmpresa = true, conAuth = true, tenant } = opts;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
   if (conAuth) {
     const sesion = leerSesion();
     if (sesion?.token) headers.Authorization = `Bearer ${sesion.token}`;
   }
-  if (conEmpresa) {
+  if (tenant) {
+    headers["X-Tenant-Id"] = tenant;
+  } else if (conEmpresa) {
     const empresa = leerEmpresaActiva();
     if (empresa) headers["X-Tenant-Id"] = empresa;
   }
@@ -230,18 +235,67 @@ export async function listarLeads(
 }
 
 // Crea un lead a mano (contacto conocido en la calle / referido). Canal
-// 'externo', origen 'manual'.
+// 'externo', origen 'manual'. `tenantId` (opcional): en la bandeja global el
+// modal deja elegir a QUÉ negocio entra el lead sin cambiar la empresa activa.
 export async function crearLeadManual(input: {
   nombre: string;
   contacto: string;
   nota?: string;
+  tenantId?: string;
 }): Promise<{ ok: boolean; leadId?: string; error?: string }> {
+  const { tenantId, ...body } = input;
   try {
-    const r = await api<{ id: string }>("/leads", { method: "POST", body: input });
+    const r = await api<{ id: string }>("/leads", { method: "POST", body, tenant: tenantId });
     return { ok: true, leadId: r.id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el lead" };
   }
+}
+
+// ── Bandeja global (CRM unificado) ──────────────────────────
+// Leads de TODOS los negocios del usuario en una lista (backend:
+// GET /bandeja-global, identidad de plataforma — sin X-Tenant-Id). Cada lead
+// trae su tenantId + negocioNombre para etiquetar la tarjeta y para que, al
+// abrirlo, el panel cambie la empresa activa a la del lead.
+
+export interface NegocioBandeja {
+  tenantId: string;
+  nombre: string;
+}
+
+export interface LeadGlobal extends Lead {
+  tenantId: string;
+  negocioNombre: string;
+}
+
+export async function listarBandejaGlobal(filtros?: {
+  estado?: string;
+  nivel?: string;
+  tenantId?: string;
+}): Promise<{ negocios: NegocioBandeja[]; leads: LeadGlobal[] }> {
+  // Mismo esquema de paginación por cursor que `listarLeads` (máx 100 por
+  // página, tope de seguridad de 20 páginas).
+  const leads: LeadGlobal[] = [];
+  let negocios: NegocioBandeja[] = [];
+  let cursor: string | null = null;
+  for (let pagina = 0; pagina < 20; pagina++) {
+    const qs = new URLSearchParams();
+    if (filtros?.estado) qs.set("estado", filtros.estado);
+    if (filtros?.nivel) qs.set("nivel", filtros.nivel);
+    if (filtros?.tenantId) qs.set("tenantId", filtros.tenantId);
+    qs.set("limit", "100");
+    if (cursor) qs.set("cursor", cursor);
+    const r: {
+      negocios: NegocioBandeja[];
+      items: LeadGlobal[];
+      siguienteCursor: string | null;
+    } = await api(`/bandeja-global?${qs.toString()}`, { conEmpresa: false });
+    negocios = r.negocios;
+    leads.push(...r.items);
+    if (!r.siguienteCursor) break;
+    cursor = r.siguienteCursor;
+  }
+  return { negocios, leads };
 }
 
 // Solo los últimos N leads (primera página) — para "Actividad reciente" del

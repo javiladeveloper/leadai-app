@@ -3,8 +3,15 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { haySesion } from "@/lib/auth";
-import { listarLeads, crearLeadManual, type Lead, type NivelInteres, type EstadoLead } from "@/lib/api";
+import { haySesion, leerEmpresaActiva, guardarEmpresaActiva } from "@/lib/auth";
+import {
+  listarBandejaGlobal,
+  crearLeadManual,
+  type LeadGlobal,
+  type NegocioBandeja,
+  type NivelInteres,
+  type EstadoLead,
+} from "@/lib/api";
 import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { IconoRayo } from "@/components/Iconos";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -37,13 +44,15 @@ function minutosDesde(iso: string): number {
   return Math.max(0, Math.floor(ms / 60000));
 }
 
-// Adapta el Lead real del backend (lib/api) al shape mínimo que TarjetaLead
-// necesita para renderizarse (ver components/TarjetaLead.tsx).
-function aTarjeta(lead: Lead): TarjetaLeadProps {
+// Adapta el LeadGlobal del backend al shape mínimo que TarjetaLead necesita.
+// `conEtiquetaNegocio`: solo con 2+ negocios la tarjeta muestra de qué negocio
+// viene el lead (con uno solo sería ruido).
+function aTarjeta(lead: LeadGlobal, conEtiquetaNegocio: boolean): TarjetaLeadProps {
   return {
     id: lead.id,
     nombre: lead.nombre ?? lead.contactoExterno,
     canal: lead.canalOrigen,
+    empresa: conEtiquetaNegocio ? lead.negocioNombre : undefined,
     temperatura: lead.nivelInteres,
     urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
     resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
@@ -51,18 +60,25 @@ function aTarjeta(lead: Lead): TarjetaLeadProps {
   };
 }
 
-// Leads del panel de escritorio: misma lógica de filtros que la bandeja móvil
-// (app/bandeja), pero en grilla ancha para aprovechar el espacio de escritorio.
-// Datos reales desde el backend (GET /leads), con filtros por nivel de interés
-// y por estado del lead.
+// El CRM unificado del panel: los leads de TODOS los negocios del usuario en
+// una sola grilla (GET /bandeja-global), cada tarjeta con la etiqueta de qué
+// negocio viene, más un filtro por negocio para enfocarse cuando se quiera
+// (decisión 2026-07-22: "todo junto se aprovecha más, con filtros"). Al abrir
+// un lead de otro negocio, la empresa activa cambia sola a la del lead — la
+// conversación y sus acciones funcionan sin que el usuario toque el switcher.
 function LeadsPanelInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<LeadGlobal[]>([]);
+  const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
+  const [filtroNegocio, setFiltroNegocio] = useState<string>("todos");
   const [filtroNivel, setFiltroNivel] = useState<FiltroNivel>("todos");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoLead>("todos");
+  // Negocio del modal "Nuevo lead": con varios negocios hay que elegir a cuál
+  // entra el contacto (default: la empresa activa).
+  const [nuevoNegocio, setNuevoNegocio] = useState<string>("");
   // Búsqueda (del buscador global del header vía ?buscar=, o del input local)
   const [busqueda, setBusqueda] = useState("");
   // Alta manual de lead (?nuevo=1 desde el sidebar, o botón local)
@@ -94,17 +110,19 @@ function LeadsPanelInner() {
   const cargar = useCallback(async () => {
     setEstado("cargando");
     try {
-      const r = await listarLeads({
+      const r = await listarBandejaGlobal({
         nivel: filtroNivel === "todos" ? undefined : filtroNivel,
         estado: filtroEstado === "todos" ? undefined : filtroEstado,
+        tenantId: filtroNegocio === "todos" ? undefined : filtroNegocio,
       });
-      setLeads(r);
+      setLeads(r.leads);
+      setNegocios(r.negocios);
       setEstado("ok");
     } catch (e) {
       void e;
       setEstado("error");
     }
-  }, [filtroNivel, filtroEstado]);
+  }, [filtroNivel, filtroEstado, filtroNegocio]);
 
   useEffect(() => {
     if (!listo) return;
@@ -128,6 +146,15 @@ function LeadsPanelInner() {
     );
   }, [leads, busqueda]);
 
+  // Negocio al que entra el lead manual: lo elegido en el modal, o la empresa
+  // activa si es un negocio de captación, o el primero de la lista.
+  const negocioDestino = useMemo(() => {
+    if (nuevoNegocio) return nuevoNegocio;
+    const activa = leerEmpresaActiva();
+    if (activa && negocios.some((n) => n.tenantId === activa)) return activa;
+    return negocios[0]?.tenantId ?? "";
+  }, [nuevoNegocio, negocios]);
+
   async function crearNuevo() {
     if (creando || !nuevoNombre.trim() || nuevoContacto.trim().length < 3) return;
     setCreando(true);
@@ -136,6 +163,7 @@ function LeadsPanelInner() {
       nombre: nuevoNombre.trim(),
       contacto: nuevoContacto.trim(),
       nota: nuevoNota.trim() || undefined,
+      tenantId: negocioDestino || undefined,
     });
     setCreando(false);
     if (r.ok) {
@@ -188,6 +216,36 @@ function LeadsPanelInner() {
             <p className="text-[0.85rem] text-carta/85">Tocá para verlos — están listos para cerrar</p>
           </div>
         </button>
+      )}
+
+      {/* Filtro por negocio — solo con 2+ negocios (CRM unificado). El
+          backend ya garantiza que solo aparecen negocios de captación. */}
+      {negocios.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFiltroNegocio("todos")}
+            className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
+              filtroNegocio === "todos"
+                ? "bg-brasa text-carta"
+                : "bg-carta text-tinta-2 ring-1 ring-linea"
+            }`}
+          >
+            Todos mis negocios
+          </button>
+          {negocios.map((n) => (
+            <button
+              key={n.tenantId}
+              onClick={() => setFiltroNegocio(n.tenantId)}
+              className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
+                filtroNegocio === n.tenantId
+                  ? "bg-brasa text-carta"
+                  : "bg-carta text-tinta-2 ring-1 ring-linea"
+              }`}
+            >
+              {n.nombre}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Filtros de nivel de interés */}
@@ -248,7 +306,18 @@ function LeadsPanelInner() {
       {estado === "ok" && visibles.length > 0 && (
         <div className="grid gap-3 lg:grid-cols-2">
           {visibles.map((l) => (
-            <TarjetaLead key={l.id} lead={aTarjeta(l)} />
+            // onClickCapture corre ANTES de la navegación del Link interno:
+            // si el lead es de otro negocio, la empresa activa cambia a la
+            // del lead para que la conversación (y sus acciones) funcionen
+            // sin pasar por el switcher.
+            <div
+              key={l.id}
+              onClickCapture={() => {
+                if (l.tenantId !== leerEmpresaActiva()) guardarEmpresaActiva(l.tenantId);
+              }}
+            >
+              <TarjetaLead lead={aTarjeta(l, negocios.length > 1)} />
+            </div>
           ))}
         </div>
       )}
@@ -268,6 +337,20 @@ function LeadsPanelInner() {
               Para ese contacto que conociste fuera de las redes.
             </p>
             <div className="mt-4 space-y-3">
+              {negocios.length > 1 && (
+                <div>
+                  <label className="text-[0.82rem] font-bold text-tinta">Negocio</label>
+                  <select
+                    value={negocioDestino}
+                    onChange={(e) => setNuevoNegocio(e.target.value)}
+                    className="mt-1 w-full rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
+                  >
+                    {negocios.map((n) => (
+                      <option key={n.tenantId} value={n.tenantId}>{n.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="text-[0.82rem] font-bold text-tinta">Nombre</label>
                 <input

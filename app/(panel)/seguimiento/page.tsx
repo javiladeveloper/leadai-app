@@ -14,6 +14,8 @@ import {
 import { SkeletonLista } from "@/components/Skeletons";
 import { BadgeCanal } from "@/components/BadgeCanal";
 import PopupLead from "@/components/panel/PopupLead";
+import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
+import type { NegocioBandeja } from "@/lib/api";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -53,6 +55,11 @@ export default function SeguimientoPanel() {
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [leads, setLeads] = useState<LeadPipeline[]>([]);
+  // Modo global: chips por negocio para bajar el ruido visual — "" = todos
+  // (vista general, default). El filtro es en cliente: ya tenemos todos los
+  // leads con su tenantId, así que cambiar de chip es instantáneo.
+  const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
+  const [filtroNegocio, setFiltroNegocio] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
   // Lead abierto en el popup de vista rápida (1 click). El doble click entra a
   // la conversación directamente. Usamos un timer para distinguir 1 de 2 clicks.
@@ -104,6 +111,7 @@ export default function SeguimientoPanel() {
       if (esModoGlobal()) {
         const r = await listarBandejaGlobal();
         setLeads(r.leads);
+        setNegocios(r.negocios);
       } else {
         setLeads(await listarLeads());
       }
@@ -124,12 +132,13 @@ export default function SeguimientoPanel() {
     const ORDEN_NIVEL: Record<Lead["nivelInteres"], number> = { caliente: 0, tibio: 1, frio: 2 };
     const mapa = new Map<EstadoLead, LeadPipeline[]>();
     for (const et of ETAPAS) mapa.set(et.estado, []);
-    for (const l of leads) mapa.get(l.estado)?.push(l);
+    const visibles = filtroNegocio ? leads.filter((l) => l.tenantId === filtroNegocio) : leads;
+    for (const l of visibles) mapa.get(l.estado)?.push(l);
     for (const lista of mapa.values()) {
       lista.sort((a, b) => ORDEN_NIVEL[a.nivelInteres] - ORDEN_NIVEL[b.nivelInteres]);
     }
     return mapa;
-  }, [leads]);
+  }, [leads, filtroNegocio]);
 
   async function mover(
     lead: LeadPipeline,
@@ -171,6 +180,15 @@ export default function SeguimientoPanel() {
           Actualizar
         </button>
       </header>
+
+      {negocios.length > 1 && (
+        <BarraNegociosGlobal
+          negocios={negocios}
+          enfocado={filtroNegocio}
+          onElegir={setFiltroNegocio}
+          todosLabel="Todos mis negocios"
+        />
+      )}
 
       {estado === "cargando" && <SkeletonLista filas={5} />}
 
@@ -255,7 +273,7 @@ export default function SeguimientoPanel() {
 
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <BadgeCanal canal={lead.canalOrigen} tamano="chico" />
-                          {lead.negocioNombre && (
+                          {lead.negocioNombre && !filtroNegocio && (
                             <span className="max-w-full truncate rounded-full bg-arena px-2 py-0.5 text-[0.66rem] font-bold text-tinta-2">
                               🏢 {lead.negocioNombre}
                             </span>

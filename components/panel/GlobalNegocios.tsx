@@ -70,10 +70,14 @@ export function BarraNegociosGlobal({
   negocios,
   enfocado,
   onElegir,
+  todosLabel,
 }: {
   negocios: NegocioBandeja[];
   enfocado: string;
   onElegir: (tenantId: string) => void;
+  // Si viene, se antepone un chip "Todos" (tenantId = "") — para vistas que
+  // pueden mostrar TODO junto (Seguimiento) además de enfocar un negocio.
+  todosLabel?: string;
 }) {
   if (negocios.length === 0) return null;
   return (
@@ -82,6 +86,16 @@ export function BarraNegociosGlobal({
         🌐 Vista global — elegí el negocio que querés mirar
       </p>
       <div className="flex flex-wrap gap-2">
+        {todosLabel && (
+          <button
+            onClick={() => onElegir("")}
+            className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
+              enfocado === "" ? "bg-brasa text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+            }`}
+          >
+            {todosLabel}
+          </button>
+        )}
         {negocios.map((n) => (
           <button
             key={n.tenantId}

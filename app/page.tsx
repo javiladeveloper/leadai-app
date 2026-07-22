@@ -30,6 +30,10 @@ export default function Login() {
       return `/invitacion?token=${invit}`;
     }
     const sesion = leerSesion();
+    // Con 2+ negocios, el panel abre en la VISTA GLOBAL (decisión 2026-07-22:
+    // la separación por negocio la dan los filtros; /global fija el modo
+    // global solo al montar). Con un solo negocio, directo a su Inicio.
+    if (sesion && sesion.empresas.length > 1) return "/global";
     if (sesion && sesion.empresas.length > 0) return "/inicio";
     // Super admin sin negocio → panel de plataforma (no lo forzamos a crear un
     // negocio). Un usuario normal sin negocio sí va al onboarding.

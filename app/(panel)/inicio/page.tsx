@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { haySesion, leerSesion } from "@/lib/auth";
+import { haySesion, leerSesion, esModoGlobal } from "@/lib/auth";
 import {
   obtenerResumen, obtenerUso, leadsRecientes, obtenerReporteNegocio,
   type Resumen, type Uso, type Lead, type ReporteNegocio,
@@ -51,6 +51,12 @@ export default function InicioPanel() {
   useEffect(() => {
     if (!haySesion()) {
       router.replace("/");
+      return;
+    }
+    // En modo global, el Inicio es el dashboard /global (métricas y bandeja
+    // de todos los negocios); este Inicio es el de UNA empresa.
+    if (esModoGlobal()) {
+      router.replace("/global");
       return;
     }
     setListo(true);

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion, leerEmpresaActiva, guardarEmpresaActiva } from "@/lib/auth";
+import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, esModoGlobal, EMPRESA_GLOBAL } from "@/lib/auth";
 import {
   listarBandejaGlobal,
   obtenerReporteGlobal,
@@ -80,6 +80,9 @@ export default function GlobalPanel() {
       router.replace("/");
       return;
     }
+    // Estar en /global ES estar en modo global: lo fija aunque se llegue por
+    // URL directa — así el resto del sidebar también queda en vista global.
+    if (!esModoGlobal()) guardarEmpresaActiva(EMPRESA_GLOBAL);
     setListo(true);
   }, [router]);
 

@@ -60,6 +60,19 @@ export function haySesion(): boolean {
   return leerSesion() !== null;
 }
 
+// ── Modo global ─────────────────────────────────────────────
+// "Vista global" es un MODO persistente (decisión 2026-07-22): el selector del
+// header guarda este centinela como empresa activa y TODO el panel muestra los
+// datos de todos los negocios de captación (bandejas cruzadas, secciones por
+// empresa, picker en pantallas de configuración). Elegir una empresa real en
+// el selector (o abrir un lead: "clavado") sale del modo. `api()` jamás manda
+// el centinela como X-Tenant-Id (ver lib/api.ts).
+export const EMPRESA_GLOBAL = "__global__";
+
+export function esModoGlobal(): boolean {
+  return leerEmpresaActiva() === EMPRESA_GLOBAL;
+}
+
 // ¿El usuario logueado es super admin de la plataforma? Solo entonces se
 // muestran paneles globales (Aprendizaje). La autorización REAL la hace el
 // backend; esto es solo para no mostrar lo que igual daría 403.

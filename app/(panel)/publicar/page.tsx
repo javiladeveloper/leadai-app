@@ -8,6 +8,7 @@ import {
   type Publicacion, type PlantillaPost,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -49,6 +50,10 @@ export default function PublicarPanel() {
   const [msg, setMsg] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
 
+  // Modo global: el publicador entero trabaja sobre el negocio enfocado en la
+  // barra (lista, IA, subida y creación viajan con su tenant explícito).
+  const g = useSeccionGlobal();
+
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
@@ -57,19 +62,19 @@ export default function PublicarPanel() {
   const cargar = useCallback(async () => {
     setEstado("cargando");
     try {
-      const [p, pl] = await Promise.all([listarPublicaciones(), plantillasPost()]);
+      const [p, pl] = await Promise.all([listarPublicaciones(g.tenantLista), plantillasPost(g.tenantLista)]);
       setPosts(p);
       setPlantillas(pl);
       setEstado("ok");
     } catch {
       setEstado("error");
     }
-  }, []);
+  }, [g.tenantLista]);
 
   useEffect(() => {
-    if (!listo) return;
+    if (!listo || !g.listaLista) return;
     cargar();
-  }, [listo, cargar]);
+  }, [listo, g.listaLista, cargar]);
 
   function toggleRed(id: string) {
     setRedes((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
@@ -78,7 +83,7 @@ export default function PublicarPanel() {
   async function usarPlantilla(pl: PlantillaPost) {
     setSugiriendo(true);
     setMsg("");
-    const copy = await sugerirCopyPost(pl.prompt);
+    const copy = await sugerirCopyPost(pl.prompt, g.tenantLista);
     setSugiriendo(false);
     if (copy) setTexto(copy);
   }
@@ -86,7 +91,7 @@ export default function PublicarPanel() {
   async function sugerir() {
     if (!texto.trim() || sugiriendo) return;
     setSugiriendo(true);
-    const copy = await sugerirCopyPost(texto.trim());
+    const copy = await sugerirCopyPost(texto.trim(), g.tenantLista);
     setSugiriendo(false);
     if (copy) setTexto(copy);
   }
@@ -98,7 +103,7 @@ export default function PublicarPanel() {
     setMsg("");
     const reader = new FileReader();
     reader.onload = async () => {
-      const r = await subirMediaPost(String(reader.result));
+      const r = await subirMediaPost(String(reader.result), g.tenantLista);
       setSubiendo(false);
       if (r.ok && r.url) {
         setMediaUrl(r.url);
@@ -120,7 +125,7 @@ export default function PublicarPanel() {
       tipoMedia,
       canales: redes,
       programadaPara: programar && fecha ? new Date(fecha).toISOString() : undefined,
-    });
+    }, g.tenantLista);
     setPublicando(false);
     if (r.ok) {
       setTexto(""); setMediaUrl(null); setProgramar(false); setFecha("");
@@ -142,6 +147,10 @@ export default function PublicarPanel() {
           Creá un post una vez y publicalo en tus redes. La IA te ayuda a escribirlo.
         </p>
       </header>
+
+      {g.modoGlobal && (
+        <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
+      )}
 
       <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
         📸 La publicación real en Instagram/Facebook se activa cuando conectes tus redes

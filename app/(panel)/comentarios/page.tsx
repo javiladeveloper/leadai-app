@@ -6,6 +6,7 @@ import Link from "next/link";
 import { haySesion } from "@/lib/auth";
 import { listarComentarios, simularComentario, type Comentario } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { AjustesComentarios } from "@/components/panel/AjustesComentarios";
 
 type Estado = "cargando" | "ok" | "error";
@@ -35,27 +36,31 @@ export default function ComentariosPanel() {
     setListo(true);
   }, [router]);
 
+  // Modo global: barra de negocios; el log se lee del negocio enfocado y la
+  // simulación adopta ese negocio (g.adoptar).
+  const g = useSeccionGlobal();
+
   const cargar = useCallback(async () => {
     setEstado("cargando");
     try {
-      setComentarios(await listarComentarios());
+      setComentarios(await listarComentarios(g.tenantLista));
       setEstado("ok");
     } catch {
       setEstado("error");
     }
-  }, []);
+  }, [g.tenantLista]);
 
   useEffect(() => {
-    if (!listo) return;
+    if (!listo || !g.listaLista) return;
     cargar();
-  }, [listo, cargar]);
+  }, [listo, g.listaLista, cargar]);
 
   async function probar() {
     const t = texto.trim();
     if (!t || simulando) return;
     setSimulando(true);
     setUltimo(null);
-    const r = await simularComentario({ texto: t, autorNombre: "Cliente de prueba" });
+    const r = await simularComentario({ texto: t, autorNombre: "Cliente de prueba", tenant: g.tenantLista });
     setSimulando(false);
     if (r.ok) {
       setUltimo({ intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, leadId: r.leadId });
@@ -76,6 +81,10 @@ export default function ComentariosPanel() {
           e invita al privado. Acá ves todo lo que captó.
         </p>
       </header>
+
+      {g.modoGlobal && (
+        <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
+      )}
 
       {/* Aviso: conexión real pendiente de Meta */}
       <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">

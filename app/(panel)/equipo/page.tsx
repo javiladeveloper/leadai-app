@@ -9,6 +9,8 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
+import { PickerNegocio } from "@/components/panel/GlobalNegocios";
+import { esModoGlobal } from "@/lib/auth";
 
 const ROL_LABEL: Record<string, string> = {
   owner: "Dueño", admin: "Administrador", agente: "Vendedor",
@@ -82,6 +84,9 @@ export default function EquipoPanel() {
   }
 
   if (!listo) return null;
+  // Modo global: esta sección se trabaja negocio por negocio — elegir uno
+  // sale del modo global hacia esa empresa (PickerNegocio recarga).
+  if (esModoGlobal()) return <PickerNegocio titulo="Equipo" />;
 
   // Feature de plan: invitar equipo es de Pro+. Si el plan no lo tiene, candado.
   if (tieneEquipo === false) {

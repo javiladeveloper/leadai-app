@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { haySesion } from "@/lib/auth";
+import { haySesion, esModoGlobal } from "@/lib/auth";
 import { listarLeads, crearLeadManual, type Lead, type NivelInteres, type EstadoLead } from "@/lib/api";
 import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { IconoRayo } from "@/components/Iconos";
@@ -76,6 +76,12 @@ function LeadsPanelInner() {
   useEffect(() => {
     if (!haySesion()) {
       router.replace("/");
+      return;
+    }
+    // En modo global, la bandeja de leads ES el dashboard /global (todos los
+    // negocios juntos con filtros) — esta pantalla queda para una empresa.
+    if (esModoGlobal()) {
+      router.replace("/global");
       return;
     }
     setListo(true);

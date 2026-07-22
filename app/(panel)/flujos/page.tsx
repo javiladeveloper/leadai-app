@@ -6,6 +6,7 @@ import { haySesion } from "@/lib/auth";
 import { listarFlujos, crearFlujo, eliminarFlujo, actualizarFlujo, type Flujo } from "@/lib/api";
 import { PLANTILLA_FLUJO } from "@/lib/flujos";
 import { SkeletonLista } from "@/components/Skeletons";
+import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 
 export default function FlujosPanel() {
   const router = useRouter();
@@ -14,6 +15,10 @@ export default function FlujosPanel() {
   const [flujos, setFlujos] = useState<Flujo[]>([]);
   const [creando, setCreando] = useState(false);
   const [errorCrear, setErrorCrear] = useState("");
+  // Modo global: barra de negocios arriba, la lista se lee del negocio
+  // enfocado; cualquier acción (crear/activar/borrar/editar) adopta ese
+  // negocio como empresa activa (g.adoptar — "clavado").
+  const g = useSeccionGlobal();
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -22,29 +27,32 @@ export default function FlujosPanel() {
 
   async function cargar() {
     setEstado("cargando");
-    try { setFlujos(await listarFlujos()); setEstado("ok"); }
+    try { setFlujos(await listarFlujos(g.tenantLista)); setEstado("ok"); }
     catch { setEstado("error"); }
   }
-  useEffect(() => { if (listo) cargar(); }, [listo]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (listo && g.listaLista) cargar(); }, [listo, g.listaLista, g.tenantLista]);
 
   async function nuevo() {
     setCreando(true);
     setErrorCrear("");
-    const r = await crearFlujo("Flujo sin nombre", PLANTILLA_FLUJO);
+    const r = await crearFlujo("Flujo sin nombre", PLANTILLA_FLUJO, g.tenantLista);
     setCreando(false);
-    if (r.ok && r.flujo) router.push(`/flujos/${r.flujo.id}`);
+    // El editor (/flujos/[id]) es por empresa: al entrar se adopta el negocio
+    // enfocado ("clavado" — sale del modo global).
+    if (r.ok && r.flujo) { g.adoptar(); router.push(`/flujos/${r.flujo.id}`); }
     // Antes el error se tragaba en silencio (ej. límite de flujos del plan):
     // el botón "cargaba" y no pasaba nada.
     else setErrorCrear(r.error ?? "No se pudo crear el flujo.");
   }
 
   async function alternarActivo(f: Flujo) {
-    await actualizarFlujo(f.id, { activo: !f.activo });
+    await actualizarFlujo(f.id, { activo: !f.activo }, g.tenantLista);
     cargar();
   }
 
   async function borrar(f: Flujo) {
-    await eliminarFlujo(f.id);
+    await eliminarFlujo(f.id, g.tenantLista);
     cargar();
   }
 
@@ -63,6 +71,10 @@ export default function FlujosPanel() {
           {creando ? "Creando…" : "+ Nuevo flujo"}
         </button>
       </header>
+
+      {g.modoGlobal && (
+        <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
+      )}
 
       {errorCrear && (
         <div className="rounded-tarjeta bg-calor/10 px-4 py-3 text-[0.9rem] font-semibold text-calor ring-1 ring-calor/30">
@@ -86,7 +98,7 @@ export default function FlujosPanel() {
         <div className="space-y-3">
           {flujos.map((f) => (
             <div key={f.id} className="flex items-center gap-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
-              <button onClick={() => router.push(`/flujos/${f.id}`)} className="min-w-0 flex-1 text-left">
+              <button onClick={() => { g.adoptar(); router.push(`/flujos/${f.id}`); }} className="min-w-0 flex-1 text-left">
                 <p className="font-semibold text-tinta hover:text-brasa">{f.nombre}</p>
                 <p className="text-[0.8rem] text-frio">{f.grafo.nodos.length} pasos</p>
               </button>

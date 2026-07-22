@@ -9,6 +9,7 @@ import {
   type LeadDetalle,
 } from "@/lib/api";
 import { BadgeCanal } from "@/components/BadgeCanal";
+import { guardarEmpresaActiva } from "@/lib/auth";
 
 const NIVEL_ETIQUETA: Record<Lead["nivelInteres"], { texto: string; clase: string }> = {
   caliente: { texto: "🔴 Caliente", clase: "bg-calor-suave text-calor-hondo" },
@@ -20,11 +21,15 @@ interface Props {
   lead: Lead;
   onCerrar: () => void;
   onCambio: (accion: "marcar_ganado" | "descartar") => void; // avisa al tablero para mover la tarjeta
+  // Modo global: el lead puede ser de un negocio distinto a la empresa activa;
+  // el tablero pasa su tenantId para que el detalle/responder vayan al negocio
+  // correcto. Sin él, se usa la empresa activa (comportamiento de siempre).
+  tenant?: string;
 }
 
 // Vista rápida de un lead desde el pipeline: resumen + conversación completa +
 // responder, sin salir del tablero. Carga los mensajes al abrir.
-export default function PopupLead({ lead, onCerrar, onCambio }: Props) {
+export default function PopupLead({ lead, onCerrar, onCambio, tenant }: Props) {
   const router = useRouter();
   const [detalle, setDetalle] = useState<LeadDetalle | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -39,11 +44,11 @@ export default function PopupLead({ lead, onCerrar, onCambio }: Props) {
   // Carga la conversación al abrir.
   useEffect(() => {
     let vivo = true;
-    obtenerLead(lead.id)
+    obtenerLead(lead.id, tenant)
       .then((d) => { if (vivo) setDetalle(d); })
       .finally(() => { if (vivo) setCargando(false); });
     return () => { vivo = false; };
-  }, [lead.id]);
+  }, [lead.id, tenant]);
 
   // Baja al último mensaje cuando llega la conversación o se envía uno nuevo.
   useEffect(() => {
@@ -55,7 +60,7 @@ export default function PopupLead({ lead, onCerrar, onCambio }: Props) {
     if (!t || enviando) return;
     setEnviando(true);
     setError("");
-    const r = await accionLead(lead.id, { tipo: "responder", texto: t });
+    const r = await accionLead(lead.id, { tipo: "responder", texto: t }, tenant);
     setEnviando(false);
     if (r.ok) {
       // Optimista: agregamos el mensaje saliente a la conversación mostrada.
@@ -158,7 +163,12 @@ export default function PopupLead({ lead, onCerrar, onCambio }: Props) {
 
           <div className="mt-3 flex flex-wrap gap-2">
             <button
-              onClick={() => router.push(`/conversacion/${lead.id}`)}
+              onClick={() => {
+                // "Clavado": entrar a la conversación completa adopta la
+                // empresa del lead (sale del modo global si estaba activo).
+                if (tenant) guardarEmpresaActiva(tenant);
+                router.push(`/conversacion/${lead.id}`);
+              }}
               className="flex-1 rounded-chip bg-carta px-4 py-2 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
             >
               Abrir conversación

@@ -11,6 +11,8 @@ import {
 } from "@/lib/api";
 import { SkeletonReportes } from "@/components/Skeletons";
 import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
+import { PickerNegocio } from "@/components/panel/GlobalNegocios";
+import { esModoGlobal } from "@/lib/auth";
 
 const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
 
@@ -77,6 +79,9 @@ export default function ReportesPanel() {
   }
 
   if (!listo) return null;
+  // Modo global: esta sección se trabaja negocio por negocio — elegir uno
+  // sale del modo global hacia esa empresa (PickerNegocio recarga).
+  if (esModoGlobal()) return <PickerNegocio titulo="Reportes por negocio" />;
 
   // Pico de la evolución (para escalar las barras).
   const maxEvo = rep ? Math.max(1, ...rep.evolucion.map((e) => e.comisiones)) : 1;

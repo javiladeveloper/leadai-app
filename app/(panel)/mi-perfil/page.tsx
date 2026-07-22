@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { miPerfilVendedor, guardarPerfilVendedor, subirFotoVendedor, type PerfilVendedor, type Experiencia } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
+import { PickerNegocio } from "@/components/panel/GlobalNegocios";
+import { esModoGlobal } from "@/lib/auth";
 
 const inputCls =
   "w-full rounded-tarjeta border border-linea bg-carta px-3.5 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa";
@@ -91,6 +93,9 @@ export default function MiPerfilPanel() {
   }
 
   if (!listo) return null;
+  // Modo global: esta sección se trabaja negocio por negocio — elegir uno
+  // sale del modo global hacia esa empresa (PickerNegocio recarga).
+  if (esModoGlobal()) return <PickerNegocio titulo="Mi perfil" />;
   if (cargando || !perfil) return <div className="p-8 text-frio">Cargando…</div>;
 
   return (

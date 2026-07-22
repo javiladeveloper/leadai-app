@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { haySesion } from "@/lib/auth";
+import { haySesion, esModoGlobal, guardarEmpresaActiva } from "@/lib/auth";
 import { SkeletonLista, SkeletonChat } from "@/components/Skeletons";
 import {
   listarLeads,
+  listarBandejaGlobal,
   obtenerLead,
   accionLead,
   calcularComision,
@@ -23,6 +24,10 @@ import { IconoMic, IconoEnviar } from "@/components/Iconos";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 
 type Estado = "cargando" | "ok" | "error";
+
+// En modo global cada lead trae de qué negocio viene; en modo empresa esos
+// campos van `undefined` y todo se comporta como siempre.
+type LeadLista = Lead & { tenantId?: string; negocioNombre?: string };
 
 // "hace X" legible en español, a partir de minutos.
 function haceTexto(min: number): string {
@@ -41,11 +46,13 @@ function minutosDesde(iso: string): number {
 }
 
 // Adapta el Lead real (lib/api) al shape mínimo que TarjetaLead necesita.
-function aTarjeta(lead: Lead): TarjetaLeadProps {
+// `negocioNombre` (solo en modo global) etiqueta de qué negocio viene.
+function aTarjeta(lead: LeadLista): TarjetaLeadProps {
   return {
     id: lead.id,
     nombre: lead.nombre ?? lead.contactoExterno,
     canal: lead.canalOrigen,
+    empresa: lead.negocioNombre,
     temperatura: lead.nivelInteres,
     urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
     resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
@@ -75,8 +82,12 @@ export default function ConversacionesPanel() {
   const [listo, setListo] = useState(false);
 
   const [estadoLista, setEstadoLista] = useState<Estado>("cargando");
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<LeadLista[]>([]);
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
+  // Tenant del lead seleccionado (solo en modo global): viaja explícito en
+  // obtenerLead/accionLead/calcularComision, SIN cambiar la empresa activa —
+  // así el usuario sigue en la vista global mientras chatea.
+  const [tenantSel, setTenantSel] = useState<string | undefined>(undefined);
 
   const [estadoLead, setEstadoLead] = useState<Estado>("cargando");
   const [lead, setLead] = useState<LeadDetalle | null>(null);
@@ -111,7 +122,7 @@ export default function ConversacionesPanel() {
   useEffect(() => {
     const monto = Number(montoVenta);
     if (!ventaAbierta || !monto || monto <= 0) { setComisionCalc(null); return; }
-    const t = setTimeout(() => { calcularComision(monto).then(setComisionCalc); }, 350);
+    const t = setTimeout(() => { calcularComision(monto, tenantSel).then(setComisionCalc); }, 350);
     return () => clearTimeout(t);
   }, [montoVenta, ventaAbierta]);
 
@@ -125,8 +136,14 @@ export default function ConversacionesPanel() {
 
   const cargarLista = useCallback(async () => {
     try {
-      const r = await listarLeads();
-      setLeads(r);
+      // Modo global: conversaciones de TODOS los negocios de captación con su
+      // etiqueta. Modo empresa: solo la activa, como siempre.
+      if (esModoGlobal()) {
+        const r = await listarBandejaGlobal();
+        setLeads(r.leads);
+      } else {
+        setLeads(await listarLeads());
+      }
       setEstadoLista("ok");
     } catch (e) {
       void e;
@@ -134,9 +151,9 @@ export default function ConversacionesPanel() {
     }
   }, []);
 
-  const cargarLead = useCallback(async (id: string) => {
+  const cargarLead = useCallback(async (id: string, tenant?: string) => {
     try {
-      const r = await obtenerLead(id);
+      const r = await obtenerLead(id, tenant);
       setLead(r);
       setEstadoLead("ok");
       // Si el backend ya no encuentra este lead (404 → null), no dejamos la
@@ -148,42 +165,50 @@ export default function ConversacionesPanel() {
     }
   }, []);
 
+  // Selección desde la columna izquierda (desktop). En modo global guarda
+  // también el tenant del lead para las llamadas del chat.
+  const seleccionar = useCallback((l: LeadLista) => {
+    setTenantSel(l.tenantId);
+    setSeleccionadoId(l.id);
+  }, []);
+
   useEffect(() => {
     if (!listo) return;
     cargarLista();
   }, [listo, cargarLista]);
 
-  // Selecciona el primer lead de la lista automáticamente si no hay nada elegido.
+  // Selecciona el primer lead de la lista automáticamente si no hay nada
+  // elegido (vía `seleccionar`: en modo global también fija su tenant).
   useEffect(() => {
     if (leads.length > 0 && !seleccionadoId) {
-      setSeleccionadoId(leads[0].id);
+      seleccionar(leads[0]);
     }
-  }, [leads, seleccionadoId]);
+  }, [leads, seleccionadoId, seleccionar]);
 
   useEffect(() => {
     if (!seleccionadoId) return;
     setEstadoLead("cargando");
     setVentaAbierta(false);
     setAccionError(null);
-    cargarLead(seleccionadoId);
-  }, [seleccionadoId, cargarLead]);
+    cargarLead(seleccionadoId, tenantSel);
+  }, [seleccionadoId, tenantSel, cargarLead]);
 
   // Polling: refresca la lista y, si hay un lead seleccionado, su detalle.
   // Si hay una acción en curso (enviando) no refrescamos el lead seleccionado
   // para no pisar el estado optimista mientras la acción todavía no terminó.
   usePolling(() => {
     cargarLista();
-    if (seleccionadoId && !enviando) cargarLead(seleccionadoId);
+    if (seleccionadoId && !enviando) cargarLead(seleccionadoId, tenantSel);
   }, 10000);
 
   async function enviarRespuesta() {
     if (!seleccionadoId || !texto.trim() || enviando) return;
     setEnviando(true);
     setAccionError(null);
-    const r = await accionLead(seleccionadoId, { tipo: "responder", texto: texto.trim() });
+    const r = await accionLead(seleccionadoId, { tipo: "responder", texto: texto.trim() }, tenantSel);
     if (r.ok) {
       setTexto("");
-      await cargarLead(seleccionadoId);
+      await cargarLead(seleccionadoId, tenantSel);
     } else {
       setAccionError(r.error ?? "No se pudo enviar la respuesta.");
     }
@@ -194,9 +219,9 @@ export default function ConversacionesPanel() {
     if (!seleccionadoId || enviando) return;
     setEnviando(true);
     setAccionError(null);
-    const r = await accionLead(seleccionadoId, { tipo: "aprobar_borrador" });
+    const r = await accionLead(seleccionadoId, { tipo: "aprobar_borrador" }, tenantSel);
     if (r.ok) {
-      await cargarLead(seleccionadoId);
+      await cargarLead(seleccionadoId, tenantSel);
     } else {
       setAccionError(r.error ?? "No se pudo aprobar el borrador.");
     }
@@ -212,11 +237,11 @@ export default function ConversacionesPanel() {
     }
     setEnviando(true);
     setAccionError(null);
-    const r = await accionLead(seleccionadoId, { tipo: "marcar_ganado", monto });
+    const r = await accionLead(seleccionadoId, { tipo: "marcar_ganado", monto }, tenantSel);
     if (r.ok) {
       setVentaAbierta(false);
       setMontoVenta("");
-      await cargarLead(seleccionadoId);
+      await cargarLead(seleccionadoId, tenantSel);
       await cargarLista();
     } else {
       setAccionError(r.error ?? "No se pudo registrar la venta.");
@@ -253,7 +278,18 @@ export default function ConversacionesPanel() {
           </div>
         )}
         {estadoLista === "ok" &&
-          leads.map((l) => <TarjetaLead key={l.id} lead={aTarjeta(l)} />)}
+          leads.map((l) => (
+            // Mobile navega a /conversacion/[id] (Link interno): si el lead es
+            // de otro negocio (modo global), adopta su empresa antes de entrar.
+            <div
+              key={l.id}
+              onClickCapture={() => {
+                if (l.tenantId) guardarEmpresaActiva(l.tenantId);
+              }}
+            >
+              <TarjetaLead lead={aTarjeta(l)} />
+            </div>
+          ))}
       </div>
 
       {/* Desktop (lg+): 3 columnas */}
@@ -288,7 +324,7 @@ export default function ConversacionesPanel() {
                   key={l.id}
                   onClick={(e) => {
                     e.preventDefault();
-                    setSeleccionadoId(l.id);
+                    seleccionar(l);
                   }}
                   className={activo ? "rounded-tarjeta ring-2 ring-brasa" : ""}
                 >

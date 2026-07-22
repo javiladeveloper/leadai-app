@@ -8,6 +8,7 @@ import {
   type ObjetivoAd, type PublicoAd, type RecomPresupuesto, type Anuncio,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -57,6 +58,10 @@ export default function AnunciosPanel() {
   const [publicando, setPublicando] = useState(false);
   const [msg, setMsg] = useState("");
 
+  // Modo global: el wizard entero trabaja sobre el negocio enfocado en la
+  // barra (todas las llamadas viajan con su tenant explícito).
+  const g = useSeccionGlobal();
+
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
@@ -65,40 +70,40 @@ export default function AnunciosPanel() {
   const cargar = useCallback(async () => {
     setEstado("cargando");
     try {
-      const [a, o] = await Promise.all([listarAnuncios(), objetivosAd()]);
+      const [a, o] = await Promise.all([listarAnuncios(g.tenantLista), objetivosAd(g.tenantLista)]);
       setAnuncios(a);
       setObjetivos(o);
       setEstado("ok");
     } catch { setEstado("error"); }
-  }, []);
+  }, [g.tenantLista]);
 
-  useEffect(() => { if (listo) cargar(); }, [listo, cargar]);
+  useEffect(() => { if (listo && g.listaLista) cargar(); }, [listo, g.listaLista, cargar]);
 
   // Al entrar al paso de público, carga el sugerido por rubro. La edad sugerida
   // precarga los campos, pero el usuario la puede ajustar libremente.
   useEffect(() => {
     if (paso === 2 && !publico) {
-      publicoSugeridoAd().then((p) => {
+      publicoSugeridoAd(g.tenantLista).then((p) => {
         setPublico(p);
         if (p) { setEdadMin(String(p.edadMin)); setEdadMax(String(p.edadMax)); }
       });
     }
-  }, [paso, publico]);
+  }, [paso, publico, g.tenantLista]);
 
   // Al entrar al paso de presupuesto (o cambiar total/días), recalcula.
   useEffect(() => {
     if (paso !== 3) return;
     const t = Number(total), d = Number(dias);
     if (t > 0 && d > 0) {
-      const id = setTimeout(() => { presupuestoAd(t, d).then(setRecom); }, 300);
+      const id = setTimeout(() => { presupuestoAd(t, d, g.tenantLista).then(setRecom); }, 300);
       return () => clearTimeout(id);
     }
-  }, [paso, total, dias]);
+  }, [paso, total, dias, g.tenantLista]);
 
   async function sugerirTexto() {
     if (!campania.trim() || sugiriendo) return;
     setSugiriendo(true);
-    const t = await sugerirTextoAd(campania.trim());
+    const t = await sugerirTextoAd(campania.trim(), g.tenantLista);
     setSugiriendo(false);
     if (t) setTexto(t);
   }
@@ -121,7 +126,7 @@ export default function AnunciosPanel() {
       },
       presupuestoTotal: Number(total),
       dias: Number(dias),
-    });
+    }, g.tenantLista);
     setPublicando(false);
     if (r.ok) {
       // Reset del wizard
@@ -161,6 +166,10 @@ export default function AnunciosPanel() {
           </button>
         )}
       </header>
+
+      {g.modoGlobal && (
+        <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
+      )}
 
       <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
         📣 La publicación real de anuncios se activa al conectar tu cuenta de Meta (con tu propio

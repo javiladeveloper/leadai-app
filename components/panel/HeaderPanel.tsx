@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cerrarSesion, type EmpresaResumen } from "@/lib/auth";
+import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cerrarSesion, EMPRESA_GLOBAL, esModoGlobal, type EmpresaResumen } from "@/lib/auth";
 import { misEmpresas } from "@/lib/api";
 import { IconoChevron } from "@/components/Iconos";
 import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
@@ -14,9 +14,19 @@ export function HeaderPanel() {
   const pathname = usePathname();
   const [empresas, setEmpresas] = useState<EmpresaResumen[]>(() => leerSesion()?.empresas ?? []);
   const [activa, setActiva] = useState<string>("");
-  // En /global el selector muestra "Vista global" — es un LUGAR, no una
-  // empresa: la empresa activa guardada no cambia al entrar.
-  const enGlobal = pathname === "/global";
+  // Modo global (decisión 2026-07-22): es un MODO persistente guardado como
+  // empresa activa centinela — navegar por el sidebar mantiene la vista
+  // global en todas las secciones. Se relee al cambiar de ruta porque un
+  // "clavado" (abrir un lead desde una bandeja global) sale del modo sin
+  // pasar por este selector.
+  const [enGlobal, setEnGlobal] = useState(false);
+  useEffect(() => {
+    setEnGlobal(esModoGlobal());
+    if (!esModoGlobal()) {
+      const guardada = leerEmpresaActiva();
+      if (guardada) setActiva(guardada);
+    }
+  }, [pathname]);
 
   // La sesión cachea las empresas del momento del login → un negocio nuevo
   // (invitación, creado en otro lado) no aparecería. Refrescamos EN VIVO al
@@ -44,11 +54,13 @@ export function HeaderPanel() {
       router.push("/bienvenida?agregar=1");
       return;
     }
-    if (id === "__global__") {
-      // La vista global es una PÁGINA, no una empresa: navega sin tocar la
-      // empresa activa guardada (al volver a elegir una empresa, todo sigue
-      // donde estaba).
-      router.push("/global");
+    if (id === EMPRESA_GLOBAL) {
+      // Entra al MODO global: queda guardado como empresa activa centinela
+      // (todas las secciones del panel pasan a la vista global) y aterriza en
+      // el dashboard general. Navegación dura para que toda página relea el
+      // modo desde cero.
+      guardarEmpresaActiva(EMPRESA_GLOBAL);
+      window.location.href = "/global";
       return;
     }
     setActiva(id);
@@ -56,7 +68,7 @@ export function HeaderPanel() {
     // Reload completo: las pantallas fetchean en useEffect sin dependencia del
     // tenant activo, así que router.refresh() no alcanza para que re-fetcheen
     // con el nuevo X-Tenant-Id. Un reload total es aceptable en un panel.
-    // Desde /global, elegir una empresa te lleva a SU dashboard (Inicio).
+    // Desde el modo global, elegir una empresa SALE del modo hacia su Inicio.
     if (enGlobal) {
       window.location.href = "/inicio";
     } else {
@@ -91,7 +103,7 @@ export function HeaderPanel() {
       </form>
       <div className="ml-auto flex items-center gap-3">
         <select
-          value={enGlobal ? "__global__" : activa}
+          value={enGlobal ? EMPRESA_GLOBAL : activa}
           onChange={(e) => cambiarEmpresa(e.target.value)}
           className="max-w-44 rounded-lg border border-linea bg-arena/50 px-3 py-1.5 text-sm font-semibold text-tinta"
           aria-label="Elegí tu negocio"

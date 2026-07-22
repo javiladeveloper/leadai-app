@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { simularMensaje, resetSimulador, obtenerHistorialSimulador } from "@/lib/api";
 import { IconoEnviar } from "@/components/Iconos";
+import { PickerNegocio } from "@/components/panel/GlobalNegocios";
+import { esModoGlobal } from "@/lib/auth";
 
 type Boton = { id: string; etiqueta: string };
 type Msg = { direccion: "entrante" | "saliente"; texto: string; botones?: Boton[] };
@@ -79,6 +81,9 @@ export default function ProbarBotPanel() {
   }
 
   if (!listo) return null;
+  // Modo global: esta sección se trabaja negocio por negocio — elegir uno
+  // sale del modo global hacia esa empresa (PickerNegocio recarga).
+  if (esModoGlobal()) return <PickerNegocio titulo="Probar el bot" />;
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-3.5rem)] max-w-2xl flex-col px-4 py-4">

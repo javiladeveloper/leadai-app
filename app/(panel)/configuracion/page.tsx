@@ -8,6 +8,8 @@ import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { PanelCanales } from "@/components/panel/PanelCanales";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
 import { ConfigComision } from "@/components/panel/ConfigComision";
+import { PickerNegocio } from "@/components/panel/GlobalNegocios";
+import { esModoGlobal } from "@/lib/auth";
 
 // Pantalla de Configuración del panel, organizada en pestañas para no apilar
 // todo en una página larga: Tu negocio (playbook IA), Canales (WhatsApp) y
@@ -34,6 +36,9 @@ export default function ConfiguracionPanel() {
   }, [router]);
 
   if (!listo) return null;
+  // Modo global: esta sección se trabaja negocio por negocio — elegir uno
+  // sale del modo global hacia esa empresa (PickerNegocio recarga).
+  if (esModoGlobal()) return <PickerNegocio titulo="Configuración" />;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-5 py-6 lg:px-8">

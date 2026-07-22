@@ -2,7 +2,7 @@
 // Autenticación: token de usuario (Bearer) + header X-Tenant-Id para elegir la
 // empresa activa. El token y la empresa se guardan en el navegador (ver auth.ts).
 
-import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, type EmpresaResumen } from "./auth";
+import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, EMPRESA_GLOBAL, type EmpresaResumen } from "./auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -40,7 +40,9 @@ export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
     headers["X-Tenant-Id"] = tenant;
   } else if (conEmpresa) {
     const empresa = leerEmpresaActiva();
-    if (empresa) headers["X-Tenant-Id"] = empresa;
+    // El centinela del modo global JAMÁS viaja como tenant: las pantallas en
+    // modo global pasan `tenant` explícito o usan endpoints de plataforma.
+    if (empresa && empresa !== EMPRESA_GLOBAL) headers["X-Tenant-Id"] = empresa;
   }
 
   let res: Response;
@@ -268,6 +270,17 @@ export interface LeadGlobal extends Lead {
   negocioNombre: string;
 }
 
+// Solo la lista de negocios de captación del usuario (sin traer leads):
+// alimenta la barra de negocios del modo global y los pickers.
+export async function negociosGlobal(): Promise<NegocioBandeja[]> {
+  try {
+    const r = await api<{ negocios: NegocioBandeja[] }>("/bandeja-global?limit=1", { conEmpresa: false });
+    return r.negocios;
+  } catch {
+    return [];
+  }
+}
+
 export async function listarBandejaGlobal(filtros?: {
   estado?: string;
   nivel?: string;
@@ -309,9 +322,9 @@ export async function leadsRecientes(n = 5): Promise<Lead[]> {
   }
 }
 
-export async function obtenerLead(id: string): Promise<LeadDetalle | null> {
+export async function obtenerLead(id: string, tenant?: string): Promise<LeadDetalle | null> {
   try {
-    return await api<LeadDetalle>(`/leads/${id}`);
+    return await api<LeadDetalle>(`/leads/${id}`, { tenant });
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return null;
     throw e;
@@ -325,9 +338,10 @@ export async function accionLead(
     texto?: string;
     monto?: number;
   },
+  tenant?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await api(`/leads/${id}/acciones`, { method: "POST", body: accion });
+    await api(`/leads/${id}/acciones`, { method: "POST", body: accion, tenant });
     return { ok: true };
   } catch (e) {
     return {
@@ -535,8 +549,8 @@ export type ConexionFlujo = { id: string; desde: string; hacia: string; puerto?:
 export type GrafoFlujo = { nodos: NodoFlujo[]; conexiones: ConexionFlujo[] };
 export interface Flujo { id: string; nombre: string; activo: boolean; grafo: GrafoFlujo }
 
-export async function listarFlujos(): Promise<Flujo[]> {
-  try { return await api<Flujo[]>("/flujos"); } catch { return []; }
+export async function listarFlujos(tenant?: string): Promise<Flujo[]> {
+  try { return await api<Flujo[]>("/flujos", { tenant }); } catch { return []; }
 }
 
 export async function obtenerFlujo(id: string): Promise<Flujo | null> {
@@ -544,25 +558,25 @@ export async function obtenerFlujo(id: string): Promise<Flujo | null> {
 }
 
 export async function crearFlujo(
-  nombre: string, grafo: GrafoFlujo,
+  nombre: string, grafo: GrafoFlujo, tenant?: string,
 ): Promise<{ ok: boolean; flujo?: Flujo; error?: string }> {
   try {
-    const flujo = await api<Flujo>("/flujos", { method: "POST", body: { nombre, grafo } });
+    const flujo = await api<Flujo>("/flujos", { method: "POST", body: { nombre, grafo }, tenant });
     return { ok: true, flujo };
   } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el flujo" }; }
 }
 
 export async function actualizarFlujo(
-  id: string, cambios: { nombre?: string; activo?: boolean; grafo?: GrafoFlujo },
+  id: string, cambios: { nombre?: string; activo?: boolean; grafo?: GrafoFlujo }, tenant?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await api(`/flujos/${id}`, { method: "PATCH", body: cambios });
+    await api(`/flujos/${id}`, { method: "PATCH", body: cambios, tenant });
     return { ok: true };
   } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" }; }
 }
 
-export async function eliminarFlujo(id: string): Promise<{ ok: boolean }> {
-  try { await api(`/flujos/${id}`, { method: "DELETE" }); return { ok: true }; }
+export async function eliminarFlujo(id: string, tenant?: string): Promise<{ ok: boolean }> {
+  try { await api(`/flujos/${id}`, { method: "DELETE", tenant }); return { ok: true }; }
   catch { return { ok: false }; }
 }
 
@@ -731,18 +745,18 @@ export interface Oportunidad {
   tomada: boolean;
 }
 
-export async function listarOportunidades(rubro?: string): Promise<Oportunidad[]> {
+export async function listarOportunidades(rubro?: string, tenant?: string): Promise<Oportunidad[]> {
   const qs = rubro ? `?rubro=${encodeURIComponent(rubro)}` : "";
-  try { return await api<Oportunidad[]>(`/oportunidades${qs}`); } catch { return []; }
+  try { return await api<Oportunidad[]>(`/oportunidades${qs}`, { tenant }); } catch { return []; }
 }
 
-export async function tomarOportunidad(id: string): Promise<{ ok: boolean }> {
-  try { await api(`/oportunidades/${id}/tomar`, { method: "POST" }); return { ok: true }; }
+export async function tomarOportunidad(id: string, tenant?: string): Promise<{ ok: boolean }> {
+  try { await api(`/oportunidades/${id}/tomar`, { method: "POST", tenant }); return { ok: true }; }
   catch { return { ok: false }; }
 }
 
-export async function soltarOportunidad(id: string): Promise<{ ok: boolean }> {
-  try { await api(`/oportunidades/${id}/tomar`, { method: "DELETE" }); return { ok: true }; }
+export async function soltarOportunidad(id: string, tenant?: string): Promise<{ ok: boolean }> {
+  try { await api(`/oportunidades/${id}/tomar`, { method: "DELETE", tenant }); return { ok: true }; }
   catch { return { ok: false }; }
 }
 
@@ -800,9 +814,9 @@ export interface Comentario {
   creadoEn: string;
 }
 
-export async function listarComentarios(): Promise<Comentario[]> {
+export async function listarComentarios(tenant?: string): Promise<Comentario[]> {
   try {
-    const r = await api<{ items: Comentario[] }>("/comentarios");
+    const r = await api<{ items: Comentario[] }>("/comentarios", { tenant });
     return r.items;
   } catch {
     return [];
@@ -813,6 +827,7 @@ export async function listarComentarios(): Promise<Comentario[]> {
 export async function simularComentario(input: {
   texto: string;
   autorNombre?: string;
+  tenant?: string;
 }): Promise<{ ok: boolean; intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string; error?: string }> {
   try {
     // Ids únicos por simulación (evita chocar con el unique de idempotencia).
@@ -821,6 +836,7 @@ export async function simularComentario(input: {
       "/comentarios/simular",
       {
         method: "POST",
+        tenant: input.tenant,
         body: {
           canal: "instagram",
           comentarioExterno: n,
@@ -857,27 +873,27 @@ export interface PlantillaPost {
   prompt: string;
 }
 
-export async function listarPublicaciones(): Promise<Publicacion[]> {
+export async function listarPublicaciones(tenant?: string): Promise<Publicacion[]> {
   try {
-    const r = await api<{ items: Publicacion[] }>("/publicaciones");
+    const r = await api<{ items: Publicacion[] }>("/publicaciones", { tenant });
     return r.items;
   } catch {
     return [];
   }
 }
 
-export async function plantillasPost(): Promise<PlantillaPost[]> {
+export async function plantillasPost(tenant?: string): Promise<PlantillaPost[]> {
   try {
-    const r = await api<{ plantillas: PlantillaPost[] }>("/publicaciones/plantillas");
+    const r = await api<{ plantillas: PlantillaPost[] }>("/publicaciones/plantillas", { tenant });
     return r.plantillas;
   } catch {
     return [];
   }
 }
 
-export async function sugerirCopyPost(idea: string): Promise<string> {
+export async function sugerirCopyPost(idea: string, tenant?: string): Promise<string> {
   try {
-    const r = await api<{ texto: string }>("/publicaciones/sugerir", { method: "POST", body: { idea } });
+    const r = await api<{ texto: string }>("/publicaciones/sugerir", { method: "POST", body: { idea }, tenant });
     return r.texto;
   } catch {
     return "";
@@ -885,10 +901,10 @@ export async function sugerirCopyPost(idea: string): Promise<string> {
 }
 
 export async function subirMediaPost(
-  imagen: string,
+  imagen: string, tenant?: string,
 ): Promise<{ ok: boolean; url?: string; tipoMedia?: string; error?: string }> {
   try {
-    const r = await api<{ url: string; tipoMedia?: string }>("/publicaciones/media", { method: "POST", body: { imagen } });
+    const r = await api<{ url: string; tipoMedia?: string }>("/publicaciones/media", { method: "POST", body: { imagen }, tenant });
     return { ok: true, url: r.url, tipoMedia: r.tipoMedia };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo subir" };
@@ -901,9 +917,9 @@ export async function crearPublicacion(input: {
   tipoMedia?: string;
   canales: string[];
   programadaPara?: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}, tenant?: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    await api("/publicaciones", { method: "POST", body: input });
+    await api("/publicaciones", { method: "POST", body: input, tenant });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear" };
@@ -912,9 +928,9 @@ export async function crearPublicacion(input: {
 
 // Calcula la comisión sugerida para un monto de venta, según la config del
 // negocio. Devuelve null si el negocio no configuró comisión.
-export async function calcularComision(monto: number): Promise<number | null> {
+export async function calcularComision(monto: number, tenant?: string): Promise<number | null> {
   try {
-    const r = await api<{ comision: number | null }>(`/comisiones/calcular?monto=${monto}`);
+    const r = await api<{ comision: number | null }>(`/comisiones/calcular?monto=${monto}`, { tenant });
     return r.comision;
   } catch {
     return null;
@@ -954,20 +970,20 @@ export interface Anuncio {
   creadoEn: string;
 }
 
-export async function objetivosAd(): Promise<ObjetivoAd[]> {
-  try { return (await api<{ objetivos: ObjetivoAd[] }>("/anuncios/objetivos")).objetivos; } catch { return []; }
+export async function objetivosAd(tenant?: string): Promise<ObjetivoAd[]> {
+  try { return (await api<{ objetivos: ObjetivoAd[] }>("/anuncios/objetivos", { tenant })).objetivos; } catch { return []; }
 }
-export async function publicoSugeridoAd(): Promise<PublicoAd | null> {
-  try { return (await api<{ publico: PublicoAd }>("/anuncios/publico-sugerido")).publico; } catch { return null; }
+export async function publicoSugeridoAd(tenant?: string): Promise<PublicoAd | null> {
+  try { return (await api<{ publico: PublicoAd }>("/anuncios/publico-sugerido", { tenant })).publico; } catch { return null; }
 }
-export async function presupuestoAd(total: number, dias: number): Promise<RecomPresupuesto | null> {
-  try { return await api<RecomPresupuesto>(`/anuncios/presupuesto?total=${total}&dias=${dias}`); } catch { return null; }
+export async function presupuestoAd(total: number, dias: number, tenant?: string): Promise<RecomPresupuesto | null> {
+  try { return await api<RecomPresupuesto>(`/anuncios/presupuesto?total=${total}&dias=${dias}`, { tenant }); } catch { return null; }
 }
-export async function sugerirTextoAd(idea: string): Promise<string> {
-  try { return (await api<{ texto: string }>("/anuncios/sugerir-texto", { method: "POST", body: { idea } })).texto; } catch { return ""; }
+export async function sugerirTextoAd(idea: string, tenant?: string): Promise<string> {
+  try { return (await api<{ texto: string }>("/anuncios/sugerir-texto", { method: "POST", body: { idea }, tenant })).texto; } catch { return ""; }
 }
-export async function listarAnuncios(): Promise<Anuncio[]> {
-  try { return (await api<{ items: Anuncio[] }>("/anuncios")).items; } catch { return []; }
+export async function listarAnuncios(tenant?: string): Promise<Anuncio[]> {
+  try { return (await api<{ items: Anuncio[] }>("/anuncios", { tenant })).items; } catch { return []; }
 }
 export async function crearAnuncio(input: {
   objetivo: string;
@@ -978,9 +994,9 @@ export async function crearAnuncio(input: {
   publico: { zona?: string; edadMin?: number; edadMax?: number; intereses?: string[] };
   presupuestoTotal: number;
   dias: number;
-}): Promise<{ ok: boolean; error?: string }> {
+}, tenant?: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    await api("/anuncios", { method: "POST", body: input });
+    await api("/anuncios", { method: "POST", body: input, tenant });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el anuncio" };

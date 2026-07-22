@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { haySesion } from "@/lib/auth";
+import { haySesion, esModoGlobal, guardarEmpresaActiva } from "@/lib/auth";
 import {
   listarLeads,
+  listarBandejaGlobal,
   accionLead,
   type Lead,
   type EstadoLead,
@@ -15,6 +16,10 @@ import { BadgeCanal } from "@/components/BadgeCanal";
 import PopupLead from "@/components/panel/PopupLead";
 
 type Estado = "cargando" | "ok" | "error";
+
+// En modo global el lead trae de qué negocio viene; en modo empresa esos
+// campos no existen (van `undefined` y nada cambia).
+type LeadPipeline = Lead & { tenantId?: string; negocioNombre?: string };
 
 // Las etapas del pipeline en orden de avance. Los `estado` son los valores
 // reales del backend; los `titulo` son en lenguaje simple (mismos que en Leads).
@@ -47,11 +52,11 @@ export default function SeguimientoPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<LeadPipeline[]>([]);
   const [ocupado, setOcupado] = useState<string | null>(null);
   // Lead abierto en el popup de vista rápida (1 click). El doble click entra a
   // la conversación directamente. Usamos un timer para distinguir 1 de 2 clicks.
-  const [leadAbierto, setLeadAbierto] = useState<Lead | null>(null);
+  const [leadAbierto, setLeadAbierto] = useState<LeadPipeline | null>(null);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Cuántas tarjetas mostrar por etapa (paginación en cliente con "ver más").
   // Cada columna arranca mostrando PAGINA_ETAPA y crece de a tandas.
@@ -59,7 +64,7 @@ export default function SeguimientoPanel() {
 
   // 1 click abre el popup; 2 clicks entran a la conversación (cancela el popup).
   const alHacerClick = useCallback(
-    (lead: Lead) => {
+    (lead: LeadPipeline) => {
       if (clickTimer.current) clearTimeout(clickTimer.current);
       clickTimer.current = setTimeout(() => {
         setLeadAbierto(lead);
@@ -69,11 +74,14 @@ export default function SeguimientoPanel() {
     [],
   );
   const alDobleClick = useCallback(
-    (lead: Lead) => {
+    (lead: LeadPipeline) => {
       if (clickTimer.current) {
         clearTimeout(clickTimer.current);
         clickTimer.current = null;
       }
+      // "Clavado" desde el modo global: la conversación completa adopta la
+      // empresa del lead (sale del modo global).
+      if (lead.tenantId) guardarEmpresaActiva(lead.tenantId);
       router.push(`/conversacion/${lead.id}`);
     },
     [router],
@@ -90,8 +98,15 @@ export default function SeguimientoPanel() {
   const cargar = useCallback(async () => {
     setEstado("cargando");
     try {
-      const r = await listarLeads();
-      setLeads(r);
+      // Modo global: el pipeline cruza TODOS los negocios de captación (cada
+      // tarjeta dice de cuál viene). Modo empresa: solo la activa, como
+      // siempre.
+      if (esModoGlobal()) {
+        const r = await listarBandejaGlobal();
+        setLeads(r.leads);
+      } else {
+        setLeads(await listarLeads());
+      }
       setEstado("ok");
     } catch {
       setEstado("error");
@@ -107,7 +122,7 @@ export default function SeguimientoPanel() {
   // los calientes arriba (lo más urgente), luego tibios, luego fríos.
   const porEtapa = useMemo(() => {
     const ORDEN_NIVEL: Record<Lead["nivelInteres"], number> = { caliente: 0, tibio: 1, frio: 2 };
-    const mapa = new Map<EstadoLead, Lead[]>();
+    const mapa = new Map<EstadoLead, LeadPipeline[]>();
     for (const et of ETAPAS) mapa.set(et.estado, []);
     for (const l of leads) mapa.get(l.estado)?.push(l);
     for (const lista of mapa.values()) {
@@ -117,11 +132,12 @@ export default function SeguimientoPanel() {
   }, [leads]);
 
   async function mover(
-    lead: Lead,
+    lead: LeadPipeline,
     accion: { tipo: "marcar_ganado" | "descartar" },
   ) {
     setOcupado(lead.id);
-    const r = await accionLead(lead.id, accion);
+    // En modo global la acción viaja al negocio del lead (tenant explícito).
+    const r = await accionLead(lead.id, accion, lead.tenantId);
     setOcupado(null);
     if (r.ok) {
       // Actualización optimista local: movemos el lead a la etapa destino
@@ -239,6 +255,11 @@ export default function SeguimientoPanel() {
 
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <BadgeCanal canal={lead.canalOrigen} tamano="chico" />
+                          {lead.negocioNombre && (
+                            <span className="max-w-full truncate rounded-full bg-arena px-2 py-0.5 text-[0.66rem] font-bold text-tinta-2">
+                              🏢 {lead.negocioNombre}
+                            </span>
+                          )}
                           {lead.origenEtiqueta === "comentario" && (
                             <span className="rounded-full bg-tibio-suave px-2 py-0.5 text-[0.66rem] font-bold text-tibio">
                               💬 vino de un comentario
@@ -302,6 +323,7 @@ export default function SeguimientoPanel() {
       {leadAbierto && (
         <PopupLead
           lead={leadAbierto}
+          tenant={leadAbierto.tenantId}
           onCerrar={() => setLeadAbierto(null)}
           onCambio={(tipo) => mover(leadAbierto, { tipo })}
         />

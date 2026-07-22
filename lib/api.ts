@@ -547,7 +547,10 @@ export async function crearEmpresa(nombre: string, rubro?: string): Promise<{ ok
 export type NodoFlujo = { id: string; tipo: string; pos: { x: number; y: number }; datos: Record<string, unknown> };
 export type ConexionFlujo = { id: string; desde: string; hacia: string; puerto?: string };
 export type GrafoFlujo = { nodos: NodoFlujo[]; conexiones: ConexionFlujo[] };
-export interface Flujo { id: string; nombre: string; activo: boolean; grafo: GrafoFlujo }
+// `canal`: en qué red corre el flujo — null = todas (histórico) o una
+// específica; al entrar un mensaje, el flujo del canal GANA al general.
+export type CanalFlujo = "whatsapp" | "instagram" | "messenger" | "tiktok" | null;
+export interface Flujo { id: string; nombre: string; activo: boolean; canal: CanalFlujo; grafo: GrafoFlujo }
 
 export async function listarFlujos(tenant?: string): Promise<Flujo[]> {
   try { return await api<Flujo[]>("/flujos", { tenant }); } catch { return []; }
@@ -567,7 +570,9 @@ export async function crearFlujo(
 }
 
 export async function actualizarFlujo(
-  id: string, cambios: { nombre?: string; activo?: boolean; grafo?: GrafoFlujo }, tenant?: string,
+  id: string,
+  cambios: { nombre?: string; activo?: boolean; grafo?: GrafoFlujo; canal?: CanalFlujo },
+  tenant?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     await api(`/flujos/${id}`, { method: "PATCH", body: cambios, tenant });

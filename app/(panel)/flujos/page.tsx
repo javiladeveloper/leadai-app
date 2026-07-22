@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
-import { listarFlujos, crearFlujo, eliminarFlujo, actualizarFlujo, type Flujo } from "@/lib/api";
+import { listarFlujos, crearFlujo, eliminarFlujo, actualizarFlujo, type Flujo, type CanalFlujo } from "@/lib/api";
 import { PLANTILLA_FLUJO } from "@/lib/flujos";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
@@ -56,6 +56,13 @@ export default function FlujosPanel() {
     cargar();
   }
 
+  // En qué red corre el flujo. Al entrar un mensaje, el flujo específico del
+  // canal GANA al general "Todas" (backend: core/flujo-motor.ts).
+  async function cambiarCanal(f: Flujo, canal: CanalFlujo) {
+    await actualizarFlujo(f.id, { canal }, g.tenantLista);
+    cargar();
+  }
+
   if (!listo) return null;
 
   return (
@@ -102,6 +109,19 @@ export default function FlujosPanel() {
                 <p className="font-semibold text-tinta hover:text-brasa">{f.nombre}</p>
                 <p className="text-[0.8rem] text-frio">{f.grafo.nodos.length} pasos</p>
               </button>
+              {/* ¿En qué red corre? El específico del canal gana al general. */}
+              <select
+                value={f.canal ?? ""}
+                onChange={(e) => cambiarCanal(f, (e.target.value || null) as CanalFlujo)}
+                aria-label="Red donde corre este flujo"
+                className="rounded-lg border border-linea bg-arena/50 px-2 py-1.5 text-[0.8rem] font-semibold text-tinta-2"
+              >
+                <option value="">🌐 Todas las redes</option>
+                <option value="whatsapp">💬 Solo WhatsApp</option>
+                <option value="instagram">📸 Solo Instagram</option>
+                <option value="messenger">💠 Solo Messenger</option>
+                <option value="tiktok">🎵 Solo TikTok</option>
+              </select>
               <span className={`rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${f.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"}`}>
                 {f.activo ? "Activo" : "Apagado"}
               </span>

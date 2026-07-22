@@ -9,7 +9,9 @@ import { PanelCanales } from "@/components/panel/PanelCanales";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
 import { ConfigComision } from "@/components/panel/ConfigComision";
 import { MiPerfilVendedorPanel } from "@/components/panel/MiPerfilVendedor";
-import { BarraNegociosGlobal, useNegociosGlobal } from "@/components/panel/GlobalNegocios";
+import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
+import { leerSesion } from "@/lib/auth";
+import type { NegocioBandeja } from "@/lib/api";
 
 // Configuración del panel unificado (decisión 2026-07-22): TODO lo
 // configurable vive acá. Las pestañas de NEGOCIO (Tu negocio / Canales /
@@ -33,10 +35,17 @@ function ConfiguracionInner() {
   const searchParams = useSearchParams();
   const [listo, setListo] = useState(false);
   const [tab, setTab] = useState<Tab>("negocio");
-  const { negocios, cargando: cargandoNegocios } = useNegociosGlobal();
-  // Negocio en configuración: arranca en la empresa activa si es real y de
-  // captación; si no, el primero de la lista.
+  // TODOS los negocios del usuario (sesión), no solo captación: un
+  // restaurante también configura sus canales/plan desde acá (decisión
+  // 2026-07-22: el recorte a captación es solo para AGRUPAR bandejas).
+  const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
   const [tenantCfg, setTenantCfg] = useState("");
+
+  useEffect(() => {
+    setNegocios(
+      (leerSesion()?.empresas ?? []).map((e) => ({ tenantId: e.tenantId, nombre: e.nombre })),
+    );
+  }, []);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -53,20 +62,14 @@ function ConfiguracionInner() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (cargandoNegocios || tenantCfg) return;
+    if (negocios.length === 0 || tenantCfg) return;
     const activa = leerEmpresaActiva();
     const valida =
       activa && activa !== EMPRESA_GLOBAL && negocios.some((n) => n.tenantId === activa);
-    const elegido = valida ? (activa as string) : (negocios[0]?.tenantId ?? "");
-    if (elegido) {
-      guardarEmpresaActiva(elegido);
-      setTenantCfg(elegido);
-    } else {
-      // Sin negocios de captación (p.ej. solo restaurantes): la empresa
-      // activa que hubiera sigue mandando, como siempre.
-      setTenantCfg("__sin-captacion__");
-    }
-  }, [cargandoNegocios, negocios, tenantCfg]);
+    const elegido = valida ? (activa as string) : negocios[0].tenantId;
+    guardarEmpresaActiva(elegido);
+    setTenantCfg(elegido);
+  }, [negocios, tenantCfg]);
 
   function elegirNegocio(t: string) {
     guardarEmpresaActiva(t);

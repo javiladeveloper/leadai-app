@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { guardarEmpresaActiva, leerEmpresaActiva, tieneVariosNegocios, EMPRESA_GLOBAL } from "@/lib/auth";
+import { guardarEmpresaActiva, leerEmpresaActiva, leerSesion, tieneVariosNegocios, EMPRESA_GLOBAL } from "@/lib/auth";
 import { negociosGlobal, type NegocioBandeja } from "@/lib/api";
 
 // Piezas del panel UNIFICADO (decisión 2026-07-22, iterada el mismo día): ya
@@ -121,24 +121,32 @@ export function BarraNegociosGlobal({
  * X-Tenant-Id correcto, sin pasarles tenant uno por uno.
  */
 export function SeccionPorNegocio({ children }: { children: React.ReactNode }) {
-  const { negocios, cargando } = useNegociosGlobal();
+  // OJO: acá van TODOS los negocios del usuario (sesión), NO solo los de
+  // captación — un restaurante también se configura (canales, equipo, plan)
+  // desde el panel. El recorte a captación es solo para AGRUPAR (bandejas /
+  // CRM cruzado), no para configurar (decisión 2026-07-22: "no todos los
+  // negocios podemos agruparlos").
+  const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
   const [tenant, setTenant] = useState("");
 
   useEffect(() => {
-    if (cargando) return;
+    const lista = (leerSesion()?.empresas ?? []).map((e) => ({
+      tenantId: e.tenantId,
+      nombre: e.nombre,
+    }));
+    setNegocios(lista);
     const activa = leerEmpresaActiva();
     const valida =
-      activa && activa !== EMPRESA_GLOBAL && negocios.some((n) => n.tenantId === activa);
-    const elegido = valida ? (activa as string) : (negocios[0]?.tenantId ?? "");
+      activa && activa !== EMPRESA_GLOBAL && lista.some((n) => n.tenantId === activa);
+    const elegido = valida ? (activa as string) : (lista[0]?.tenantId ?? "");
     if (elegido) {
       guardarEmpresaActiva(elegido);
       setTenant(elegido);
     } else {
-      // Sin negocios de captación (p.ej. solo restaurantes): se muestra el
-      // contenido con la empresa activa que hubiera — comportamiento clásico.
-      setTenant("__sin-captacion__");
+      // Sin negocios en la sesión: comportamiento clásico con lo que hubiera.
+      setTenant("__sin-negocios__");
     }
-  }, [cargando, negocios]);
+  }, []);
 
   if (!tenant) return null; // cargando la lista de negocios
 

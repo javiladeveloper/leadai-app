@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cerrarSesion, type EmpresaResumen } from "@/lib/auth";
 import { misEmpresas } from "@/lib/api";
@@ -11,8 +11,12 @@ import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
 // + menú de usuario (cerrar sesión).
 export function HeaderPanel() {
   const router = useRouter();
+  const pathname = usePathname();
   const [empresas, setEmpresas] = useState<EmpresaResumen[]>(() => leerSesion()?.empresas ?? []);
   const [activa, setActiva] = useState<string>("");
+  // En /global el selector muestra "Vista global" — es un LUGAR, no una
+  // empresa: la empresa activa guardada no cambia al entrar.
+  const enGlobal = pathname === "/global";
 
   // La sesión cachea las empresas del momento del login → un negocio nuevo
   // (invitación, creado en otro lado) no aparecería. Refrescamos EN VIVO al
@@ -40,12 +44,24 @@ export function HeaderPanel() {
       router.push("/bienvenida?agregar=1");
       return;
     }
+    if (id === "__global__") {
+      // La vista global es una PÁGINA, no una empresa: navega sin tocar la
+      // empresa activa guardada (al volver a elegir una empresa, todo sigue
+      // donde estaba).
+      router.push("/global");
+      return;
+    }
     setActiva(id);
     guardarEmpresaActiva(id);
     // Reload completo: las pantallas fetchean en useEffect sin dependencia del
     // tenant activo, así que router.refresh() no alcanza para que re-fetcheen
     // con el nuevo X-Tenant-Id. Un reload total es aceptable en un panel.
-    window.location.reload();
+    // Desde /global, elegir una empresa te lleva a SU dashboard (Inicio).
+    if (enGlobal) {
+      window.location.href = "/inicio";
+    } else {
+      window.location.reload();
+    }
   }
 
   function salir() {
@@ -75,11 +91,13 @@ export function HeaderPanel() {
       </form>
       <div className="ml-auto flex items-center gap-3">
         <select
-          value={activa}
+          value={enGlobal ? "__global__" : activa}
           onChange={(e) => cambiarEmpresa(e.target.value)}
           className="max-w-44 rounded-lg border border-linea bg-arena/50 px-3 py-1.5 text-sm font-semibold text-tinta"
           aria-label="Elegí tu negocio"
         >
+          {/* Con 2+ negocios: la vista global es la primera opción */}
+          {empresas.length > 1 && <option value="__global__">🌐 Vista global</option>}
           {empresas.map((e) => (
             <option key={e.tenantId} value={e.tenantId}>{e.nombre}</option>
           ))}

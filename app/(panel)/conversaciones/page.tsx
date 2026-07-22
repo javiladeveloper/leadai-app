@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { haySesion, leerEmpresaActiva, guardarEmpresaActiva } from "@/lib/auth";
+import { haySesion } from "@/lib/auth";
 import { SkeletonLista, SkeletonChat } from "@/components/Skeletons";
 import {
-  listarBandejaGlobal,
+  listarLeads,
   obtenerLead,
   accionLead,
   calcularComision,
-  type LeadGlobal,
+  type Lead,
   type LeadDetalle,
   type Mensaje as MensajeApi,
 } from "@/lib/api";
@@ -40,14 +40,12 @@ function minutosDesde(iso: string): number {
   return Math.max(0, Math.floor(ms / 60000));
 }
 
-// Adapta el LeadGlobal (lib/api) al shape mínimo que TarjetaLead necesita.
-// `conEtiquetaNegocio`: con 2+ negocios cada tarjeta dice de qué negocio viene.
-function aTarjeta(lead: LeadGlobal, conEtiquetaNegocio: boolean): TarjetaLeadProps {
+// Adapta el Lead real (lib/api) al shape mínimo que TarjetaLead necesita.
+function aTarjeta(lead: Lead): TarjetaLeadProps {
   return {
     id: lead.id,
     nombre: lead.nombre ?? lead.contactoExterno,
     canal: lead.canalOrigen,
-    empresa: conEtiquetaNegocio ? lead.negocioNombre : undefined,
     temperatura: lead.nivelInteres,
     urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
     resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
@@ -77,8 +75,7 @@ export default function ConversacionesPanel() {
   const [listo, setListo] = useState(false);
 
   const [estadoLista, setEstadoLista] = useState<Estado>("cargando");
-  const [leads, setLeads] = useState<LeadGlobal[]>([]);
-  const [cantidadNegocios, setCantidadNegocios] = useState(0);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
 
   const [estadoLead, setEstadoLead] = useState<Estado>("cargando");
@@ -128,26 +125,13 @@ export default function ConversacionesPanel() {
 
   const cargarLista = useCallback(async () => {
     try {
-      // Bandeja GLOBAL: conversaciones de todos los negocios de captación del
-      // usuario en una sola lista (los restaurantes quedan fuera — sus
-      // pedidos viven en la app de Cocina).
-      const r = await listarBandejaGlobal();
-      setLeads(r.leads);
-      setCantidadNegocios(r.negocios.length);
+      const r = await listarLeads();
+      setLeads(r);
       setEstadoLista("ok");
     } catch (e) {
       void e;
       setEstadoLista("error");
     }
-  }, []);
-
-  // Selecciona un lead para el chat. Si es de OTRO negocio, la empresa activa
-  // cambia a la del lead ANTES de cargar el detalle — obtenerLead/accionLead/
-  // frases usan X-Tenant-Id de la empresa activa, así el chat y sus acciones
-  // funcionan sin que el usuario pase por el switcher.
-  const seleccionar = useCallback((l: LeadGlobal) => {
-    if (l.tenantId !== leerEmpresaActiva()) guardarEmpresaActiva(l.tenantId);
-    setSeleccionadoId(l.id);
   }, []);
 
   const cargarLead = useCallback(async (id: string) => {
@@ -169,15 +153,12 @@ export default function ConversacionesPanel() {
     cargarLista();
   }, [listo, cargarLista]);
 
-  // Selecciona el primer lead de la lista automáticamente si no hay nada
-  // elegido — con `seleccionar` (no un simple setSeleccionadoId): en la
-  // bandeja global el primer lead puede ser de otro negocio y sin el cambio
-  // de empresa activa su detalle daría 404 en un bucle de reintentos.
+  // Selecciona el primer lead de la lista automáticamente si no hay nada elegido.
   useEffect(() => {
     if (leads.length > 0 && !seleccionadoId) {
-      seleccionar(leads[0]);
+      setSeleccionadoId(leads[0].id);
     }
-  }, [leads, seleccionadoId, seleccionar]);
+  }, [leads, seleccionadoId]);
 
   useEffect(() => {
     if (!seleccionadoId) return;
@@ -272,18 +253,7 @@ export default function ConversacionesPanel() {
           </div>
         )}
         {estadoLista === "ok" &&
-          leads.map((l) => (
-            // onClickCapture corre antes de la navegación del Link: cambia la
-            // empresa activa a la del lead para que /conversacion/[id] cargue.
-            <div
-              key={l.id}
-              onClickCapture={() => {
-                if (l.tenantId !== leerEmpresaActiva()) guardarEmpresaActiva(l.tenantId);
-              }}
-            >
-              <TarjetaLead lead={aTarjeta(l, cantidadNegocios > 1)} />
-            </div>
-          ))}
+          leads.map((l) => <TarjetaLead key={l.id} lead={aTarjeta(l)} />)}
       </div>
 
       {/* Desktop (lg+): 3 columnas */}
@@ -318,11 +288,11 @@ export default function ConversacionesPanel() {
                   key={l.id}
                   onClick={(e) => {
                     e.preventDefault();
-                    seleccionar(l);
+                    setSeleccionadoId(l.id);
                   }}
                   className={activo ? "rounded-tarjeta ring-2 ring-brasa" : ""}
                 >
-                  <TarjetaLead lead={aTarjeta(l, cantidadNegocios > 1)} />
+                  <TarjetaLead lead={aTarjeta(l)} />
                 </div>
               );
             })}

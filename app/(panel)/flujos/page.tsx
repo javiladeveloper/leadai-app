@@ -46,21 +46,28 @@ export default function FlujosPanel() {
     else setErrorCrear(r.error ?? "No se pudo crear el flujo.");
   }
 
+  // Cambios OPTIMISTAS (2026-07-22, feedback: "demoró demasiado"): el estado
+  // local cambia AL INSTANTE y el PATCH corre por detrás; si falla, se
+  // recarga del servidor para volver a la verdad. Nada de skeleton por un
+  // toggle.
   async function alternarActivo(f: Flujo) {
-    await actualizarFlujo(f.id, { activo: !f.activo }, g.tenantLista);
-    cargar();
+    setFlujos((prev) => prev.map((x) => (x.id === f.id ? { ...x, activo: !f.activo } : x)));
+    const r = await actualizarFlujo(f.id, { activo: !f.activo }, g.tenantLista);
+    if (!r.ok) cargar();
   }
 
   async function borrar(f: Flujo) {
-    await eliminarFlujo(f.id, g.tenantLista);
-    cargar();
+    setFlujos((prev) => prev.filter((x) => x.id !== f.id));
+    const r = await eliminarFlujo(f.id, g.tenantLista);
+    if (!r.ok) cargar();
   }
 
   // En qué red corre el flujo. Al entrar un mensaje, el flujo específico del
   // canal GANA al general "Todas" (backend: core/flujo-motor.ts).
   async function cambiarCanal(f: Flujo, canal: CanalFlujo) {
-    await actualizarFlujo(f.id, { canal }, g.tenantLista);
-    cargar();
+    setFlujos((prev) => prev.map((x) => (x.id === f.id ? { ...x, canal } : x)));
+    const r = await actualizarFlujo(f.id, { canal }, g.tenantLista);
+    if (!r.ok) cargar();
   }
 
   if (!listo) return null;

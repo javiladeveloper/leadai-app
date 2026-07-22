@@ -344,8 +344,13 @@ export default function ConversacionesPanel() {
               return (
                 <div
                   key={l.id}
-                  onClick={(e) => {
+                  // CAPTURA (no bubble): el preventDefault tiene que correr
+                  // ANTES del onClick interno del <Link> de TarjetaLead — en
+                  // bubble el Link ya navegó y el click "se iba a otra
+                  // pantalla" en vez de abrir el chat en la columna del medio.
+                  onClickCapture={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     seleccionar(l);
                   }}
                   className={activo ? "rounded-tarjeta ring-2 ring-brasa" : ""}

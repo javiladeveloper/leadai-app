@@ -408,9 +408,9 @@ export interface Alerta {
 
 // Avisos reales del backend: cuota por agotarse (umbral) o bot pausado por falta
 // de saldo (bloqueo). Devuelve [] si no hay o si falla (no rompe la campana).
-export async function obtenerAlertas(): Promise<Alerta[]> {
+export async function obtenerAlertas(tenant?: string): Promise<Alerta[]> {
   try {
-    return await api<Alerta[]>("/alertas");
+    return await api<Alerta[]>("/alertas", { tenant });
   } catch {
     return [];
   }

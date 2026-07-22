@@ -30,7 +30,7 @@ const TODAS = [
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
   { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
   { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
-  { href: "/mi-perfil", label: "Mi perfil", Icono: IconoConfig },
+  // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona).
   { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
   { href: "/equipo", label: "Equipo", Icono: IconoConversaciones },

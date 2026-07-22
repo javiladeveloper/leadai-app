@@ -1,80 +1,35 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
-import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cerrarSesion, EMPRESA_GLOBAL, esModoGlobal, type EmpresaResumen } from "@/lib/auth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cerrarSesion, EMPRESA_GLOBAL } from "@/lib/auth";
 import { misEmpresas } from "@/lib/api";
 import { IconoChevron } from "@/components/Iconos";
 import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
 
-// Header del panel: selector de empresa activa (Guisella maneja varias marcas)
-// + menú de usuario (cerrar sesión).
+// Header del panel UNIFICADO (decisión 2026-07-22): ya NO hay selector de
+// empresa — el panel muestra siempre la operación completa y cada módulo
+// filtra por negocio con sus propios chips. La "empresa activa" sigue
+// existiendo por debajo (la fijan los chips de Configuración/Equipo/… y los
+// "clavados" a pantallas profundas), pero dejó de ser un concepto visible.
+// "＋ Agregar otro negocio" vive ahora en Configuración.
 export function HeaderPanel() {
   const router = useRouter();
-  const pathname = usePathname();
-  const [empresas, setEmpresas] = useState<EmpresaResumen[]>(() => leerSesion()?.empresas ?? []);
-  const [activa, setActiva] = useState<string>("");
-  // Modo global (decisión 2026-07-22): es un MODO persistente guardado como
-  // empresa activa centinela — navegar por el sidebar mantiene la vista
-  // global en todas las secciones. Se relee al cambiar de ruta porque un
-  // "clavado" (abrir un lead desde una bandeja global) sale del modo sin
-  // pasar por este selector.
-  const [enGlobal, setEnGlobal] = useState(false);
-  useEffect(() => {
-    setEnGlobal(esModoGlobal());
-    if (!esModoGlobal()) {
-      const guardada = leerEmpresaActiva();
-      if (guardada) setActiva(guardada);
-    }
-  }, [pathname]);
 
-  // La sesión cachea las empresas del momento del login → un negocio nuevo
-  // (invitación, creado en otro lado) no aparecería. Refrescamos EN VIVO al
-  // montar y actualizamos la sesión guardada.
+  // Higiene de la empresa activa interna: refresca la lista de empresas en la
+  // sesión (membresías nuevas) y garantiza que la empresa activa guardada sea
+  // una REAL (ni vacía ni el centinela "__global__" de la versión anterior) —
+  // las pantallas profundas la siguen usando como default.
   useEffect(() => {
     misEmpresas().then((lista) => {
       if (lista.length === 0) return; // error o sin datos: conservar el cache
-      setEmpresas(lista);
       const s = leerSesion();
       if (s) guardarSesion({ ...s, empresas: lista });
+      const activa = leerEmpresaActiva();
+      const valida = activa && activa !== EMPRESA_GLOBAL && lista.some((e) => e.tenantId === activa);
+      if (!valida) guardarEmpresaActiva(lista[0].tenantId);
     });
   }, []);
-
-  useEffect(() => {
-    const guardada = leerEmpresaActiva();
-    const elegida = guardada ?? empresas[0]?.tenantId ?? "";
-    setActiva(elegida);
-    // Sin empresa guardada, el selector mostraba la primera pero las llamadas a
-    // la API podían ir con otro tenant: persistimos la elegida para alinearlos.
-    if (!guardada && elegida) guardarEmpresaActiva(elegida);
-  }, [empresas]);
-
-  function cambiarEmpresa(id: string) {
-    if (id === "__nuevo__") {
-      router.push("/bienvenida?agregar=1");
-      return;
-    }
-    if (id === EMPRESA_GLOBAL) {
-      // Entra al MODO global: queda guardado como empresa activa centinela
-      // (todas las secciones del panel pasan a la vista global) y aterriza en
-      // el dashboard general. Navegación dura para que toda página relea el
-      // modo desde cero.
-      guardarEmpresaActiva(EMPRESA_GLOBAL);
-      window.location.href = "/global";
-      return;
-    }
-    setActiva(id);
-    guardarEmpresaActiva(id);
-    // Reload completo: las pantallas fetchean en useEffect sin dependencia del
-    // tenant activo, así que router.refresh() no alcanza para que re-fetcheen
-    // con el nuevo X-Tenant-Id. Un reload total es aceptable en un panel.
-    // Desde el modo global, elegir una empresa SALE del modo hacia su Inicio.
-    if (enGlobal) {
-      window.location.href = "/inicio";
-    } else {
-      window.location.reload();
-    }
-  }
 
   function salir() {
     cerrarSesion();
@@ -102,19 +57,6 @@ export function HeaderPanel() {
         />
       </form>
       <div className="ml-auto flex items-center gap-3">
-        <select
-          value={enGlobal ? EMPRESA_GLOBAL : activa}
-          onChange={(e) => cambiarEmpresa(e.target.value)}
-          className="max-w-44 rounded-lg border border-linea bg-arena/50 px-3 py-1.5 text-sm font-semibold text-tinta"
-          aria-label="Elegí tu negocio"
-        >
-          {/* Con 2+ negocios: la vista global es la primera opción */}
-          {empresas.length > 1 && <option value="__global__">🌐 Vista global</option>}
-          {empresas.map((e) => (
-            <option key={e.tenantId} value={e.tenantId}>{e.nombre}</option>
-          ))}
-          <option value="__nuevo__">＋ Agregar otro negocio</option>
-        </select>
         <CampanaAlertas />
         <button
           type="button"

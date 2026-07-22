@@ -21,7 +21,8 @@ const SECCIONES = [
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
   { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
   { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
-  { href: "/mi-perfil", label: "Mi perfil", Icono: IconoConfig },
+  // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona,
+  // no de un negocio; decisión 2026-07-22).
   { href: "/leads", label: "Leads", Icono: IconoBandeja },
   { href: "/reportes", label: "Reportes", Icono: IconoReportes },
   { href: "/equipo", label: "Equipo", Icono: IconoConversaciones },

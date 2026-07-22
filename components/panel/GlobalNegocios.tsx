@@ -1,24 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { guardarEmpresaActiva, esModoGlobal } from "@/lib/auth";
+import { guardarEmpresaActiva, leerEmpresaActiva, tieneVariosNegocios, EMPRESA_GLOBAL } from "@/lib/auth";
 import { negociosGlobal, type NegocioBandeja } from "@/lib/api";
 
-// Piezas compartidas del MODO GLOBAL (decisión 2026-07-22): con "🌐 Vista
-// global" elegida en el header, cada sección del panel muestra lo de TODOS los
-// negocios de captación. Dos patrones:
+// Piezas del panel UNIFICADO (decisión 2026-07-22, iterada el mismo día): ya
+// no existe "estar en una empresa" — el panel siempre muestra la operación
+// completa y el NEGOCIO es un filtro dentro de cada módulo:
 //
-// 1. `BarraNegociosGlobal` — secciones por recurso (Flujos, Anuncios,
-//    Comentarios, Publicar, Oportunidades): chips para saltar entre negocios
-//    sin salir del modo global; la página recarga su lista con el tenant del
-//    chip elegido.
-// 2. `PickerNegocio` — pantallas que son inherentemente de UN negocio
-//    (Configuración, Equipo, Probar bot…): pide elegir el negocio y al
-//    elegirlo SALE del modo global hacia esa empresa (recarga completa).
+// 1. `BarraNegociosGlobal` — chips por negocio (con "Todos" opcional) para
+//    las secciones por recurso y las bandejas.
+// 2. `SeccionPorNegocio` — wrapper para pantallas inherentemente de UN
+//    negocio (Configuración, Equipo, Probar bot, Reportes): chips arriba y
+//    el contenido se REMONTA (key) al cambiar de negocio, fijando la empresa
+//    activa por debajo — los componentes internos siguen leyendo la empresa
+//    activa como siempre, sin threading de tenant.
+// 3. `useSeccionGlobal` — hook de las secciones por recurso (Flujos,
+//    Anuncios, Comentarios, Publicar, Oportunidades): listado con tenant
+//    explícito del negocio enfocado.
 
 // Hook: la lista de negocios de captación del usuario + el negocio enfocado
 // (arranca en el primero). Los restaurantes no aparecen (backend los filtra).
-// `habilitado: false` evita el fetch (páginas fuera del modo global).
+// `habilitado: false` evita el fetch.
 export function useNegociosGlobal(habilitado = true) {
   const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
   const [enfocado, setEnfocado] = useState<string>("");
@@ -36,19 +39,13 @@ export function useNegociosGlobal(habilitado = true) {
   return { negocios, enfocado, setEnfocado, cargando };
 }
 
-// Hook todo-en-uno para las secciones por recurso (Flujos, Anuncios,
-// Comentarios, Publicar, Oportunidades) en modo global:
-// - `tenantLista`: tenant a pasar a la función de listado (undefined fuera
-//   del modo global o mientras los negocios cargan — la página debe esperar
-//   con `listaLista`).
-// - `adoptar()`: llamar ANTES de cualquier mutación (crear, activar,
-//   responder…) — adopta el negocio enfocado como empresa activa ("clavado":
-//   sale del modo global) para que las llamadas sin tenant explícito vayan al
-//   negocio correcto.
+// Hook de las secciones por recurso. `modoGlobal` ya no depende de un modo
+// elegido: es simplemente "¿este usuario tiene más de un negocio?" — la vista
+// unificada es LA vista del panel.
 export function useSeccionGlobal() {
-  // esModoGlobal lee localStorage: solo en cliente (evita hydration mismatch).
+  // Se resuelve en efecto (localStorage) para no romper la hidratación.
   const [modoGlobal, setModoGlobal] = useState(false);
-  useEffect(() => setModoGlobal(esModoGlobal()), []);
+  useEffect(() => setModoGlobal(tieneVariosNegocios()), []);
   const { negocios, enfocado, setEnfocado, cargando } = useNegociosGlobal(modoGlobal);
 
   return {
@@ -56,12 +53,14 @@ export function useSeccionGlobal() {
     negocios,
     enfocado,
     setEnfocado,
-    // ¿La página ya puede listar? (fuera del modo global: siempre; dentro:
+    // ¿La página ya puede listar? (con un solo negocio: siempre; con varios:
     // cuando el negocio enfocado quedó resuelto)
     listaLista: !modoGlobal || (!cargando && enfocado !== ""),
     tenantLista: modoGlobal && enfocado ? enfocado : undefined,
+    // Antes de navegar a una pantalla profunda por-negocio (editor de flujo,
+    // conversación completa): fija el negocio enfocado como empresa activa.
     adoptar() {
-      if (esModoGlobal() && enfocado) guardarEmpresaActiva(enfocado);
+      if (enfocado) guardarEmpresaActiva(enfocado);
     },
   };
 }
@@ -79,11 +78,12 @@ export function BarraNegociosGlobal({
   // pueden mostrar TODO junto (Seguimiento) además de enfocar un negocio.
   todosLabel?: string;
 }) {
-  if (negocios.length === 0) return null;
+  // Con 0 o 1 negocio no hay nada que filtrar: la barra sería ruido.
+  if (negocios.length < 2) return null;
   return (
     <div className="space-y-1.5">
       <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
-        🌐 Vista global — elegí el negocio que querés mirar
+        Elegí el negocio que querés mirar
       </p>
       <div className="flex flex-wrap gap-2">
         {todosLabel && (
@@ -112,38 +112,49 @@ export function BarraNegociosGlobal({
   );
 }
 
-// Pantallas de configuración/acción en modo global: elegir un negocio SALE
-// del modo global hacia esa empresa (la pantalla vuelve a cargar con su
-// X-Tenant-Id real).
-export function PickerNegocio({ titulo }: { titulo: string }) {
+/**
+ * Wrapper de pantallas por-negocio (Configuración, Equipo, Probar bot,
+ * Reportes): chips arriba (solo con 2+ negocios de captación) y el contenido
+ * se remonta con `key` al cambiar de negocio. El truco: fija la EMPRESA
+ * ACTIVA antes de montar — los componentes internos (PlaybookEditor,
+ * PanelCanales, etc.) siguen llamando a la API "como siempre" y les llega el
+ * X-Tenant-Id correcto, sin pasarles tenant uno por uno.
+ */
+export function SeccionPorNegocio({ children }: { children: React.ReactNode }) {
   const { negocios, cargando } = useNegociosGlobal();
+  const [tenant, setTenant] = useState("");
 
-  function entrar(tenantId: string) {
-    guardarEmpresaActiva(tenantId);
-    window.location.reload();
+  useEffect(() => {
+    if (cargando) return;
+    const activa = leerEmpresaActiva();
+    const valida =
+      activa && activa !== EMPRESA_GLOBAL && negocios.some((n) => n.tenantId === activa);
+    const elegido = valida ? (activa as string) : (negocios[0]?.tenantId ?? "");
+    if (elegido) {
+      guardarEmpresaActiva(elegido);
+      setTenant(elegido);
+    } else {
+      // Sin negocios de captación (p.ej. solo restaurantes): se muestra el
+      // contenido con la empresa activa que hubiera — comportamiento clásico.
+      setTenant("__sin-captacion__");
+    }
+  }, [cargando, negocios]);
+
+  if (!tenant) return null; // cargando la lista de negocios
+
+  function elegir(t: string) {
+    guardarEmpresaActiva(t);
+    setTenant(t);
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-10">
-      <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-        <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">🌐 Vista global</p>
-        <h2 className="mt-1 text-[1.2rem] font-bold text-tinta">{titulo}</h2>
-        <p className="mt-1 text-[0.9rem] text-frio">
-          Esta sección se trabaja negocio por negocio. Elegí con cuál entrar:
-        </p>
-        {cargando && <p className="mt-4 text-sm text-frio">Cargando tus negocios…</p>}
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {negocios.map((n) => (
-            <button
-              key={n.tenantId}
-              onClick={() => entrar(n.tenantId)}
-              className="rounded-chip bg-brasa px-4 py-2.5 text-sm font-bold text-carta transition hover:bg-brasa-hondo"
-            >
-              {n.nombre}
-            </button>
-          ))}
+    <div>
+      {negocios.length > 1 && (
+        <div className="mx-auto max-w-5xl px-5 pt-6 lg:px-8">
+          <BarraNegociosGlobal negocios={negocios} enfocado={tenant} onElegir={elegir} />
         </div>
-      </div>
+      )}
+      <div key={tenant}>{children}</div>
     </div>
   );
 }

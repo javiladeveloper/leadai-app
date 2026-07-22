@@ -11,8 +11,7 @@ import {
 } from "@/lib/api";
 import { SkeletonReportes } from "@/components/Skeletons";
 import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
-import { PickerNegocio } from "@/components/panel/GlobalNegocios";
-import { esModoGlobal } from "@/lib/auth";
+import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 
 const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
 
@@ -35,7 +34,7 @@ const mesCorto = (ym: string) => {
   return ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"][m - 1] ?? ym;
 };
 
-export default function ReportesPanel() {
+function ReportesPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -79,9 +78,6 @@ export default function ReportesPanel() {
   }
 
   if (!listo) return null;
-  // Modo global: esta sección se trabaja negocio por negocio — elegir uno
-  // sale del modo global hacia esa empresa (PickerNegocio recarga).
-  if (esModoGlobal()) return <PickerNegocio titulo="Reportes por negocio" />;
 
   // Pico de la evolución (para escalar las barras).
   const maxEvo = rep ? Math.max(1, ...rep.evolucion.map((e) => e.comisiones)) : 1;
@@ -272,5 +268,16 @@ export default function ReportesPanel() {
         </div>
       )}
     </div>
+  );
+}
+
+// Pantalla por-negocio en el panel unificado: chips arriba para elegir el
+// negocio (fija la empresa activa y remonta el contenido — ver
+// SeccionPorNegocio).
+export default function ReportesPanelPorNegocio() {
+  return (
+    <SeccionPorNegocio>
+      <ReportesPanel />
+    </SeccionPorNegocio>
   );
 }

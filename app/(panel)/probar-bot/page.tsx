@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { simularMensaje, resetSimulador, obtenerHistorialSimulador } from "@/lib/api";
 import { IconoEnviar } from "@/components/Iconos";
-import { PickerNegocio } from "@/components/panel/GlobalNegocios";
-import { esModoGlobal } from "@/lib/auth";
+import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 
 type Boton = { id: string; etiqueta: string };
 type Msg = { direccion: "entrante" | "saliente"; texto: string; botones?: Boton[] };
@@ -17,7 +16,7 @@ const NIVEL_ETIQUETA: Record<string, { txt: string; clase: string }> = {
   frio: { txt: "⚪ Frío", clase: "bg-arena text-frio" },
 };
 
-export default function ProbarBotPanel() {
+function ProbarBotPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
   const [mensajes, setMensajes] = useState<Msg[]>([]);
@@ -81,9 +80,6 @@ export default function ProbarBotPanel() {
   }
 
   if (!listo) return null;
-  // Modo global: esta sección se trabaja negocio por negocio — elegir uno
-  // sale del modo global hacia esa empresa (PickerNegocio recarga).
-  if (esModoGlobal()) return <PickerNegocio titulo="Probar el bot" />;
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-3.5rem)] max-w-2xl flex-col px-4 py-4">
@@ -195,5 +191,16 @@ export default function ProbarBotPanel() {
         </button>
       </div>
     </div>
+  );
+}
+
+// Pantalla por-negocio en el panel unificado: chips arriba para elegir el
+// negocio (fija la empresa activa y remonta el contenido — ver
+// SeccionPorNegocio).
+export default function ProbarBotPanelPorNegocio() {
+  return (
+    <SeccionPorNegocio>
+      <ProbarBotPanel />
+    </SeccionPorNegocio>
   );
 }

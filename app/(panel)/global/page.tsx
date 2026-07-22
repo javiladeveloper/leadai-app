@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, esModoGlobal, EMPRESA_GLOBAL } from "@/lib/auth";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { haySesion, leerEmpresaActiva, guardarEmpresaActiva } from "@/lib/auth";
 import {
   listarBandejaGlobal,
   obtenerReporteGlobal,
@@ -57,15 +57,15 @@ function aTarjeta(lead: LeadGlobal): TarjetaLeadProps {
   };
 }
 
-// Dashboard GLOBAL: todos los negocios de captación del usuario en una sola
-// pantalla (decisión 2026-07-22: la vista global es un LUGAR aparte — se entra
-// con "🌐 Vista global" en el selector del header — y las pantallas por
-// empresa siguen mostrando solo lo suyo, sin mezclar). Arriba el resumen de
-// plata (GET /reportes/global); abajo la bandeja unificada
-// (GET /bandeja-global) con filtros por negocio/nivel/estado. Los negocios
-// restaurante/delivery no aparecen: sus pedidos viven en la app de Cocina.
-export default function GlobalPanel() {
+// Dashboard GLOBAL — la portada del panel unificado (decisión 2026-07-22):
+// el resumen de plata (GET /reportes/global) + la bandeja de leads de TODOS
+// los negocios de captación (GET /bandeja-global) con filtros por
+// negocio/nivel/estado y búsqueda (recibe ?buscar= del buscador del header).
+// Los negocios restaurante/delivery no aparecen: sus pedidos viven en la app
+// de Cocina.
+function GlobalPanelInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [leads, setLeads] = useState<LeadGlobal[]>([]);
@@ -74,17 +74,21 @@ export default function GlobalPanel() {
   const [filtroNegocio, setFiltroNegocio] = useState<string>("todos");
   const [filtroNivel, setFiltroNivel] = useState<FiltroNivel>("todos");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoLead>("todos");
+  const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => {
     if (!haySesion()) {
       router.replace("/");
       return;
     }
-    // Estar en /global ES estar en modo global: lo fija aunque se llegue por
-    // URL directa — así el resto del sidebar también queda en vista global.
-    if (!esModoGlobal()) guardarEmpresaActiva(EMPRESA_GLOBAL);
     setListo(true);
   }, [router]);
+
+  // Buscador del header (o /leads?buscar= redirigido acá): filtra en cliente.
+  useEffect(() => {
+    const q = searchParams.get("buscar");
+    if (q) setBusqueda(q);
+  }, [searchParams]);
 
   const cargar = useCallback(async () => {
     setEstado("cargando");
@@ -117,18 +121,39 @@ export default function GlobalPanel() {
     [leads],
   );
 
+  // Búsqueda en cliente: por nombre, contacto o resumen de la IA (mismo
+  // criterio que la vieja pantalla de Leads).
+  const visibles = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return leads;
+    return leads.filter(
+      (l) =>
+        (l.nombre ?? "").toLowerCase().includes(q) ||
+        l.contactoExterno.toLowerCase().includes(q) ||
+        (l.resumenIA ?? "").toLowerCase().includes(q),
+    );
+  }, [leads, busqueda]);
+
   if (!listo) return null;
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-5 py-6 lg:px-8">
       <header>
         <p className="eyebrow">Todos tus negocios</p>
-        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">🌐 Vista global</h1>
+        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Tu operación</h1>
         <p className="mt-1 text-[0.9rem] text-frio">
-          Tus leads y ventas de captación, todos juntos. Para configurar un negocio,
-          elígelo arriba a la derecha.
+          Tus leads y ventas, todos juntos. Filtrá por negocio cuando quieras enfocarte.
         </p>
       </header>
+
+      <input
+        type="search"
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder="🔍 Buscar por nombre, contacto o lo que dijo…"
+        className="w-full rounded-chip bg-carta px-4 py-2.5 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40 sm:max-w-md"
+        aria-label="Buscar leads"
+      />
 
       {/* Resumen de plata entre todos los negocios (mismo dato que Reportes) */}
       {reporte && (
@@ -236,9 +261,15 @@ export default function GlobalPanel() {
         </div>
       )}
 
-      {estado === "ok" && leads.length > 0 && (
+      {estado === "ok" && leads.length > 0 && visibles.length === 0 && (
+        <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+          <p className="font-semibold text-tinta">Nada coincide con “{busqueda}”.</p>
+        </div>
+      )}
+
+      {estado === "ok" && visibles.length > 0 && (
         <div className="grid gap-3 lg:grid-cols-2">
-          {leads.map((l) => (
+          {visibles.map((l) => (
             // onClickCapture corre antes de la navegación del Link interno de
             // TarjetaLead (/conversacion/[id]): deja como empresa activa la
             // del lead para que la conversación y sus acciones funcionen.
@@ -254,5 +285,14 @@ export default function GlobalPanel() {
         </div>
       )}
     </div>
+  );
+}
+
+// useSearchParams exige Suspense en el prerender de Next (App Router).
+export default function GlobalPanel() {
+  return (
+    <Suspense fallback={null}>
+      <GlobalPanelInner />
+    </Suspense>
   );
 }

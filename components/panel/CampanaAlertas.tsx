@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { obtenerAlertas, listarLeads, type Alerta, type Lead } from "@/lib/api";
+import { obtenerAlertas, listarLeads, listarBandejaGlobal, negociosGlobal, type Alerta, type Lead } from "@/lib/api";
+import { tieneVariosNegocios, guardarEmpresaActiva } from "@/lib/auth";
+
+// La campana es GLOBAL en el panel unificado (decisión 2026-07-22): con 2+
+// negocios junta los calientes y los avisos de saldo de TODOS.
+type LeadCampana = Lead & { tenantId?: string };
 
 // Campana de avisos del header. Junta dos cosas:
 //  1) leads calientes sin atender (del /resumen) — el número del badge.
@@ -12,7 +17,7 @@ import { obtenerAlertas, listarLeads, type Alerta, type Lead } from "@/lib/api";
 // Se refresca sola cada 30s. Al tocarla abre un panel con los avisos.
 export function CampanaAlertas() {
   const router = useRouter();
-  const [calientesLeads, setCalientesLeads] = useState<Lead[]>([]);
+  const [calientesLeads, setCalientesLeads] = useState<LeadCampana[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [abierto, setAbierto] = useState(false);
   const [agita, setAgita] = useState(false);
@@ -21,9 +26,14 @@ export function CampanaAlertas() {
   useEffect(() => {
     let vivo = true;
     const cargar = () => {
+      const varios = tieneVariosNegocios();
       // Traemos los leads calientes REALES (no solo el número) y nos quedamos
-      // con los "sin atender" (no ganados/perdidos): son los que hay que llamar.
-      listarLeads({ nivel: "caliente" }).then((leads) => {
+      // con los "sin atender" (no ganados/perdidos): son los que hay que
+      // llamar. Con varios negocios, de TODOS (bandeja global).
+      const traerCalientes: Promise<LeadCampana[]> = varios
+        ? listarBandejaGlobal({ nivel: "caliente" }).then((r) => r.leads)
+        : listarLeads({ nivel: "caliente" });
+      traerCalientes.then((leads) => {
         if (!vivo) return;
         const sinAtender = leads.filter((l) => l.estado !== "ganado" && l.estado !== "perdido");
         const nuevo = sinAtender.length;
@@ -35,7 +45,13 @@ export function CampanaAlertas() {
         previo.current = nuevo;
         setCalientesLeads(sinAtender);
       });
-      obtenerAlertas().then((a) => {
+      // Avisos de saldo: con varios negocios se juntan los de todos.
+      const traerAlertas: Promise<Alerta[]> = varios
+        ? negociosGlobal().then((ns) =>
+            Promise.all(ns.map((n) => obtenerAlertas(n.tenantId))).then((r) => r.flat()),
+          )
+        : obtenerAlertas();
+      traerAlertas.then((a) => {
         if (vivo) setAlertas(a);
       });
     };
@@ -128,7 +144,13 @@ export function CampanaAlertas() {
                 {calientesLeads.slice(0, 5).map((l) => (
                   <button
                     key={l.id}
-                    onClick={() => { setAbierto(false); router.push(`/conversacion/${l.id}`); }}
+                    onClick={() => {
+                      setAbierto(false);
+                      // El lead puede ser de otro negocio: la conversación
+                      // completa adopta su empresa ("clavado").
+                      if (l.tenantId) guardarEmpresaActiva(l.tenantId);
+                      router.push(`/conversacion/${l.id}`);
+                    }}
                     className="flex w-full flex-col gap-0.5 px-4 py-2 text-left transition hover:bg-arena/50"
                   >
                     <span className="text-[0.9rem] font-semibold text-tinta">

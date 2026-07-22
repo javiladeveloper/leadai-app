@@ -60,17 +60,26 @@ export function haySesion(): boolean {
   return leerSesion() !== null;
 }
 
-// ── Modo global ─────────────────────────────────────────────
-// "Vista global" es un MODO persistente (decisión 2026-07-22): el selector del
-// header guarda este centinela como empresa activa y TODO el panel muestra los
-// datos de todos los negocios de captación (bandejas cruzadas, secciones por
-// empresa, picker en pantallas de configuración). Elegir una empresa real en
-// el selector (o abrir un lead: "clavado") sale del modo. `api()` jamás manda
-// el centinela como X-Tenant-Id (ver lib/api.ts).
+// ── Panel unificado ─────────────────────────────────────────
+// Decisión 2026-07-22 (iterada): ya NO hay "modo empresa" vs "modo global" —
+// el panel es UNO solo. Con 2+ negocios, las bandejas cruzan todo y cada
+// módulo filtra por negocio con sus propios chips; la "empresa activa" queda
+// como mecanismo interno (la fijan los chips de las secciones por-negocio y
+// los "clavados" a pantallas profundas). El centinela se conserva solo para
+// que `api()` nunca lo mande como X-Tenant-Id si quedó guardado de una
+// versión anterior.
 export const EMPRESA_GLOBAL = "__global__";
 
+// ¿El usuario maneja más de un negocio? Es LO que decide si el panel muestra
+// bandejas cruzadas y chips de filtro (la vista unificada es la única vista).
+export function tieneVariosNegocios(): boolean {
+  return (leerSesion()?.empresas.length ?? 0) > 1;
+}
+
+// Compat: algunas pantallas viejas preguntaban por el "modo global". Hoy
+// equivale a tener varios negocios.
 export function esModoGlobal(): boolean {
-  return leerEmpresaActiva() === EMPRESA_GLOBAL;
+  return tieneVariosNegocios();
 }
 
 // ¿El usuario logueado es super admin de la plataforma? Solo entonces se

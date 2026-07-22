@@ -8,7 +8,7 @@ import {
   type Oportunidad,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
-import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
+import { useNegociosGlobal } from "@/components/panel/GlobalNegocios";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -39,22 +39,26 @@ export default function OportunidadesPanel() {
     setListo(true);
   }, [router]);
 
-  // Modo global: la barra de negocios elige desde cuál mirar/tomar (las
-  // oportunidades son de la red, pero "tomada" depende del negocio que mira).
-  const g = useSeccionGlobal();
+  // Las oportunidades son GLOBALES (decisión 2026-07-22): la misma lista para
+  // el usuario, SIN filtro por negocio. Las "tomas" se anclan siempre al
+  // PRIMER negocio de captación (invisible y estable — así "tomada" no cambia
+  // según qué negocio esté activo por debajo). Pendiente backend: migrar
+  // TomaOportunidad a nivel usuario (hoy la tabla es por tenant).
+  const { negocios, cargando: cargandoNegocios } = useNegociosGlobal();
+  const tenantToma = negocios[0]?.tenantId;
 
   const cargar = useCallback(async () => {
     setEstado("cargando");
-    try { setOps(await listarOportunidades(rubro || undefined, g.tenantLista)); setEstado("ok"); }
+    try { setOps(await listarOportunidades(rubro || undefined, tenantToma)); setEstado("ok"); }
     catch { setEstado("error"); }
-  }, [rubro, g.tenantLista]);
+  }, [rubro, tenantToma]);
 
-  useEffect(() => { if (listo && g.listaLista) cargar(); }, [listo, g.listaLista, cargar]);
+  useEffect(() => { if (listo && !cargandoNegocios) cargar(); }, [listo, cargandoNegocios, cargar]);
 
   async function alternarToma(o: Oportunidad) {
     setOcupado(o.id);
-    if (o.tomada) await soltarOportunidad(o.id, g.tenantLista);
-    else await tomarOportunidad(o.id, g.tenantLista);
+    if (o.tomada) await soltarOportunidad(o.id, tenantToma);
+    else await tomarOportunidad(o.id, tenantToma);
     setOcupado(null);
     // Actualización local (no recargar todo).
     setOps((prev) => prev.map((x) => (x.id === o.id ? { ...x, tomada: !x.tomada } : x)));
@@ -73,10 +77,6 @@ export default function OportunidadesPanel() {
           Negocios que buscan vendedores. Tomá las que te interesen y traéles clientes con tu red + la IA.
         </p>
       </header>
-
-      {g.modoGlobal && (
-        <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
-      )}
 
       {/* Filtros por rubro */}
       <div className="flex flex-wrap gap-2">

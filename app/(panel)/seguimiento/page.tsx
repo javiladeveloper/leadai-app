@@ -60,6 +60,8 @@ export default function SeguimientoPanel() {
   // leads con su tenantId, así que cambiar de chip es instantáneo.
   const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
   const [filtroNegocio, setFiltroNegocio] = useState("");
+  // Buscador del tablero: por nombre, contacto o resumen de la IA (cliente).
+  const [busqueda, setBusqueda] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
   // Lead abierto en el popup de vista rápida (1 click). El doble click entra a
   // la conversación directamente. Usamos un timer para distinguir 1 de 2 clicks.
@@ -132,13 +134,22 @@ export default function SeguimientoPanel() {
     const ORDEN_NIVEL: Record<Lead["nivelInteres"], number> = { caliente: 0, tibio: 1, frio: 2 };
     const mapa = new Map<EstadoLead, LeadPipeline[]>();
     for (const et of ETAPAS) mapa.set(et.estado, []);
-    const visibles = filtroNegocio ? leads.filter((l) => l.tenantId === filtroNegocio) : leads;
+    const q = busqueda.trim().toLowerCase();
+    const visibles = leads
+      .filter((l) => !filtroNegocio || l.tenantId === filtroNegocio)
+      .filter(
+        (l) =>
+          !q ||
+          (l.nombre ?? "").toLowerCase().includes(q) ||
+          l.contactoExterno.toLowerCase().includes(q) ||
+          (l.resumenIA ?? "").toLowerCase().includes(q),
+      );
     for (const l of visibles) mapa.get(l.estado)?.push(l);
     for (const lista of mapa.values()) {
       lista.sort((a, b) => ORDEN_NIVEL[a.nivelInteres] - ORDEN_NIVEL[b.nivelInteres]);
     }
     return mapa;
-  }, [leads, filtroNegocio]);
+  }, [leads, filtroNegocio, busqueda]);
 
   async function mover(
     lead: LeadPipeline,
@@ -180,6 +191,15 @@ export default function SeguimientoPanel() {
           Actualizar
         </button>
       </header>
+
+      <input
+        type="search"
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder="🔍 Buscar por nombre, contacto o lo que dijo…"
+        className="w-full rounded-chip bg-carta px-4 py-2.5 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40 sm:max-w-md"
+        aria-label="Buscar en el pipeline"
+      />
 
       {negocios.length > 1 && (
         <BarraNegociosGlobal

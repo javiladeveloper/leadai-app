@@ -16,6 +16,8 @@ import {
   type Mensaje as MensajeApi,
 } from "@/lib/api";
 import { usePolling } from "@/lib/usePolling";
+import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
+import type { NegocioBandeja } from "@/lib/api";
 import { useDictado } from "@/lib/useDictado";
 import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { Burbuja } from "@/components/Burbuja";
@@ -83,6 +85,9 @@ export default function ConversacionesPanel() {
 
   const [estadoLista, setEstadoLista] = useState<Estado>("cargando");
   const [leads, setLeads] = useState<LeadLista[]>([]);
+  const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
+  // Filtro por negocio ("" = todos) — mismo patrón que Seguimiento.
+  const [filtroNegocio, setFiltroNegocio] = useState("");
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   // Tenant del lead seleccionado (solo en modo global): viaja explícito en
   // obtenerLead/accionLead/calcularComision, SIN cambiar la empresa activa —
@@ -141,6 +146,7 @@ export default function ConversacionesPanel() {
       if (esModoGlobal()) {
         const r = await listarBandejaGlobal();
         setLeads(r.leads);
+        setNegocios(r.negocios);
       } else {
         setLeads(await listarLeads());
       }
@@ -252,12 +258,22 @@ export default function ConversacionesPanel() {
   if (!listo) return null;
 
   const listaVacia = estadoLista === "ok" && leads.length === 0;
+  // Filtro por negocio en cliente (los leads ya traen su tenantId).
+  const leadsVisibles = filtroNegocio
+    ? leads.filter((l) => l.tenantId === filtroNegocio)
+    : leads;
 
   return (
     <div className="flex min-h-full flex-col">
       {/* Mobile (<lg): solo la lista, a ancho completo. Tocar un lead navega
           a /conversacion/[id] (el TarjetaLead ya es un Link). */}
       <div className="flex-1 space-y-3 overflow-y-auto p-4 lg:hidden">
+        <BarraNegociosGlobal
+          negocios={negocios}
+          enfocado={filtroNegocio}
+          onElegir={setFiltroNegocio}
+          todosLabel="Todos"
+        />
         {estadoLista === "cargando" && <SkeletonLista filas={5} />}
         {estadoLista === "error" && (
           <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
@@ -278,9 +294,9 @@ export default function ConversacionesPanel() {
           </div>
         )}
         {estadoLista === "ok" &&
-          leads.map((l) => (
+          leadsVisibles.map((l) => (
             // Mobile navega a /conversacion/[id] (Link interno): si el lead es
-            // de otro negocio (modo global), adopta su empresa antes de entrar.
+            // de otro negocio, adopta su empresa antes de entrar ("clavado").
             <div
               key={l.id}
               onClickCapture={() => {
@@ -297,6 +313,12 @@ export default function ConversacionesPanel() {
         {/* Columna 1: lista de leads. Acá el clic selecciona (no navega), por
             eso interceptamos el click del Link con preventDefault. */}
         <div className="flex flex-col gap-2.5 overflow-y-auto border-r border-linea p-3">
+          <BarraNegociosGlobal
+            negocios={negocios}
+            enfocado={filtroNegocio}
+            onElegir={setFiltroNegocio}
+            todosLabel="Todos"
+          />
           {estadoLista === "cargando" && <SkeletonLista filas={5} />}
           {estadoLista === "error" && (
             <div className="rounded-tarjeta bg-carta p-4 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
@@ -317,7 +339,7 @@ export default function ConversacionesPanel() {
             </div>
           )}
           {estadoLista === "ok" &&
-            leads.map((l) => {
+            leadsVisibles.map((l) => {
               const activo = l.id === seleccionadoId;
               return (
                 <div

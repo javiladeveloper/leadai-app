@@ -50,12 +50,17 @@ export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
             <h3 className="truncate text-[1.05rem] font-bold text-tinta">{lead.nombre}</h3>
             <div className="mt-0.5 flex items-center gap-2">
               <BadgeCanal canal={lead.canal} tamano="chico" />
-              {lead.empresa && <p className="truncate text-[0.8rem] text-frio">{lead.empresa}</p>}
             </div>
           </div>
         </div>
         <ChipTemp t={lead.temperatura} />
       </div>
+
+      {/* De qué negocio viene (bandeja unificada): línea propia a lo ancho de
+          la tarjeta — compartía fila con el canal y se truncaba a "Fisiot…". */}
+      {lead.empresa && (
+        <p className="mt-1.5 truncate text-[0.78rem] font-semibold text-frio">🏢 {lead.empresa}</p>
+      )}
 
       {/* Resumen de la IA — el corazón de la tarjeta */}
       <p className="mt-2.5 text-[0.95rem] leading-snug text-tinta-2">{lead.resumenIA}</p>

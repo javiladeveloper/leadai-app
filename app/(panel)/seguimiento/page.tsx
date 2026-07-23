@@ -172,6 +172,17 @@ export default function SeguimientoPanel() {
     }
   }
 
+  // Mover A MANO entre etapas abiertas (o reabrir un terminal) — contrato
+  // mover_etapa del backend (pedido de Jonathan: "debería poder dejarme mover
+  // entre los niveles del CRM a un prospecto"). Optimista, igual que mover().
+  async function moverEtapa(lead: LeadPipeline, etapa: "nuevo" | "nutriendo" | "escalado") {
+    setOcupado(lead.id);
+    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, estado: etapa } : l)));
+    const r = await accionLead(lead.id, { tipo: "mover_etapa", etapa }, lead.tenantId);
+    setOcupado(null);
+    if (!r.ok) cargar();
+  }
+
   if (!listo) return null;
 
   return (
@@ -330,6 +341,28 @@ export default function SeguimientoPanel() {
                             </button>
                           </div>
                         )}
+
+                        {/* Mover a mano entre etapas abiertas — y "Reabrir" en
+                            Ganados/Perdidos (contrato mover_etapa). */}
+                        <select
+                          value=""
+                          disabled={trabajando}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            const v = e.target.value as "" | "nuevo" | "nutriendo" | "escalado";
+                            if (v) moverEtapa(lead, v);
+                          }}
+                          aria-label="Mover el lead a otra etapa"
+                          className="mt-2 w-full rounded-chip border border-linea bg-arena/50 px-2 py-1.5 text-[0.75rem] font-semibold text-tinta-2"
+                        >
+                          <option value="">{cerrable ? "↔ Mover a…" : "↩ Reabrir en…"}</option>
+                          {ETAPAS.filter(
+                            (e2) => e2.estado !== lead.estado && e2.estado !== "ganado" && e2.estado !== "perdido",
+                          ).map((e2) => (
+                            <option key={e2.estado} value={e2.estado}>{e2.titulo}</option>
+                          ))}
+                        </select>
                       </article>
                     );
                   })}

@@ -334,9 +334,11 @@ export async function obtenerLead(id: string, tenant?: string): Promise<LeadDeta
 export async function accionLead(
   id: string,
   accion: {
-    tipo: "aprobar_borrador" | "marcar_ganado" | "descartar" | "responder";
+    tipo: "aprobar_borrador" | "marcar_ganado" | "descartar" | "responder" | "mover_etapa";
     texto?: string;
     monto?: number;
+    // mover_etapa: mover a mano entre etapas abiertas (o reabrir un terminal).
+    etapa?: "nuevo" | "nutriendo" | "escalado";
   },
   tenant?: string,
 ): Promise<{ ok: boolean; error?: string }> {

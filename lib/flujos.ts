@@ -69,8 +69,22 @@ export function aReactFlow(grafo: GrafoFlujo): { nodes: Node[]; edges: Edge[] } 
     deletable: n.tipo !== "inicio",
     draggable: true,
   }));
+  // Etiqueta de la conexión (checklist mobile 2026-07-22, punto 3): cuando
+  // varios botones van al MISMO destino, las curvas convergen y sin etiqueta
+  // no se distingue cuál es cuál. La conexión con puerto muestra la etiqueta
+  // de su opción (o Sí/No en condición).
+  const etiquetaDe = (desde: string, puerto?: string): string | undefined => {
+    if (!puerto) return undefined;
+    if (puerto === "si") return "Sí";
+    if (puerto === "no") return "No";
+    const origen = grafo.nodos.find((n) => n.id === desde);
+    const ops = (origen?.datos?.opciones as { id: string; etiqueta: string }[] | undefined) ?? [];
+    return ops.find((o) => o.id === puerto)?.etiqueta || undefined;
+  };
   const edges: Edge[] = grafo.conexiones.map((c) => ({
     id: c.id, source: c.desde, target: c.hacia, sourceHandle: c.puerto ?? "default",
+    label: etiquetaDe(c.desde, c.puerto),
+    labelStyle: { fontSize: 10, fontWeight: 600 },
   }));
   return { nodes, edges };
 }

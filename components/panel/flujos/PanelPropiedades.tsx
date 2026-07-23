@@ -21,7 +21,10 @@ export function PanelPropiedades({
   const activo = data.activo !== false;
 
   return (
-    <div className="w-72 shrink-0 space-y-3 border-l border-linea bg-carta p-4">
+    // overflow-y-auto (checklist mobile 2026-07-22, punto 5): un nodo opciones
+    // con 4+ botones desbordaba sin scroll (el layout del editor es
+    // overflow-hidden) y los campos de abajo quedaban inalcanzables.
+    <div className="w-72 shrink-0 space-y-3 overflow-y-auto border-l border-linea bg-carta p-4">
       <p className="eyebrow">Editar paso</p>
 
       {tipo !== "inicio" && (

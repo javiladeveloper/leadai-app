@@ -4,6 +4,17 @@ import { useEffect, useState } from "react";
 import { obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
 
+// Tonos CURADOS del bot — lista canónica compartida con el backend
+// (TONOS_BOT en core/types.ts) y la app. Texto libre ya no se acepta.
+const TONOS_BOT = [
+  "cálido y cercano, como atiende el dueño",
+  "cercano y profesional",
+  "formal y profesional",
+  "informal y directo",
+  "alegre y juvenil",
+  "serio y al grano",
+];
+
 const PERFIL_VACIO: PerfilNegocio = {
   rubro: "",
   nombreNegocio: "",
@@ -95,12 +106,37 @@ export function PlaybookEditor() {
         </label>
       </div>
 
-      <CampoArea
-        label="Cómo querés que hable el bot"
-        value={perfil.tono}
-        onChange={(v) => setPerfil({ ...perfil, tono: v })}
-        placeholder="Ej: Cercano y amable, tratando de usted al cliente"
-      />
+      {/* Tono CURADO (2026-07-22, mismo criterio que la app): opciones
+          predeterminadas en vez de texto libre — un tono arbitrario puede
+          alterar el comportamiento del bot. Un tono legacy (texto libre de
+          antes) se muestra como "Actual" y se respeta hasta que elijan uno
+          curado (el backend valida con la misma lista). */}
+      <div>
+        <span className="mb-2 block text-sm font-medium text-tinta">Cómo querés que hable el bot</span>
+        <div className="flex flex-wrap gap-2">
+          {perfil.tono.trim() !== "" &&
+            !TONOS_BOT.some((t) => t.toLowerCase() === perfil.tono.trim().toLowerCase()) && (
+              <span className="rounded-chip bg-tibio-suave px-3 py-1.5 text-[0.82rem] font-semibold text-tibio ring-1 ring-tibio/30">
+                Actual: “{perfil.tono}”
+              </span>
+            )}
+          {TONOS_BOT.map((t) => {
+            const activo = t.toLowerCase() === perfil.tono.trim().toLowerCase();
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setPerfil({ ...perfil, tono: t })}
+                className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
+                  activo ? "bg-brasa text-carta" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-linea"
+                }`}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <CampoArea
         label="Por qué elegirte"
         value={perfil.propuestaValor}

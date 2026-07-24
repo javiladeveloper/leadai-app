@@ -44,12 +44,12 @@ function minutosDesde(iso: string): number {
 
 // En la vista global la etiqueta del negocio va SIEMPRE — es el dato que
 // distingue esta pantalla de la bandeja por empresa.
-function aTarjeta(lead: LeadGlobal): TarjetaLeadProps {
+function aTarjeta(lead: LeadGlobal, conEtiqueta: boolean): TarjetaLeadProps {
   return {
     id: lead.id,
     nombre: lead.nombre ?? lead.contactoExterno,
     canal: lead.canalOrigen,
-    empresa: lead.negocioNombre,
+    empresa: conEtiqueta ? lead.negocioNombre : undefined,
     temperatura: lead.nivelInteres,
     urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
     resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
@@ -279,7 +279,7 @@ function GlobalPanelInner() {
                 if (l.tenantId !== leerEmpresaActiva()) guardarEmpresaActiva(l.tenantId);
               }}
             >
-              <TarjetaLead lead={aTarjeta(l)} />
+              <TarjetaLead lead={aTarjeta(l, negocios.length > 1)} />
             </div>
           ))}
         </div>

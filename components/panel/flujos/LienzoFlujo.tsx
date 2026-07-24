@@ -119,9 +119,11 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
           {estado === "guardando" ? "Guardando…" : "Guardar"}
         </button>
       </div>
-      <div className="flex flex-1 min-h-0">
+      {/* Móvil: columna (paleta arriba → lienzo → editor como hoja inferior);
+          desktop: fila de 3 columnas como siempre. */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <PaletaNodos onAgregar={agregarNodo} />
-        <div className="flex-1 min-h-0">
+        <div className="min-h-0 flex-1">
           <ReactFlow
             nodes={nodes} edges={edges} nodeTypes={nodeTypes}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}

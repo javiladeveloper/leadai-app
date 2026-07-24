@@ -304,7 +304,7 @@ export default function SeguimientoPanel() {
 
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <BadgeCanal canal={lead.canalOrigen} tamano="chico" />
-                          {lead.negocioNombre && !filtroNegocio && (
+                          {lead.negocioNombre && !filtroNegocio && negocios.length > 1 && (
                             <span className="max-w-full truncate rounded-full bg-arena px-2 py-0.5 text-[0.66rem] font-bold text-tinta-2">
                               🏢 {lead.negocioNombre}
                             </span>

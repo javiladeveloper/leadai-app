@@ -96,7 +96,7 @@ function ConfiguracionInner() {
       </header>
 
       {/* Pestañas */}
-      <div className="flex gap-1 overflow-x-auto border-b border-linea">
+      <div className="flex gap-1 overflow-x-auto border-b border-linea [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => {
           const activa = tab === t.id;
           return (

@@ -48,13 +48,14 @@ function minutosDesde(iso: string): number {
 }
 
 // Adapta el Lead real (lib/api) al shape mínimo que TarjetaLead necesita.
-// `negocioNombre` (solo en modo global) etiqueta de qué negocio viene.
-function aTarjeta(lead: LeadLista): TarjetaLeadProps {
+// La etiqueta del negocio solo con 2+ negocios (con uno solo es ruido —
+// auditoría responsive 2026-07-23).
+function aTarjeta(lead: LeadLista, conEtiqueta: boolean): TarjetaLeadProps {
   return {
     id: lead.id,
     nombre: lead.nombre ?? lead.contactoExterno,
     canal: lead.canalOrigen,
-    empresa: lead.negocioNombre,
+    empresa: conEtiqueta ? lead.negocioNombre : undefined,
     temperatura: lead.nivelInteres,
     urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
     resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
@@ -303,7 +304,7 @@ export default function ConversacionesPanel() {
                 if (l.tenantId) guardarEmpresaActiva(l.tenantId);
               }}
             >
-              <TarjetaLead lead={aTarjeta(l)} />
+              <TarjetaLead lead={aTarjeta(l, negocios.length > 1)} />
             </div>
           ))}
       </div>
@@ -355,7 +356,7 @@ export default function ConversacionesPanel() {
                   }}
                   className={activo ? "rounded-tarjeta ring-2 ring-brasa" : ""}
                 >
-                  <TarjetaLead lead={aTarjeta(l)} />
+                  <TarjetaLead lead={aTarjeta(l, negocios.length > 1)} />
                 </div>
               );
             })}

@@ -10,7 +10,9 @@ export function PanelPropiedades({
   onEliminar?: (id: string) => void;
 }) {
   if (!nodo) {
-    return <div className="w-72 shrink-0 border-l border-linea bg-carta p-4 text-[0.85rem] text-frio">Tocá un paso para editarlo.</div>;
+    // En móvil no ocupa espacio (el lienzo manda); el hint solo tiene sentido
+    // en desktop, donde el panel es una columna fija.
+    return <div className="hidden w-72 shrink-0 border-l border-linea bg-carta p-4 text-[0.85rem] text-frio lg:block">Tocá un paso para editarlo.</div>;
   }
   const data = (nodo.data ?? {}) as { tipo: string } & Record<string, unknown>;
   const tipo = data.tipo;
@@ -24,7 +26,9 @@ export function PanelPropiedades({
     // overflow-y-auto (checklist mobile 2026-07-22, punto 5): un nodo opciones
     // con 4+ botones desbordaba sin scroll (el layout del editor es
     // overflow-hidden) y los campos de abajo quedaban inalcanzables.
-    <div className="w-72 shrink-0 space-y-3 overflow-y-auto border-l border-linea bg-carta p-4">
+    // Móvil (auditoría responsive 2026-07-23): hoja INFERIOR (máx 45% de la
+    // pantalla) en vez de columna fija — con columna, el lienzo no entraba.
+    <div className="max-h-[45dvh] w-full shrink-0 space-y-3 overflow-y-auto border-t border-linea bg-carta p-4 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] lg:max-h-none lg:w-72 lg:border-l lg:border-t-0 lg:shadow-none">
       <p className="eyebrow">Editar paso</p>
 
       {tipo !== "inicio" && (

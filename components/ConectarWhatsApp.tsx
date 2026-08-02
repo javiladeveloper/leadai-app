@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { conectarWhatsAppEmbedded } from "@/lib/api";
 
 // Tipos mínimos del SDK de Facebook en window.
@@ -38,6 +38,10 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
   const [error, setError] = useState("");
   // Datos que el popup entrega vía postMessage (wabaId/phoneNumberId).
   const [sesionES, setSesionES] = useState<{ wabaId?: string; phoneNumberId?: string }>({});
+  // redirect_uri exacto con el que el SDK abrió el diálogo: Meta exige ese
+  // MISMO valor al canjear el code en el backend (error 100 si no coincide).
+  // Ref (no estado): el callback de FB.login cierra sobre el render viejo.
+  const redirectUriDialogo = useRef<string>("");
 
   // Cargar el SDK de Facebook una vez.
   useEffect(() => {
@@ -75,6 +79,20 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
     if (!CONFIG_ID) { setEstado("error"); setError("Falta configurar el conector de WhatsApp."); return; }
     setEstado("abriendo");
     setError("");
+    // Capturar la URL del diálogo que abre el SDK para extraer su redirect_uri
+    // (dinámico, apunta a xd_arbiter de Facebook). Se restaura window.open al toque.
+    const openOriginal = window.open.bind(window);
+    window.open = (...args: Parameters<typeof window.open>) => {
+      const url = String(args[0] ?? "");
+      if (url.includes("dialog/oauth")) {
+        try {
+          const ru = new URL(url).searchParams.get("redirect_uri");
+          if (ru) redirectUriDialogo.current = ru;
+        } catch { /* ignore */ }
+        window.open = openOriginal;
+      }
+      return openOriginal(...args);
+    };
     // OJO: el SDK de Facebook NO acepta un callback async ("Expression is of
     // type asyncfunction, not function"). El callback debe ser una función
     // normal; el trabajo async va adentro, en una función aparte.
@@ -95,7 +113,11 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
   }
 
   async function finalizarConexion(code: string) {
-    const res = await conectarWhatsAppEmbedded({ code, ...sesionES });
+    const res = await conectarWhatsAppEmbedded({
+      code,
+      ...sesionES,
+      ...(redirectUriDialogo.current ? { redirectUri: redirectUriDialogo.current } : {}),
+    });
     if (res.ok) { setEstado("ok"); onConectado?.(); }
     else { setEstado("error"); setError(res.error ?? "No se pudo conectar."); }
   }

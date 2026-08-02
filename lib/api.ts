@@ -71,6 +71,7 @@ export async function conectarWhatsAppEmbedded(args: {
   code: string;
   wabaId?: string;
   phoneNumberId?: string;
+  redirectUri?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   const token = leerSesion()?.token;
   const tenant = leerEmpresaActiva();
@@ -82,9 +83,9 @@ export async function conectarWhatsAppEmbedded(args: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(tenant ? { 'X-Tenant-Id': tenant } : {}),
       },
-      // redirectUri: una de las variantes que el backend prueba al canjear el
-      // code (Meta valida el redirect_uri del canje contra el del diálogo).
-      body: JSON.stringify({ ...args, redirectUri: window.location.href.split('#')[0] }),
+      // redirectUri: el que usó el diálogo del SDK (capturado en ConectarWhatsApp);
+      // Meta exige el MISMO redirect_uri al canjear el code.
+      body: JSON.stringify(args),
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };

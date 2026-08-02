@@ -82,7 +82,9 @@ export async function conectarWhatsAppEmbedded(args: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(tenant ? { 'X-Tenant-Id': tenant } : {}),
       },
-      body: JSON.stringify(args),
+      // redirectUri: una de las variantes que el backend prueba al canjear el
+      // code (Meta valida el redirect_uri del canje contra el del diálogo).
+      body: JSON.stringify({ ...args, redirectUri: window.location.href.split('#')[0] }),
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };

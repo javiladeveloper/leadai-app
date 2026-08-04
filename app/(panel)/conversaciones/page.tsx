@@ -567,7 +567,9 @@ export default function ConversacionesPanel() {
   const AVATAR: Record<string, string> = { caliente: "bg-calor", tibio: "bg-tibio", frio: "bg-frio" };
 
   return (
-    <div className="flex min-h-full flex-col">
+    // h-full (no min-h): la pantalla se ancla al alto de la ventana y cada
+    // columna scrollea POR DENTRO — el compositor queda siempre a la vista.
+    <div className="flex h-full flex-col overflow-hidden">
       {/* Mobile (<lg): solo la bandeja, a ancho completo. */}
       <div className="flex-1 space-y-3 overflow-y-auto p-4 lg:hidden">{bandeja(true)}</div>
 
@@ -804,15 +806,16 @@ export default function ConversacionesPanel() {
                 <p className="px-4 pb-1 text-[0.8rem] font-semibold text-brasa">{accionError}</p>
               )}
 
-              {/* Compositor: asistente IA + texto + dictado + enviar */}
-              <div className="border-t border-linea bg-carta px-3 py-2.5">
-                <div className="flex items-end gap-2">
+              {/* Compositor en DOS filas: herramientas de IA arriba (compactas),
+                  campo de escribir abajo a TODO el ancho. */}
+              <div className="space-y-2 border-t border-linea bg-carta px-3 py-2.5">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={pedirSugerencia}
                     disabled={sugiriendo}
                     title="La IA escribe un borrador con todo el contexto; lo editás antes de enviar"
-                    className="flex h-12 shrink-0 items-center gap-1.5 rounded-full bg-tibio-suave px-3.5 text-[0.82rem] font-bold text-tibio ring-1 ring-tibio/30 transition hover:brightness-95 active:scale-[0.98] disabled:opacity-60"
+                    className="flex h-8 shrink-0 items-center gap-1 rounded-full bg-tibio-suave px-3 text-[0.78rem] font-bold text-tibio ring-1 ring-tibio/30 transition hover:brightness-95 active:scale-[0.98] disabled:opacity-60"
                   >
                     ✦ {sugiriendo ? "Pensando…" : "Asistente IA"}
                   </button>
@@ -820,7 +823,7 @@ export default function ConversacionesPanel() {
                     value={tono}
                     onChange={(e) => setTono(e.target.value as typeof tono)}
                     title="Tono del Asistente IA y de Corregir"
-                    className="h-12 shrink-0 rounded-full bg-arena px-2.5 text-[0.8rem] font-semibold text-tinta-2 outline-none ring-1 ring-linea"
+                    className="h-8 shrink-0 rounded-full bg-arena px-2 text-[0.76rem] font-semibold text-tinta-2 outline-none ring-1 ring-linea"
                   >
                     <option value="">Tono del negocio</option>
                     <option value="formal">Formal</option>
@@ -834,11 +837,13 @@ export default function ConversacionesPanel() {
                       onClick={corregir}
                       disabled={corrigiendo}
                       title="La IA corrige ortografía y claridad de lo que escribiste (con el tono elegido)"
-                      className="flex h-12 shrink-0 items-center rounded-full px-3 text-[0.82rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-arena active:scale-[0.98] disabled:opacity-60"
+                      className="flex h-8 shrink-0 items-center rounded-full px-2.5 text-[0.78rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-arena active:scale-[0.98] disabled:opacity-60"
                     >
                       {corrigiendo ? "Corrigiendo…" : "✓ Corregir"}
                     </button>
                   )}
+                </div>
+                <div className="flex items-end gap-2">
                   <textarea
                     ref={textareaRef}
                     value={texto}

@@ -474,19 +474,142 @@ export default function ConversacionesPanel() {
     </>
   );
 
+  // Colores del avatar por temperatura (mismo lenguaje visual del Inicio).
+  const AVATAR: Record<string, string> = { caliente: "bg-calor", tibio: "bg-tibio", frio: "bg-frio" };
+
   return (
     <div className="flex min-h-full flex-col">
       {/* Mobile (<lg): solo la bandeja, a ancho completo. */}
       <div className="flex-1 space-y-3 overflow-y-auto p-4 lg:hidden">{bandeja(true)}</div>
 
-      {/* Desktop (lg+): bandeja | chat | ficha */}
-      <div className="hidden flex-1 overflow-hidden lg:grid lg:grid-cols-[320px_1fr_300px]">
-        {/* Columna 1: bandeja */}
-        <div className="flex flex-col gap-2.5 overflow-y-auto border-r border-linea p-3">
-          {bandeja(false)}
-        </div>
+      {/* Desktop (lg+): negocios ARRIBA + [Buzón | Conversaciones | Chat | Ficha]
+          — estructura de la referencia (2026-08-04). */}
+      <div className="hidden flex-1 flex-col overflow-hidden lg:flex">
+        {/* Barra superior: los negocios, para no comerse la bandeja */}
+        {negocios.length > 1 && (
+          <div className="border-b border-linea bg-carta px-4 py-2">
+            <BarraNegociosGlobal
+              negocios={negocios}
+              enfocado={filtroNegocio}
+              onElegir={setFiltroNegocio}
+              todosLabel="Todos"
+            />
+          </div>
+        )}
 
-        {/* Columna 2: chat */}
+        <div className="grid flex-1 overflow-hidden lg:grid-cols-[210px_300px_1fr_290px]">
+          {/* Columna 1: BUZÓN — etapas del embudo en vertical con contadores */}
+          <div className="flex flex-col gap-1 overflow-y-auto border-r border-linea bg-carta p-3">
+            <p className="px-2 pb-1 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+              Buzón
+            </p>
+            <button
+              onClick={() => setFiltroEtapa("")}
+              className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[0.85rem] font-semibold transition ${
+                filtroEtapa === "" ? "bg-brasa/10 text-brasa" : "text-tinta-2 hover:bg-arena"
+              }`}
+            >
+              <span>Todos</span>
+              <span className="text-[0.78rem] tabular-nums">{porNegocio.length}</span>
+            </button>
+            <p className="px-2 pb-1 pt-3 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+              Etapas del embudo
+            </p>
+            {ETAPAS.map((e) => (
+              <button
+                key={e.id}
+                onClick={() => setFiltroEtapa(filtroEtapa === e.id ? "" : e.id)}
+                className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[0.85rem] font-semibold transition ${
+                  filtroEtapa === e.id ? "bg-brasa/10 text-brasa" : "text-tinta-2 hover:bg-arena"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${e.punto}`} />
+                  {e.label}
+                </span>
+                <span className="text-[0.78rem] tabular-nums">{conteoEtapa(e.id)}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Columna 2: CONVERSACIONES — buscador + filas compactas */}
+          <div className="flex flex-col overflow-hidden border-r border-linea">
+            <div className="border-b border-linea p-2.5">
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar conversación…"
+                className="w-full rounded-xl bg-arena px-3 py-2 text-[0.85rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {estadoLista === "cargando" && <div className="p-3"><SkeletonLista filas={6} /></div>}
+              {estadoLista === "error" && (
+                <p className="p-4 text-center text-[0.85rem] font-semibold text-tinta">
+                  No pudimos cargar la lista. Recargá.
+                </p>
+              )}
+              {listaVacia && (
+                <div className="p-4 text-center">
+                  <p className="text-[0.9rem] font-bold text-tinta">
+                    Aún no tenés conversaciones.
+                  </p>
+                  <Link
+                    href="/configuracion"
+                    className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-carta"
+                  >
+                    Conectar WhatsApp
+                  </Link>
+                </div>
+              )}
+              {estadoLista === "ok" && !listaVacia && leadsVisibles.length === 0 && (
+                <p className="p-4 text-center text-[0.85rem] text-frio">Nada por acá con esos filtros.</p>
+              )}
+              {estadoLista === "ok" &&
+                leadsVisibles.map((l) => {
+                  const activo = l.id === seleccionadoId;
+                  const inicial = (l.nombre ?? l.contactoExterno).trim().charAt(0).toUpperCase() || "?";
+                  const et = etapaDe(l.estado);
+                  return (
+                    <button
+                      key={l.id}
+                      onClick={() => seleccionar(l)}
+                      className={`flex w-full items-start gap-2.5 border-b border-linea/60 px-3 py-2.5 text-left transition ${
+                        activo ? "bg-brasa/10" : "hover:bg-arena/60"
+                      }`}
+                    >
+                      <span
+                        className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-[0.9rem] font-bold text-carta ${AVATAR[l.nivelInteres] ?? "bg-frio"}`}
+                      >
+                        {inicial}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className="truncate text-[0.88rem] font-bold text-tinta">
+                            {l.nombre ?? l.contactoExterno}
+                          </span>
+                          <span className="shrink-0 text-[0.7rem] text-frio">
+                            {haceTexto(minutosDesde(l.actualizadoEn))}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block truncate text-[0.78rem] text-tinta-2">
+                          {l.resumenIA ?? "Sin resumen todavía"}
+                        </span>
+                        <span className="mt-1 flex items-center gap-1.5 text-[0.7rem] font-semibold text-frio">
+                          <span className={`h-1.5 w-1.5 rounded-full ${et.punto}`} />
+                          {et.label.replace(/s$/, "")}
+                          {negocios.length > 1 && l.negocioNombre ? (
+                            <span className="truncate">· {l.negocioNombre}</span>
+                          ) : null}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+
+          {/* Columna 3: chat */}
         <div className="flex min-w-0 flex-col overflow-hidden bg-arena">
           {estadoLead === "cargando" && <SkeletonChat />}
           {estadoLead === "error" && (
@@ -646,7 +769,7 @@ export default function ConversacionesPanel() {
           ) : null}
         </div>
 
-        {/* Columna 3: ficha del contacto */}
+        {/* Columna 4: ficha del contacto */}
         <div className="flex flex-col gap-4 overflow-y-auto border-l border-linea p-4">
           {estadoLead === "ok" && lead ? (
             <>
@@ -840,6 +963,7 @@ export default function ConversacionesPanel() {
           ) : (
             <p className="text-frio">Sin conversación seleccionada.</p>
           )}
+        </div>
         </div>
       </div>
     </div>

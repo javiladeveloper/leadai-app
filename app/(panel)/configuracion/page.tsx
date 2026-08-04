@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, EMPRESA_GLOBAL } from "@/lib/auth";
+import { EtapasEditor } from "@/components/panel/EtapasEditor";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { PanelCanales } from "@/components/panel/PanelCanales";
@@ -138,6 +139,7 @@ function ConfiguracionInner() {
                 El playbook que usa la IA para responder por vos: tono, catálogo, preguntas clave y objeciones.
               </p>
               <PlaybookEditor />
+              <EtapasEditor />
               <RitmoSeguimiento />
             </>
           )}

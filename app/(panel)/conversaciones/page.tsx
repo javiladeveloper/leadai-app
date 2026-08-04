@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { haySesion, esModoGlobal, guardarEmpresaActiva } from "@/lib/auth";
+import { haySesion, esModoGlobal, guardarEmpresaActiva, leerSesion } from "@/lib/auth";
 import { SkeletonLista, SkeletonChat } from "@/components/Skeletons";
 import {
   listarLeads,
@@ -12,10 +12,13 @@ import {
   accionLead,
   actualizarLead,
   calcularComision,
+  obtenerEtapas,
+  etapaVisibleDe,
+  ETAPAS_DEFAULT,
+  type EtapaEmbudo,
   type Lead,
   type LeadDetalle,
   type Mensaje as MensajeApi,
-  type EstadoLead,
 } from "@/lib/api";
 import { usePolling } from "@/lib/usePolling";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
@@ -33,15 +36,14 @@ type Estado = "cargando" | "ok" | "error";
 // campos van `undefined` y todo se comporta como siempre.
 type LeadLista = Lead & { tenantId?: string; negocioNombre?: string };
 
-// Etapas del embudo (rediseño estilo bandeja 2026-08-04): etiqueta y color
-// por estado. El orden ES el del embudo.
-const ETAPAS: { id: EstadoLead; label: string; punto: string }[] = [
-  { id: "nuevo", label: "Nuevos", punto: "bg-brasa" },
-  { id: "nutriendo", label: "En seguimiento", punto: "bg-tibio" },
-  { id: "escalado", label: "Escalados", punto: "bg-calor" },
-  { id: "ganado", label: "Ganados", punto: "bg-ok" },
-  { id: "perdido", label: "Perdidos", punto: "bg-frio" },
-];
+// Color de cada etapa (tokens curados del design system) → clase del punto.
+const PUNTO: Record<EtapaEmbudo["color"], string> = {
+  brasa: "bg-brasa",
+  tibio: "bg-tibio",
+  calor: "bg-calor",
+  ok: "bg-ok",
+  frio: "bg-frio",
+};
 
 const NOMBRE_CANAL: Record<string, string> = {
   whatsapp: "WhatsApp",
@@ -107,10 +109,18 @@ export default function ConversacionesPanel() {
   const [estadoLista, setEstadoLista] = useState<Estado>("cargando");
   const [leads, setLeads] = useState<LeadLista[]>([]);
   const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
-  // Filtros de la bandeja: negocio ("" = todos), etapa ("" = todas) y búsqueda.
+  // Filtros de la bandeja: negocio ("" = todos), buzón (todos/míos/sin
+  // asignar), etapa (id custom; "" = todas) y búsqueda.
   const [filtroNegocio, setFiltroNegocio] = useState("");
-  const [filtroEtapa, setFiltroEtapa] = useState<"" | EstadoLead>("");
+  const [filtroBuzon, setFiltroBuzon] = useState<"" | "mios" | "sin">("");
+  const [filtroEtapa, setFiltroEtapa] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  // Etapas del negocio: las de la bandeja siguen al filtro de negocio (en
+  // "Todos" del modo global se usan las default — cada negocio tiene las
+  // suyas y no se pueden mezclar); las de la ficha siguen al lead elegido.
+  const [etapasBandeja, setEtapasBandeja] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
+  const [etapasFicha, setEtapasFicha] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
+  const miUsuarioId = leerSesion()?.usuario?.id ?? null;
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   // Tenant del lead seleccionado (solo en modo global): viaja explícito en
   // obtenerLead/accionLead/calcularComision, SIN cambiar la empresa activa —
@@ -229,6 +239,24 @@ export default function ConversacionesPanel() {
     cargarLead(seleccionadoId, tenantSel);
   }, [seleccionadoId, tenantSel, cargarLead]);
 
+  // Etapas de la BANDEJA: siguen al filtro de negocio. En "Todos" del modo
+  // global no hay un negocio concreto → default del motor.
+  useEffect(() => {
+    if (!listo) return;
+    if (esModoGlobal() && !filtroNegocio) {
+      setEtapasBandeja(ETAPAS_DEFAULT);
+      return;
+    }
+    obtenerEtapas(filtroNegocio || undefined).then(setEtapasBandeja);
+    setFiltroEtapa(""); // las etapas de otro negocio no aplican al filtro viejo
+  }, [listo, filtroNegocio]);
+
+  // Etapas de la FICHA: las del negocio del lead elegido.
+  useEffect(() => {
+    if (!listo) return;
+    obtenerEtapas(tenantSel).then(setEtapasFicha);
+  }, [listo, tenantSel]);
+
   // Polling: refresca la lista y, si hay un lead seleccionado, su detalle.
   // Si hay una acción en curso (enviando) no refrescamos el lead seleccionado
   // para no pisar el estado optimista mientras la acción todavía no terminó.
@@ -295,15 +323,31 @@ export default function ConversacionesPanel() {
     setTogglingBot(false);
   }
 
-  async function moverEtapa(etapa: "nuevo" | "nutriendo" | "escalado") {
+  // Mover a una etapa PERSONALIZADA del negocio (el backend sincroniza el
+  // estado del motor mapeado).
+  async function moverEtapa(etapaId: string) {
     if (!seleccionadoId || enviando) return;
     setEnviando(true);
     setAccionError(null);
-    const r = await accionLead(seleccionadoId, { tipo: "mover_etapa", etapa }, tenantSel);
+    const r = await accionLead(seleccionadoId, { tipo: "mover_etapa", etapaId }, tenantSel);
     if (r.ok) {
       await Promise.all([cargarLead(seleccionadoId, tenantSel), cargarLista()]);
     } else {
       setAccionError(r.error ?? "No se pudo mover de etapa.");
+    }
+    setEnviando(false);
+  }
+
+  // Tomar/soltar la conversación (Buzón: Míos / Sin asignar).
+  async function alternarAsignacion() {
+    if (!lead || enviando) return;
+    const soltar = lead.asignadoA === miUsuarioId;
+    setEnviando(true);
+    const r = await accionLead(lead.id, { tipo: "asignar", asignarA: soltar ? null : "yo" }, tenantSel);
+    if (r.ok) {
+      await Promise.all([cargarLead(lead.id, tenantSel), cargarLista()]);
+    } else {
+      setAccionError(r.error ?? "No se pudo cambiar la asignación.");
     }
     setEnviando(false);
   }
@@ -370,17 +414,28 @@ export default function ConversacionesPanel() {
   const porNegocio = filtroNegocio
     ? leads.filter((l) => l.tenantId === filtroNegocio)
     : leads;
-  const conteoEtapa = (id: EstadoLead) => porNegocio.filter((l) => l.estado === id).length;
+  // Buzón (estilo Clinera): Todos / Míos (asignados a mí) / Sin asignar.
+  const porBuzon = porNegocio.filter((l) =>
+    filtroBuzon === "mios" ? l.asignadoA === miUsuarioId
+    : filtroBuzon === "sin" ? !l.asignadoA
+    : true,
+  );
+  const conteoBuzon = {
+    todos: porNegocio.length,
+    mios: porNegocio.filter((l) => l.asignadoA === miUsuarioId).length,
+    sin: porNegocio.filter((l) => !l.asignadoA).length,
+  };
+  // Contadores por etapa VISIBLE (custom del negocio filtrado, o default).
+  const conteoEtapa = (id: string) =>
+    porBuzon.filter((l) => etapaVisibleDe(l, etapasBandeja).id === id).length;
   const q = busqueda.trim().toLowerCase();
-  const leadsVisibles = porNegocio
-    .filter((l) => (filtroEtapa ? l.estado === filtroEtapa : true))
+  const leadsVisibles = porBuzon
+    .filter((l) => (filtroEtapa ? etapaVisibleDe(l, etapasBandeja).id === filtroEtapa : true))
     .filter((l) =>
       q
         ? (l.nombre ?? "").toLowerCase().includes(q) || l.contactoExterno.toLowerCase().includes(q)
         : true,
     );
-
-  const etapaDe = (id: EstadoLead) => ETAPAS.find((e) => e.id === id)!;
 
   // Bandeja (columna 1 desktop / pantalla completa mobile): buscador + embudo +
   // chips de negocio + tarjetas. `enMobile` cambia el destino del clic.
@@ -403,7 +458,7 @@ export default function ConversacionesPanel() {
         >
           Todos {porNegocio.length}
         </button>
-        {ETAPAS.map((e) => (
+        {etapasBandeja.map((e) => (
           <button
             key={e.id}
             onClick={() => setFiltroEtapa(filtroEtapa === e.id ? "" : e.id)}
@@ -411,8 +466,8 @@ export default function ConversacionesPanel() {
               filtroEtapa === e.id ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${e.punto}`} />
-            {e.label} {conteoEtapa(e.id)}
+            <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[e.color]}`} />
+            {e.nombre} {conteoEtapa(e.id)}
           </button>
         ))}
       </div>
@@ -503,19 +558,26 @@ export default function ConversacionesPanel() {
             <p className="px-2 pb-1 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
               Buzón
             </p>
-            <button
-              onClick={() => setFiltroEtapa("")}
-              className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[0.85rem] font-semibold transition ${
-                filtroEtapa === "" ? "bg-brasa/10 text-brasa" : "text-tinta-2 hover:bg-arena"
-              }`}
-            >
-              <span>Todos</span>
-              <span className="text-[0.78rem] tabular-nums">{porNegocio.length}</span>
-            </button>
+            {([
+              ["", "Todos", conteoBuzon.todos],
+              ["mios", "Míos", conteoBuzon.mios],
+              ["sin", "Sin asignar", conteoBuzon.sin],
+            ] as const).map(([id, label, n]) => (
+              <button
+                key={id || "todos"}
+                onClick={() => setFiltroBuzon(id)}
+                className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[0.85rem] font-semibold transition ${
+                  filtroBuzon === id ? "bg-brasa/10 text-brasa" : "text-tinta-2 hover:bg-arena"
+                }`}
+              >
+                <span>{label}</span>
+                <span className="text-[0.78rem] tabular-nums">{n}</span>
+              </button>
+            ))}
             <p className="px-2 pb-1 pt-3 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
               Etapas del embudo
             </p>
-            {ETAPAS.map((e) => (
+            {etapasBandeja.map((e) => (
               <button
                 key={e.id}
                 onClick={() => setFiltroEtapa(filtroEtapa === e.id ? "" : e.id)}
@@ -524,8 +586,8 @@ export default function ConversacionesPanel() {
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${e.punto}`} />
-                  {e.label}
+                  <span className={`h-2 w-2 rounded-full ${PUNTO[e.color]}`} />
+                  {e.nombre}
                 </span>
                 <span className="text-[0.78rem] tabular-nums">{conteoEtapa(e.id)}</span>
               </button>
@@ -569,7 +631,7 @@ export default function ConversacionesPanel() {
                 leadsVisibles.map((l) => {
                   const activo = l.id === seleccionadoId;
                   const inicial = (l.nombre ?? l.contactoExterno).trim().charAt(0).toUpperCase() || "?";
-                  const et = etapaDe(l.estado);
+                  const et = etapaVisibleDe(l, etapasBandeja);
                   return (
                     <button
                       key={l.id}
@@ -596,8 +658,8 @@ export default function ConversacionesPanel() {
                           {l.resumenIA ?? "Sin resumen todavía"}
                         </span>
                         <span className="mt-1 flex items-center gap-1.5 text-[0.7rem] font-semibold text-frio">
-                          <span className={`h-1.5 w-1.5 rounded-full ${et.punto}`} />
-                          {et.label.replace(/s$/, "")}
+                          <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[et.color]}`} />
+                          {et.nombre}
                           {negocios.length > 1 && l.negocioNombre ? (
                             <span className="truncate">· {l.negocioNombre}</span>
                           ) : null}
@@ -627,8 +689,8 @@ export default function ConversacionesPanel() {
                       {lead.nombre ?? lead.contactoExterno}
                     </p>
                     <p className="flex items-center gap-1.5 text-[0.75rem] text-frio">
-                      <span className={`h-1.5 w-1.5 rounded-full ${etapaDe(lead.estado).punto}`} />
-                      {etapaDe(lead.estado).label.replace(/s$/, "")}
+                      <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[etapaVisibleDe(lead, etapasFicha).color]}`} />
+                      {etapaVisibleDe(lead, etapasFicha).nombre}
                       <span>· {NOMBRE_CANAL[lead.canalOrigen] ?? lead.canalOrigen}</span>
                     </p>
                   </div>
@@ -796,29 +858,53 @@ export default function ConversacionesPanel() {
                 </p>
               </div>
 
-              {/* Etapa del embudo, editable (mover_etapa / reabrir) */}
+              {/* Etapa del embudo (las del NEGOCIO, personalizables en
+                  Configuración → Tu negocio). Mover acá sincroniza el motor. */}
               <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <p className="mb-1.5 text-[0.75rem] font-bold uppercase tracking-wide text-frio">
                   Etapa del embudo
                 </p>
                 <select
-                  value={["ganado", "perdido"].includes(lead.estado) ? "" : lead.estado}
+                  value={etapaVisibleDe(lead, etapasFicha).id}
                   onChange={(e) => {
-                    const v = e.target.value as "nuevo" | "nutriendo" | "escalado" | "";
-                    if (v) moverEtapa(v);
+                    if (e.target.value) moverEtapa(e.target.value);
                   }}
                   disabled={enviando}
                   className="w-full rounded-xl bg-arena px-3 py-2 text-[0.9rem] font-semibold text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
                 >
-                  {["ganado", "perdido"].includes(lead.estado) && (
-                    <option value="">
-                      {lead.estado === "ganado" ? "✓ Ganado" : "✕ Perdido"} — reabrir en…
-                    </option>
-                  )}
-                  <option value="nuevo">Nuevo</option>
-                  <option value="nutriendo">En seguimiento</option>
-                  <option value="escalado">Escalado (lo atiende un humano)</option>
+                  {etapasFicha.map((e) => (
+                    <option key={e.id} value={e.id}>{e.nombre}</option>
+                  ))}
                 </select>
+              </div>
+
+              {/* Asignación (Buzón: Míos / Sin asignar) */}
+              <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+                      Asignación
+                    </p>
+                    <p className="mt-1 text-[0.85rem] text-tinta-2">
+                      {!lead.asignadoA
+                        ? "Sin asignar"
+                        : lead.asignadoA === miUsuarioId
+                          ? "Asignada a mí"
+                          : "Asignada a otro miembro"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={alternarAsignacion}
+                    disabled={enviando}
+                    className={`shrink-0 rounded-chip px-3 py-1.5 text-[0.78rem] font-bold transition active:scale-[0.98] disabled:opacity-60 ${
+                      lead.asignadoA === miUsuarioId
+                        ? "bg-arena-2 text-tinta-2 ring-1 ring-linea"
+                        : "bg-brasa text-carta"
+                    }`}
+                  >
+                    {lead.asignadoA === miUsuarioId ? "Soltar" : "Tomarla yo"}
+                  </button>
+                </div>
               </div>
 
               {/* Contexto IA */}

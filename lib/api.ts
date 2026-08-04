@@ -143,6 +143,48 @@ export async function guardarPerfil(
 }
 
 export type NivelInteres = "frio" | "tibio" | "caliente";
+// Etapas PERSONALIZADAS del embudo (capa CRM visible; el motor no cambia).
+export interface EtapaEmbudo {
+  id: string;
+  nombre: string;
+  color: "brasa" | "tibio" | "calor" | "ok" | "frio";
+  motor: "nuevo" | "nutriendo" | "escalado" | "ganado" | "perdido";
+}
+export const ETAPAS_DEFAULT: EtapaEmbudo[] = [
+  { id: "nuevo", nombre: "Nuevos", color: "brasa", motor: "nuevo" },
+  { id: "nutriendo", nombre: "En seguimiento", color: "tibio", motor: "nutriendo" },
+  { id: "escalado", nombre: "Escalados", color: "calor", motor: "escalado" },
+  { id: "ganado", nombre: "Ganados", color: "ok", motor: "ganado" },
+  { id: "perdido", nombre: "Perdidos", color: "frio", motor: "perdido" },
+];
+// Etapa visible de un lead: su custom (si existe) o la mapeada desde el motor.
+export function etapaVisibleDe(
+  lead: { etapaEmbudo?: string | null; estado: string },
+  etapas: EtapaEmbudo[],
+): EtapaEmbudo {
+  const porId = lead.etapaEmbudo ? etapas.find((e) => e.id === lead.etapaEmbudo) : undefined;
+  if (porId) return porId;
+  return etapas.find((e) => e.motor === lead.estado) ?? etapas[0];
+}
+// Etapas del negocio (del propio o de otro tenant del usuario, para la bandeja
+// global). Nunca lanza: sin permiso o error responde las default.
+export async function obtenerEtapas(tenant?: string): Promise<EtapaEmbudo[]> {
+  try {
+    const r = await api<{ etapasEmbudo?: EtapaEmbudo[] }>("/mi-plan", { tenant });
+    return r?.etapasEmbudo?.length ? r.etapasEmbudo : ETAPAS_DEFAULT;
+  } catch {
+    return ETAPAS_DEFAULT;
+  }
+}
+export async function guardarEtapas(etapas: EtapaEmbudo[]): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/mi-plan", { method: "PATCH", body: { etapasEmbudo: etapas } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
+}
+
 export type EstadoLead = "nuevo" | "nutriendo" | "escalado" | "ganado" | "perdido";
 
 export interface Lead {
@@ -158,6 +200,9 @@ export interface Lead {
   origenEtiqueta: string | null; // de dónde vino (ej. "comentario")
   // Chatbot ON/OFF por conversación: true = el humano tomó este chat y la IA calla acá.
   botPausado?: boolean;
+  // Etapa personalizada del embudo (id en las etapas del negocio) y asignación.
+  etapaEmbudo?: string | null;
+  asignadoA?: string | null;
   creadoEn: string;
   actualizadoEn: string;
 }
@@ -345,11 +390,17 @@ export async function accionLead(
     tipo:
       | "aprobar_borrador" | "marcar_ganado" | "descartar" | "responder" | "mover_etapa"
       // Rediseño 2026-08-04: toggle del chatbot por conversación + borrador a demanda.
-      | "pausar_bot" | "activar_bot" | "sugerir_respuesta";
+      | "pausar_bot" | "activar_bot" | "sugerir_respuesta"
+      // Buzón: tomar/soltar conversación.
+      | "asignar";
     texto?: string;
     monto?: number;
     // mover_etapa: mover a mano entre etapas abiertas (o reabrir un terminal).
     etapa?: "nuevo" | "nutriendo" | "escalado";
+    // mover_etapa a una etapa PERSONALIZADA del negocio.
+    etapaId?: string;
+    // asignar: "yo" | usuarioId | null (soltar).
+    asignarA?: string | null;
   },
   tenant?: string,
 ): Promise<{ ok: boolean; error?: string; borrador?: string }> {

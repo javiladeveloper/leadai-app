@@ -13,8 +13,10 @@ import {
   actualizarLead,
   calcularComision,
   obtenerEtapas,
+  obtenerEquipo,
   etapaVisibleDe,
   ETAPAS_DEFAULT,
+  type MiembroEquipo,
   type EtapaEmbudo,
   type Lead,
   type LeadDetalle,
@@ -120,7 +122,12 @@ export default function ConversacionesPanel() {
   // suyas y no se pueden mezclar); las de la ficha siguen al lead elegido.
   const [etapasBandeja, setEtapasBandeja] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
   const [etapasFicha, setEtapasFicha] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
+  const [miembros, setMiembros] = useState<MiembroEquipo[]>([]);
   const miUsuarioId = leerSesion()?.usuario?.id ?? null;
+  // Tono del compositor (aplica al Asistente IA y a Corregir).
+  const [tono, setTono] = useState<"" | "formal" | "cercano" | "directo" | "alegre">("");
+  const [corrigiendo, setCorrigiendo] = useState(false);
+  const [etiquetaNueva, setEtiquetaNueva] = useState("");
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   // Tenant del lead seleccionado (solo en modo global): viaja explícito en
   // obtenerLead/accionLead/calcularComision, SIN cambiar la empresa activa —
@@ -251,10 +258,11 @@ export default function ConversacionesPanel() {
     setFiltroEtapa(""); // las etapas de otro negocio no aplican al filtro viejo
   }, [listo, filtroNegocio]);
 
-  // Etapas de la FICHA: las del negocio del lead elegido.
+  // Etapas de la FICHA + miembros del equipo: los del negocio del lead elegido.
   useEffect(() => {
     if (!listo) return;
     obtenerEtapas(tenantSel).then(setEtapasFicha);
+    obtenerEquipo(tenantSel).then((r) => setMiembros(r.miembros));
   }, [listo, tenantSel]);
 
   // Polling: refresca la lista y, si hay un lead seleccionado, su detalle.
@@ -300,13 +308,40 @@ export default function ConversacionesPanel() {
     if (!seleccionadoId || sugiriendo) return;
     setSugiriendo(true);
     setAccionError(null);
-    const r = await accionLead(seleccionadoId, { tipo: "sugerir_respuesta" }, tenantSel);
+    const r = await accionLead(seleccionadoId, { tipo: "sugerir_respuesta", ...(tono ? { tono } : {}) }, tenantSel);
     if (r.ok && r.borrador) {
       editarBorrador(r.borrador);
     } else {
       setAccionError(r.error ?? "No se pudo generar la sugerencia.");
     }
     setSugiriendo(false);
+  }
+
+  // "Corregir": la IA reescribe lo que el humano tiene en el campo (ortografía,
+  // claridad, tono elegido) y lo deja listo para revisar antes de enviar.
+  async function corregir() {
+    if (!seleccionadoId || !texto.trim() || corrigiendo) return;
+    setCorrigiendo(true);
+    setAccionError(null);
+    const r = await accionLead(
+      seleccionadoId,
+      { tipo: "corregir_texto", texto: texto.trim(), ...(tono ? { tono } : {}) },
+      tenantSel,
+    );
+    if (r.ok && r.texto) {
+      editarBorrador(r.texto);
+    } else {
+      setAccionError(r.error ?? "No se pudo corregir el texto.");
+    }
+    setCorrigiendo(false);
+  }
+
+  // Etiquetas del contacto (chips de la ficha).
+  async function guardarEtiquetas(nuevas: string[]) {
+    if (!seleccionadoId) return;
+    const r = await actualizarLead(seleccionadoId, { etiquetas: nuevas });
+    if (r.ok) await cargarLead(seleccionadoId, tenantSel);
+    else setAccionError("No se pudieron guardar las etiquetas.");
   }
 
   // Chatbot ON/OFF de ESTA conversación (optimista: el toggle cambia al toque).
@@ -338,12 +373,11 @@ export default function ConversacionesPanel() {
     setEnviando(false);
   }
 
-  // Tomar/soltar la conversación (Buzón: Míos / Sin asignar).
-  async function alternarAsignacion() {
+  // Asignar la conversación a un miembro (o soltar con null).
+  async function asignarA(usuarioId: string | null) {
     if (!lead || enviando) return;
-    const soltar = lead.asignadoA === miUsuarioId;
     setEnviando(true);
-    const r = await accionLead(lead.id, { tipo: "asignar", asignarA: soltar ? null : "yo" }, tenantSel);
+    const r = await accionLead(lead.id, { tipo: "asignar", asignarA: usuarioId }, tenantSel);
     if (r.ok) {
       await Promise.all([cargarLead(lead.id, tenantSel), cargarLista()]);
     } else {
@@ -782,6 +816,29 @@ export default function ConversacionesPanel() {
                   >
                     ✦ {sugiriendo ? "Pensando…" : "Asistente IA"}
                   </button>
+                  <select
+                    value={tono}
+                    onChange={(e) => setTono(e.target.value as typeof tono)}
+                    title="Tono del Asistente IA y de Corregir"
+                    className="h-12 shrink-0 rounded-full bg-arena px-2.5 text-[0.8rem] font-semibold text-tinta-2 outline-none ring-1 ring-linea"
+                  >
+                    <option value="">Tono del negocio</option>
+                    <option value="formal">Formal</option>
+                    <option value="cercano">Cercano</option>
+                    <option value="directo">Directo</option>
+                    <option value="alegre">Alegre</option>
+                  </select>
+                  {texto.trim() && (
+                    <button
+                      type="button"
+                      onClick={corregir}
+                      disabled={corrigiendo}
+                      title="La IA corrige ortografía y claridad de lo que escribiste (con el tono elegido)"
+                      className="flex h-12 shrink-0 items-center rounded-full px-3 text-[0.82rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-arena active:scale-[0.98] disabled:opacity-60"
+                    >
+                      {corrigiendo ? "Corrigiendo…" : "✓ Corregir"}
+                    </button>
+                  )}
                   <textarea
                     ref={textareaRef}
                     value={texto}
@@ -878,32 +935,78 @@ export default function ConversacionesPanel() {
                 </select>
               </div>
 
-              {/* Asignación (Buzón: Míos / Sin asignar) */}
+              {/* Asignación (Buzón: Míos / Sin asignar) — con nombres reales */}
               <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
-                      Asignación
-                    </p>
-                    <p className="mt-1 text-[0.85rem] text-tinta-2">
-                      {!lead.asignadoA
-                        ? "Sin asignar"
-                        : lead.asignadoA === miUsuarioId
-                          ? "Asignada a mí"
-                          : "Asignada a otro miembro"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={alternarAsignacion}
+                <p className="mb-1.5 text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+                  Asignación
+                </p>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={lead.asignadoA ?? ""}
+                    onChange={(e) => asignarA(e.target.value || null)}
                     disabled={enviando}
-                    className={`shrink-0 rounded-chip px-3 py-1.5 text-[0.78rem] font-bold transition active:scale-[0.98] disabled:opacity-60 ${
-                      lead.asignadoA === miUsuarioId
-                        ? "bg-arena-2 text-tinta-2 ring-1 ring-linea"
-                        : "bg-brasa text-carta"
-                    }`}
+                    className="w-full flex-1 rounded-xl bg-arena px-3 py-2 text-[0.88rem] font-semibold text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
                   >
-                    {lead.asignadoA === miUsuarioId ? "Soltar" : "Tomarla yo"}
-                  </button>
+                    <option value="">Sin asignar</option>
+                    {miembros.map((m) => (
+                      <option key={m.usuarioId} value={m.usuarioId}>
+                        {(m.nombre ?? m.email) + (m.usuarioId === miUsuarioId ? " (yo)" : "")}
+                      </option>
+                    ))}
+                    {lead.asignadoA && !miembros.some((m) => m.usuarioId === lead.asignadoA) && (
+                      <option value={lead.asignadoA}>Miembro anterior</option>
+                    )}
+                  </select>
+                  {lead.asignadoA !== miUsuarioId && miUsuarioId && (
+                    <button
+                      onClick={() => asignarA(miUsuarioId)}
+                      disabled={enviando}
+                      className="shrink-0 rounded-chip bg-brasa px-3 py-1.5 text-[0.78rem] font-bold text-carta transition active:scale-[0.98] disabled:opacity-60"
+                    >
+                      Tomarla yo
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Etiquetas del contacto (chips, estilo Clinera) */}
+              <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+                <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+                  Etiquetas
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(lead.etiquetas ?? []).map((et) => (
+                    <span
+                      key={et}
+                      className="flex items-center gap-1 rounded-chip bg-brasa/10 px-2 py-0.5 text-[0.75rem] font-bold text-brasa"
+                    >
+                      {et}
+                      <button
+                        onClick={() => guardarEtiquetas((lead.etiquetas ?? []).filter((x) => x !== et))}
+                        aria-label={`Quitar ${et}`}
+                        className="text-brasa/60 hover:text-brasa"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {(lead.etiquetas ?? []).length < 10 && (
+                    <input
+                      value={etiquetaNueva}
+                      onChange={(e) => setEtiquetaNueva(e.target.value.slice(0, 20))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && etiquetaNueva.trim()) {
+                          const nueva = etiquetaNueva.trim();
+                          if (!(lead.etiquetas ?? []).includes(nueva)) {
+                            guardarEtiquetas([...(lead.etiquetas ?? []), nueva]);
+                          }
+                          setEtiquetaNueva("");
+                        }
+                      }}
+                      placeholder="＋ agregar y Enter"
+                      className="w-32 rounded-chip bg-arena px-2 py-0.5 text-[0.75rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+                    />
+                  )}
                 </div>
               </div>
 

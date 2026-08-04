@@ -203,6 +203,8 @@ export interface Lead {
   // Etapa personalizada del embudo (id en las etapas del negocio) y asignación.
   etapaEmbudo?: string | null;
   asignadoA?: string | null;
+  // Etiquetas libres del contacto (chips de la ficha).
+  etiquetas?: string[];
   creadoEn: string;
   actualizadoEn: string;
 }
@@ -210,7 +212,7 @@ export interface Lead {
 // Edita datos manuales del lead: nombre y/o nota privada. Backend: PATCH /leads/:id.
 export async function actualizarLead(
   id: string,
-  cambios: { nombre?: string | null; nota?: string | null },
+  cambios: { nombre?: string | null; nota?: string | null; etiquetas?: string[] },
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     await api(`/leads/${id}`, { method: "PATCH", body: cambios });
@@ -392,7 +394,9 @@ export async function accionLead(
       // Rediseño 2026-08-04: toggle del chatbot por conversación + borrador a demanda.
       | "pausar_bot" | "activar_bot" | "sugerir_respuesta"
       // Buzón: tomar/soltar conversación.
-      | "asignar";
+      | "asignar"
+      // Compositor: corregir el texto escrito (ortografía/tono) sin enviarlo.
+      | "corregir_texto";
     texto?: string;
     monto?: number;
     // mover_etapa: mover a mano entre etapas abiertas (o reabrir un terminal).
@@ -401,15 +405,17 @@ export async function accionLead(
     etapaId?: string;
     // asignar: "yo" | usuarioId | null (soltar).
     asignarA?: string | null;
+    // Tono del compositor (sugerir_respuesta / corregir_texto).
+    tono?: "formal" | "cercano" | "directo" | "alegre";
   },
   tenant?: string,
-): Promise<{ ok: boolean; error?: string; borrador?: string }> {
+): Promise<{ ok: boolean; error?: string; borrador?: string; texto?: string }> {
   try {
-    const r = await api<{ ok: boolean; borrador?: string }>(
+    const r = await api<{ ok: boolean; borrador?: string; texto?: string }>(
       `/leads/${id}/acciones`,
       { method: "POST", body: accion, tenant },
     );
-    return { ok: true, borrador: r?.borrador };
+    return { ok: true, borrador: r?.borrador, texto: r?.texto };
   } catch (e) {
     return {
       ok: false,
@@ -707,8 +713,8 @@ export type RolMiembro = "owner" | "admin" | "agente";
 export interface MiembroEquipo { usuarioId: string; email: string; nombre: string | null; rol: RolMiembro }
 export interface InvitacionPendiente { id: string; email: string; rol: RolMiembro; token: string; creadoEn: string }
 
-export async function obtenerEquipo(): Promise<{ miembros: MiembroEquipo[]; invitaciones: InvitacionPendiente[] }> {
-  try { return await api("/equipo"); } catch { return { miembros: [], invitaciones: [] }; }
+export async function obtenerEquipo(tenant?: string): Promise<{ miembros: MiembroEquipo[]; invitaciones: InvitacionPendiente[] }> {
+  try { return await api("/equipo", { tenant }); } catch { return { miembros: [], invitaciones: [] }; }
 }
 
 export async function invitarMiembro(email: string, rol: "admin" | "agente"): Promise<{ ok: boolean; token?: string; correoEnviado?: boolean; error?: string }> {

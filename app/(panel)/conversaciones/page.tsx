@@ -10,10 +10,12 @@ import {
   listarBandejaGlobal,
   obtenerLead,
   accionLead,
+  actualizarLead,
   calcularComision,
   type Lead,
   type LeadDetalle,
   type Mensaje as MensajeApi,
+  type EstadoLead,
 } from "@/lib/api";
 import { usePolling } from "@/lib/usePolling";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
@@ -30,6 +32,24 @@ type Estado = "cargando" | "ok" | "error";
 // En modo global cada lead trae de qué negocio viene; en modo empresa esos
 // campos van `undefined` y todo se comporta como siempre.
 type LeadLista = Lead & { tenantId?: string; negocioNombre?: string };
+
+// Etapas del embudo (rediseño estilo bandeja 2026-08-04): etiqueta y color
+// por estado. El orden ES el del embudo.
+const ETAPAS: { id: EstadoLead; label: string; punto: string }[] = [
+  { id: "nuevo", label: "Nuevos", punto: "bg-brasa" },
+  { id: "nutriendo", label: "En seguimiento", punto: "bg-tibio" },
+  { id: "escalado", label: "Escalados", punto: "bg-calor" },
+  { id: "ganado", label: "Ganados", punto: "bg-ok" },
+  { id: "perdido", label: "Perdidos", punto: "bg-frio" },
+];
+
+const NOMBRE_CANAL: Record<string, string> = {
+  whatsapp: "WhatsApp",
+  instagram: "Instagram",
+  messenger: "Messenger",
+  tiktok: "TikTok",
+  externo: "Manual",
+};
 
 // "hace X" legible en español, a partir de minutos.
 function haceTexto(min: number): string {
@@ -76,10 +96,10 @@ function aBurbuja(m: MensajeApi): MensajeUI {
   };
 }
 
-// Pantalla principal del panel: bandeja + chat + contexto IA en 3 columnas
-// (desktop). En mobile se muestra solo la lista de leads; tocar un lead
-// navega a la conversación de la app (misma ruta que usa la fuerza de ventas
-// en el teléfono), vía el propio <Link> de TarjetaLead.
+// Pantalla principal del panel (rediseño 2026-08-04, referencia Clinera):
+// bandeja con embudo + buscador | chat con toggle del chatbot | ficha del
+// contacto. En mobile se muestra solo la lista; tocar un lead navega a la
+// conversación de la app (misma ruta que la fuerza de ventas en el teléfono).
 export default function ConversacionesPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
@@ -87,8 +107,10 @@ export default function ConversacionesPanel() {
   const [estadoLista, setEstadoLista] = useState<Estado>("cargando");
   const [leads, setLeads] = useState<LeadLista[]>([]);
   const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
-  // Filtro por negocio ("" = todos) — mismo patrón que Seguimiento.
+  // Filtros de la bandeja: negocio ("" = todos), etapa ("" = todas) y búsqueda.
   const [filtroNegocio, setFiltroNegocio] = useState("");
+  const [filtroEtapa, setFiltroEtapa] = useState<"" | EstadoLead>("");
+  const [busqueda, setBusqueda] = useState("");
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   // Tenant del lead seleccionado (solo en modo global): viaja explícito en
   // obtenerLead/accionLead/calcularComision, SIN cambiar la empresa activa —
@@ -100,6 +122,11 @@ export default function ConversacionesPanel() {
 
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [sugiriendo, setSugiriendo] = useState(false);
+  const [togglingBot, setTogglingBot] = useState(false);
+  const [notaEdit, setNotaEdit] = useState<string | null>(null); // null = no editando
+  const [descartarConfirm, setDescartarConfirm] = useState(false);
+  const [copiado, setCopiado] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dictado = useDictado((fragmento) =>
     setTexto((t) => (t ? `${t} ${fragmento}` : fragmento)),
@@ -197,6 +224,8 @@ export default function ConversacionesPanel() {
     setEstadoLead("cargando");
     setVentaAbierta(false);
     setAccionError(null);
+    setNotaEdit(null);
+    setDescartarConfirm(false);
     cargarLead(seleccionadoId, tenantSel);
   }, [seleccionadoId, tenantSel, cargarLead]);
 
@@ -207,7 +236,7 @@ export default function ConversacionesPanel() {
   // (con 10s la conversación se percibía congelada — feedback 2026-08-04).
   usePolling(() => {
     cargarLista();
-    if (seleccionadoId && !enviando) cargarLead(seleccionadoId, tenantSel);
+    if (seleccionadoId && !enviando && notaEdit === null) cargarLead(seleccionadoId, tenantSel);
   }, 4000);
 
   async function enviarRespuesta() {
@@ -237,6 +266,73 @@ export default function ConversacionesPanel() {
     setEnviando(false);
   }
 
+  // "Asistente IA" del compositor: pide un borrador al motor y lo deja en el
+  // campo de texto para editar antes de enviar (gasta 1 respuesta de IA).
+  async function pedirSugerencia() {
+    if (!seleccionadoId || sugiriendo) return;
+    setSugiriendo(true);
+    setAccionError(null);
+    const r = await accionLead(seleccionadoId, { tipo: "sugerir_respuesta" }, tenantSel);
+    if (r.ok && r.borrador) {
+      editarBorrador(r.borrador);
+    } else {
+      setAccionError(r.error ?? "No se pudo generar la sugerencia.");
+    }
+    setSugiriendo(false);
+  }
+
+  // Chatbot ON/OFF de ESTA conversación (optimista: el toggle cambia al toque).
+  async function alternarBot() {
+    if (!lead || togglingBot) return;
+    const pausar = !lead.botPausado;
+    setTogglingBot(true);
+    setLead({ ...lead, botPausado: pausar });
+    const r = await accionLead(lead.id, { tipo: pausar ? "pausar_bot" : "activar_bot" }, tenantSel);
+    if (!r.ok) {
+      setLead({ ...lead, botPausado: !pausar });
+      setAccionError(r.error ?? "No se pudo cambiar el chatbot.");
+    }
+    setTogglingBot(false);
+  }
+
+  async function moverEtapa(etapa: "nuevo" | "nutriendo" | "escalado") {
+    if (!seleccionadoId || enviando) return;
+    setEnviando(true);
+    setAccionError(null);
+    const r = await accionLead(seleccionadoId, { tipo: "mover_etapa", etapa }, tenantSel);
+    if (r.ok) {
+      await Promise.all([cargarLead(seleccionadoId, tenantSel), cargarLista()]);
+    } else {
+      setAccionError(r.error ?? "No se pudo mover de etapa.");
+    }
+    setEnviando(false);
+  }
+
+  async function descartar() {
+    if (!seleccionadoId || enviando) return;
+    setEnviando(true);
+    setAccionError(null);
+    const r = await accionLead(seleccionadoId, { tipo: "descartar" }, tenantSel);
+    if (r.ok) {
+      setDescartarConfirm(false);
+      await Promise.all([cargarLead(seleccionadoId, tenantSel), cargarLista()]);
+    } else {
+      setAccionError(r.error ?? "No se pudo descartar.");
+    }
+    setEnviando(false);
+  }
+
+  async function guardarNota() {
+    if (!seleccionadoId || notaEdit === null) return;
+    const r = await actualizarLead(seleccionadoId, { nota: notaEdit.trim() || null });
+    if (r.ok) {
+      setNotaEdit(null);
+      await cargarLead(seleccionadoId, tenantSel);
+    } else {
+      setAccionError("No se pudo guardar la nota.");
+    }
+  }
+
   async function registrarVenta() {
     if (!seleccionadoId || enviando) return;
     const monto = Number(montoVenta);
@@ -258,110 +354,136 @@ export default function ConversacionesPanel() {
     setEnviando(false);
   }
 
+  function copiarContacto() {
+    if (!lead) return;
+    navigator.clipboard?.writeText(lead.contactoExterno).then(() => {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1500);
+    });
+  }
+
   if (!listo) return null;
 
   const listaVacia = estadoLista === "ok" && leads.length === 0;
-  // Filtro por negocio en cliente (los leads ya traen su tenantId).
-  const leadsVisibles = filtroNegocio
+  // Filtros en cliente: negocio → etapa → búsqueda (los contadores del embudo
+  // se calculan DESPUÉS del filtro de negocio, para que cuadren con lo visible).
+  const porNegocio = filtroNegocio
     ? leads.filter((l) => l.tenantId === filtroNegocio)
     : leads;
+  const conteoEtapa = (id: EstadoLead) => porNegocio.filter((l) => l.estado === id).length;
+  const q = busqueda.trim().toLowerCase();
+  const leadsVisibles = porNegocio
+    .filter((l) => (filtroEtapa ? l.estado === filtroEtapa : true))
+    .filter((l) =>
+      q
+        ? (l.nombre ?? "").toLowerCase().includes(q) || l.contactoExterno.toLowerCase().includes(q)
+        : true,
+    );
 
-  return (
-    <div className="flex min-h-full flex-col">
-      {/* Mobile (<lg): solo la lista, a ancho completo. Tocar un lead navega
-          a /conversacion/[id] (el TarjetaLead ya es un Link). */}
-      <div className="flex-1 space-y-3 overflow-y-auto p-4 lg:hidden">
-        <BarraNegociosGlobal
-          negocios={negocios}
-          enfocado={filtroNegocio}
-          onElegir={setFiltroNegocio}
-          todosLabel="Todos"
-        />
-        {estadoLista === "cargando" && <SkeletonLista filas={5} />}
-        {estadoLista === "error" && (
-          <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-            <p className="font-semibold text-tinta">No pudimos cargar tus conversaciones. Recargá.</p>
-          </div>
-        )}
-        {listaVacia && (
-          <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-            <p className="text-[1.05rem] font-bold text-tinta">
-              Aún no tenés conversaciones. Conectá WhatsApp para empezar
-            </p>
-            <Link
-              href="/configuracion"
-              className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-carta transition active:scale-[0.99]"
-            >
-              Conectar WhatsApp
-            </Link>
-          </div>
-        )}
-        {estadoLista === "ok" &&
-          leadsVisibles.map((l) => (
-            // Mobile navega a /conversacion/[id] (Link interno): si el lead es
-            // de otro negocio, adopta su empresa antes de entrar ("clavado").
+  const etapaDe = (id: EstadoLead) => ETAPAS.find((e) => e.id === id)!;
+
+  // Bandeja (columna 1 desktop / pantalla completa mobile): buscador + embudo +
+  // chips de negocio + tarjetas. `enMobile` cambia el destino del clic.
+  const bandeja = (enMobile: boolean) => (
+    <>
+      <input
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder="Buscar por nombre o teléfono…"
+        className="w-full rounded-xl bg-carta px-3.5 py-2 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+      />
+
+      {/* Embudo con contadores: clic filtra por etapa (clic de nuevo = quitar) */}
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          onClick={() => setFiltroEtapa("")}
+          className={`rounded-chip px-2.5 py-1 text-[0.75rem] font-bold transition ${
+            filtroEtapa === "" ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+          }`}
+        >
+          Todos {porNegocio.length}
+        </button>
+        {ETAPAS.map((e) => (
+          <button
+            key={e.id}
+            onClick={() => setFiltroEtapa(filtroEtapa === e.id ? "" : e.id)}
+            className={`flex items-center gap-1.5 rounded-chip px-2.5 py-1 text-[0.75rem] font-bold transition ${
+              filtroEtapa === e.id ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${e.punto}`} />
+            {e.label} {conteoEtapa(e.id)}
+          </button>
+        ))}
+      </div>
+
+      <BarraNegociosGlobal
+        negocios={negocios}
+        enfocado={filtroNegocio}
+        onElegir={setFiltroNegocio}
+        todosLabel="Todos"
+      />
+      {estadoLista === "cargando" && <SkeletonLista filas={5} />}
+      {estadoLista === "error" && (
+        <div className="rounded-tarjeta bg-carta p-4 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+          <p className="text-[0.9rem] font-semibold text-tinta">No pudimos cargar la lista. Recargá.</p>
+        </div>
+      )}
+      {listaVacia && (
+        <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+          <p className="text-[0.95rem] font-bold text-tinta">
+            Aún no tenés conversaciones. Conectá WhatsApp para empezar
+          </p>
+          <Link
+            href="/configuracion"
+            className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-carta transition active:scale-[0.99]"
+          >
+            Conectar WhatsApp
+          </Link>
+        </div>
+      )}
+      {estadoLista === "ok" && !listaVacia && leadsVisibles.length === 0 && (
+        <p className="px-1 py-3 text-center text-[0.85rem] text-frio">
+          Nada por acá con esos filtros.
+        </p>
+      )}
+      {estadoLista === "ok" &&
+        leadsVisibles.map((l) => {
+          const activo = !enMobile && l.id === seleccionadoId;
+          return (
             <div
               key={l.id}
-              onClickCapture={() => {
-                if (l.tenantId) guardarEmpresaActiva(l.tenantId);
+              // Desktop: CAPTURA (no bubble) — el preventDefault corre ANTES
+              // del onClick interno del <Link> de TarjetaLead; en bubble el
+              // Link ya navegó. Mobile: navega (adoptando la empresa del lead).
+              onClickCapture={(e) => {
+                if (enMobile) {
+                  if (l.tenantId) guardarEmpresaActiva(l.tenantId);
+                  return;
+                }
+                e.preventDefault();
+                e.stopPropagation();
+                seleccionar(l);
               }}
+              className={activo ? "rounded-tarjeta ring-2 ring-brasa" : ""}
             >
               <TarjetaLead lead={aTarjeta(l, negocios.length > 1)} />
             </div>
-          ))}
-      </div>
+          );
+        })}
+    </>
+  );
 
-      {/* Desktop (lg+): 3 columnas */}
+  return (
+    <div className="flex min-h-full flex-col">
+      {/* Mobile (<lg): solo la bandeja, a ancho completo. */}
+      <div className="flex-1 space-y-3 overflow-y-auto p-4 lg:hidden">{bandeja(true)}</div>
+
+      {/* Desktop (lg+): bandeja | chat | ficha */}
       <div className="hidden flex-1 overflow-hidden lg:grid lg:grid-cols-[320px_1fr_300px]">
-        {/* Columna 1: lista de leads. Acá el clic selecciona (no navega), por
-            eso interceptamos el click del Link con preventDefault. */}
+        {/* Columna 1: bandeja */}
         <div className="flex flex-col gap-2.5 overflow-y-auto border-r border-linea p-3">
-          <BarraNegociosGlobal
-            negocios={negocios}
-            enfocado={filtroNegocio}
-            onElegir={setFiltroNegocio}
-            todosLabel="Todos"
-          />
-          {estadoLista === "cargando" && <SkeletonLista filas={5} />}
-          {estadoLista === "error" && (
-            <div className="rounded-tarjeta bg-carta p-4 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-              <p className="text-[0.9rem] font-semibold text-tinta">No pudimos cargar la lista.</p>
-            </div>
-          )}
-          {listaVacia && (
-            <div className="rounded-tarjeta bg-carta p-4 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-              <p className="text-[0.9rem] font-bold text-tinta">
-                Aún no tenés conversaciones. Conectá WhatsApp para empezar
-              </p>
-              <Link
-                href="/configuracion"
-                className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-carta transition active:scale-[0.99]"
-              >
-                Conectar WhatsApp
-              </Link>
-            </div>
-          )}
-          {estadoLista === "ok" &&
-            leadsVisibles.map((l) => {
-              const activo = l.id === seleccionadoId;
-              return (
-                <div
-                  key={l.id}
-                  // CAPTURA (no bubble): el preventDefault tiene que correr
-                  // ANTES del onClick interno del <Link> de TarjetaLead — en
-                  // bubble el Link ya navegó y el click "se iba a otra
-                  // pantalla" en vez de abrir el chat en la columna del medio.
-                  onClickCapture={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    seleccionar(l);
-                  }}
-                  className={activo ? "rounded-tarjeta ring-2 ring-brasa" : ""}
-                >
-                  <TarjetaLead lead={aTarjeta(l, negocios.length > 1)} />
-                </div>
-              );
-            })}
+          {bandeja(false)}
         </div>
 
         {/* Columna 2: chat */}
@@ -374,14 +496,47 @@ export default function ConversacionesPanel() {
           )}
           {estadoLead === "ok" && lead ? (
             <>
-              {/* Resumen de la IA */}
-              {lead.resumenIA && (
-                <section className="border-b border-linea bg-tibio-suave/60 px-4 py-3">
-                  <p className="mb-1.5 text-[0.75rem] font-bold uppercase tracking-wide text-tibio">
-                    Lo que la IA entendió
-                  </p>
-                  <p className="text-[0.9rem] text-tinta">{lead.resumenIA}</p>
-                </section>
+              {/* Header del chat: quién es + etapa + toggle del chatbot */}
+              <header className="flex items-center justify-between gap-3 border-b border-linea bg-carta px-4 py-2.5">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-[0.98rem] font-bold text-tinta">
+                      {lead.nombre ?? lead.contactoExterno}
+                    </p>
+                    <p className="flex items-center gap-1.5 text-[0.75rem] text-frio">
+                      <span className={`h-1.5 w-1.5 rounded-full ${etapaDe(lead.estado).punto}`} />
+                      {etapaDe(lead.estado).label.replace(/s$/, "")}
+                      <span>· {NOMBRE_CANAL[lead.canalOrigen] ?? lead.canalOrigen}</span>
+                    </p>
+                  </div>
+                  <ChipTemp t={lead.nivelInteres} />
+                </div>
+                <button
+                  onClick={alternarBot}
+                  disabled={togglingBot}
+                  title={
+                    lead.botPausado
+                      ? "Lidia está en pausa en este chat: lo atendés vos. Tocá para reactivarla."
+                      : "Lidia responde sola en este chat. Tocá para tomarlo vos."
+                  }
+                  className={`flex shrink-0 items-center gap-2 rounded-chip px-3 py-1.5 text-[0.78rem] font-bold transition active:scale-[0.98] ${
+                    lead.botPausado
+                      ? "bg-arena-2 text-tinta-2 ring-1 ring-linea"
+                      : "bg-brasa text-carta"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${lead.botPausado ? "bg-frio" : "bg-carta animate-pulse"}`}
+                  />
+                  {lead.botPausado ? "Chatbot OFF" : "Chatbot ON"}
+                </button>
+              </header>
+
+              {/* Aviso cuando el humano tomó el chat */}
+              {lead.botPausado && (
+                <p className="border-b border-linea bg-arena-2/70 px-4 py-1.5 text-[0.75rem] font-semibold text-tinta-2">
+                  Estás atendiendo esta conversación — Lidia no responde hasta que la reactives.
+                </p>
               )}
 
               {/* Burbujas del chat */}
@@ -390,7 +545,14 @@ export default function ConversacionesPanel() {
                   <p className="text-center text-frio">Todavía no hay mensajes en esta conversación.</p>
                 )}
                 {lead.mensajes.map((m) => (
-                  <Burbuja key={m.id} m={aBurbuja(m)} />
+                  <div key={m.id}>
+                    <Burbuja m={aBurbuja(m)} />
+                    {m.direccion === "saliente" && m.estado === "fallido" && (
+                      <p className="mt-0.5 text-right text-[0.72rem] font-semibold text-calor">
+                        ⚠️ No se pudo entregar — revisá el canal en Configuración
+                      </p>
+                    )}
+                  </div>
                 ))}
 
                 {/* Borrador listo para enviar */}
@@ -423,9 +585,18 @@ export default function ConversacionesPanel() {
                 <p className="px-4 pb-1 text-[0.8rem] font-semibold text-brasa">{accionError}</p>
               )}
 
-              {/* Campo de envío */}
+              {/* Compositor: asistente IA + texto + dictado + enviar */}
               <div className="border-t border-linea bg-carta px-3 py-2.5">
                 <div className="flex items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={pedirSugerencia}
+                    disabled={sugiriendo}
+                    title="La IA escribe un borrador con todo el contexto; lo editás antes de enviar"
+                    className="flex h-12 shrink-0 items-center gap-1.5 rounded-full bg-tibio-suave px-3.5 text-[0.82rem] font-bold text-tibio ring-1 ring-tibio/30 transition hover:brightness-95 active:scale-[0.98] disabled:opacity-60"
+                  >
+                    ✦ {sugiriendo ? "Pensando…" : "Asistente IA"}
+                  </button>
                   <textarea
                     ref={textareaRef}
                     value={texto}
@@ -475,21 +646,62 @@ export default function ConversacionesPanel() {
           ) : null}
         </div>
 
-        {/* Columna 3: contexto IA + acciones */}
-        <div className="flex flex-col overflow-y-auto border-l border-linea p-4">
+        {/* Columna 3: ficha del contacto */}
+        <div className="flex flex-col gap-4 overflow-y-auto border-l border-linea p-4">
           {estadoLead === "ok" && lead ? (
             <>
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[1.05rem] font-bold text-tinta">
-                  {lead.nombre ?? lead.contactoExterno}
-                </h2>
-                <ChipTemp t={lead.nivelInteres} />
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-[1.05rem] font-bold text-tinta">
+                    {lead.nombre ?? lead.contactoExterno}
+                  </h2>
+                  <ChipTemp t={lead.nivelInteres} />
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="text-[0.82rem] text-frio">{lead.contactoExterno}</p>
+                  <button
+                    onClick={copiarContacto}
+                    className="rounded-chip bg-arena px-2 py-0.5 text-[0.7rem] font-bold text-tinta-2 ring-1 ring-linea transition active:scale-[0.97]"
+                  >
+                    {copiado ? "✓ Copiado" : "Copiar"}
+                  </button>
+                </div>
+                <p className="mt-1 text-[0.75rem] text-frio">
+                  {NOMBRE_CANAL[lead.canalOrigen] ?? lead.canalOrigen}
+                  {(lead as LeadLista).negocioNombre ? ` · ${(lead as LeadLista).negocioNombre}` : ""}
+                  {lead.origenEtiqueta ? ` · vino de: ${lead.origenEtiqueta}` : ""}
+                </p>
               </div>
-              <p className="mt-0.5 text-[0.8rem] text-frio">{lead.contactoExterno}</p>
 
-              <div className="mt-4 rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+              {/* Etapa del embudo, editable (mover_etapa / reabrir) */}
+              <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+                <p className="mb-1.5 text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+                  Etapa del embudo
+                </p>
+                <select
+                  value={["ganado", "perdido"].includes(lead.estado) ? "" : lead.estado}
+                  onChange={(e) => {
+                    const v = e.target.value as "nuevo" | "nutriendo" | "escalado" | "";
+                    if (v) moverEtapa(v);
+                  }}
+                  disabled={enviando}
+                  className="w-full rounded-xl bg-arena px-3 py-2 text-[0.9rem] font-semibold text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+                >
+                  {["ganado", "perdido"].includes(lead.estado) && (
+                    <option value="">
+                      {lead.estado === "ganado" ? "✓ Ganado" : "✕ Perdido"} — reabrir en…
+                    </option>
+                  )}
+                  <option value="nuevo">Nuevo</option>
+                  <option value="nutriendo">En seguimiento</option>
+                  <option value="escalado">Escalado (lo atiende un humano)</option>
+                </select>
+              </div>
+
+              {/* Contexto IA */}
+              <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-tibio">
-                  Contexto IA
+                  Lo que la IA entendió
                 </p>
                 <p className="text-[0.85rem] text-tinta">
                   {lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead."}
@@ -499,7 +711,53 @@ export default function ConversacionesPanel() {
                 </p>
               </div>
 
-              <div className="mt-4 flex flex-col gap-2">
+              {/* Nota privada de la vendedora */}
+              <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+                    Tu nota (privada)
+                  </p>
+                  {notaEdit === null && (
+                    <button
+                      onClick={() => setNotaEdit(lead.nota ?? "")}
+                      className="text-[0.75rem] font-bold text-brasa"
+                    >
+                      {lead.nota ? "Editar" : "Agregar"}
+                    </button>
+                  )}
+                </div>
+                {notaEdit === null ? (
+                  <p className="text-[0.85rem] text-tinta-2">
+                    {lead.nota ?? "Sin nota. El cliente nunca la ve."}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <textarea
+                      value={notaEdit}
+                      onChange={(e) => setNotaEdit(e.target.value)}
+                      rows={3}
+                      className="w-full resize-none rounded-xl bg-arena px-3 py-2 text-[0.85rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={guardarNota}
+                        className="flex-1 rounded-chip bg-brasa py-1.5 text-[0.8rem] font-bold text-carta active:scale-[0.99]"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        onClick={() => setNotaEdit(null)}
+                        className="flex-1 rounded-chip bg-arena-2 py-1.5 text-[0.8rem] font-bold text-tinta-2 active:scale-[0.99]"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Cierre: venta / descartar */}
+              <div className="flex flex-col gap-2">
                 {lead.estado === "ganado" ? (
                   <div className="rounded-tarjeta bg-ok/10 p-3.5 ring-1 ring-ok/30">
                     <p className="text-[0.9rem] font-bold text-ok">✓ Venta registrada</p>
@@ -549,6 +807,33 @@ export default function ConversacionesPanel() {
                   >
                     Registrar venta
                   </button>
+                )}
+
+                {lead.estado !== "perdido" && lead.estado !== "ganado" && (
+                  descartarConfirm ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={descartar}
+                        disabled={enviando}
+                        className="flex-1 rounded-chip bg-calor py-2 text-[0.82rem] font-bold text-carta active:scale-[0.99] disabled:opacity-60"
+                      >
+                        Sí, descartar
+                      </button>
+                      <button
+                        onClick={() => setDescartarConfirm(false)}
+                        className="flex-1 rounded-chip bg-arena-2 py-2 text-[0.82rem] font-bold text-tinta-2 active:scale-[0.99]"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setDescartarConfirm(true)}
+                      className="rounded-chip py-2 text-[0.82rem] font-bold text-frio transition hover:text-calor"
+                    >
+                      Descartar este lead
+                    </button>
+                  )
                 )}
               </div>
             </>

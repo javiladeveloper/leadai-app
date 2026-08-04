@@ -156,6 +156,8 @@ export interface Lead {
   borradorIA: string | null;
   nota: string | null;
   origenEtiqueta: string | null; // de dónde vino (ej. "comentario")
+  // Chatbot ON/OFF por conversación: true = el humano tomó este chat y la IA calla acá.
+  botPausado?: boolean;
   creadoEn: string;
   actualizadoEn: string;
 }
@@ -179,6 +181,9 @@ export interface Mensaje {
   contenido: string;
   canal: string;
   creadoEn: string;
+  // Estado del envío ('enviado' | 'fallido'): el panel marca los fallidos.
+  estado?: string;
+  origen?: string; // ia | ia_aprobada | ia_editada | humano | fija | sistema
 }
 
 export interface LeadDetalle extends Lead {
@@ -337,17 +342,23 @@ export async function obtenerLead(id: string, tenant?: string): Promise<LeadDeta
 export async function accionLead(
   id: string,
   accion: {
-    tipo: "aprobar_borrador" | "marcar_ganado" | "descartar" | "responder" | "mover_etapa";
+    tipo:
+      | "aprobar_borrador" | "marcar_ganado" | "descartar" | "responder" | "mover_etapa"
+      // Rediseño 2026-08-04: toggle del chatbot por conversación + borrador a demanda.
+      | "pausar_bot" | "activar_bot" | "sugerir_respuesta";
     texto?: string;
     monto?: number;
     // mover_etapa: mover a mano entre etapas abiertas (o reabrir un terminal).
     etapa?: "nuevo" | "nutriendo" | "escalado";
   },
   tenant?: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; borrador?: string }> {
   try {
-    await api(`/leads/${id}/acciones`, { method: "POST", body: accion, tenant });
-    return { ok: true };
+    const r = await api<{ ok: boolean; borrador?: string }>(
+      `/leads/${id}/acciones`,
+      { method: "POST", body: accion, tenant },
+    );
+    return { ok: true, borrador: r?.borrador };
   } catch (e) {
     return {
       ok: false,

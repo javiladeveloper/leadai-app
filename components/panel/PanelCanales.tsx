@@ -137,7 +137,7 @@ export function PanelCanales() {
                   ))}
                 </div>
               )}
-              <ConectarWhatsApp onConectado={cargar} />
+              <ConectarWhatsApp onConectado={cargar} otroNumero={conexiones.length > 0} />
             </div>
           ) : (
             <>

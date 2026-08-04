@@ -124,11 +124,12 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
     cargar();
   }, [listo, cargar]);
 
-  // Polling: refresca el lead mientras no haya una acción en curso.
+  // Polling: refresca el lead mientras no haya una acción en curso. 4s para
+  // que la respuesta del bot se sienta en vivo (10s se percibía "congelado").
   usePolling(() => {
     if (enviando) return;
     cargar();
-  }, 10000);
+  }, 4000);
 
   async function enviarRespuesta() {
     if (!texto.trim() || enviando) return;

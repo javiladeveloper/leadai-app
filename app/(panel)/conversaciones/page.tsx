@@ -203,10 +203,12 @@ export default function ConversacionesPanel() {
   // Polling: refresca la lista y, si hay un lead seleccionado, su detalle.
   // Si hay una acción en curso (enviando) no refrescamos el lead seleccionado
   // para no pisar el estado optimista mientras la acción todavía no terminó.
+  // 4s: que el mensaje entrante y la respuesta del bot se sientan EN VIVO
+  // (con 10s la conversación se percibía congelada — feedback 2026-08-04).
   usePolling(() => {
     cargarLista();
     if (seleccionadoId && !enviando) cargarLead(seleccionadoId, tenantSel);
-  }, 10000);
+  }, 4000);
 
   async function enviarRespuesta() {
     if (!seleccionadoId || !texto.trim() || enviando) return;

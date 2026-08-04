@@ -33,7 +33,13 @@ function origenConfiable(origin: string): boolean {
   }
 }
 
-export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => void }) {
+export default function ConectarWhatsApp({
+  onConectado,
+  otroNumero = false, // ya hay número(s) conectado(s): el botón pasa a secundario
+}: {
+  onConectado?: () => void;
+  otroNumero?: boolean;
+}) {
   const [estado, setEstado] = useState<Estado>("idle");
   const [error, setError] = useState("");
   // Datos que el popup entrega vía postMessage (wabaId/phoneNumberId).
@@ -140,9 +146,19 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
         type="button"
         onClick={() => conectar("nuevo")}
         disabled={estado === "abriendo" || estado === "conectando"}
-        className="rounded-full bg-ok px-5 py-2.5 text-sm font-semibold text-carta transition hover:brightness-95 disabled:opacity-60"
+        className={
+          otroNumero
+            ? "rounded-full px-5 py-2 text-sm font-semibold text-ok ring-1 ring-ok/40 transition hover:bg-ok/10 disabled:opacity-60"
+            : "rounded-full bg-ok px-5 py-2.5 text-sm font-semibold text-carta transition hover:brightness-95 disabled:opacity-60"
+        }
       >
-        {estado === "conectando" ? "Conectando…" : estado === "abriendo" ? "Abriendo Meta…" : "Conectar WhatsApp"}
+        {estado === "conectando"
+          ? "Conectando…"
+          : estado === "abriendo"
+            ? "Abriendo Meta…"
+            : otroNumero
+              ? "＋ Conectar otro número"
+              : "Conectar WhatsApp"}
       </button>
       <button
         type="button"

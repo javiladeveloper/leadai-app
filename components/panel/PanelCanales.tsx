@@ -5,6 +5,7 @@ import {
   listarCanales, obtenerUrlOAuth, actualizarCanal,
   type Canal, type TipoCanal,
 } from "@/lib/api";
+import { leerSesion, leerEmpresaActiva } from "@/lib/auth";
 import { IconoWhatsApp, IconoInstagram, IconoMessenger, IconoTikTok } from "@/components/Iconos";
 import ConectarWhatsApp from "@/components/ConectarWhatsApp";
 
@@ -107,9 +108,37 @@ export function PanelCanales() {
         </div>
 
         <div className="mt-5">
-          {/* WhatsApp: su propio componente de conexión */}
+          {/* WhatsApp: su propio componente de conexión + cuentas conectadas */}
           {red.tipo === "whatsapp" ? (
-            <ConectarWhatsApp />
+            <div className="space-y-4">
+              {conexiones.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">Números conectados</p>
+                  {conexiones.map((c) => (
+                    <div key={c.id} className="space-y-3 rounded-lg bg-arena/40 px-3.5 py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[0.9rem] font-semibold text-tinta">{c.nombre || c.cuentaExterna}</p>
+                          <p className="truncate text-[0.75rem] text-frio">
+                            conectado el {new Date(c.creadoEn).toLocaleDateString("es-PE")}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => alternar(c)}
+                          className={`shrink-0 rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
+                            c.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
+                          }`}
+                        >
+                          {c.activo ? "Activo" : "Apagado"}
+                        </button>
+                      </div>
+                      <CompartirCanal canal={c} onGuardado={cargar} />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <ConectarWhatsApp onConectado={cargar} />
+            </div>
           ) : (
             <>
               {/* Conexiones existentes de esta red */}
@@ -156,6 +185,73 @@ export function PanelCanales() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Compartir un número con otros negocios del mismo dueño (caso vendedora
+// multiempresa): el ruteo lo decide el backend (continuidad → IA → pregunta).
+function CompartirCanal({ canal, onGuardado }: { canal: Canal; onGuardado: () => void }) {
+  const empresaActiva = leerEmpresaActiva();
+  const otras = (leerSesion()?.empresas ?? []).filter((e) => e.tenantId !== empresaActiva);
+  const [abierto, setAbierto] = useState(false);
+  const [marcadas, setMarcadas] = useState<string[]>(canal.compartirCon ?? []);
+  const [guardando, setGuardando] = useState(false);
+  if (otras.length === 0) return null;
+
+  const compartidoCon = (canal.compartirCon ?? []).length;
+
+  async function guardar() {
+    setGuardando(true);
+    await actualizarCanal(canal.id, { compartirCon: marcadas });
+    setGuardando(false);
+    setAbierto(false);
+    onGuardado();
+  }
+
+  return (
+    <div className="border-t border-linea/60 pt-2.5">
+      <button
+        type="button"
+        onClick={() => setAbierto(!abierto)}
+        className="text-[0.78rem] font-semibold text-frio underline underline-offset-2 hover:text-tinta"
+      >
+        {compartidoCon > 0
+          ? `Este número atiende ${compartidoCon + 1} negocios · editar`
+          : "¿Este número también atiende otros de tus negocios? Compartilo →"}
+      </button>
+      {abierto && (
+        <div className="mt-2.5 space-y-2">
+          <p className="text-[0.75rem] text-frio">
+            Los mensajes que lleguen a este número se atenderán según el negocio del que pregunte
+            el cliente (LeadAI lo detecta sola, y si no queda claro, le ofrece la lista).
+          </p>
+          {otras.map((e) => (
+            <label key={e.tenantId} className="flex items-center gap-2 text-[0.85rem] text-tinta">
+              <input
+                type="checkbox"
+                checked={marcadas.includes(e.tenantId)}
+                onChange={(ev) =>
+                  setMarcadas(
+                    ev.target.checked
+                      ? [...marcadas, e.tenantId]
+                      : marcadas.filter((t) => t !== e.tenantId),
+                  )
+                }
+              />
+              {e.nombre}
+            </label>
+          ))}
+          <button
+            type="button"
+            onClick={guardar}
+            disabled={guardando}
+            className="rounded-full bg-brasa px-4 py-1.5 text-[0.8rem] font-semibold text-carta transition hover:brightness-95 disabled:opacity-60"
+          >
+            {guardando ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

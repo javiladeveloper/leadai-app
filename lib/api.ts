@@ -787,6 +787,9 @@ export interface Canal {
   nombre: string | null;
   activo: boolean;
   creadoEn: string;
+  // Canal COMPARTIDO: ids de otros negocios del dueño que atienden por este
+  // mismo número (vacío = dedicado a este negocio).
+  compartirCon: string[];
 }
 
 export async function listarCanales(): Promise<Canal[]> {
@@ -801,9 +804,9 @@ export async function obtenerUrlOAuth(tipo: TipoCanal): Promise<string | null> {
   } catch { return null; }
 }
 
-// Activar/desactivar o renombrar un canal conectado.
+// Activar/desactivar, renombrar o compartir un canal conectado.
 export async function actualizarCanal(
-  id: string, cambios: { activo?: boolean; nombre?: string },
+  id: string, cambios: { activo?: boolean; nombre?: string; compartirCon?: string[] },
 ): Promise<{ ok: boolean }> {
   try { await api(`/canales/${id}`, { method: "PATCH", body: cambios }); return { ok: true }; }
   catch { return { ok: false }; }

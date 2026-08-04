@@ -497,7 +497,7 @@ export default function ConversacionesPanel() {
           </div>
         )}
 
-        <div className="grid flex-1 overflow-hidden lg:grid-cols-[210px_300px_1fr_290px]">
+        <div className="grid flex-1 overflow-hidden lg:grid-cols-[210px_300px_1fr_auto]">
           {/* Columna 1: BUZÓN — etapas del embudo en vertical con contadores */}
           <div className="flex flex-col gap-1 overflow-y-auto border-r border-linea bg-carta p-3">
             <p className="px-2 pb-1 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
@@ -769,8 +769,21 @@ export default function ConversacionesPanel() {
           ) : null}
         </div>
 
-        {/* Columna 4: ficha del contacto */}
-        <div className="flex flex-col gap-4 overflow-y-auto border-l border-linea p-4">
+        {/* Columna 4: ficha del contacto — RETRÁCTIL: colapsada a un riel de
+            44px; se expande al pasar el mouse (o mientras un campo suyo tiene
+            el foco, para no cerrarse mientras escribís la nota). */}
+        <div className="group relative w-11 shrink-0 overflow-hidden border-l border-linea bg-carta transition-[width] duration-200 ease-out hover:w-[290px] focus-within:w-[290px]">
+          {/* Riel colapsado */}
+          <div className="flex flex-col items-center gap-3 pt-4 transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-arena text-[0.85rem] font-bold text-tinta-2 ring-1 ring-linea">
+              {(lead?.nombre ?? lead?.contactoExterno ?? "?").trim().charAt(0).toUpperCase()}
+            </span>
+            <span className="text-[0.68rem] font-bold uppercase tracking-widest text-frio [writing-mode:vertical-rl]">
+              Ficha del contacto
+            </span>
+          </div>
+          {/* Contenido expandido */}
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex w-[290px] flex-col gap-4 overflow-y-auto p-4 opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
           {estadoLead === "ok" && lead ? (
             <>
               <div>
@@ -963,6 +976,7 @@ export default function ConversacionesPanel() {
           ) : (
             <p className="text-frio">Sin conversación seleccionada.</p>
           )}
+          </div>
         </div>
         </div>
       </div>

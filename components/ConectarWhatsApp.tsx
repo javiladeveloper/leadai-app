@@ -74,7 +74,11 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
-  function conectar() {
+  // modo "nuevo": número limpio (el flujo estándar). modo "coexistencia":
+  // el número YA vive en la app de WhatsApp Business del celular y se conecta
+  // SIN borrarla (featureType whatsapp_business_app_onboarding — el asistente
+  // pide escanear un QR desde la app; el número sigue funcionando en ambos).
+  function conectar(modo: "nuevo" | "coexistencia" = "nuevo") {
     if (!window.FB) { setEstado("error"); setError("El conector de Meta aún no cargó. Recargá la página."); return; }
     if (!CONFIG_ID) { setEstado("error"); setError("Falta configurar el conector de WhatsApp."); return; }
     setEstado("abriendo");
@@ -107,7 +111,11 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
         config_id: CONFIG_ID,
         response_type: "code",
         override_default_response_type: true,
-        extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
+        extras: {
+          setup: {},
+          featureType: modo === "coexistencia" ? "whatsapp_business_app_onboarding" : "",
+          sessionInfoVersion: "3",
+        },
       },
     );
   }
@@ -130,11 +138,19 @@ export default function ConectarWhatsApp({ onConectado }: { onConectado?: () => 
     <div className="space-y-2">
       <button
         type="button"
-        onClick={conectar}
+        onClick={() => conectar("nuevo")}
         disabled={estado === "abriendo" || estado === "conectando"}
         className="rounded-full bg-ok px-5 py-2.5 text-sm font-semibold text-carta transition hover:brightness-95 disabled:opacity-60"
       >
         {estado === "conectando" ? "Conectando…" : estado === "abriendo" ? "Abriendo Meta…" : "Conectar WhatsApp"}
+      </button>
+      <button
+        type="button"
+        onClick={() => conectar("coexistencia")}
+        disabled={estado === "abriendo" || estado === "conectando"}
+        className="block text-left text-sm text-frio underline underline-offset-2 transition hover:text-tinta disabled:opacity-60"
+      >
+        ¿Ya usás WhatsApp Business en tu celular? Conectalo sin borrar la app →
       </button>
       {estado === "cancelado" && <p className="text-sm text-frio">Conexión cancelada.</p>}
       {estado === "error" && <p className="text-sm text-brasa">{error}</p>}

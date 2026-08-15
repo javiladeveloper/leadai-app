@@ -880,6 +880,13 @@ export async function actualizarCanal(
   catch { return { ok: false }; }
 }
 
+// Desconectar (eliminar) un canal. Las conversaciones y leads NO se borran:
+// solo se quita la conexión con la red.
+export async function eliminarCanal(id: string): Promise<{ ok: boolean }> {
+  try { await api(`/canales/${id}`, { method: "DELETE" }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
 // ── Comentarios como leads (Fase 1 embudo) ──────────────────────
 export interface Comentario {
   id: string;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  listarCanales, obtenerUrlOAuth, actualizarCanal,
+  listarCanales, obtenerUrlOAuth, actualizarCanal, eliminarCanal,
   type Canal, type TipoCanal,
 } from "@/lib/api";
 import { leerSesion, leerEmpresaActiva } from "@/lib/auth";
@@ -56,6 +56,19 @@ export function PanelCanales() {
 
   async function alternar(c: Canal) {
     await actualizarCanal(c.id, { activo: !c.activo });
+    cargar();
+  }
+
+  // Desconecta (elimina) la conexión con la red. Los leads y conversaciones
+  // quedan intactos: solo se quita el enlace, y se puede volver a conectar.
+  async function desconectar(c: Canal) {
+    const seguro = window.confirm(
+      `¿Desconectar ${c.nombre || c.cuentaExterna}?\n\n` +
+        "La cuenta deja de estar conectada a LeadAI (el bot ya no atenderá por acá). " +
+        "Tus conversaciones y leads NO se borran, y podés volver a conectarla cuando quieras.",
+    );
+    if (!seguro) return;
+    await eliminarCanal(c.id);
     cargar();
   }
 
@@ -123,14 +136,23 @@ export function PanelCanales() {
                             conectado el {new Date(c.creadoEn).toLocaleDateString("es-PE")}
                           </p>
                         </div>
-                        <button
-                          onClick={() => alternar(c)}
-                          className={`shrink-0 rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
-                            c.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
-                          }`}
-                        >
-                          {c.activo ? "Activo" : "Apagado"}
-                        </button>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            onClick={() => alternar(c)}
+                            className={`rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
+                              c.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
+                            }`}
+                          >
+                            {c.activo ? "Activo" : "Apagado"}
+                          </button>
+                          <button
+                            onClick={() => desconectar(c)}
+                            title="Desconectar este número de LeadAI"
+                            className="rounded-chip px-2 py-1 text-[0.72rem] font-semibold text-frio transition hover:bg-calor/10 hover:text-calor"
+                          >
+                            Desconectar
+                          </button>
+                        </div>
                       </div>
                       <CompartirCanal canal={c} onGuardado={cargar} />
                     </div>
@@ -155,14 +177,23 @@ export function PanelCanales() {
                           {c.cuentaExterna} · conectada el {new Date(c.creadoEn).toLocaleDateString("es-PE")}
                         </p>
                       </div>
-                      <button
-                        onClick={() => alternar(c)}
-                        className={`shrink-0 rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
-                          c.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
-                        }`}
-                      >
-                        {c.activo ? "Activo" : "Apagado"}
-                      </button>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          onClick={() => alternar(c)}
+                          className={`rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
+                            c.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
+                          }`}
+                        >
+                          {c.activo ? "Activo" : "Apagado"}
+                        </button>
+                        <button
+                          onClick={() => desconectar(c)}
+                          title={`Desconectar esta cuenta de ${red.nombre}`}
+                          className="rounded-chip px-2 py-1 text-[0.72rem] font-semibold text-frio transition hover:bg-calor/10 hover:text-calor"
+                        >
+                          Desconectar
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

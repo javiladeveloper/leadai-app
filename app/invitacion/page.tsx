@@ -39,7 +39,7 @@ export default function InvitacionPage() {
   return (
     <div className="grid min-h-dvh place-items-center bg-arena px-5">
       <div className="w-full max-w-sm text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brasa text-carta">
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brasa text-sobre-brasa">
           <IconoRayo className="h-8 w-8" />
         </span>
 
@@ -58,7 +58,7 @@ export default function InvitacionPage() {
             <p className="mt-2 text-tinta-2">Iniciá sesión para unirte al negocio.</p>
             <button
               onClick={() => router.replace("/")}
-              className="mt-6 w-full rounded-tarjeta bg-brasa px-6 py-3 font-semibold text-carta transition hover:bg-brasa-hondo"
+              className="mt-6 w-full rounded-tarjeta bg-brasa px-6 py-3 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
             >
               Iniciar sesión
             </button>

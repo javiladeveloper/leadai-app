@@ -153,7 +153,7 @@ export default function PopupLead({ lead, onCerrar, onCambio, tenant }: Props) {
               <button
                 onClick={responder}
                 disabled={enviando || !texto.trim()}
-                className="shrink-0 rounded-chip bg-brasa px-4 py-2.5 text-sm font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-50"
+                className="shrink-0 rounded-chip bg-brasa px-4 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
               >
                 {enviando ? "Enviando…" : "Enviar"}
               </button>

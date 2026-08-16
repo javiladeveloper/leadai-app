@@ -77,7 +77,7 @@ export function PlaybookEditor() {
 
   if (estado === "error-carga") {
     return (
-      <p className="rounded-xl border border-brasa/40 bg-arena/40 p-4 text-sm text-brasa">
+      <p className="rounded-xl border border-brasa/40 bg-arena/40 p-4 text-sm text-brasa-texto">
         No pudimos cargar tu configuración. Recargá la página.
       </p>
     );
@@ -209,12 +209,12 @@ export function PlaybookEditor() {
           type="button"
           onClick={guardar}
           disabled={estado === "guardando"}
-          className="rounded-full bg-brasa px-6 py-2.5 text-sm font-semibold text-carta hover:bg-brasa-hondo disabled:opacity-60"
+          className="rounded-full bg-brasa px-6 py-2.5 text-sm font-semibold text-sobre-brasa hover:bg-brasa-hondo disabled:opacity-60"
         >
           {estado === "guardando" ? "Guardando…" : "Guardar cambios"}
         </button>
         {estado === "ok" && <p className="text-sm font-medium text-ok">Guardado ✓</p>}
-        {estado === "error" && <p className="text-sm text-brasa">{error}</p>}
+        {estado === "error" && <p className="text-sm text-brasa-texto">{error}</p>}
       </div>
     </div>
   );
@@ -312,7 +312,7 @@ function ListaSimple({
               type="button"
               onClick={() => quitar(i)}
               aria-label="Quitar"
-              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa"
+              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa-texto"
             >
               ✕
             </button>
@@ -322,7 +322,7 @@ function ListaSimple({
       <button
         type="button"
         onClick={agregar}
-        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa"
+        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa-texto"
       >
         + Agregar
       </button>
@@ -388,7 +388,7 @@ function ListaCatalogo({
               type="button"
               onClick={() => quitar(i)}
               aria-label="Quitar"
-              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa"
+              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa-texto"
             >
               ✕
             </button>
@@ -399,7 +399,7 @@ function ListaCatalogo({
         type="button"
         onClick={agregar}
         disabled={lleno}
-        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-linea disabled:hover:text-frio"
+        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa-texto disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-linea disabled:hover:text-frio"
       >
         + Agregar producto
       </button>
@@ -459,7 +459,7 @@ function ListaRespuestasFijas({
               type="button"
               onClick={() => quitar(i)}
               aria-label="Quitar"
-              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa"
+              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa-texto"
             >
               ✕
             </button>
@@ -469,7 +469,7 @@ function ListaRespuestasFijas({
       <button
         type="button"
         onClick={agregar}
-        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa"
+        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa-texto"
       >
         + Agregar respuesta lista
       </button>
@@ -519,7 +519,7 @@ function ListaObjeciones({
               type="button"
               onClick={() => quitar(i)}
               aria-label="Quitar"
-              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa"
+              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa-texto"
             >
               ✕
             </button>
@@ -529,7 +529,7 @@ function ListaObjeciones({
       <button
         type="button"
         onClick={agregar}
-        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa"
+        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa-texto"
       >
         + Agregar duda
       </button>

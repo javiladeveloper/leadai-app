@@ -164,7 +164,7 @@ function GlobalPanelInner() {
           </div>
           <div className="rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
             <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">Por cobrar</p>
-            <p className="mt-1 text-[1.6rem] font-bold leading-none text-brasa">{soles(reporte.totalPorCobrar)}</p>
+            <p className="mt-1 text-[1.6rem] font-bold leading-none text-brasa-texto">{soles(reporte.totalPorCobrar)}</p>
           </div>
           <div className="rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
             <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">Ventas cerradas</p>
@@ -177,7 +177,7 @@ function GlobalPanelInner() {
       {estado === "ok" && calientes > 0 && (
         <button
           onClick={() => setFiltroNivel("caliente")}
-          className="flex w-full items-center gap-3 rounded-tarjeta bg-calor px-5 py-4 text-left text-carta shadow-[0_8px_24px_rgba(240,112,79,0.3)] transition active:scale-[0.99]"
+          className="flex w-full items-center gap-3 rounded-tarjeta bg-calor px-5 py-4 text-left text-carta shadow-[0_8px_24px_rgba(179,92,0,0.3)] transition active:scale-[0.99]"
         >
           <IconoRayo className="h-7 w-7 shrink-0" />
           <div>

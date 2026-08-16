@@ -81,7 +81,7 @@ export default function FlujosPanel() {
           <p className="mt-1 text-[0.92rem] text-frio">Armá cómo responde el bot paso a paso.</p>
         </div>
         <button onClick={nuevo} disabled={creando}
-          className="rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-carta transition hover:bg-brasa-hondo active:scale-[0.99] disabled:opacity-60">
+          className="rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.99] disabled:opacity-60">
           {creando ? "Creando…" : "+ Nuevo flujo"}
         </button>
       </header>
@@ -113,7 +113,7 @@ export default function FlujosPanel() {
           {flujos.map((f) => (
             <div key={f.id} className="flex items-center gap-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
               <button onClick={() => { g.adoptar(); router.push(`/flujos/${f.id}`); }} className="min-w-0 flex-1 text-left">
-                <p className="font-semibold text-tinta hover:text-brasa">{f.nombre}</p>
+                <p className="font-semibold text-tinta hover:text-brasa-texto">{f.nombre}</p>
                 <p className="text-[0.8rem] text-frio">{f.grafo.nodos.length} pasos</p>
               </button>
               {/* ¿En qué red corre? El específico del canal gana al general. */}

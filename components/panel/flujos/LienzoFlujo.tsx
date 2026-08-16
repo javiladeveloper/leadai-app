@@ -99,7 +99,7 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
         <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
           <p className="text-sm font-semibold text-tinta">No encontramos este flujo</p>
           <button onClick={() => router.push("/flujos")}
-            className="mt-4 rounded-tarjeta bg-brasa px-4 py-2 text-sm font-semibold text-carta hover:bg-brasa-hondo">
+            className="mt-4 rounded-tarjeta bg-brasa px-4 py-2 text-sm font-semibold text-sobre-brasa hover:bg-brasa-hondo">
             Volver a flujos
           </button>
         </div>
@@ -115,7 +115,7 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
         {aviso && !errorGuardar && <span className="text-sm font-medium text-ok">{aviso}</span>}
         {errorGuardar && <span className="text-sm text-brasa-hondo">{errorGuardar}</span>}
         <button onClick={guardar} disabled={estado === "guardando"}
-          className="rounded-tarjeta bg-brasa px-4 py-2 text-sm font-semibold text-carta hover:bg-brasa-hondo disabled:opacity-60">
+          className="rounded-tarjeta bg-brasa px-4 py-2 text-sm font-semibold text-sobre-brasa hover:bg-brasa-hondo disabled:opacity-60">
           {estado === "guardando" ? "Guardando…" : "Guardar"}
         </button>
       </div>

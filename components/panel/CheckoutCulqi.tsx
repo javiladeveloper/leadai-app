@@ -178,7 +178,7 @@ export default function CheckoutCulqi({ hits, clientes, montoCentavos, onExito }
         type="button"
         onClick={abrirCheckout}
         disabled={cargandoBoton}
-        className="w-full rounded-full bg-brasa px-5 py-3 text-sm font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-60"
+        className="w-full rounded-full bg-brasa px-5 py-3 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
       >
         {estado === "procesando"
           ? "Procesando pago…"

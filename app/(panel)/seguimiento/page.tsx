@@ -239,7 +239,7 @@ export default function SeguimientoPanel() {
           </p>
           <Link
             href="/configuracion"
-            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-carta transition active:scale-[0.99]"
+            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition active:scale-[0.99]"
           >
             Conectar WhatsApp
           </Link>

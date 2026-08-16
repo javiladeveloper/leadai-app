@@ -83,7 +83,7 @@ export function NavInferior() {
                 <Link
                   href="/admin"
                   onClick={() => setAbierto(false)}
-                  className="flex flex-col items-center gap-1.5 rounded-tarjeta border border-brasa/30 px-2 py-3 text-center text-[0.74rem] font-semibold text-brasa transition hover:bg-brasa/10"
+                  className="flex flex-col items-center gap-1.5 rounded-tarjeta border border-brasa/30 px-2 py-3 text-center text-[0.74rem] font-semibold text-brasa-texto transition hover:bg-brasa/10"
                 >
                   <IconoRayo className="h-6 w-6" />
                   Plataforma

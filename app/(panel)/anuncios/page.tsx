@@ -160,7 +160,7 @@ export default function AnunciosPanel() {
         {!creando && (
           <button
             onClick={() => setCreando(true)}
-            className="rounded-chip bg-brasa px-5 py-2.5 text-sm font-semibold text-carta transition hover:bg-brasa-hondo"
+            className="rounded-chip bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
           >
             + Crear anuncio
           </button>
@@ -231,7 +231,7 @@ export default function AnunciosPanel() {
               <div>
                 <div className="flex items-center justify-between">
                   <label className="text-[0.85rem] font-bold text-tinta">Texto del anuncio</label>
-                  <button onClick={sugerirTexto} disabled={sugiriendo || !campania.trim()} className="text-[0.8rem] font-semibold text-brasa disabled:opacity-40">
+                  <button onClick={sugerirTexto} disabled={sugiriendo || !campania.trim()} className="text-[0.8rem] font-semibold text-brasa-texto disabled:opacity-40">
                     {sugiriendo ? "Pensando…" : "✨ Escribir con IA"}
                   </button>
                 </div>
@@ -359,7 +359,7 @@ export default function AnunciosPanel() {
               <button
                 onClick={() => setPaso(paso + 1)}
                 disabled={!puedeAvanzar}
-                className="rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-50"
+                className="rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
               >
                 Siguiente
               </button>
@@ -367,7 +367,7 @@ export default function AnunciosPanel() {
               <button
                 onClick={publicar}
                 disabled={publicando}
-                className="rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-50"
+                className="rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
               >
                 {publicando ? "Publicando…" : "Publicar anuncio"}
               </button>

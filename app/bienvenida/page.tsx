@@ -58,11 +58,11 @@ export default function BienvenidaPanel() {
     <div className="grid min-h-dvh place-items-center bg-arena px-5">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-2">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-brasa text-carta">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-brasa text-sobre-brasa">
             <IconoRayo className="h-6 w-6" />
           </span>
           <span className="text-xl font-bold text-tinta">
-            Lead<span className="text-brasa">AI</span>
+            Lead<span className="text-brasa-texto">AI</span>
           </span>
         </div>
 
@@ -114,7 +114,7 @@ export default function BienvenidaPanel() {
           <button
             type="submit"
             disabled={estado === "creando" || !nombre.trim()}
-            className="w-full rounded-tarjeta bg-brasa px-6 py-3.5 text-[1rem] font-semibold text-carta transition hover:bg-brasa-hondo active:scale-[0.99] disabled:opacity-60"
+            className="w-full rounded-tarjeta bg-brasa px-6 py-3.5 text-[1rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.99] disabled:opacity-60"
           >
             {estado === "creando" ? "Creando…" : agregar ? "Agregar negocio" : "Crear mi negocio"}
           </button>

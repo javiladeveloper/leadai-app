@@ -164,7 +164,7 @@ function LeadsPanelInner() {
         </div>
         <button
           onClick={() => setNuevoAbierto(true)}
-          className="rounded-chip bg-brasa px-4 py-2.5 text-sm font-bold text-carta transition hover:bg-brasa-hondo"
+          className="rounded-chip bg-brasa px-4 py-2.5 text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
         >
           ＋ Nuevo lead
         </button>
@@ -184,7 +184,7 @@ function LeadsPanelInner() {
       {estado === "ok" && calientes > 0 && (
         <button
           onClick={() => setFiltroNivel("caliente")}
-          className="flex w-full items-center gap-3 rounded-tarjeta bg-calor px-5 py-4 text-left text-carta shadow-[0_8px_24px_rgba(240,112,79,0.3)] transition active:scale-[0.99]"
+          className="flex w-full items-center gap-3 rounded-tarjeta bg-calor px-5 py-4 text-left text-carta shadow-[0_8px_24px_rgba(179,92,0,0.3)] transition active:scale-[0.99]"
         >
           <IconoRayo className="h-7 w-7 shrink-0" />
           <div>
@@ -244,7 +244,7 @@ function LeadsPanelInner() {
           </p>
           <Link
             href="/configuracion"
-            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-carta transition active:scale-[0.99]"
+            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition active:scale-[0.99]"
           >
             Conectar WhatsApp
           </Link>
@@ -313,7 +313,7 @@ function LeadsPanelInner() {
               <button
                 onClick={crearNuevo}
                 disabled={creando || !nuevoNombre.trim() || nuevoContacto.trim().length < 3}
-                className="flex-1 rounded-chip bg-brasa px-4 py-2.5 text-sm font-bold text-carta transition hover:bg-brasa-hondo disabled:opacity-50"
+                className="flex-1 rounded-chip bg-brasa px-4 py-2.5 text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
               >
                 {creando ? "Creando…" : "Crear lead"}
               </button>

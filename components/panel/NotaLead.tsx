@@ -82,7 +82,7 @@ export function NotaLead({
         <button
           onClick={guardarNota}
           disabled={guardandoNota}
-          className="mt-2 rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-60"
+          className="mt-2 rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
         >
           {guardandoNota ? "Guardando…" : "Guardar nota"}
         </button>

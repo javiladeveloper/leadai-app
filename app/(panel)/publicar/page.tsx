@@ -186,7 +186,7 @@ export default function PublicarPanel() {
           <button
             onClick={sugerir}
             disabled={sugiriendo || !texto.trim()}
-            className="text-[0.8rem] font-semibold text-brasa transition hover:text-brasa-hondo disabled:opacity-40"
+            className="text-[0.8rem] font-semibold text-brasa-texto transition hover:text-brasa-hondo disabled:opacity-40"
           >
             {sugiriendo ? "Pensando…" : "✨ Mejorar con IA"}
           </button>
@@ -271,7 +271,7 @@ export default function PublicarPanel() {
           <button
             onClick={publicar}
             disabled={publicando || !texto.trim() || redes.length === 0 || (programar && !fecha)}
-            className="rounded-chip bg-brasa px-6 py-2.5 text-sm font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-50"
+            className="rounded-chip bg-brasa px-6 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
           >
             {publicando ? "Guardando…" : programar ? "Programar post" : "Publicar ahora"}
           </button>

@@ -20,7 +20,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f7f9fb",
+  // Sigue a --color-arena de globals.css: es el fondo real de la página, y
+  // si divergen se ve una franja de otro color arriba en el navegador móvil.
+  themeColor: "#f6faf8",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

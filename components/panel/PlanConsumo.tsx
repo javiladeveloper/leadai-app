@@ -46,7 +46,7 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
 
   if (error || !uso) {
     return (
-      <p className="text-sm text-brasa">
+      <p className="text-sm text-brasa-texto">
         No pudimos cargar tu saldo. Recargá la página para intentar de nuevo.
       </p>
     );
@@ -152,7 +152,7 @@ function TarjetaComprar({
 
   if (!catalogo) {
     return (
-      <p className="text-sm text-brasa">
+      <p className="text-sm text-brasa-texto">
         No pudimos cargar los precios. Recargá la página para intentar de nuevo.
       </p>
     );
@@ -279,7 +279,7 @@ function TarjetaSwitch({
 
   if (error) {
     return (
-      <p className="text-sm text-brasa">
+      <p className="text-sm text-brasa-texto">
         No pudimos cargar tu configuración. Recargá la página para intentar de nuevo.
       </p>
     );
@@ -306,7 +306,7 @@ function TarjetaSwitch({
       <div>
         <p className="text-[0.95rem] font-bold text-tinta">{activo ? textoOn : textoOff}</p>
         <p className="text-[0.8rem] text-frio">{activo ? subtextoOn : subtextoOff}</p>
-        {estadoGuardado === "error" && <p className="mt-1 text-[0.8rem] text-brasa">{errorMsg}</p>}
+        {estadoGuardado === "error" && <p className="mt-1 text-[0.8rem] text-brasa-texto">{errorMsg}</p>}
       </div>
       <button
         type="button"
@@ -392,7 +392,7 @@ function TarjetaInsistencia({
 
   if (error) {
     return (
-      <p className="text-sm text-brasa">
+      <p className="text-sm text-brasa-texto">
         No pudimos cargar tu configuración. Recargá la página para intentar de nuevo.
       </p>
     );
@@ -446,12 +446,12 @@ function TarjetaInsistencia({
           type="button"
           onClick={guardar}
           disabled={estadoGuardado === "guardando"}
-          className="rounded-full bg-brasa px-5 py-2.5 text-sm font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-60"
+          className="rounded-full bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
         >
           {estadoGuardado === "guardando" ? "Guardando…" : "Guardar"}
         </button>
         {estadoGuardado === "ok" && <p className="text-sm font-medium text-ok">Guardado ✓</p>}
-        {estadoGuardado === "error" && <p className="text-sm text-brasa">{errorMsg}</p>}
+        {estadoGuardado === "error" && <p className="text-sm text-brasa-texto">{errorMsg}</p>}
       </div>
     </div>
   );

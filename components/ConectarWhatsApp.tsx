@@ -172,7 +172,7 @@ export default function ConectarWhatsApp({
         ¿Ya usás WhatsApp Business en tu celular? Conectalo sin borrar la app →
       </button>
       {estado === "cancelado" && <p className="text-sm text-frio">Conexión cancelada.</p>}
-      {estado === "error" && <p className="text-sm text-brasa">{error}</p>}
+      {estado === "error" && <p className="text-sm text-brasa-texto">{error}</p>}
     </div>
   );
 }

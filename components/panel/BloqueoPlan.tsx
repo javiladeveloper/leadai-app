@@ -12,7 +12,7 @@ export function BloqueoPlan({ titulo, descripcion }: { titulo: string; descripci
       <p className="mt-2 text-[0.92rem] text-frio">{descripcion}</p>
       <Link
         href="/configuracion"
-        className="mt-6 inline-flex rounded-tarjeta bg-brasa px-6 py-3 text-sm font-semibold text-carta transition hover:bg-brasa-hondo"
+        className="mt-6 inline-flex rounded-tarjeta bg-brasa px-6 py-3 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
       >
         Mejorá tu plan
       </Link>

@@ -140,14 +140,14 @@ export function EtapasEditor() {
         <button
           onClick={agregar}
           disabled={etapas.length >= 12}
-          className="rounded-chip px-3 py-1.5 text-[0.82rem] font-bold text-brasa ring-1 ring-brasa/40 transition hover:bg-brasa/10 disabled:opacity-40"
+          className="rounded-chip px-3 py-1.5 text-[0.82rem] font-bold text-brasa-texto ring-1 ring-brasa/40 transition hover:bg-brasa/10 disabled:opacity-40"
         >
           ＋ Agregar etapa
         </button>
         <button
           onClick={guardar}
           disabled={guardando}
-          className="rounded-chip bg-brasa px-4 py-1.5 text-[0.82rem] font-bold text-carta transition active:scale-[0.99] disabled:opacity-60"
+          className="rounded-chip bg-brasa px-4 py-1.5 text-[0.82rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-60"
         >
           {guardando ? "Guardando…" : "Guardar etapas"}
         </button>

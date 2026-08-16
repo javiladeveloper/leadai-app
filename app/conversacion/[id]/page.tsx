@@ -316,7 +316,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           aria-label="Enviar"
           onClick={enviarRespuesta}
           disabled={enviando}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brasa text-carta disabled:opacity-60"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brasa text-sobre-brasa disabled:opacity-60"
         >
           <IconoEnviar className="h-6 w-6" />
         </button>
@@ -383,7 +383,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           {/* Borrador listo para enviar */}
           {lead.borradorIA && (
             <div className="mt-2 rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-              <p className="mb-2 flex items-center gap-1.5 text-[0.78rem] font-bold uppercase tracking-wide text-brasa">
+              <p className="mb-2 flex items-center gap-1.5 text-[0.78rem] font-bold uppercase tracking-wide text-brasa-texto">
                 ✦ Respuesta lista para enviar
               </p>
               <button
@@ -397,7 +397,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
                 <button
                   onClick={aprobarBorrador}
                   disabled={enviando}
-                  className="shrink-0 rounded-chip bg-brasa px-3 py-1.5 text-[0.78rem] font-bold text-carta transition active:scale-[0.99] disabled:opacity-60"
+                  className="shrink-0 rounded-chip bg-brasa px-3 py-1.5 text-[0.78rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-60"
                 >
                   o aprobar y enviar tal cual
                 </button>
@@ -407,7 +407,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
         </main>
 
         {accionError && (
-          <p className="px-4 pb-1 text-[0.8rem] font-semibold text-brasa lg:mx-auto lg:w-full lg:max-w-[640px] lg:px-0">
+          <p className="px-4 pb-1 text-[0.8rem] font-semibold text-brasa-texto lg:mx-auto lg:w-full lg:max-w-[640px] lg:px-0">
             {accionError}
           </p>
         )}

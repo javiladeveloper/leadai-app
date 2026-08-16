@@ -112,7 +112,7 @@ export default function ComentariosPanel() {
           <button
             onClick={probar}
             disabled={simulando || !texto.trim()}
-            className="shrink-0 rounded-chip bg-brasa px-4 py-2.5 text-sm font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-50"
+            className="shrink-0 rounded-chip bg-brasa px-4 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
           >
             {simulando ? "Probando…" : "Probar"}
           </button>
@@ -137,7 +137,7 @@ export default function ComentariosPanel() {
                   <p>
                     3️⃣ Entra al pipeline como lead{" "}
                     {ultimo.leadId && (
-                      <Link href={`/conversacion/${ultimo.leadId}`} className="font-semibold text-brasa hover:text-brasa-hondo">
+                      <Link href={`/conversacion/${ultimo.leadId}`} className="font-semibold text-brasa-texto hover:text-brasa-hondo">
                         — ver la conversación →
                       </Link>
                     )}
@@ -205,7 +205,7 @@ export default function ComentariosPanel() {
                   {c.leadId && (
                     <Link
                       href={`/conversacion/${c.leadId}`}
-                      className="mt-2 inline-block text-[0.82rem] font-semibold text-brasa hover:text-brasa-hondo"
+                      className="mt-2 inline-block text-[0.82rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
                     >
                       Ver conversación →
                     </Link>

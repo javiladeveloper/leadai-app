@@ -185,7 +185,7 @@ function ProbarBotPanel() {
           onClick={() => enviar()}
           disabled={enviando || !texto.trim()}
           aria-label="Enviar"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brasa text-carta disabled:opacity-60"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brasa text-sobre-brasa disabled:opacity-60"
         >
           <IconoEnviar className="h-6 w-6" />
         </button>

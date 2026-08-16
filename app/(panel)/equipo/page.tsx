@@ -128,7 +128,7 @@ function EquipoPanel() {
           <button
             type="submit"
             disabled={invitando || !email.trim()}
-            className="rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.92rem] font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-60"
+            className="rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.92rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
           >
             {invitando ? "Invitando…" : "Invitar"}
           </button>

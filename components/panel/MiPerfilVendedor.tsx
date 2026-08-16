@@ -256,7 +256,7 @@ export function MiPerfilVendedorPanel() {
 
       <div className="flex items-center gap-3">
         <button onClick={guardar} disabled={guardando}
-          className="rounded-tarjeta bg-brasa px-6 py-3 font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-60">
+          className="rounded-tarjeta bg-brasa px-6 py-3 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60">
           {guardando ? "Guardando…" : "Guardar mi perfil"}
         </button>
         {ok && <span className="text-sm font-semibold text-ok">Guardado ✓</span>}

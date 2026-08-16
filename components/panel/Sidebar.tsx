@@ -59,7 +59,7 @@ export function Sidebar() {
       }`}
     >
       <div className={`flex items-center gap-2 py-5 ${expandido ? "px-5" : "justify-center px-2"}`}>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brasa text-carta">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brasa text-sobre-brasa">
           <IconoRayo className="h-5 w-5" />
         </span>
         {expandido && (
@@ -96,7 +96,7 @@ export function Sidebar() {
         <Link
           href="/leads?nuevo=1"
           title="Nuevo lead"
-          className="flex h-10 items-center justify-center gap-1.5 rounded-chip bg-brasa text-sm font-bold text-carta transition hover:bg-brasa-hondo"
+          className="flex h-10 items-center justify-center gap-1.5 rounded-chip bg-brasa text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
         >
           <span className="shrink-0">＋</span>
           {expandido && <span className="whitespace-nowrap">Nuevo lead</span>}

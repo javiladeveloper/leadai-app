@@ -114,7 +114,7 @@ export function CampanaAlertas() {
                 </p>
                 <button
                   onClick={() => { setAbierto(false); router.push("/configuracion"); }}
-                  className="mt-2 rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-semibold text-carta transition hover:bg-brasa-hondo"
+                  className="mt-2 rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
                 >
                   Ampliar plan
                 </button>

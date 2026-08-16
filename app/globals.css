@@ -1,35 +1,50 @@
 @import "tailwindcss";
 
-/* ── Sistema de diseño LeadAI · "Brand Harmony" (Stitch) ─────────────
-   Corporate Modernism con borde high-tech: claridad extrema y elegancia
-   funcional. Teal marino como color de acción, slate navy para las barras
-   oscuras, coral SOLO para lo caliente (hot leads / urgencia / error).
+/* ── Sistema de diseño LeadAI ────────────────────────────────────────
+   Verde menta como color de acción, naranja SOLO para lo caliente (hot
+   leads / urgencia), slate navy para las barras oscuras.
 
-   Semáforo de leads: caliente (calor/coral) · tibio (ámbar) · frío (gris).
-   NOTA: los nombres de tokens se conservan ("brasa" = color de ACCIÓN
-   primaria, hoy teal) para no tocar cientos de usos; el rol semántico
-   "caliente" migró a los tokens `calor-*`.
+   REGLA DE ORO (compartida con la app móvil, ver
+   leadai-mobile/design/leadai-design-tokens.json): acción = menta,
+   calor/urgencia = naranja. Nunca se alias-an: un botón de acción jamás va
+   naranja, y una alerta jamás va menta.
+
+   El menta #00C896 es COLOR DE MARCA — el MISMO hex que usa la app y que
+   el ícono. No se aclara ni se oscurece: un logo no cambia de color cuando
+   se apaga la luz.
+
+   Semáforo de leads: caliente (calor/naranja) · tibio (ámbar) · frío (gris).
+   NOTA: el token de acción se sigue llamando "brasa" por historia — hoy es
+   menta. Renombrarlo tocaría cientos de usos sin cambiar un pixel.
    Principio: "con un toque, sin teclear" — todo alcanzable con el pulgar.
 */
 @theme {
-  --color-arena: #f7f9fb;       /* fondo — blanco frío (background) */
-  --color-arena-2: #e6e8ea;     /* variante para separadores suaves */
+  --color-arena: #f6faf8;       /* fondo — blanco de tinte verdoso (background) */
+  --color-arena-2: #e4ebe7;     /* variante para separadores suaves */
   --color-carta: #ffffff;       /* superficie de tarjeta */
-  --color-brasa: #006b5d;       /* ACCIÓN primaria — seafoam teal */
-  --color-brasa-hondo: #005046; /* hover / presión */
-  --color-brasa-suave: #d5f2ec; /* fondo suave de acento teal */
-  --color-calor: #f0704f;       /* CALIENTE — coral (hot leads, urgencia) */
-  --color-calor-hondo: #a53b22; /* texto/hover coral profundo */
-  --color-calor-suave: #ffdad2; /* fondo suave coral */
-  --color-tibio: #c98a1b;       /* lead tibio — ámbar */
-  --color-tibio-suave: #fbf0d9;
-  --color-frio: #6e7a76;        /* lead frío / texto terciario — outline */
-  --color-tinta: #191c1e;       /* slate casi negro — texto principal */
-  --color-tinta-2: #3e4946;     /* texto secundario */
-  --color-linea: #e0e3e5;       /* bordes sobre fondo claro */
+  --color-brasa: #00c896;       /* ACCIÓN primaria — verde menta de marca */
+  --color-brasa-hondo: #00a87d; /* hover / presión */
+  --color-brasa-suave: #d6f5ea; /* fondo suave de acento menta */
+  /* Contenido SOBRE el menta. No es blanco: el menta es claro, y blanco
+     encima da 2.16:1 — ilegible (el teal anterior era oscuro y sí admitía
+     blanco, con 6.44:1). Esta tinta oscura da 7.7:1. Es el mismo `onPrimary`
+     que usa la app móvil. Va con `bg-brasa` SIEMPRE. */
+  --color-sobre-brasa: #04231c;
+  /* Menta legible como TEXTO sobre fondo claro: el #00c896 pelado da 2.16:1
+     contra blanco. Este tono oscurecido conserva el matiz y llega a AA. */
+  --color-brasa-texto: #007a5c;
+  --color-calor: #b35c00;       /* CALIENTE — naranja (hot leads, urgencia) */
+  --color-calor-hondo: #8a4700; /* texto/hover naranja profundo */
+  --color-calor-suave: #fff1df; /* fondo suave naranja */
+  --color-tibio: #8a5a05;       /* lead tibio — ámbar */
+  --color-tibio-suave: #fdf2de;
+  --color-frio: #586661;        /* lead frío / texto terciario — outline */
+  --color-tinta: #16211d;       /* casi negro verdoso — texto principal */
+  --color-tinta-2: #3d4a45;     /* texto secundario */
+  --color-linea: #dbe5e0;       /* bordes sobre fondo claro */
   --color-superficie-honda: #0f172a; /* slate navy — sidebar / barras oscuras */
   --color-superficie-honda-2: #1e293b;
-  --color-ok: #1d7a4f;          /* venta / éxito — verde */
+  --color-ok: #1e5c22;          /* venta / éxito — verde */
 
   --font-lee: var(--font-jakarta), system-ui, sans-serif;
 

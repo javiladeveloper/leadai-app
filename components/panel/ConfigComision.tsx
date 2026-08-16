@@ -81,7 +81,7 @@ export function ConfigComision() {
         <button
           onClick={guardar}
           disabled={guardando}
-          className="rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-50"
+          className="rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
         >
           {guardando ? "…" : "Guardar"}
         </button>

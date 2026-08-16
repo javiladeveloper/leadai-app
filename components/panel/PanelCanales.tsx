@@ -205,7 +205,7 @@ export function PanelCanales() {
               <button
                 onClick={() => conectarOAuth(red.tipo)}
                 disabled={conectando}
-                className="mt-4 inline-flex items-center gap-2 rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.92rem] font-semibold text-carta transition hover:bg-brasa-hondo disabled:opacity-60"
+                className="mt-4 inline-flex items-center gap-2 rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.92rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
               >
                 {conectando ? "Abriendo…" : `Conectar ${red.nombre}`}
               </button>
@@ -277,7 +277,7 @@ function CompartirCanal({ canal, onGuardado }: { canal: Canal; onGuardado: () =>
             type="button"
             onClick={guardar}
             disabled={guardando}
-            className="rounded-full bg-brasa px-4 py-1.5 text-[0.8rem] font-semibold text-carta transition hover:brightness-95 disabled:opacity-60"
+            className="rounded-full bg-brasa px-4 py-1.5 text-[0.8rem] font-semibold text-sobre-brasa transition hover:brightness-95 disabled:opacity-60"
           >
             {guardando ? "Guardando…" : "Guardar"}
           </button>

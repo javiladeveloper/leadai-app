@@ -525,7 +525,7 @@ export default function ConversacionesPanel() {
           </p>
           <Link
             href="/configuracion"
-            className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-carta transition active:scale-[0.99]"
+            className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-sobre-brasa transition active:scale-[0.99]"
           >
             Conectar WhatsApp
           </Link>
@@ -654,7 +654,7 @@ export default function ConversacionesPanel() {
                   </p>
                   <Link
                     href="/configuracion"
-                    className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-carta"
+                    className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-sobre-brasa"
                   >
                     Conectar WhatsApp
                   </Link>
@@ -779,7 +779,7 @@ export default function ConversacionesPanel() {
                 {/* Borrador listo para enviar */}
                 {lead.borradorIA && (
                   <div className="mt-2 rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-                    <p className="mb-2 flex items-center gap-1.5 text-[0.78rem] font-bold uppercase tracking-wide text-brasa">
+                    <p className="mb-2 flex items-center gap-1.5 text-[0.78rem] font-bold uppercase tracking-wide text-brasa-texto">
                       ✦ Respuesta lista para enviar
                     </p>
                     <button
@@ -793,7 +793,7 @@ export default function ConversacionesPanel() {
                       <button
                         onClick={aprobarBorrador}
                         disabled={enviando}
-                        className="shrink-0 rounded-chip bg-brasa px-3 py-1.5 text-[0.78rem] font-bold text-carta transition active:scale-[0.99] disabled:opacity-60"
+                        className="shrink-0 rounded-chip bg-brasa px-3 py-1.5 text-[0.78rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-60"
                       >
                         o aprobar y enviar tal cual
                       </button>
@@ -803,7 +803,7 @@ export default function ConversacionesPanel() {
               </main>
 
               {accionError && (
-                <p className="px-4 pb-1 text-[0.8rem] font-semibold text-brasa">{accionError}</p>
+                <p className="px-4 pb-1 text-[0.8rem] font-semibold text-brasa-texto">{accionError}</p>
               )}
 
               {/* Compositor en DOS filas: herramientas de IA arriba (compactas),
@@ -878,7 +878,7 @@ export default function ConversacionesPanel() {
                       aria-label="Enviar"
                       onClick={enviarRespuesta}
                       disabled={enviando}
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brasa text-carta disabled:opacity-60"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brasa text-sobre-brasa disabled:opacity-60"
                     >
                       <IconoEnviar className="h-6 w-6" />
                     </button>
@@ -966,7 +966,7 @@ export default function ConversacionesPanel() {
                     <button
                       onClick={() => asignarA(miUsuarioId)}
                       disabled={enviando}
-                      className="shrink-0 rounded-chip bg-brasa px-3 py-1.5 text-[0.78rem] font-bold text-carta transition active:scale-[0.98] disabled:opacity-60"
+                      className="shrink-0 rounded-chip bg-brasa px-3 py-1.5 text-[0.78rem] font-bold text-sobre-brasa transition active:scale-[0.98] disabled:opacity-60"
                     >
                       Tomarla yo
                     </button>
@@ -983,13 +983,13 @@ export default function ConversacionesPanel() {
                   {(lead.etiquetas ?? []).map((et) => (
                     <span
                       key={et}
-                      className="flex items-center gap-1 rounded-chip bg-brasa/10 px-2 py-0.5 text-[0.75rem] font-bold text-brasa"
+                      className="flex items-center gap-1 rounded-chip bg-brasa/10 px-2 py-0.5 text-[0.75rem] font-bold text-brasa-texto"
                     >
                       {et}
                       <button
                         onClick={() => guardarEtiquetas((lead.etiquetas ?? []).filter((x) => x !== et))}
                         aria-label={`Quitar ${et}`}
-                        className="text-brasa/60 hover:text-brasa"
+                        className="text-brasa-texto/60 hover:text-brasa-texto"
                       >
                         ×
                       </button>
@@ -1037,7 +1037,7 @@ export default function ConversacionesPanel() {
                   {notaEdit === null && (
                     <button
                       onClick={() => setNotaEdit(lead.nota ?? "")}
-                      className="text-[0.75rem] font-bold text-brasa"
+                      className="text-[0.75rem] font-bold text-brasa-texto"
                     >
                       {lead.nota ? "Editar" : "Agregar"}
                     </button>
@@ -1058,7 +1058,7 @@ export default function ConversacionesPanel() {
                     <div className="flex gap-2">
                       <button
                         onClick={guardarNota}
-                        className="flex-1 rounded-chip bg-brasa py-1.5 text-[0.8rem] font-bold text-carta active:scale-[0.99]"
+                        className="flex-1 rounded-chip bg-brasa py-1.5 text-[0.8rem] font-bold text-sobre-brasa active:scale-[0.99]"
                       >
                         Guardar
                       </button>

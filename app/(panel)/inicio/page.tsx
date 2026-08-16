@@ -126,7 +126,7 @@ export default function InicioPanel() {
           </p>
           <Link
             href="/configuracion"
-            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-carta transition active:scale-[0.99]"
+            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition active:scale-[0.99]"
           >
             Conectar WhatsApp
           </Link>
@@ -139,7 +139,7 @@ export default function InicioPanel() {
           {resumen.calientesSinAtender > 0 && (
             <Link
               href="/leads"
-              className="flex items-center gap-4 rounded-tarjeta bg-calor px-5 py-4 text-carta shadow-[0_8px_24px_rgba(240,112,79,0.3)] transition active:scale-[0.99]"
+              className="flex items-center gap-4 rounded-tarjeta bg-calor px-5 py-4 text-carta shadow-[0_8px_24px_rgba(179,92,0,0.3)] transition active:scale-[0.99]"
             >
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-carta/20">
                 <IconoRayo className="h-6 w-6" />
@@ -196,7 +196,7 @@ export default function InicioPanel() {
               <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="text-[0.85rem] font-bold text-tinta">Clientes atendidos este mes</p>
-                  <p className="text-[0.85rem] font-bold tabular-nums text-brasa">
+                  <p className="text-[0.85rem] font-bold tabular-nums text-brasa-texto">
                     {clientes.usados.toLocaleString("es-PE")} <span className="font-normal text-frio">de {clientes.limite.toLocaleString("es-PE")}</span>
                   </p>
                 </div>
@@ -280,7 +280,7 @@ export default function InicioPanel() {
               </div>
               <Link
                 href="/probar-bot"
-                className="mt-4 inline-flex w-fit items-center rounded-chip bg-brasa px-4 py-2 text-sm font-bold text-carta transition hover:bg-brasa-hondo"
+                className="mt-4 inline-flex w-fit items-center rounded-chip bg-brasa px-4 py-2 text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
               >
                 Probar mi bot
               </Link>

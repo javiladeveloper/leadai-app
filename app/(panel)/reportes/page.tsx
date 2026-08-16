@@ -94,7 +94,7 @@ function ReportesPanel() {
       {cargando ? (
         <SkeletonReportes />
       ) : error ? (
-        <div className="rounded-tarjeta bg-brasa/10 px-4 py-3 text-center text-[0.9rem] font-semibold text-brasa">{error}</div>
+        <div className="rounded-tarjeta bg-brasa/10 px-4 py-3 text-center text-[0.9rem] font-semibold text-brasa-texto">{error}</div>
       ) : (
         <div className="space-y-6">
           {/* Reportes avanzados bloqueados por plan: candado compacto (las
@@ -106,7 +106,7 @@ function ReportesPanel() {
               <p className="mt-1 text-[0.88rem] text-frio">
                 Tasa de cierre, evolución mensual y comisiones por negocio están desde el plan Emprende.
               </p>
-              <Link href="/configuracion" className="mt-4 inline-flex rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-carta transition hover:bg-brasa-hondo">
+              <Link href="/configuracion" className="mt-4 inline-flex rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo">
                 Mejorá tu plan
               </Link>
             </div>
@@ -119,7 +119,7 @@ function ReportesPanel() {
                 <p className="text-[0.8rem] text-carta/70">Comisiones ganadas</p>
                 <p className="mt-1 text-[2rem] font-bold leading-none">{soles(rep.comisiones.ganada)}</p>
               </div>
-              <div className="rounded-tarjeta bg-brasa p-5 text-carta shadow-[var(--sombra-tarjeta)]">
+              <div className="rounded-tarjeta bg-brasa p-5 text-sobre-brasa shadow-[var(--sombra-tarjeta)]">
                 <p className="text-[0.8rem] text-carta/70">Por cobrar</p>
                 <p className="mt-1 text-[2rem] font-bold leading-none">{soles(rep.comisiones.porCobrar)}</p>
               </div>
@@ -212,7 +212,7 @@ function ReportesPanel() {
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="font-bold text-ok">{soles(n.ganada)}</p>
-                      {n.porCobrar > 0 && <p className="text-[0.72rem] text-brasa">+ {soles(n.porCobrar)} por cobrar</p>}
+                      {n.porCobrar > 0 && <p className="text-[0.72rem] text-brasa-texto">+ {soles(n.porCobrar)} por cobrar</p>}
                     </div>
                   </div>
                 ))}

@@ -84,11 +84,11 @@ export default function Login() {
     <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-7 pb-10 pt-[max(4rem,env(safe-area-inset-top))]">
       {/* Marca */}
       <div className="flex flex-1 flex-col justify-center">
-        <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brasa text-carta shadow-[0_8px_24px_rgba(0,107,93,0.35)]">
+        <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brasa text-sobre-brasa shadow-[0_8px_24px_rgba(0,200,150,0.35)]">
           <IconoRayo className="h-8 w-8" />
         </div>
         <h1 className="text-[2.6rem] leading-[1.05] font-bold text-tinta">
-          Lead<span className="text-brasa">AI</span>
+          Lead<span className="text-brasa-texto">AI</span>
         </h1>
         <p className="mt-3 max-w-[19rem] text-[1.15rem] text-tinta-2">
           Tus leads, en un solo lugar. La IA atiende y te avisa{" "}
@@ -151,7 +151,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={cargando || !email.trim() || !password}
-              className="rounded-chip bg-brasa px-6 py-3 text-[1rem] font-bold text-carta transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-60"
+              className="rounded-chip bg-brasa px-6 py-3 text-[1rem] font-bold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-60"
             >
               {cargando ? "Entrando…" : "Entrar"}
             </button>

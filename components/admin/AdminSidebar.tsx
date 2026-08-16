@@ -17,7 +17,7 @@ export function AdminSidebar() {
   return (
     <aside className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col bg-superficie-honda text-arena">
       <div className="flex items-center gap-2 px-5 py-5">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-brasa text-carta">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-brasa text-sobre-brasa">
           <IconoRayo className="h-5 w-5" />
         </span>
         <span className="text-lg font-bold">

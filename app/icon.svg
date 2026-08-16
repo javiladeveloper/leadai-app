@@ -1,4 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#0fb5a5"/>
-  <path d="M17.5 5 8 18h6.5l-1.2 9L24 13.5h-6.5L17.5 5Z" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!--
+    Favicon de LeadAI (2026-08-16): globo de chat con el rayo y el anillo
+    naranja, sobre el fondo oscuro de la marca. Reemplaza al rayo blanco
+    sobre teal — la identidad pasó a verde menta con acento naranja.
+
+    Es una versión REDUCIDA del ícono de la app: a 16-32px los aros
+    concéntricos del arte original se funden en una mancha, así que acá queda
+    UN solo aro. Lo que sostiene la identidad a este tamaño son los tres
+    colores, no el detalle.
+  -->
+  <rect width="32" height="32" rx="7" fill="#0E1614"/>
+
+  <!-- El globo: aro menta con su colita abajo a la derecha. -->
+  <path d="M16 6.5a9 9 0 1 1-5.6 16.05l-.35 3.6 3.15-1.9A9 9 0 0 1 16 6.5Z"
+        fill="none" stroke="#00C896" stroke-width="2.6"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- El rayo va RELLENO: delineado, su hueco interior se cierra a 16px. -->
+  <path d="M17.2 10.2 12.4 17h3.3l-.7 4.9 4.8-6.9h-3.3l.7-4.8Z" fill="#FFFFFF"/>
+
+  <!-- El anillo orbital, inclinado como en el arte original. -->
+  <ellipse cx="16" cy="16" rx="12.2" ry="5.2"
+           fill="none" stroke="#FF9100" stroke-width="2.1"
+           stroke-linecap="round" transform="rotate(-27 16 16)"/>
 </svg>

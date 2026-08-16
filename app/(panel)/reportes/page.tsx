@@ -136,6 +136,66 @@ function ReportesPanel() {
             </div>
           )}
 
+          {/* Embudo: DÓNDE se caen las ventas.
+              Va antes de la evolución mensual a propósito — "cuánto gané" ya
+              está arriba; esto responde "por qué no gané más", que es lo que
+              el dueño puede accionar hoy. */}
+          {rep && rep.embudo?.length > 0 && rep.embudo[0].quedan > 0 && (
+            <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              <div className="mb-1 flex items-baseline justify-between gap-3">
+                <p className="text-[0.85rem] font-bold uppercase tracking-wide text-frio">Dónde se te caen las ventas</p>
+                {(() => {
+                  // El escalón con la mayor caída ABSOLUTA — no el de peor
+                  // porcentaje: perder 40 de 100 duele más que 2 de 3, aunque
+                  // el porcentaje diga lo contrario.
+                  const peor = rep.embudo.slice(1).reduce((a, b) => (b.seCayeron > a.seCayeron ? b : a));
+                  return peor.seCayeron > 0 ? (
+                    <span className="text-[0.78rem] font-semibold text-calor">
+                      {peor.seCayeron} se pierden en &ldquo;{peor.titulo}&rdquo;
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+              <div className="mt-4 space-y-3">
+                {rep.embudo.map((e, i) => {
+                  // El ancho es contra la PRIMERA etapa, para que la barra se
+                  // vea angostar; los porcentajes de al lado son contra la
+                  // etapa anterior, que es lo accionable.
+                  const total = rep.embudo[0].quedan || 1;
+                  const ancho = Math.max(2, Math.round((e.quedan / total) * 100));
+                  return (
+                    <div key={e.etapa}>
+                      <div className="mb-1 flex items-baseline justify-between gap-2">
+                        <span className="text-[0.9rem] font-medium text-tinta">{e.titulo}</span>
+                        <span className="text-[0.9rem] font-bold tabular-nums text-tinta">{e.quedan}</span>
+                      </div>
+                      <div className="h-7 w-full overflow-hidden rounded-lg bg-arena-2">
+                        <div
+                          className="flex h-full items-center rounded-lg bg-brasa px-2 transition-all"
+                          style={{ width: `${ancho}%` }}
+                        >
+                          {i > 0 && ancho > 22 && (
+                            <span className="text-[0.72rem] font-bold text-sobre-brasa tabular-nums">
+                              {Math.round(e.pasaron * 100)}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {e.seCayeron > 0 && (
+                        <p className="mt-1 text-[0.74rem] text-frio">
+                          se fueron {e.seCayeron} en este paso
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-4 text-[0.76rem] leading-relaxed text-frio">
+                Cada barra es cuántos llegaron hasta ahí. El porcentaje compara con el paso anterior.
+              </p>
+            </div>
+          )}
+
           {/* Evolución mensual + leads por nivel */}
           {rep && (
             <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">

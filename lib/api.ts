@@ -441,12 +441,22 @@ export async function obtenerResumen(): Promise<Resumen> {
 }
 
 // ── Reportes de ventas ──────────────────────────────────────
+/** Un escalón del embudo. `quedan` = cuántos LLEGARON hasta acá. */
+export interface EscalonEmbudo {
+  etapa: "escribieron" | "conversaron" | "atendidos" | "cerraron";
+  titulo: string;
+  quedan: number;
+  seCayeron: number;  // cuántos no pasaron desde la etapa anterior
+  pasaron: number;    // proporción 0..1 contra la etapa ANTERIOR, no contra el total
+}
+
 export interface ReporteNegocio {
   comisiones: { ganada: number; porCobrar: number; total: number };
   leadsPorNivel: Record<string, number>;
   cierre: { ganados: number; perdidos: number; enJuego: number; tasa: number };
   evolucion: { mes: string; comisiones: number; ventas: number }[];
   leadsPorOrigen: Record<string, number>; // de dónde vienen (ad:..., comentario, directo)
+  embudo: EscalonEmbudo[];                // dónde se caen las ventas
 }
 export async function obtenerReporteNegocio(): Promise<ReporteNegocio | null> {
   try { return await api<ReporteNegocio>("/reportes/negocio"); } catch { return null; }

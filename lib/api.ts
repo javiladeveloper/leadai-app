@@ -72,6 +72,9 @@ export async function conectarWhatsAppEmbedded(args: {
   wabaId?: string;
   phoneNumberId?: string;
   redirectUri?: string;
+  // 'whatsapp_business_app_onboarding' = coexistencia (el número sigue viviendo
+  // en la app del celular): el backend NO lo registra vía /register.
+  featureType?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   const token = leerSesion()?.token;
   const tenant = leerEmpresaActiva();

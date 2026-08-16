@@ -111,7 +111,7 @@ export default function ConectarWhatsApp({
         const code = r.authResponse?.code;
         if (!code) { setEstado("cancelado"); return; }
         setEstado("conectando");
-        void finalizarConexion(code);
+        void finalizarConexion(code, modo);
       },
       {
         config_id: CONFIG_ID,
@@ -126,11 +126,14 @@ export default function ConectarWhatsApp({
     );
   }
 
-  async function finalizarConexion(code: string) {
+  async function finalizarConexion(code: string, modo: "nuevo" | "coexistencia") {
     const res = await conectarWhatsAppEmbedded({
       code,
       ...sesionES,
       ...(redirectUriDialogo.current ? { redirectUri: redirectUriDialogo.current } : {}),
+      // Coexistencia: el backend salta /register (el número ya está registrado
+      // del lado de Meta porque sigue viviendo en la app del celular).
+      ...(modo === "coexistencia" ? { featureType: "whatsapp_business_app_onboarding" } : {}),
     });
     if (res.ok) { setEstado("ok"); onConectado?.(); }
     else { setEstado("error"); setError(res.error ?? "No se pudo conectar."); }

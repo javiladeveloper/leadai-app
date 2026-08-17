@@ -342,19 +342,27 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
           </span>
         </div>
 
-        {(negocio.direccion || negocio.entregaMinutos) && (
-          <div className="mt-2 space-y-1 text-[0.85rem] text-tinta-2">
-            {negocio.direccion && <p>📍 {negocio.direccion}</p>}
-            {negocio.entregaMinutos && (
-              <p>
-                🕐 Entrega{" "}
-                <b>
-                  {negocio.entregaMinutos}–{negocio.entregaMinutos + 10} min
-                </b>
-              </p>
-            )}
-          </div>
-        )}
+        <div className="mt-2 space-y-1 text-[0.85rem] text-tinta-2">
+          {negocio.direccion && <p>📍 {negocio.direccion}</p>}
+          {/* EL HORARIO se muestra SIEMPRE, no solo cuando está cerrado
+              (2026-08-17): el cliente que entra a las 11 de la noche necesita
+              saber a qué hora volver, y el que entra al mediodía necesita
+              saber hasta cuándo puede pedir. */}
+          {negocio.horaAbre != null && negocio.horaCierra != null && (
+            <p>
+              🕐 Atendemos de <b>{negocio.horaAbre}:00</b> a{" "}
+              <b>{negocio.horaCierra}:00</b>
+            </p>
+          )}
+          {negocio.entregaMinutos && (
+            <p>
+              🛵 Entrega{" "}
+              <b>
+                {negocio.entregaMinutos}–{negocio.entregaMinutos + 10} min
+              </b>
+            </p>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -423,7 +431,7 @@ function FilaDestacados({
             <button
               key={p.id}
               onClick={() => (tieneOpciones ? onElegir(p) : onAgregarDirecto(p))}
-              className="group w-36 shrink-0 text-left"
+              className="entra group w-36 shrink-0 text-left"
             >
               <div className="relative">
                 {p.fotoUrl ? (
@@ -483,7 +491,7 @@ function TarjetaProducto({
   return (
     <button
       onClick={tieneOpciones ? onElegir : onAgregarDirecto}
-      className="group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-linea transition hover:ring-brasa/40 active:scale-[0.99]"
+      className="entra group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-linea transition hover:ring-brasa/40 active:scale-[0.99]"
     >
       {producto.fotoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -563,9 +571,9 @@ function HojaOpciones({
   const extras = elegidas.reduce((s, o) => s + o.precioCentavos, 0);
 
   return (
-    <div className="fixed inset-0 z-20 flex items-end bg-tinta/40" onClick={onCancelar}>
+    <div className="aparece fixed inset-0 z-20 flex items-end bg-tinta/40" onClick={onCancelar}>
       <div
-        className="max-h-[85dvh] w-full overflow-y-auto rounded-t-[1.5rem] bg-carta p-5"
+        className="sube max-h-[85dvh] w-full overflow-y-auto rounded-t-[1.5rem] bg-carta p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-[1.2rem] font-bold text-tinta">{producto.nombre}</h3>
@@ -652,8 +660,18 @@ function BarraCarrito({
   const [abiertoDetalle, setAbiertoDetalle] = useState(false);
   const unidades = carrito.reduce((s, l) => s + l.cantidad, 0);
 
+  // El botón LATE cuando entra algo al carrito. Es el único aviso de que el
+  // toque funcionó: sin esto el cliente toca de nuevo y pide el doble.
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    if (unidades === 0) return;
+    setLate(true);
+    const t = setTimeout(() => setLate(false), 320);
+    return () => clearTimeout(t);
+  }, [unidades]);
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[560px] bg-carta px-5 pb-5 pt-3 shadow-[0_-4px_24px_rgba(15,20,18,0.08)]">
+    <div className="sube fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[900px] bg-carta px-5 pb-5 pt-3 shadow-[0_-4px_24px_rgba(15,20,18,0.08)]">
       {abiertoDetalle && (
         <div className="mb-3 max-h-[40dvh] space-y-2 overflow-y-auto">
           {carrito.map((l, i) => (
@@ -691,7 +709,7 @@ function BarraCarrito({
       <button
         onClick={onEnviar}
         disabled={!abierto || enviando}
-        className="w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-40"
+        className={`w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-40 ${late ? "late" : ""}`}
       >
         {!abierto
           ? "Cerrado por ahora"
@@ -749,7 +767,7 @@ function TarjetaCombo({ combo, onAgregar }: { combo: Combo; onAgregar: () => voi
   return (
     <button
       onClick={onAgregar}
-      className="group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-orbita/30 transition hover:ring-orbita/60 active:scale-[0.99]"
+      className="entra group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-orbita/30 transition hover:ring-orbita/60 active:scale-[0.99]"
     >
       {combo.fotoUrl && (
         // eslint-disable-next-line @next/next/no-img-element

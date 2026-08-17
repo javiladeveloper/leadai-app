@@ -179,6 +179,55 @@ button, [role="button"] {
   animation: campana 0.9s ease-in-out;
 }
 
+/* ── Movimiento de la carta pública (2026-08-17) ──────────────────────
+   Tres animaciones y ninguna más. La carta se abre en el teléfono de alguien
+   con hambre: cada milisegundo de animación es tiempo que no está mirando la
+   comida. Lo que se mueve, se mueve para EXPLICAR algo.
+
+   Todas quedan neutralizadas por el bloque de `prefers-reduced-motion` de
+   abajo — quien pidió menos movimiento no negocia. */
+
+/* 1. Las tarjetas ENTRAN al aparecer. Le da a la carta la sensación de que se
+      está sirviendo en vez de estar ahí de golpe. Los primeros elementos van
+      escalonados; a partir del octavo entran juntos, porque para entonces el
+      cliente ya está scrolleando y esperar no aporta nada. */
+@keyframes entrar {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.entra {
+  animation: entrar 0.35s ease-out backwards;
+}
+.entra:nth-child(1) { animation-delay: 0.02s; }
+.entra:nth-child(2) { animation-delay: 0.05s; }
+.entra:nth-child(3) { animation-delay: 0.08s; }
+.entra:nth-child(4) { animation-delay: 0.11s; }
+.entra:nth-child(5) { animation-delay: 0.14s; }
+.entra:nth-child(6) { animation-delay: 0.17s; }
+.entra:nth-child(n+7) { animation-delay: 0.2s; }
+
+/* 2. La hoja de opciones SUBE desde abajo. No es decoración: dice de dónde
+      viene y a dónde vuelve cuando se cierra. */
+@keyframes subir {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: none; }
+}
+.sube { animation: subir 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes aparecer {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.aparece { animation: aparecer 0.2s ease-out; }
+
+/* 3. El carrito LATE cuando le entra algo. Es el único aviso de que el toque
+      funcionó: sin esto el cliente toca dos veces y pide el doble. */
+@keyframes latido {
+  0%, 100% { transform: scale(1); }
+  35%      { transform: scale(1.06); }
+}
+.late { animation: latido 0.3s ease-out; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;

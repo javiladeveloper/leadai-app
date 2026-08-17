@@ -473,7 +473,8 @@ export default function AnunciosPanel() {
                       <p className="text-[0.76rem] text-frio">
                         S/{a.presupuestoTotal} · {a.dias} días · S/{(a.presupuestoTotal / a.dias || 0).toFixed(0)}/día
                       </p>
-                      {a.estado === "borrador" && (
+                      {/* Sin imagen no hay botón: Meta rechaza la pieza sin media. */}
+                      {a.estado === "borrador" && a.mediaUrl && (
                         <button
                           onClick={() => publicarExistente(a.id)}
                           disabled={publicandoId !== null}

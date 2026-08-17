@@ -136,7 +136,7 @@ function EnlaceCarta({ url }: { url: string }) {
       </div>
       <button
         onClick={copiar}
-        className="rounded-lg bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
+        className="rounded-lg bg-orbita px-4 py-2 text-[0.85rem] font-semibold text-sobre-orbita transition hover:bg-orbita-hondo"
       >
         {copiado ? "¡Copiado!" : "Copiar"}
       </button>
@@ -192,7 +192,7 @@ function Platos({
         <NuevaSeccion recargar={recargar} avisar={avisar} />
         <button
           onClick={() => { setEditando(null); setAbriendo(true); }}
-          className="rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.99]"
+          className="rounded-tarjeta bg-orbita px-5 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo active:scale-[0.99]"
         >
           + Nuevo plato
         </button>
@@ -588,7 +588,7 @@ function HojaPlato({
           <button
             onClick={guardar}
             disabled={guardando || !puedeGuardar}
-            className="flex-1 rounded-tarjeta bg-brasa px-4 py-2.5 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
+            className="flex-1 rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
           >
             {guardando ? "Guardando…" : "Guardar"}
           </button>
@@ -633,7 +633,7 @@ function Extras({
         </p>
         <button
           onClick={() => setAbriendo(true)}
-          className="shrink-0 rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
+          className="shrink-0 rounded-tarjeta bg-orbita px-5 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo"
         >
           + Nuevo grupo
         </button>
@@ -845,7 +845,7 @@ function HojaGrupo({
           <button
             onClick={guardar}
             disabled={guardando}
-            className="flex-1 rounded-tarjeta bg-brasa px-4 py-2.5 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
+            className="flex-1 rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
           >
             {guardando ? "Guardando…" : "Guardar"}
           </button>
@@ -883,7 +883,7 @@ function Promos({
         </p>
         <button
           onClick={() => setAbriendo(true)}
-          className="shrink-0 rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
+          className="shrink-0 rounded-tarjeta bg-orbita px-5 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo"
         >
           + Nueva promo
         </button>
@@ -1073,7 +1073,7 @@ function HojaPromo({
           <button
             onClick={guardar}
             disabled={guardando}
-            className="flex-1 rounded-tarjeta bg-brasa px-4 py-2.5 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
+            className="flex-1 rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
           >
             {guardando ? "Guardando…" : "Guardar"}
           </button>

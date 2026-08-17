@@ -70,6 +70,11 @@
      2.39:1 — ilegible: para eso está `--color-calor`, que es el mismo naranja
      oscurecido hasta AA. Los dos son el mismo color de marca en dos usos. */
   --color-orbita: #fc8a05;
+  --color-orbita-hondo: #e07c04;  /* hover del botón naranja */
+  /* Contenido SOBRE el naranja. No es blanco: el naranja del logo es claro y
+     blanco encima da 2.4:1. Esta tinta da 7.2:1. Va con `bg-orbita` SIEMPRE,
+     igual que `sobre-brasa` va con `bg-brasa`. */
+  --color-sobre-orbita: #2a1600;
   --color-ok: #1e5c22;          /* venta / éxito — verde */
 
   --font-lee: var(--font-jakarta), system-ui, sans-serif;

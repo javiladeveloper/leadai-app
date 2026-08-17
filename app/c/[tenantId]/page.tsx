@@ -44,6 +44,8 @@ interface Carta {
     nombre: string; abierto: boolean; horaAbre: number | null; horaCierra: number | null;
     logoUrl: string | null; bannerUrl: string | null;
     direccion: string | null; entregaMinutos: number | null;
+    /** A dónde llega el pedido. null = el negocio no conectó WhatsApp. */
+    whatsapp: string | null;
   };
   categorias: { id: string; nombre: string }[];
   productos: Producto[];
@@ -170,7 +172,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   }
 
   // Pedido enviado: se le muestra el código y el botón para volver al chat.
-  if (codigo) return <PedidoListo codigo={codigo} total={total} />;
+  if (codigo) return <PedidoListo codigo={codigo} total={total} whatsapp={carta.negocio.whatsapp} />;
 
   const porCategoria = carta.categorias
     .map((c) => ({ ...c, productos: carta.productos.filter((p) => p.categoriaId === c.id) }))
@@ -421,7 +423,7 @@ function FilaDestacados({
             <button
               key={p.id}
               onClick={() => (tieneOpciones ? onElegir(p) : onAgregarDirecto(p))}
-              className="w-36 shrink-0 text-left"
+              className="group w-36 shrink-0 text-left"
             >
               <div className="relative">
                 {p.fotoUrl ? (
@@ -438,7 +440,7 @@ function FilaDestacados({
                 )}
                 {/* El "+" arriba a la derecha, como en las cartas que la gente
                     ya sabe usar. */}
-                <span className="absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-full bg-brasa text-[1.2rem] font-bold text-sobre-brasa shadow-[var(--sombra-tarjeta)]">
+                <span className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-carta/95 text-[1.05rem] font-bold text-brasa-texto shadow-[0_2px_8px_rgba(0,0,0,0.15)] backdrop-blur transition group-hover:bg-brasa group-hover:text-sobre-brasa">
                   +
                 </span>
               </div>
@@ -481,7 +483,7 @@ function TarjetaProducto({
   return (
     <button
       onClick={tieneOpciones ? onElegir : onAgregarDirecto}
-      className="flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-linea transition active:scale-[0.99]"
+      className="group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-linea transition hover:ring-brasa/40 active:scale-[0.99]"
     >
       {producto.fotoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -517,7 +519,7 @@ function TarjetaProducto({
           )}
         </div>
       </div>
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brasa text-[1.3rem] font-bold text-sobre-brasa">
+      <span className="grid h-8 w-8 shrink-0 place-items-center self-center rounded-full bg-brasa/12 text-[1.15rem] font-bold text-brasa-texto ring-1 ring-brasa/25 transition group-hover:bg-brasa group-hover:text-sobre-brasa group-hover:ring-brasa">
         +
       </span>
     </button>
@@ -708,7 +710,7 @@ function BarraCarrito({
  * abre (WhatsApp sin instalar, navegador raro), el cliente puede escribirlo a
  * mano y el pedido no se pierde.
  */
-function PedidoListo({ codigo, total }: { codigo: string; total: number }) {
+function PedidoListo({ codigo, total, whatsapp }: { codigo: string; total: number; whatsapp: string | null }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center">
       <div className="text-[3rem]">🧾</div>
@@ -722,8 +724,11 @@ function PedidoListo({ codigo, total }: { codigo: string; total: number }) {
       </p>
       <p className="text-[0.9rem] text-tinta-2">Total: {soles(total)}</p>
 
+      {/* CON el número del restaurante (2026-08-17): antes era `wa.me/` a
+          secas y abría WhatsApp sin destinatario, así que el cliente tenía que
+          buscar el contacto a mano — justo después de armar todo su pedido. */}
       <a
-        href={`https://wa.me/?text=${encodeURIComponent(`Hola! Mi pedido es el #${codigo}`)}`}
+        href={`https://wa.me/${whatsapp ?? ""}?text=${encodeURIComponent(`Hola! Mi pedido es el #${codigo}`)}`}
         className="mt-2 w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa"
       >
         Enviar por WhatsApp
@@ -744,7 +749,7 @@ function TarjetaCombo({ combo, onAgregar }: { combo: Combo; onAgregar: () => voi
   return (
     <button
       onClick={onAgregar}
-      className="flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-orbita/30 transition active:scale-[0.99]"
+      className="group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-orbita/30 transition hover:ring-orbita/60 active:scale-[0.99]"
     >
       {combo.fotoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -769,7 +774,7 @@ function TarjetaCombo({ combo, onAgregar }: { combo: Combo; onAgregar: () => voi
           )}
         </div>
       </div>
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brasa text-[1.3rem] font-bold text-sobre-brasa">
+      <span className="grid h-8 w-8 shrink-0 place-items-center self-center rounded-full bg-brasa/12 text-[1.15rem] font-bold text-brasa-texto ring-1 ring-brasa/25 transition group-hover:bg-brasa group-hover:text-sobre-brasa group-hover:ring-brasa">
         +
       </span>
     </button>

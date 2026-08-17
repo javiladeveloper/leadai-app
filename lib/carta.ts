@@ -398,6 +398,8 @@ export interface NegocioCarta {
   direccion: string | null;
   instagramUrl: string | null;
   entregaMinutos: number | null;
+  /** A dónde llega el pedido de la carta. Solo dígitos con código de país. */
+  whatsappCarta: string | null;
 }
 
 export async function obtenerNegocio(tenant?: string): Promise<NegocioCarta | null> {
@@ -410,7 +412,7 @@ export async function obtenerNegocio(tenant?: string): Promise<NegocioCarta | nu
 }
 
 export function guardarNegocio(
-  datos: Partial<Pick<NegocioCarta, "direccion" | "instagramUrl" | "entregaMinutos">>,
+  datos: Partial<Pick<NegocioCarta, "direccion" | "instagramUrl" | "entregaMinutos" | "whatsappCarta">>,
   tenant?: string,
 ) {
   return escribir("/carta/negocio", "PATCH", datos, tenant);

@@ -127,12 +127,14 @@ function EnlaceCarta({ url }: { url: string }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-tarjeta bg-brasa-suave px-4 py-3 ring-1 ring-brasa/25">
+    <div className="flex flex-wrap items-center gap-3 rounded-tarjeta bg-superficie-honda px-4 py-3.5">
       <div className="min-w-0 flex-1">
-        <p className="text-[0.78rem] font-bold uppercase tracking-wide text-brasa-texto">
+        <p className="text-[0.78rem] font-bold uppercase tracking-wide text-orbita">
           El link de tu carta
         </p>
-        <p className="truncate text-[0.88rem] text-tinta-2">{url}</p>
+        {/* El link en menta sobre el oscuro: 7.1:1, y es el dato que el dueño
+            viene a buscar acá. */}
+        <p className="truncate text-[0.9rem] font-medium text-brasa">{url}</p>
       </div>
       <button
         onClick={copiar}
@@ -144,7 +146,7 @@ function EnlaceCarta({ url }: { url: string }) {
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="rounded-lg px-3 py-2 text-[0.85rem] font-semibold text-brasa-texto hover:underline"
+        className="rounded-lg px-3 py-2 text-[0.85rem] font-semibold text-arena/80 transition hover:text-arena hover:underline"
       >
         Ver ↗
       </a>

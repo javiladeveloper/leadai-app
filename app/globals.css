@@ -1,19 +1,34 @@
 @import "tailwindcss";
 
 /* ── Sistema de diseño LeadAI ────────────────────────────────────────
-   LOS TRES COLORES DEL LOGO SE USAN, y cada uno tiene su trabajo:
-   menta = acción, naranja = énfasis y acento, verde hondo = barras oscuras.
+   CUATRO COLORES Y UNA REGLA (2026-08-17). El logo tiene menta #0FB68B,
+   naranja #FC8A05, blanco y verde hondo #0E1614. La regla no es de gusto:
+   sale del contraste medido.
 
-   REGLA DE ORO (compartida con la app móvil, ver
-   leadai-mobile/design/leadai-design-tokens.json): acción = menta,
-   énfasis = naranja, alerta = rojo. Nunca se alias-an: un botón de acción
-   jamás va naranja, y un aviso de error jamás va menta.
+     menta   sobre blanco  2.6:1   sobre hondo  7.1:1
+     naranja sobre blanco  2.4:1   sobre hondo  7.7:1
+     hondo   sobre blanco 18.4:1
 
-   POR QUÉ LA ALERTA ES ROJA Y NO NARANJA (2026-08-17): el naranja es COLOR
-   DE MARCA — está en el logo. Tenerlo reservado para errores y leads
-   calientes lo dejaba fuera del diseño: el panel entero se veía verde. El
-   rojo ladrillo cumple mejor el papel de alerta (nadie confunde un error) y
-   libera el naranja para lo que es: acento de marca.
+   O sea: menta y naranja NO se leen como texto sobre blanco, pero brillan
+   sobre el verde hondo. De ahí el sistema:
+
+     · BLANCO/ARENA es el fondo. Nunca compite, solo sostiene.
+     · VERDE HONDO es la estructura: sidebar, tarjetas destacadas, títulos.
+       Es el color que ORDENA la pantalla.
+     · MENTA es "acá estás": sección activa, pestaña activa, el dato vivo.
+     · NARANJA es "hacé esto": botones de acción, eyebrows, precios.
+
+   Los dos acentos van SOLIDOS (con tinta oscura encima) sobre fondo claro, o
+   como TEXTO sobre el verde hondo. Nunca como texto sobre blanco.
+
+   OJO CON LA APP MÓVIL (leadai-mobile/design/leadai-design-tokens.json):
+   ahí el menta sigue siendo el color de ACCIÓN, porque Material 3 lo usa
+   como `primary` y cambiarlo implica tocar el tema entero. En el panel el
+   menta pasó a marcar ESTADO y el naranja tomó las acciones — si algún día
+   se unifican, este es el punto a resolver.
+
+   La ALERTA es roja (#C0392B) y no naranja: el naranja es color de marca y
+   se usa en toda la pantalla, así que como señal de error no destacaría.
 
    Los cuatro colores salen del ÍCONO (leadai-mobile/design/icono-frente.png):
    menta #0FB68B, naranja #FC8A05, blanco y el verde hondo #0E1614 del fondo.

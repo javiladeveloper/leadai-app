@@ -45,14 +45,14 @@ export function HeaderPanel() {
   }
 
   return (
-    <header className="flex items-center gap-3 border-b border-linea bg-carta px-5 py-3">
+    <header className="flex items-center gap-3 bg-superficie-honda px-5 py-3">
       {/* Buscador (oculto en pantallas muy chicas para no apretar el header) */}
       <form onSubmit={buscar} className="hidden min-w-0 flex-1 sm:block sm:max-w-md">
         <input
           name="q"
           type="search"
           placeholder="🔍 Buscar leads o mensajes…"
-          className="w-full rounded-chip bg-arena px-4 py-2 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40"
+          className="w-full rounded-chip bg-white/8 px-4 py-2 text-sm text-arena outline-none ring-1 ring-white/15 placeholder:text-arena/45 focus:ring-brasa/50"
           aria-label="Buscar leads"
         />
       </form>
@@ -61,7 +61,7 @@ export function HeaderPanel() {
         <button
           type="button"
           onClick={salir}
-          className="flex items-center gap-1.5 text-sm font-medium text-frio hover:text-tinta"
+          className="flex items-center gap-1.5 text-sm font-medium text-arena/70 transition hover:text-arena"
         >
           Salir <IconoChevron className="h-4 w-4" />
         </button>

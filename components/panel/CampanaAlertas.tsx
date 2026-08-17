@@ -75,7 +75,7 @@ export function CampanaAlertas() {
         type="button"
         onClick={() => setAbierto((v) => !v)}
         aria-label={hay ? `${totalAvisos} avisos` : "Sin avisos"}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-arena/60"
+        className="relative flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-white/10"
       >
         <svg
           viewBox="0 0 24 24"
@@ -84,14 +84,14 @@ export function CampanaAlertas() {
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`h-5 w-5 ${bloqueo ? "text-calor-hondo" : hay ? "text-calor" : "text-frio"} ${agita ? "animate-campana" : ""}`}
+          className={`h-5 w-5 ${bloqueo ? "text-alerta" : hay ? "text-orbita" : "text-arena/60"} ${agita ? "animate-campana" : ""}`}
           style={{ transformOrigin: "top center" }}
         >
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {hay && (
-          <span className={`absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[0.62rem] font-bold text-carta ${bloqueo ? "bg-calor-hondo" : "bg-calor"}`}>
+          <span className={`absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[0.62rem] font-bold text-carta ${bloqueo ? "bg-alerta" : "bg-orbita"}`}>
             {totalAvisos > 9 ? "9+" : totalAvisos}
           </span>
         )}

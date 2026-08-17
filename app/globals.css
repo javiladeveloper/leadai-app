@@ -58,7 +58,11 @@
   --color-tibio: #8a5a05;       /* lead tibio — ámbar */
   --color-tibio-suave: #fdf2de;
   --color-frio: #586661;        /* lead frío / texto terciario — outline */
-  --color-tinta: #16211d;       /* casi negro verdoso — texto principal */
+  /* El VERDE HONDO DEL LOGO como texto principal (2026-08-17). Era #16211d,
+     un negro verdoso parecido pero no el de la marca: los títulos del panel y
+     el fondo del sidebar ahora son EXACTAMENTE el mismo color, y el panel
+     claro queda cosido con el menú oscuro. 17.4:1 sobre el fondo arena. */
+  --color-tinta: #0e1614;
   --color-tinta-2: #3d4a45;     /* texto secundario */
   --color-linea: #dbe5e0;       /* bordes sobre fondo claro */
   /* El verde MUY oscuro del fondo del logo (2026-08-17). Antes era #0f172a,

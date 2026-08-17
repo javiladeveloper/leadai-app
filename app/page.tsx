@@ -123,7 +123,7 @@ export default function Login() {
         )}
 
         {hayGoogle() ? (
-          <div ref={botonRef} className="flex justify-center" aria-busy={cargando} />
+          <div ref={botonRef} className="flex justify-start" aria-busy={cargando} />
         ) : (
           <button
             onClick={entrarComoDemo}
@@ -135,7 +135,7 @@ export default function Login() {
         )}
 
         {!hayGoogle() && (
-          <p className="text-center text-[0.85rem] text-frio">
+          <p className="text-[0.85rem] text-frio">
             Modo demostración · se conecta con Google al configurar la cuenta
           </p>
         )}
@@ -144,7 +144,7 @@ export default function Login() {
         {!verCorreo ? (
           <button
             onClick={() => setVerCorreo(true)}
-            className="text-center text-[0.82rem] font-semibold text-tinta-2 underline-offset-2 hover:underline"
+            className="w-fit text-[0.82rem] font-semibold text-tinta-2 underline-offset-2 hover:underline"
           >
             Entrar con correo y contraseña
           </button>
@@ -176,7 +176,7 @@ export default function Login() {
           </form>
         )}
 
-        <p className="mt-2 text-center text-[0.8rem] text-frio">
+        <p className="mt-2 text-[0.8rem] text-frio">
           Al continuar aceptás los términos de LeadAI.
         </p>
       </div>

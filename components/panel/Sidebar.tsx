@@ -56,6 +56,18 @@ const SECCIONES = [
  */
 const SECCIONES_PEDIDOS = ["/inicio", "/conversaciones", "/carta", "/configuracion"];
 
+/**
+ * Y AL REVÉS: la Carta es SOLO de restaurantes (2026-08-17).
+ *
+ * Un negocio de ventas —los planes de captación, que son los que más pagan— no
+ * tiene platos ni precios de cocina. Verlo en su menú no le suma una función:
+ * le suma una sección que abre algo que no le sirve.
+ *
+ * Va aparte de la lista de arriba porque son dos preguntas distintas: aquella
+ * dice qué ve un restaurante, esta dice qué NO ve el que no lo es.
+ */
+const SOLO_PEDIDOS = ["/carta"];
+
 const CLAVE_SIDEBAR = "leadai.sidebar"; // '1' expandido | '0' colapsado
 
 // Sidebar del panel de escritorio, COLAPSABLE CON BOTÓN (feedback 2026-08-04:
@@ -71,7 +83,7 @@ export function Sidebar() {
   const modoPedidos = useModoPedidos();
   const secciones = modoPedidos
     ? SECCIONES.filter((s) => SECCIONES_PEDIDOS.includes(s.href))
-    : SECCIONES;
+    : SECCIONES.filter((s) => !SOLO_PEDIDOS.includes(s.href));
   const nombre = sesion?.usuario?.nombre ?? sesion?.usuario?.email ?? "Mi cuenta";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "?";
 

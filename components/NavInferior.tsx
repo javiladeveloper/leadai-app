@@ -35,6 +35,9 @@ const RAPIDOS_PEDIDOS = [
 /** Las secciones que ve un restaurante en "Más" (ver Sidebar.tsx). */
 const SECCIONES_PEDIDOS = ["/inicio", "/conversaciones", "/carta", "/configuracion"];
 
+/** La Carta es SOLO de restaurantes: un negocio de ventas no tiene platos. */
+const SOLO_PEDIDOS = ["/carta"];
+
 // Todas las secciones del panel (mismas que el Sidebar de escritorio). El menú
 // "Más" las muestra completas para que en móvil se llegue a cualquier pantalla.
 const TODAS = [
@@ -75,7 +78,9 @@ export function NavInferior() {
   // entrada y alargarlo después es el parpadeo más molesto de los dos.
   const modoPedidos = useModoPedidos();
   const rapidos = modoPedidos ? RAPIDOS_PEDIDOS : RAPIDOS;
-  const todas = modoPedidos ? TODAS.filter((s) => SECCIONES_PEDIDOS.includes(s.href)) : TODAS;
+  const todas = modoPedidos
+    ? TODAS.filter((s) => SECCIONES_PEDIDOS.includes(s.href))
+    : TODAS.filter((s) => !SOLO_PEDIDOS.includes(s.href));
 
   return (
     <>

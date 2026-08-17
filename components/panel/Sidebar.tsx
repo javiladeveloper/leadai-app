@@ -134,20 +134,23 @@ export function Sidebar() {
           </button>
         </div>
       )}
-      {/* Alta manual de lead. */}
-      <div className="px-3 pb-3">
-        <Link
-          href="/leads?nuevo=1"
-          title="Nuevo lead"
-          // Contorno en vez de bloque sólido (2026-08-17): pegado a la
-          // píldora activa eran dos manchas de color peleando. Así sigue
-          // siendo lo primero que se ve, pero deja respirar al menú.
-          className="flex h-10 items-center justify-center gap-1.5 rounded-chip text-sm font-bold text-brasa ring-1 ring-brasa/40 transition hover:bg-brasa hover:text-sobre-brasa hover:ring-brasa"
-        >
-          <span className="shrink-0">＋</span>
-          {expandido && <span className="whitespace-nowrap">Nuevo lead</span>}
-        </Link>
-      </div>
+      {/* Alta manual de lead. NO en restaurantes (2026-08-17): sus clientes
+          entran por WhatsApp y nadie carga uno a mano — el botón ocupaba el
+          lugar más visible del menú sin servir para nada. */}
+      {!modoPedidos && (
+        <div className="px-3 pb-3">
+          <Link
+            href="/leads?nuevo=1"
+            title="Nuevo lead"
+            // Contorno en vez de bloque sólido: pegado a la píldora activa
+            // eran dos manchas de color peleando.
+            className="flex h-10 items-center justify-center gap-1.5 rounded-chip text-sm font-bold text-brasa ring-1 ring-brasa/40 transition hover:bg-brasa hover:text-sobre-brasa hover:ring-brasa"
+          >
+            <span className="shrink-0">＋</span>
+            {expandido && <span className="whitespace-nowrap">Nuevo lead</span>}
+          </Link>
+        </div>
+      )}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 [scrollbar-width:none]">
         {secciones.map(({ href, label, Icono }) => {
           const activo = path.startsWith(href);
@@ -158,12 +161,11 @@ export function Sidebar() {
               title={label}
               className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-semibold transition-colors ${
                 activo
-                  // NARANJA y no el verde sólido (2026-08-17): el menú tenía
-                  // dos bloques `bg-brasa` juntos —la píldora y "Nuevo lead"—
-                  // y se leía chillón. Acá va el naranja de marca sobre un
-                  // fondo tenue del mismo tono: marca dónde estás sin gritar,
-                  // y de paso el naranja aparece en el menú.
-                  ? "bg-orbita/12 text-orbita"
+                  // EL MISMO VERDE que la pestaña "Platos" (2026-08-17): menta
+                  // de marca con la tinta oscura encima, no el menta con texto
+                  // blanco que se usaba antes. Ese par se leía más saturado de
+                  // lo necesario sobre el sidebar oscuro.
+                  ? "bg-brasa text-sobre-brasa"
                   : "text-arena/80 hover:bg-white/5 hover:text-arena"
               } ${expandido ? "" : "justify-center"}`}
               aria-current={activo ? "page" : undefined}

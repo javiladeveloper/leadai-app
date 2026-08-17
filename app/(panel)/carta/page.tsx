@@ -247,7 +247,7 @@ function Platos({
                 <img
                   src={p.fotoUrl}
                   alt=""
-                  className="h-12 w-12 shrink-0 rounded-lg object-cover ring-1 ring-linea"
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover ring-2 ring-orbita/35"
                 />
               )}
               <button

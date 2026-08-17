@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import {
   objetivosAd, publicoSugeridoAd, presupuestoAd, sugerirTextoAd, listarAnuncios, crearAnuncio,
+  publicarAnuncioMeta, subirMediaPost,
   type ObjetivoAd, type PublicoAd, type RecomPresupuesto, type Anuncio,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -14,6 +15,7 @@ type Estado = "cargando" | "ok" | "error";
 
 const ESTADO_AD: Record<string, { texto: string; clase: string }> = {
   borrador: { texto: "Borrador", clase: "bg-arena text-frio" },
+  en_revision: { texto: "En revisión de Meta", clase: "bg-tibio-suave text-tibio" },
   activo: { texto: "Activo", clase: "bg-ok/12 text-ok" },
   pausado: { texto: "Pausado", clase: "bg-tibio-suave text-tibio" },
   finalizado: { texto: "Finalizado", clase: "bg-arena text-frio" },
@@ -47,6 +49,8 @@ export default function AnunciosPanel() {
   const [objetivo, setObjetivo] = useState("mensajes");
   const [campania, setCampania] = useState("");
   const [texto, setTexto] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [subiendo, setSubiendo] = useState(false);
   const [publico, setPublico] = useState<PublicoAd | null>(null);
   const [zona, setZona] = useState("Todo Perú");
   const [edadMin, setEdadMin] = useState("18");
@@ -56,6 +60,8 @@ export default function AnunciosPanel() {
   const [recom, setRecom] = useState<RecomPresupuesto | null>(null);
   const [sugiriendo, setSugiriendo] = useState(false);
   const [publicando, setPublicando] = useState(false);
+  const [publicandoId, setPublicandoId] = useState<string | null>(null);
+  const [aviso, setAviso] = useState("");
   const [msg, setMsg] = useState("");
 
   // Modo global: el wizard entero trabaja sobre el negocio enfocado en la
@@ -108,6 +114,23 @@ export default function AnunciosPanel() {
     if (t) setTexto(t);
   }
 
+  // La imagen es OBLIGATORIA: Meta rechaza la pieza sin ella ("specify the
+  // media"). Reusa la subida de /publicaciones/media (Supabase público).
+  async function elegirImagen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSubiendo(true);
+    setMsg("");
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const r = await subirMediaPost(String(reader.result), g.tenantLista);
+      setSubiendo(false);
+      if (r.ok && r.url) setMediaUrl(r.url);
+      else setMsg(r.error ?? "No se pudo subir la imagen.");
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function publicar() {
     if (publicando) return;
     setPublicando(true);
@@ -116,6 +139,7 @@ export default function AnunciosPanel() {
       objetivo,
       campaniaNombre: campania.trim(),
       texto: texto.trim(),
+      mediaUrl: mediaUrl || undefined,
       // Se envía la edad EDITADA por el usuario (no la sugerida): estos valores
       // van después directo al AdSet de Meta (age_min/age_max, geo_locations).
       publico: {
@@ -127,14 +151,32 @@ export default function AnunciosPanel() {
       presupuestoTotal: Number(total),
       dias: Number(dias),
     }, g.tenantLista);
-    setPublicando(false);
-    if (r.ok) {
-      // Reset del wizard
-      setCreando(false); setPaso(0); setCampania(""); setTexto(""); setPublico(null); setZona("Todo Perú"); setTotal("100"); setDias("7"); setRecom(null);
-      cargar();
-    } else {
+    if (!r.ok || !r.id) {
+      setPublicando(false);
       setMsg(r.error ?? "No se pudo crear el anuncio.");
+      return;
     }
+    // Publicación REAL: crea la campaña en Meta (en pausa). Si la cuenta aún no
+    // está configurada, el anuncio queda como borrador re-publicable.
+    const p = await publicarAnuncioMeta(r.id, g.tenantLista);
+    setPublicando(false);
+    // Reset del wizard (el anuncio ya existe; el resultado se avisa arriba)
+    setCreando(false); setPaso(0); setCampania(""); setTexto(""); setMediaUrl(""); setPublico(null); setZona("Todo Perú"); setTotal("100"); setDias("7"); setRecom(null);
+    setAviso(p.ok
+      ? `✅ ${p.aviso ?? "Anuncio publicado en Meta. Quedó PAUSADO: enciéndelo desde tu Ads Manager."}`
+      : `⚠️ El anuncio quedó como borrador. ${p.error ?? ""}`);
+    cargar();
+  }
+
+  async function publicarExistente(id: string) {
+    if (publicandoId) return;
+    setPublicandoId(id);
+    const p = await publicarAnuncioMeta(id, g.tenantLista);
+    setPublicandoId(null);
+    setAviso(p.ok
+      ? `✅ ${p.aviso ?? "Anuncio publicado en Meta. Quedó PAUSADO: enciéndelo desde tu Ads Manager."}`
+      : `⚠️ ${p.error ?? "No se pudo publicar el anuncio."}`);
+    cargar();
   }
 
   if (!listo) return null;
@@ -143,7 +185,7 @@ export default function AnunciosPanel() {
   const edadValida = Number(edadMin) >= 18 && Number(edadMax) <= 65 && Number(edadMin) <= Number(edadMax);
   const puedeAvanzar =
     (paso === 0) ||
-    (paso === 1 && campania.trim() && texto.trim()) ||
+    (paso === 1 && campania.trim() && texto.trim() && mediaUrl) ||
     (paso === 2 && edadValida) ||
     (paso === 3 && Number(total) > 0 && Number(dias) > 0);
 
@@ -172,9 +214,16 @@ export default function AnunciosPanel() {
       )}
 
       <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
-        📣 La publicación real de anuncios se activa al conectar tu cuenta de Meta (con tu propio
-        medio de pago; el gasto es tuyo). Mientras tanto, armá y probá tus anuncios acá.
+        📣 Tus anuncios se crean de verdad en tu cuenta publicitaria de Meta, siempre <b>en pausa</b>:
+        tú los revisas y enciendes desde tu Ads Manager. El gasto va a tu propio medio de pago.
       </div>
+
+      {aviso && (
+        <div className="flex items-start justify-between gap-3 rounded-tarjeta bg-ok/8 px-4 py-3 text-[0.86rem] text-tinta-2 ring-1 ring-ok/25">
+          <span>{aviso}</span>
+          <button onClick={() => setAviso("")} className="shrink-0 text-frio hover:text-tinta">✕</button>
+        </div>
+      )}
 
       {/* Wizard de creación */}
       {creando && (
@@ -244,6 +293,22 @@ export default function AnunciosPanel() {
                 />
                 <p className="mt-1 text-[0.74rem] text-frio">Tip: la primera frase es la que engancha. Usá algo que frene el scroll.</p>
               </div>
+              <div>
+                <label className="text-[0.85rem] font-bold text-tinta">Imagen del anuncio</label>
+                {mediaUrl ? (
+                  <div className="mt-1 flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={mediaUrl} alt="Imagen del anuncio" className="h-20 rounded-tarjeta object-cover ring-1 ring-linea" />
+                    <button onClick={() => setMediaUrl("")} className="text-[0.8rem] font-semibold text-calor-hondo">Quitar</button>
+                  </div>
+                ) : (
+                  <label className="mt-1 flex cursor-pointer items-center justify-center rounded-tarjeta border-2 border-dashed border-linea bg-arena/40 px-3 py-5 text-[0.86rem] text-frio transition hover:border-brasa/40">
+                    {subiendo ? "Subiendo…" : "📷 Subir imagen (obligatoria — Meta la exige)"}
+                    <input type="file" accept="image/*" onChange={elegirImagen} className="hidden" disabled={subiendo} />
+                  </label>
+                )}
+              </div>
+              {msg && <p className="text-[0.84rem] font-semibold text-calor-hondo">{msg}</p>}
             </div>
           )}
 
@@ -337,11 +402,17 @@ export default function AnunciosPanel() {
                 <p><b className="text-tinta">Objetivo:</b> {objSel?.pregunta}</p>
                 <p><b className="text-tinta">Campaña:</b> {campania}</p>
                 <p><b className="text-tinta">Texto:</b> “{texto}”</p>
+                {mediaUrl && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={mediaUrl} alt="Imagen del anuncio" className="h-24 rounded-tarjeta object-cover ring-1 ring-linea" />
+                )}
                 <p><b className="text-tinta">Público:</b> {zona} · {edadMin}–{edadMax} años</p>
                 <p className="text-brasa-hondo"><b>Vas a gastar hasta S/{total} en {dias} días</b> (S/{(Number(total) / Number(dias) || 0).toFixed(2)}/día).</p>
               </div>
               <p className="text-[0.78rem] text-frio">
-                ⏳ Los primeros 3-7 días el anuncio "aprende" — no lo pauses ni edites en ese tiempo para que rinda mejor.
+                🔒 El anuncio se crea <b>en pausa</b> en tu cuenta de Meta: no gasta nada hasta que
+                lo enciendas en tu Ads Manager. ⏳ Y cuando lo actives, los primeros 3-7 días
+                "aprende" — no lo pauses ni edites en ese tiempo para que rinda mejor.
               </p>
               {msg && <p className="text-[0.84rem] font-semibold text-calor-hondo">{msg}</p>}
             </div>
@@ -398,9 +469,20 @@ export default function AnunciosPanel() {
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${et.clase}`}>{et.texto}</span>
                     </div>
                     <p className="mt-1 line-clamp-2 text-[0.86rem] text-tinta-2">{a.texto}</p>
-                    <p className="mt-1.5 text-[0.76rem] text-frio">
-                      S/{a.presupuestoTotal} · {a.dias} días · S/{(a.presupuestoTotal / a.dias || 0).toFixed(0)}/día
-                    </p>
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                      <p className="text-[0.76rem] text-frio">
+                        S/{a.presupuestoTotal} · {a.dias} días · S/{(a.presupuestoTotal / a.dias || 0).toFixed(0)}/día
+                      </p>
+                      {a.estado === "borrador" && (
+                        <button
+                          onClick={() => publicarExistente(a.id)}
+                          disabled={publicandoId !== null}
+                          className="rounded-chip bg-brasa px-3.5 py-1.5 text-[0.78rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
+                        >
+                          {publicandoId === a.id ? "Publicando…" : "Publicar en Meta"}
+                        </button>
+                      )}
+                    </div>
                   </article>
                 );
               })}

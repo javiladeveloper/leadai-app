@@ -1095,12 +1095,26 @@ export async function crearAnuncio(input: {
   publico: { zona?: string; edadMin?: number; edadMax?: number; intereses?: string[] };
   presupuestoTotal: number;
   dias: number;
-}, tenant?: string): Promise<{ ok: boolean; error?: string }> {
+}, tenant?: string): Promise<{ ok: boolean; id?: string; error?: string }> {
   try {
-    await api("/anuncios", { method: "POST", body: input, tenant });
-    return { ok: true };
+    const r = await api<{ anuncio: { id: string } }>("/anuncios", { method: "POST", body: input, tenant });
+    return { ok: true, id: r.anuncio?.id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el anuncio" };
+  }
+}
+
+// Publicación REAL en Meta (Marketing API): crea la campaña completa en la
+// cuenta publicitaria del negocio, todo EN PAUSA (el dueño la enciende desde
+// su Ads Manager). El backend valida config y traduce los errores de Meta.
+export async function publicarAnuncioMeta(
+  id: string, tenant?: string,
+): Promise<{ ok: boolean; aviso?: string; error?: string }> {
+  try {
+    const r = await api<{ aviso?: string }>(`/anuncios/${id}/publicar`, { method: "POST", tenant });
+    return { ok: true, aviso: r.aviso };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo publicar el anuncio" };
   }
 }
 

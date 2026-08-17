@@ -1118,4 +1118,102 @@ export async function publicarAnuncioMeta(
   }
 }
 
+// ── Campañas HSM (envíos masivos de plantillas de WhatsApp) ──
+// Los envíos NO consumen la cuota de clientes del plan; el peaje por mensaje
+// lo cobra Meta directo al método de pago del negocio (su WABA, su tarjeta).
+
+export interface PlantillaHSM {
+  nombre: string;
+  estado: string; // APPROVED | PENDING | REJECTED
+  categoria: string;
+  idioma: string;
+  cuerpo: string;
+  encabezadoTipo?: string; // '' | IMAGE | VIDEO | DOCUMENT
+}
+export interface CampaniaHSM {
+  id: string;
+  nombre: string;
+  plantillaNombre: string;
+  cuerpoVista: string;
+  encabezadoTipo: string;
+  encabezadoUrl: string;
+  estado: string; // enviando | pausada | completada
+  programadaPara: string | null;
+  totalDestinatarios: number;
+  enviados: number;
+  fallidos: number;
+  respondieron: number;
+  creadoEn: string;
+}
+export interface CupoCampanias { usados: number; tope: number; restante: number; incluido: boolean }
+
+export async function listarPlantillasHSM(tenant?: string): Promise<{ ok: boolean; plantillas: PlantillaHSM[]; error?: string }> {
+  try {
+    const r = await api<{ plantillas: PlantillaHSM[] }>("/campanias/plantillas", { tenant });
+    return { ok: true, plantillas: r.plantillas };
+  } catch (e) {
+    return { ok: false, plantillas: [], error: e instanceof Error ? e.message : "No se pudieron leer las plantillas" };
+  }
+}
+
+export async function crearPlantillaHSM(input: {
+  nombre: string;
+  categoria: "MARKETING" | "UTILITY";
+  cuerpo: string;
+  encabezado?: { tipo: "IMAGE" | "VIDEO" | "DOCUMENT"; url: string };
+}, tenant?: string): Promise<{ ok: boolean; aviso?: string; error?: string }> {
+  try {
+    const r = await api<{ aviso?: string }>("/campanias/plantillas", { method: "POST", body: input, tenant });
+    return { ok: true, aviso: r.aviso };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear la plantilla" };
+  }
+}
+
+export async function eliminarPlantillaHSM(nombre: string, tenant?: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/campanias/plantillas/${encodeURIComponent(nombre)}`, { method: "DELETE", tenant });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo borrar la plantilla" };
+  }
+}
+
+export async function cupoCampanias(tenant?: string): Promise<CupoCampanias | null> {
+  try { return await api<CupoCampanias>("/campanias/cupo", { tenant }); } catch { return null; }
+}
+
+export async function estadoPagoCampanias(tenant?: string): Promise<{ tienePago: boolean; urlPagos: string } | null> {
+  try { return await api<{ tienePago: boolean; urlPagos: string }>("/campanias/estado-pago", { tenant }); } catch { return null; }
+}
+
+export async function listarCampanias(tenant?: string): Promise<CampaniaHSM[]> {
+  try { return (await api<{ items: CampaniaHSM[] }>("/campanias", { tenant })).items; } catch { return []; }
+}
+
+export async function crearCampaniaHSM(input: {
+  nombre: string;
+  plantillaNombre: string;
+  cuerpoVista?: string;
+  encabezado?: { tipo: "IMAGE" | "VIDEO" | "DOCUMENT"; url: string };
+  programadaPara?: string;
+  contactos: { telefono: string; nombre?: string }[];
+}, tenant?: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/campanias", { method: "POST", body: input, tenant });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear la campaña" };
+  }
+}
+
+export async function pausarCampania(id: string, reanudar: boolean, tenant?: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/campanias/${id}/${reanudar ? "reanudar" : "pausar"}`, { method: "POST", tenant });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo cambiar el estado" };
+  }
+}
+
 export { API_URL };

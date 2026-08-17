@@ -20,6 +20,10 @@ const SECCIONES = [
   { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones },
   { href: "/publicar", label: "Publicar", Icono: IconoOportunidades },
   { href: "/anuncios", label: "Anuncios", Icono: IconoRayo },
+  // Campañas HSM (2026-08-17): envíos masivos de plantillas de WhatsApp a la
+  // base de leads. Los envíos NO consumen cuota de clientes; el peaje de Meta
+  // va directo al método de pago del negocio en su WABA.
+  { href: "/campanias", label: "Campañas", Icono: IconoRayo },
   { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
   // La carta del restaurante: lo que ve el cliente en /c/<tenantId> y lo que
   // el bot lee para tomar pedidos. Se editaba en la app móvil hasta que se

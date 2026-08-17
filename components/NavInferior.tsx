@@ -46,6 +46,7 @@ const TODAS = [
   { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones },
   { href: "/publicar", label: "Publicar", Icono: IconoOportunidades },
   { href: "/anuncios", label: "Anuncios", Icono: IconoRayo },
+  { href: "/campanias", label: "Campañas", Icono: IconoRayo },
   { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
   { href: "/carta", label: "Carta", Icono: IconoOportunidades },
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos },

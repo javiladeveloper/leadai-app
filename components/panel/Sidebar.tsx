@@ -139,7 +139,10 @@ export function Sidebar() {
         <Link
           href="/leads?nuevo=1"
           title="Nuevo lead"
-          className="flex h-10 items-center justify-center gap-1.5 rounded-chip bg-brasa text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
+          // Contorno en vez de bloque sólido (2026-08-17): pegado a la
+          // píldora activa eran dos manchas de color peleando. Así sigue
+          // siendo lo primero que se ve, pero deja respirar al menú.
+          className="flex h-10 items-center justify-center gap-1.5 rounded-chip text-sm font-bold text-brasa ring-1 ring-brasa/40 transition hover:bg-brasa hover:text-sobre-brasa hover:ring-brasa"
         >
           <span className="shrink-0">＋</span>
           {expandido && <span className="whitespace-nowrap">Nuevo lead</span>}
@@ -154,7 +157,14 @@ export function Sidebar() {
               href={href}
               title={label}
               className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-semibold transition-colors ${
-                activo ? "bg-brasa text-carta" : "text-arena/80 hover:bg-white/5 hover:text-arena"
+                activo
+                  // NARANJA y no el verde sólido (2026-08-17): el menú tenía
+                  // dos bloques `bg-brasa` juntos —la píldora y "Nuevo lead"—
+                  // y se leía chillón. Acá va el naranja de marca sobre un
+                  // fondo tenue del mismo tono: marca dónde estás sin gritar,
+                  // y de paso el naranja aparece en el menú.
+                  ? "bg-orbita/12 text-orbita"
+                  : "text-arena/80 hover:bg-white/5 hover:text-arena"
               } ${expandido ? "" : "justify-center"}`}
               aria-current={activo ? "page" : undefined}
             >

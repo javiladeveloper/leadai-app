@@ -107,7 +107,7 @@ export function NavInferior() {
                     href={href}
                     onClick={() => setAbierto(false)}
                     className={`flex flex-col items-center gap-1.5 rounded-tarjeta px-2 py-3 text-center text-[0.74rem] font-semibold transition ${
-                      activo ? "bg-brasa-suave text-brasa-hondo" : "bg-arena/60 text-tinta-2 hover:bg-arena"
+                      activo ? "bg-calor-suave text-calor-hondo" : "bg-arena/60 text-tinta-2 hover:bg-arena"
                     }`}
                   >
                     <Icono className="h-6 w-6" />
@@ -139,7 +139,7 @@ export function NavInferior() {
                 key={href}
                 href={href}
                 className={`flex flex-1 flex-col items-center gap-1 py-2.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] text-[0.72rem] font-bold transition-colors ${
-                  activo ? "text-brasa" : "text-frio"
+                  activo ? "text-calor" : "text-frio"
                 }`}
                 aria-current={activo ? "page" : undefined}
               >

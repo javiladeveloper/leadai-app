@@ -238,7 +238,7 @@ function Platos({
           {platos.map((p) => (
             <div
               key={p.id}
-              className={`flex items-center gap-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea ${
+              className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-carta p-4 ring-1 ring-linea ${
                 p.disponible ? "" : "opacity-60"
               }`}
             >
@@ -252,7 +252,7 @@ function Platos({
               )}
               <button
                 onClick={() => { setEditando(p); setAbriendo(true); }}
-                className="min-w-0 flex-1 text-left"
+                className="min-w-[9rem] flex-1 text-left"
               >
                 <p className="font-semibold text-tinta hover:text-brasa-texto">{p.nombre}</p>
                 {p.descripcion && (

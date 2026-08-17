@@ -46,7 +46,15 @@ const TODAS = [
   { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
   { href: "/carta", label: "Carta", Icono: IconoOportunidades },
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
-  { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
+  // "Probar bot" NO va en el menú (2026-08-17). Era andamiaje para ver cómo
+  // respondía la IA mientras se resolvía el tema del tech provider de Meta;
+  // con WhatsApp ya conectado, el dueño prueba escribiéndose a sí mismo y esa
+  // es la prueba de verdad.
+  //
+  // La pantalla y el endpoint SIGUEN VIVOS: /probar-bot responde si se entra a
+  // mano, y `evals/golden.test.ts` usa /simular-mensaje en el CI. Solo se saca
+  // del menú.
+  // { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
   { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
   // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona).
   { href: "/leads", label: "Leads", Icono: IconoBandeja },

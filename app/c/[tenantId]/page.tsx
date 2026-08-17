@@ -237,11 +237,11 @@ function TarjetaProducto({
         <img
           src={producto.fotoUrl}
           alt=""
-          className="h-16 w-16 shrink-0 rounded-lg object-cover ring-1 ring-linea"
+          className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-linea"
         />
       )}
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-tinta">{producto.nombre}</p>
+        <p className="font-semibold leading-snug text-tinta">{producto.nombre}</p>
         {/* `whitespace-pre-line`: el dueño lista los ingredientes uno por
             renglón y HTML colapsa los saltos — "Pan artesanal Lechuga Cremas"
             en una sola línea ilegible (2026-08-17). */}

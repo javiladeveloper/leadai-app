@@ -90,7 +90,7 @@ export default function Login() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col justify-center gap-10 px-7 pb-10 pt-[max(3rem,env(safe-area-inset-top))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[376px] flex-col justify-center gap-10 px-7 pb-10 pt-[max(3rem,env(safe-area-inset-top))]">
       {/* Marca. Va JUNTO al acceso y centrada (2026-08-17): antes tenía
           `flex-1` y empujaba los botones al fondo, lo que en teléfono se veía
           bien pero en pantalla ancha dejaba un hueco enorme en el medio. */}
@@ -103,7 +103,7 @@ export default function Login() {
         <h1 className="text-[2.6rem] leading-[1.05] font-bold text-tinta">
           Lead<span className="text-brasa-texto">AI</span>
         </h1>
-        <p className="mt-3 max-w-[19rem] text-[1.15rem] text-tinta-2">
+        <p className="mt-3 text-[1.15rem] text-tinta-2">
           Tus leads, en un solo lugar. La IA atiende y te avisa{" "}
           {/* En NARANJA y no menta (2026-08-17): así la portada muestra los
               tres colores del logo — el verde oscuro del ícono, el menta del

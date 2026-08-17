@@ -90,11 +90,11 @@ export default function Login() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[376px] flex-col justify-center gap-10 px-7 pb-10 pt-[max(3rem,env(safe-area-inset-top))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[376px] flex-col items-center justify-center gap-10 px-7 pb-10 pt-[max(3rem,env(safe-area-inset-top))] text-center">
       {/* Marca. Va JUNTO al acceso y centrada (2026-08-17): antes tenía
           `flex-1` y empujaba los botones al fondo, lo que en teléfono se veía
           bien pero en pantalla ancha dejaba un hueco enorme en el medio. */}
-      <div className="flex flex-col">
+      <div className="flex flex-col items-center">
         {/* `w-fit`: dentro de un flex-col el `inline-flex` se estira a todo el
             ancho y la sombra dibuja una caja clara detrás del logo. */}
         <div className="mb-3 w-fit rounded-2xl shadow-[0_8px_24px_rgba(15,182,139,0.28)]">
@@ -115,7 +115,7 @@ export default function Login() {
       </div>
 
       {/* Acceso */}
-      <div className="flex flex-col gap-3">
+      <div className="flex w-full flex-col items-center gap-3">
         {error && (
           <p className="rounded-tarjeta bg-brasa-suave px-4 py-3 text-[0.95rem] text-brasa-hondo">
             {error}
@@ -123,7 +123,7 @@ export default function Login() {
         )}
 
         {hayGoogle() ? (
-          <div ref={botonRef} className="flex justify-start" aria-busy={cargando} />
+          <div ref={botonRef} className="flex justify-center" aria-busy={cargando} />
         ) : (
           <button
             onClick={entrarComoDemo}
@@ -144,12 +144,12 @@ export default function Login() {
         {!verCorreo ? (
           <button
             onClick={() => setVerCorreo(true)}
-            className="w-fit text-[0.82rem] font-semibold text-tinta-2 underline-offset-2 hover:underline"
+            className="text-[0.82rem] font-semibold text-tinta-2 underline-offset-2 hover:underline"
           >
             Entrar con correo y contraseña
           </button>
         ) : (
-          <form onSubmit={entrarPorCorreo} className="flex flex-col gap-2.5">
+          <form onSubmit={entrarPorCorreo} className="flex w-full flex-col gap-2.5">
             <input
               type="email"
               value={email}

@@ -91,7 +91,7 @@ export default function FlujosPanel() {
       )}
 
       {errorCrear && (
-        <div className="rounded-tarjeta bg-calor/10 px-4 py-3 text-[0.9rem] font-semibold text-calor ring-1 ring-calor/30">
+        <div className="rounded-tarjeta bg-alerta/10 px-4 py-3 text-[0.9rem] font-semibold text-alerta ring-1 ring-alerta/30">
           {errorCrear}
         </div>
       )}

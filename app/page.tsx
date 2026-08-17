@@ -7,6 +7,7 @@ import { hayGoogle, renderBotonGoogle } from "@/lib/google";
 import { entrarConGoogle, entrarConEmail, entrarDemo } from "@/lib/sesion";
 import { ApiError } from "@/lib/api";
 import { IconoRayo, IconoGoogle } from "@/components/Iconos";
+import { LogoLeadAI } from "@/components/LogoLeadAI";
 
 // Pantalla de entrada. Si ya hay sesión, va directo al panel. Si no, ofrece
 // entrar con Google (cuando está configurado) o el modo demo para la reunión.
@@ -28,6 +29,14 @@ export default function Login() {
     if (invit) {
       sessionStorage.removeItem("invitacion_token");
       return `/invitacion?token=${invit}`;
+    }
+    // Si llegó a una pantalla puntual sin sesión (ej. la app móvil abriendo
+    // /carta/<tenantId> en el navegador), vuelve ahí y no al panel: mandarlo
+    // al Inicio lo obliga a buscar a mano lo que ya había pedido.
+    const pendiente = typeof window !== "undefined" ? sessionStorage.getItem("volver_a") : null;
+    if (pendiente) {
+      sessionStorage.removeItem("volver_a");
+      return pendiente;
     }
     const sesion = leerSesion();
     // Con 2+ negocios, el panel abre en la VISTA GLOBAL (decisión 2026-07-22:
@@ -81,18 +90,27 @@ export default function Login() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col px-7 pb-10 pt-[max(4rem,env(safe-area-inset-top))]">
-      {/* Marca */}
-      <div className="flex flex-1 flex-col justify-center">
-        <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brasa text-sobre-brasa shadow-[0_8px_24px_rgba(0,200,150,0.35)]">
-          <IconoRayo className="h-8 w-8" />
+    <main className="mx-auto flex min-h-dvh w-full max-w-[460px] flex-col justify-center gap-10 px-7 pb-10 pt-[max(3rem,env(safe-area-inset-top))]">
+      {/* Marca. Va JUNTO al acceso y centrada (2026-08-17): antes tenía
+          `flex-1` y empujaba los botones al fondo, lo que en teléfono se veía
+          bien pero en pantalla ancha dejaba un hueco enorme en el medio. */}
+      <div className="flex flex-col">
+        {/* `w-fit`: dentro de un flex-col el `inline-flex` se estira a todo el
+            ancho y la sombra dibuja una caja clara detrás del logo. */}
+        <div className="mb-3 w-fit rounded-2xl shadow-[0_8px_24px_rgba(15,182,139,0.28)]">
+          <LogoLeadAI className="h-14 w-14" />
         </div>
         <h1 className="text-[2.6rem] leading-[1.05] font-bold text-tinta">
           Lead<span className="text-brasa-texto">AI</span>
         </h1>
         <p className="mt-3 max-w-[19rem] text-[1.15rem] text-tinta-2">
           Tus leads, en un solo lugar. La IA atiende y te avisa{" "}
-          <span className="font-bold text-brasa-hondo">justo cuándo entrar a cerrar</span>.
+          {/* En NARANJA y no menta (2026-08-17): así la portada muestra los
+              tres colores del logo — el verde oscuro del ícono, el menta del
+              nombre y el naranja acá. Es `calor` y no el #fc8a05 del logo
+              pelado: ese sobre este fondo da 2.27:1, ilegible; calor es el
+              mismo naranja oscurecido hasta 4.5:1. */}
+          <span className="font-bold text-calor">justo cuándo entrar a cerrar</span>.
         </p>
       </div>
 

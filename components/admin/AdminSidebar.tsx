@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { IconoReportes, IconoBandeja, IconoRayo } from "@/components/Iconos";
+import { LogoLeadAI } from "@/components/LogoLeadAI";
 
 const SECCIONES = [
   { href: "/admin", label: "Métricas", Icono: IconoReportes },
@@ -17,9 +18,7 @@ export function AdminSidebar() {
   return (
     <aside className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col bg-superficie-honda text-arena">
       <div className="flex items-center gap-2 px-5 py-5">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-brasa text-sobre-brasa">
-          <IconoRayo className="h-5 w-5" />
-        </span>
+        <LogoLeadAI className="h-9 w-9" />
         <span className="text-lg font-bold">
           Lead<span className="text-brasa">AI</span>
         </span>

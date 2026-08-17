@@ -148,7 +148,7 @@ export function PanelCanales() {
                           <button
                             onClick={() => desconectar(c)}
                             title="Desconectar este número de LeadAI"
-                            className="rounded-chip px-2 py-1 text-[0.72rem] font-semibold text-frio transition hover:bg-calor/10 hover:text-calor"
+                            className="rounded-chip px-2 py-1 text-[0.72rem] font-semibold text-frio transition hover:bg-alerta/10 hover:text-alerta"
                           >
                             Desconectar
                           </button>
@@ -189,7 +189,7 @@ export function PanelCanales() {
                         <button
                           onClick={() => desconectar(c)}
                           title={`Desconectar esta cuenta de ${red.nombre}`}
-                          className="rounded-chip px-2 py-1 text-[0.72rem] font-semibold text-frio transition hover:bg-calor/10 hover:text-calor"
+                          className="rounded-chip px-2 py-1 text-[0.72rem] font-semibold text-frio transition hover:bg-alerta/10 hover:text-alerta"
                         >
                           Desconectar
                         </button>

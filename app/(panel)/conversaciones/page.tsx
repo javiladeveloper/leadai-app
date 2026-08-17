@@ -1146,7 +1146,7 @@ export default function ConversacionesPanel() {
                   ) : (
                     <button
                       onClick={() => setDescartarConfirm(true)}
-                      className="rounded-chip py-2 text-[0.82rem] font-bold text-frio transition hover:text-calor"
+                      className="rounded-chip py-2 text-[0.82rem] font-bold text-frio transition hover:text-alerta"
                     >
                       Descartar este lead
                     </button>

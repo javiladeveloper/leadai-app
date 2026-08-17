@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { aceptarInvitacion } from "@/lib/api";
-import { IconoRayo } from "@/components/Iconos";
+import { LogoLeadAI } from "@/components/LogoLeadAI";
 
 // Pantalla que abre el trabajador desde el enlace de invitación. Si no tiene
 // sesión, lo mandamos a login guardando el token para retomar. Si tiene sesión,
@@ -39,9 +39,7 @@ export default function InvitacionPage() {
   return (
     <div className="grid min-h-dvh place-items-center bg-arena px-5">
       <div className="w-full max-w-sm text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brasa text-sobre-brasa">
-          <IconoRayo className="h-8 w-8" />
-        </span>
+        <LogoLeadAI className="mx-auto h-14 w-14 rounded-2xl" />
 
         {estado === "cargando" && <p className="mt-6 text-tinta-2">Procesando tu invitación…</p>}
 

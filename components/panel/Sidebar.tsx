@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { leerSesion, esSuperAdmin } from "@/lib/auth";
+import { useModoPedidos } from "@/lib/modo-negocio";
 import { ContadorHits } from "@/components/panel/ContadorHits";
+import { LogoLeadAI } from "@/components/LogoLeadAI";
 import {
   IconoInicio, IconoConversaciones, IconoSeguimiento, IconoFlujos,
   IconoBandeja, IconoReportes, IconoConfig, IconoRayo, IconoOportunidades,
@@ -19,6 +21,10 @@ const SECCIONES = [
   { href: "/publicar", label: "Publicar", Icono: IconoOportunidades },
   { href: "/anuncios", label: "Anuncios", Icono: IconoRayo },
   { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
+  // La carta del restaurante: lo que ve el cliente en /c/<tenantId> y lo que
+  // el bot lee para tomar pedidos. Se editaba en la app móvil hasta que se
+  // movió acá (2026-08-17): 40 platos con el pulgar no los carga nadie.
+  { href: "/carta", label: "Carta", Icono: IconoOportunidades },
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
   { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
   { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
@@ -30,6 +36,18 @@ const SECCIONES = [
   { href: "/configuracion", label: "Configuración", Icono: IconoConfig },
 ];
 
+/**
+ * LO QUE VE UN RESTAURANTE (2026-08-17).
+ *
+ * Un negocio de comida no capta leads: no hace anuncios, no arma flujos, no
+ * tiene un embudo de oportunidades. Mostrarle catorce secciones de las que usa
+ * cuatro no es "más funciones", es un menú donde no encuentra su carta.
+ *
+ * Las demás se OCULTAN, no se muestran con candado: no hay un plan que ofrecer
+ * todavía, y un candado que no lleva a ningún lado es peor que la ausencia.
+ */
+const SECCIONES_PEDIDOS = ["/inicio", "/conversaciones", "/carta", "/configuracion"];
+
 const CLAVE_SIDEBAR = "leadai.sidebar"; // '1' expandido | '0' colapsado
 
 // Sidebar del panel de escritorio, COLAPSABLE CON BOTÓN (feedback 2026-08-04:
@@ -39,6 +57,13 @@ export function Sidebar() {
   const path = usePathname();
   const sesion = leerSesion();
   const superAdmin = esSuperAdmin();
+  // `null` mientras no se sabe: se muestra el menú completo hasta tener la
+  // respuesta. Al revés (asumir restaurante) el menú aparecería corto y se
+  // alargaría de golpe, que es el parpadeo más molesto de los dos.
+  const modoPedidos = useModoPedidos();
+  const secciones = modoPedidos
+    ? SECCIONES.filter((s) => SECCIONES_PEDIDOS.includes(s.href))
+    : SECCIONES;
   const nombre = sesion?.usuario?.nombre ?? sesion?.usuario?.email ?? "Mi cuenta";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "?";
 
@@ -59,9 +84,7 @@ export function Sidebar() {
       }`}
     >
       <div className={`flex items-center gap-2 py-5 ${expandido ? "px-5" : "justify-center px-2"}`}>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brasa text-sobre-brasa">
-          <IconoRayo className="h-5 w-5" />
-        </span>
+        <LogoLeadAI className="h-9 w-9 shrink-0" />
         {expandido && (
           <>
             <span className="whitespace-nowrap text-lg font-bold">
@@ -103,7 +126,7 @@ export function Sidebar() {
         </Link>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 [scrollbar-width:none]">
-        {SECCIONES.map(({ href, label, Icono }) => {
+        {secciones.map(({ href, label, Icono }) => {
           const activo = path.startsWith(href);
           return (
             <Link

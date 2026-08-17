@@ -1,17 +1,26 @@
 @import "tailwindcss";
 
 /* ── Sistema de diseño LeadAI ────────────────────────────────────────
-   Verde menta como color de acción, naranja SOLO para lo caliente (hot
-   leads / urgencia), slate navy para las barras oscuras.
+   LOS TRES COLORES DEL LOGO SE USAN, y cada uno tiene su trabajo:
+   menta = acción, naranja = énfasis y acento, verde hondo = barras oscuras.
 
    REGLA DE ORO (compartida con la app móvil, ver
    leadai-mobile/design/leadai-design-tokens.json): acción = menta,
-   calor/urgencia = naranja. Nunca se alias-an: un botón de acción jamás va
-   naranja, y una alerta jamás va menta.
+   énfasis = naranja, alerta = rojo. Nunca se alias-an: un botón de acción
+   jamás va naranja, y un aviso de error jamás va menta.
 
-   El menta #00C896 es COLOR DE MARCA — el MISMO hex que usa la app y que
-   el ícono. No se aclara ni se oscurece: un logo no cambia de color cuando
-   se apaga la luz.
+   POR QUÉ LA ALERTA ES ROJA Y NO NARANJA (2026-08-17): el naranja es COLOR
+   DE MARCA — está en el logo. Tenerlo reservado para errores y leads
+   calientes lo dejaba fuera del diseño: el panel entero se veía verde. El
+   rojo ladrillo cumple mejor el papel de alerta (nadie confunde un error) y
+   libera el naranja para lo que es: acento de marca.
+
+   Los cuatro colores salen del ÍCONO (leadai-mobile/design/icono-frente.png):
+   menta #0FB68B, naranja #FC8A05, blanco y el verde hondo #141A18 del fondo.
+   No se aclaran ni se oscurecen para la marca: un logo no cambia de color
+   cuando se apaga la luz. Sí existen variantes oscurecidas para TEXTO
+   (`brasa-texto`, `calor`), porque los hex del logo sobre fondo claro no
+   llegan a contraste legible.
 
    Semáforo de leads: caliente (calor/naranja) · tibio (ámbar) · frío (gris).
    NOTA: el token de acción se sigue llamando "brasa" por historia — hoy es
@@ -22,28 +31,45 @@
   --color-arena: #f6faf8;       /* fondo — blanco de tinte verdoso (background) */
   --color-arena-2: #e4ebe7;     /* variante para separadores suaves */
   --color-carta: #ffffff;       /* superficie de tarjeta */
-  --color-brasa: #00c896;       /* ACCIÓN primaria — verde menta de marca */
-  --color-brasa-hondo: #00a87d; /* hover / presión */
+  --color-brasa: #0fb68b;       /* ACCIÓN primaria — el menta EXACTO del logo */
+  --color-brasa-hondo: #0c9773; /* hover / presión */
   --color-brasa-suave: #d6f5ea; /* fondo suave de acento menta */
   /* Contenido SOBRE el menta. No es blanco: el menta es claro, y blanco
-     encima da 2.16:1 — ilegible (el teal anterior era oscuro y sí admitía
-     blanco, con 6.44:1). Esta tinta oscura da 7.7:1. Es el mismo `onPrimary`
-     que usa la app móvil. Va con `bg-brasa` SIEMPRE. */
+     encima queda ilegible. Esta tinta oscura da 6.4:1 contra el menta de
+     marca. Es el mismo `onPrimary` que usa la app móvil. Va con `bg-brasa`
+     SIEMPRE. */
   --color-sobre-brasa: #04231c;
-  /* Menta legible como TEXTO sobre fondo claro: el #00c896 pelado da 2.16:1
-     contra blanco. Este tono oscurecido conserva el matiz y llega a AA. */
+  /* Menta legible como TEXTO sobre fondo claro: el menta de marca pelado no
+     llega a 2.5:1 contra blanco. Este tono oscurecido conserva el matiz y da
+     5.3:1. */
   --color-brasa-texto: #007a5c;
-  --color-calor: #b35c00;       /* CALIENTE — naranja (hot leads, urgencia) */
+  /* NARANJA DE MARCA — énfasis, acentos, eyebrows, números destacados.
+     `calor` es el hex del logo (#FC8A05) oscurecido hasta 4.5:1: el pelado
+     sobre fondo claro da 2.4:1 y es ilegible como texto. Para FONDOS y
+     trazos donde el contraste no manda, usar `orbita` (el hex exacto). */
+  --color-calor: #b35c00;
   --color-calor-hondo: #8a4700; /* texto/hover naranja profundo */
   --color-calor-suave: #fff1df; /* fondo suave naranja */
+  /* ALERTA — errores y leads calientes. Rojo ladrillo, NO naranja: el
+     naranja es marca y se usa en todo el panel (ver la nota de arriba). */
+  --color-alerta: #c0392b;
+  --color-alerta-hondo: #96271b;
+  --color-alerta-suave: #fdecea;
   --color-tibio: #8a5a05;       /* lead tibio — ámbar */
   --color-tibio-suave: #fdf2de;
   --color-frio: #586661;        /* lead frío / texto terciario — outline */
   --color-tinta: #16211d;       /* casi negro verdoso — texto principal */
   --color-tinta-2: #3d4a45;     /* texto secundario */
   --color-linea: #dbe5e0;       /* bordes sobre fondo claro */
-  --color-superficie-honda: #0f172a; /* slate navy — sidebar / barras oscuras */
-  --color-superficie-honda-2: #1e293b;
+  /* El verde MUY oscuro del fondo del logo (2026-08-17). Antes era #0f172a,
+     un slate navy AZUL: la marca decía verde y el panel pintaba azul. Con
+     blanco encima da 17.6:1, igual que el azul que reemplaza. */
+  --color-superficie-honda: #141a18;
+  --color-superficie-honda-2: #1f2926;
+  /* El naranja del logo, para FONDOS y acentos. Como texto sobre blanco da
+     2.39:1 — ilegible: para eso está `--color-calor`, que es el mismo naranja
+     oscurecido hasta AA. Los dos son el mismo color de marca en dos usos. */
+  --color-orbita: #fc8a05;
   --color-ok: #1e5c22;          /* venta / éxito — verde */
 
   --font-lee: var(--font-jakarta), system-ui, sans-serif;
@@ -97,12 +123,16 @@ button, [role="button"] {
 }
 
 /* Etiqueta técnica en mayúsculas (estados, secciones). */
+/* El eyebrow es el naranja de marca (2026-08-17). Estaba en gris, y como es
+   lo primero de cada pantalla, el panel entero se leía verde-sobre-blanco sin
+   rastro del naranja del logo. Acá el naranja NO compite con nada: es texto
+   chico y en mayúsculas, arriba de un título que se lleva la atención. */
 .eyebrow {
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-frio);
+  color: var(--color-calor);
 }
 
 /* Foco visible y cálido para teclado. */

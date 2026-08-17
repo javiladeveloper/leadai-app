@@ -159,7 +159,7 @@ export default function PopupLead({ lead, onCerrar, onCambio, tenant }: Props) {
               </button>
             </div>
           )}
-          {error && <p className="mt-2 text-[0.8rem] text-calor-hondo">{error}</p>}
+          {error && <p className="mt-2 text-[0.8rem] text-alerta-hondo">{error}</p>}
 
           <div className="mt-3 flex flex-wrap gap-2">
             <button

@@ -302,7 +302,7 @@ function LeadsPanelInner() {
                 />
               </div>
             </div>
-            {errorNuevo && <p className="mt-2 text-[0.82rem] font-semibold text-calor-hondo">{errorNuevo}</p>}
+            {errorNuevo && <p className="mt-2 text-[0.82rem] font-semibold text-alerta-hondo">{errorNuevo}</p>}
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => setNuevoAbierto(false)}

@@ -62,7 +62,10 @@ export function ContadorHits() {
 
   return (
     <div className="border-t border-white/10 px-5 py-4">
-      <p className="text-[0.68rem] font-bold uppercase tracking-wide text-arena/60">
+      {/* El naranja PURO del logo (`orbita`) y no `calor`: sobre el sidebar
+          oscuro se invierte la relación — el hex del logo da 7.4:1 y el
+          oscurecido para fondo claro apenas 3.7:1. */}
+      <p className="text-[0.68rem] font-bold uppercase tracking-wide text-orbita">
         Clientes este mes
       </p>
       <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-arena/15">

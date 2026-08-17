@@ -6,6 +6,7 @@ import { haySesion, leerSesion } from "@/lib/auth";
 import { crearEmpresa } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
 import { IconoRayo } from "@/components/Iconos";
+import { LogoLeadAI } from "@/components/LogoLeadAI";
 
 // Onboarding: primer ingreso de un cliente sin empresa. Le pedimos SOLO el
 // nombre de su negocio; el resto del perfil lo completa después en Configuración.
@@ -58,9 +59,7 @@ export default function BienvenidaPanel() {
     <div className="grid min-h-dvh place-items-center bg-arena px-5">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-2">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-brasa text-sobre-brasa">
-            <IconoRayo className="h-6 w-6" />
-          </span>
+          <LogoLeadAI className="h-10 w-10" />
           <span className="text-xl font-bold text-tinta">
             Lead<span className="text-brasa-texto">AI</span>
           </span>

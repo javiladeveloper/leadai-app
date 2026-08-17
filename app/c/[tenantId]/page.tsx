@@ -519,7 +519,7 @@ function TarjetaProducto({
           )}
         </div>
       </div>
-      <span className="grid h-8 w-8 shrink-0 place-items-center self-center rounded-full bg-brasa/12 text-[1.15rem] font-bold text-brasa-texto ring-1 ring-brasa/25 transition group-hover:bg-brasa group-hover:text-sobre-brasa group-hover:ring-brasa">
+      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brasa/12 text-[1.15rem] font-bold text-brasa-texto ring-1 ring-brasa/25 transition group-hover:bg-brasa group-hover:text-sobre-brasa group-hover:ring-brasa">
         +
       </span>
     </button>
@@ -774,7 +774,7 @@ function TarjetaCombo({ combo, onAgregar }: { combo: Combo; onAgregar: () => voi
           )}
         </div>
       </div>
-      <span className="grid h-8 w-8 shrink-0 place-items-center self-center rounded-full bg-brasa/12 text-[1.15rem] font-bold text-brasa-texto ring-1 ring-brasa/25 transition group-hover:bg-brasa group-hover:text-sobre-brasa group-hover:ring-brasa">
+      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brasa/12 text-[1.15rem] font-bold text-brasa-texto ring-1 ring-brasa/25 transition group-hover:bg-brasa group-hover:text-sobre-brasa group-hover:ring-brasa">
         +
       </span>
     </button>

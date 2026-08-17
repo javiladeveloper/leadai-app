@@ -34,6 +34,7 @@ export interface OpcionCarta {
   id: string;
   nombre: string;
   precioCentavos: number;
+  fotoUrl: string | null;
   orden: number;
 }
 
@@ -59,6 +60,7 @@ export interface ComboCarta {
   descripcion: string | null;
   precioCentavos: number;
   disponible: boolean;
+  fotoUrl: string | null;
   orden: number;
   productos: { productoId: string; cantidad: number }[];
 }
@@ -88,6 +90,7 @@ export interface DescuentoCarta {
   desde: string | null;
   hasta: string | null;
   activo: boolean;
+  fotoUrl: string | null;
 }
 
 export interface Carta {
@@ -224,16 +227,25 @@ export function eliminarProducto(id: string, tenant?: string) {
  * Va en base64 y no multipart: es lo mismo desde el navegador que desde la app
  * móvil, y el backend ya tenía este camino armado para la foto de perfil.
  */
-export function subirFotoProducto(id: string, imagenBase64: string, tenant?: string) {
+/** Lo que puede llevar foto. El backend expone la misma ruta para los cuatro. */
+export type ConFoto = "productos" | "opciones" | "combos" | "descuentos";
+
+export function subirFoto(tipo: ConFoto, id: string, imagenBase64: string, tenant?: string) {
   return escribir<string>(
-    `/carta/productos/${id}/foto`, "POST", { imagen: imagenBase64 }, tenant,
+    `/carta/${tipo}/${id}/foto`, "POST", { imagen: imagenBase64 }, tenant,
     (r) => (r as { fotoUrl: string }).fotoUrl,
   );
 }
 
-export function quitarFotoProducto(id: string, tenant?: string) {
-  return escribir(`/carta/productos/${id}/foto`, "DELETE", undefined, tenant);
+export function quitarFoto(tipo: ConFoto, id: string, tenant?: string) {
+  return escribir(`/carta/${tipo}/${id}/foto`, "DELETE", undefined, tenant);
 }
+
+// Los nombres viejos, para no tocar los llamados que ya andan.
+export const subirFotoProducto = (id: string, img: string, tenant?: string) =>
+  subirFoto("productos", id, img, tenant);
+export const quitarFotoProducto = (id: string, tenant?: string) =>
+  quitarFoto("productos", id, tenant);
 
 /** Lo que el backend acepta. Se valida acá para no gastar la subida. */
 const TIPOS_FOTO = ["image/jpeg", "image/png", "image/webp"];
@@ -298,6 +310,10 @@ export function crearCombo(datos: ComboEntrada, tenant?: string) {
     "/carta/combos", "POST", datos, tenant,
     (r) => (r as { combo: ComboCarta }).combo,
   );
+}
+
+export function actualizarCombo(id: string, datos: Partial<ComboEntrada>, tenant?: string) {
+  return escribir(`/carta/combos/${id}`, "PATCH", datos, tenant);
 }
 
 export function eliminarCombo(id: string, tenant?: string) {

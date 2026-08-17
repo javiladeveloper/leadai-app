@@ -22,14 +22,16 @@ import {
   obtenerCarta, crearCategoria, eliminarCategoria,
   crearProducto, actualizarProducto, marcarDisponible, eliminarProducto,
   crearGrupo, eliminarGrupo,
+  crearCombo, eliminarCombo,
   crearDescuento, actualizarDescuento, eliminarDescuento,
-  subirFotoProducto, quitarFotoProducto, leerFoto,
+  subirFotoProducto, quitarFotoProducto, subirFoto, leerFoto,
   aCentavos, precioTexto, resumenDescuento, DIAS,
-  type Carta, type ProductoCarta, type GrupoOpciones, type DescuentoCarta,
+  type Carta, type ProductoCarta, type GrupoOpciones, type ComboCarta, type DescuentoCarta,
 } from "@/lib/carta";
+import { CampoFoto, useFoto } from "@/components/panel/CampoFoto";
 import { SkeletonLista } from "@/components/Skeletons";
 
-type Pestana = "platos" | "extras" | "promos";
+type Pestana = "platos" | "extras" | "combos" | "promos";
 
 export default function CartaPanel() {
   const router = useRouter();
@@ -78,6 +80,7 @@ export default function CartaPanel() {
         {([
           ["platos", "Platos"],
           ["extras", "Extras"],
+          ["combos", "Combos"],
           ["promos", "Promos"],
         ] as [Pestana, string][]).map(([id, nombre]) => (
           <button
@@ -106,6 +109,9 @@ export default function CartaPanel() {
           )}
           {pestana === "extras" && (
             <Extras carta={carta} recargar={cargar} avisar={setError} />
+          )}
+          {pestana === "combos" && (
+            <Combos carta={carta} recargar={cargar} avisar={setError} />
           )}
           {pestana === "promos" && (
             <Promos carta={carta} recargar={cargar} avisar={setError} />
@@ -716,7 +722,12 @@ function HojaGrupo({
   // min/max son el detalle que se deriva de acá.
   const [obligatorio, setObligatorio] = useState(false);
   const [unaSola, setUnaSola] = useState(true);
-  const [opciones, setOpciones] = useState([{ nombre: "", precio: "" }]);
+  // Cada opción puede llevar foto: "¿qué es chimichurri?" se responde con una
+  // imagen, no con el nombre. Viaja como data URL y sube DESPUÉS de crear el
+  // grupo, que es cuando existen los ids de las opciones.
+  const [opciones, setOpciones] = useState<{ nombre: string; precio: string; foto: string | null }[]>(
+    [{ nombre: "", precio: "", foto: null }],
+  );
   const [guardando, setGuardando] = useState(false);
   const [errorCampo, setErrorCampo] = useState("");
 
@@ -740,9 +751,19 @@ function HojaGrupo({
         precioCentavos: o.precio.trim() ? aCentavos(o.precio)! : 0,
       })),
     });
-    setGuardando(false);
 
-    if (!r.ok) { setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+    if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+
+    // Las fotos van una por una, ya con los ids que devolvió el backend. El
+    // orden se respeta: `llenas[i]` es `r.dato.opciones[i]`.
+    const creadas = r.dato?.opciones ?? [];
+    for (let i = 0; i < llenas.length; i++) {
+      const dato = llenas[i].foto;
+      const creada = creadas[i];
+      if (dato && creada) await subirFoto("opciones", creada.id, dato);
+    }
+
+    setGuardando(false);
     await recargar();
     cerrar();
   }
@@ -794,6 +815,34 @@ function HojaGrupo({
             <div className="space-y-2">
               {opciones.map((o, i) => (
                 <div key={i} className="flex items-center gap-2">
+                  {/* Foto del extra: chica, al costado. Es opcional y no debe
+                      robarle lugar al nombre y el precio, que es lo que el
+                      dueño viene a escribir. */}
+                  <label className="shrink-0 cursor-pointer" title="Foto del extra (opcional)">
+                    <span className="sr-only">Foto de la opción {i + 1}</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const archivo = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!archivo) return;
+                        const r = await leerFoto(archivo);
+                        if (!r.ok) { setErrorCampo(r.error); return; }
+                        setErrorCampo("");
+                        setOpciones((prev) => prev.map((x, j) => (j === i ? { ...x, foto: r.datos } : x)));
+                      }}
+                    />
+                    {o.foto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={o.foto} alt="" className="h-9 w-9 rounded object-cover ring-2 ring-orbita/35" />
+                    ) : (
+                      <span className="grid h-9 w-9 place-items-center rounded border border-dashed border-linea text-frio transition hover:border-orbita hover:text-orbita">
+                        +
+                      </span>
+                    )}
+                  </label>
                   <input
                     value={o.nombre}
                     onChange={(e) =>
@@ -826,7 +875,7 @@ function HojaGrupo({
                 </div>
               ))}
               <button
-                onClick={() => setOpciones((prev) => [...prev, { nombre: "", precio: "" }])}
+                onClick={() => setOpciones((prev) => [...prev, { nombre: "", precio: "", foto: null }])}
                 className="text-[0.85rem] font-semibold text-brasa-texto hover:underline"
               >
                 + Agregar otra
@@ -857,7 +906,259 @@ function HojaGrupo({
   );
 }
 
-// ── Promos ────────────────────────────────────────────────────────────
+// ── Combos ────────────────────────────────────────────────────────────
+
+/**
+ * Dos o tres platos juntos a un precio especial.
+ *
+ * El precio es el del COMBO ENTERO, no un descuento sobre la suma: así el
+ * dueño pone el número redondo que quiere cobrar ("Combo familiar S/59") sin
+ * calcular porcentajes. Al lado se le muestra cuánto costaría suelto, que es
+ * el argumento de venta — y lo que evita que arme un combo sin ahorro.
+ */
+function Combos({
+  carta, recargar, avisar,
+}: { carta: Carta; recargar: () => Promise<void>; avisar: (s: string) => void }) {
+  const [abriendo, setAbriendo] = useState(false);
+
+  async function borrar(c: ComboCarta) {
+    if (!confirm(`¿Borrar el combo "${c.nombre}"?`)) return;
+    const r = await eliminarCombo(c.id);
+    if (!r.ok) avisar(r.error ?? "No se pudo borrar");
+    await recargar();
+  }
+
+  /** Cuánto costarían esos platos por separado. */
+  function sueltos(c: ComboCarta): number {
+    return c.productos.reduce((s, x) => {
+      const p = carta.productos.find((y) => y.id === x.productoId);
+      return s + (p ? p.precioCentavos * x.cantidad : 0);
+    }, 0);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="max-w-md text-[0.88rem] text-frio">
+          Juntá dos o tres platos a un precio especial. El cliente los ve como
+          una sola cosa que puede pedir.
+        </p>
+        <button
+          onClick={() => setAbriendo(true)}
+          disabled={carta.productos.length === 0}
+          className="shrink-0 rounded-tarjeta bg-orbita px-5 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-50"
+        >
+          + Nuevo combo
+        </button>
+      </div>
+
+      {carta.productos.length === 0 && (
+        <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
+          <p className="text-[1.05rem] font-bold text-tinta">Primero cargá tus platos</p>
+          <p className="mt-1 text-[0.9rem] text-frio">
+            Un combo se arma con platos de tu carta.
+          </p>
+        </div>
+      )}
+
+      {carta.productos.length > 0 && carta.combos.length === 0 && (
+        <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
+          <p className="text-[1.05rem] font-bold text-tinta">Todavía no tenés combos</p>
+          <p className="mt-1 text-[0.9rem] text-frio">
+            Una hamburguesa con papas y gaseosa a precio de combo vende más que
+            las tres cosas por separado.
+          </p>
+        </div>
+      )}
+
+      {carta.combos.map((c) => {
+        const suelto = sueltos(c);
+        const ahorro = suelto - c.precioCentavos;
+        return (
+          <div key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+            {c.fotoUrl && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={c.fotoUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover ring-2 ring-orbita/35" />
+            )}
+            <div className="min-w-[9rem] flex-1">
+              <p className="font-semibold text-tinta">{c.nombre}</p>
+              <p className="text-[0.8rem] text-frio">
+                {c.productos.map((x) => {
+                  const p = carta.productos.find((y) => y.id === x.productoId);
+                  return p ? `${x.cantidad > 1 ? `${x.cantidad}x ` : ""}${p.nombre}` : null;
+                }).filter(Boolean).join(" + ")}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="font-bold tabular-nums text-calor">{precioTexto(c.precioCentavos)}</p>
+              {/* El ahorro es el argumento de venta: sin esto ni el dueño sabe
+                  si su combo conviene, ni el cliente por qué pedirlo. */}
+              {ahorro > 0 && (
+                <p className="text-[0.75rem] text-frio line-through">{precioTexto(suelto)}</p>
+              )}
+            </div>
+            <button onClick={() => borrar(c)} className="text-sm font-semibold text-frio hover:text-alerta">
+              Eliminar
+            </button>
+          </div>
+        );
+      })}
+
+      {abriendo && (
+        <HojaCombo carta={carta} cerrar={() => setAbriendo(false)} recargar={recargar} avisar={avisar} />
+      )}
+    </div>
+  );
+}
+
+function HojaCombo({
+  carta, cerrar, recargar, avisar,
+}: { carta: Carta; cerrar: () => void; recargar: () => Promise<void>; avisar: (s: string) => void }) {
+  const [nombre, setNombre] = useState("");
+  const [precio, setPrecio] = useState("");
+  const [elegidos, setElegidos] = useState<{ productoId: string; cantidad: number }[]>([]);
+  const [guardando, setGuardando] = useState(false);
+  const [errorCampo, setErrorCampo] = useState("");
+  const foto = useFoto(null);
+
+  const centavos = aCentavos(precio);
+  // Lo que costarían sueltos, para que el dueño vea si su precio tiene sentido.
+  const suelto = elegidos.reduce((s, x) => {
+    const p = carta.productos.find((y) => y.id === x.productoId);
+    return s + (p ? p.precioCentavos * x.cantidad : 0);
+  }, 0);
+
+  function alternar(id: string) {
+    setElegidos((prev) => prev.some((x) => x.productoId === id)
+      ? prev.filter((x) => x.productoId !== id)
+      : [...prev, { productoId: id, cantidad: 1 }]);
+  }
+
+  async function guardar() {
+    if (!nombre.trim()) { setErrorCampo("Ponele un nombre al combo."); return; }
+    if (elegidos.length < 2) { setErrorCampo("Un combo lleva al menos dos platos."); return; }
+    if (centavos === null) { setErrorCampo("El precio tiene que ser un número, como 39.90."); return; }
+
+    setErrorCampo("");
+    setGuardando(true);
+    const r = await crearCombo({
+      nombre: nombre.trim(),
+      precioCentavos: centavos,
+      productos: elegidos,
+    });
+    if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+
+    // La foto va DESPUÉS: el combo no tiene id hasta que el backend lo crea.
+    if (r.dato?.id) {
+      const err = await foto.guardar("combos", r.dato.id);
+      if (err) avisar(`El combo se guardó, pero la foto no subió.`);
+    }
+    setGuardando(false);
+    await recargar();
+    cerrar();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 sm:items-center sm:p-6" onClick={cerrar}>
+      <div
+        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-[1.25rem] font-bold text-tinta">Nuevo combo</h2>
+
+        <div className="mt-4 space-y-4">
+          <CampoFoto foto={foto} alFallar={setErrorCampo} />
+
+          <Campo etiqueta="Nombre" ayuda="Combo familiar, Dúo clásico…">
+            <input
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Combo familiar"
+              autoFocus
+              className="w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio"
+            />
+          </Campo>
+
+          <Campo etiqueta="Qué lleva" ayuda="Elegí dos o más platos">
+            <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg bg-arena/40 p-2">
+              {carta.productos.map((p) => {
+                const elegido = elegidos.find((x) => x.productoId === p.id);
+                return (
+                  <div key={p.id} className="flex items-center gap-2 rounded px-1.5 py-1">
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-[0.9rem] text-tinta-2">
+                      <input
+                        type="checkbox"
+                        checked={!!elegido}
+                        onChange={() => alternar(p.id)}
+                        className="size-4 shrink-0 accent-[var(--color-orbita)]"
+                      />
+                      <span className="truncate">{p.nombre}</span>
+                      <span className="shrink-0 text-[0.78rem] text-frio">{precioTexto(p.precioCentavos)}</span>
+                    </label>
+                    {elegido && (
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={elegido.cantidad}
+                        onChange={(e) => {
+                          const n = Math.max(1, Number(e.target.value) || 1);
+                          setElegidos((prev) => prev.map((x) => x.productoId === p.id ? { ...x, cantidad: n } : x));
+                        }}
+                        aria-label={`Cuántos ${p.nombre}`}
+                        className="w-14 shrink-0 rounded border border-linea bg-carta px-2 py-1 text-center text-[0.85rem] tabular-nums"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Campo>
+
+          <Campo etiqueta="Precio del combo" ayuda="Lo que cobrás por todo junto">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-frio">S/</span>
+              <input
+                value={precio}
+                onChange={(e) => setPrecio(e.target.value)}
+                inputMode="decimal"
+                placeholder="39.90"
+                className="w-32 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio"
+              />
+              {/* Sin esto el dueño arma combos que no ahorran nada —o que le
+                  dan pérdida— y se entera cuando ya están publicados. */}
+              {suelto > 0 && (
+                <span className="text-[0.82rem] text-frio">
+                  sueltos: <b className="tabular-nums">{precioTexto(suelto)}</b>
+                  {centavos !== null && centavos < suelto && (
+                    <b className="ml-1 text-brasa-texto">— ahorra {precioTexto(suelto - centavos)}</b>
+                  )}
+                </span>
+              )}
+            </div>
+          </Campo>
+
+          {errorCampo && <p className="text-[0.85rem] font-semibold text-alerta">{errorCampo}</p>}
+        </div>
+
+        <div className="mt-6 flex gap-2">
+          <button onClick={cerrar} className="flex-1 rounded-tarjeta px-4 py-2.5 font-semibold text-tinta-2 ring-1 ring-linea hover:bg-arena">
+            Cancelar
+          </button>
+          <button
+            onClick={guardar}
+            disabled={guardando}
+            className="flex-1 rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
+          >
+            {guardando ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Promos ──────────────────────────────────────────────────────────────
 
 function Promos({
   carta, recargar, avisar,
@@ -938,6 +1239,7 @@ function HojaPromo({
   const [horaHasta, setHoraHasta] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [errorCampo, setErrorCampo] = useState("");
+  const foto = useFoto(null);
 
   async function guardar() {
     if (!nombre.trim()) { setErrorCampo("Ponele un nombre a la promo."); return; }
@@ -973,9 +1275,13 @@ function HojaPromo({
       horaDesde: horaDesde || null,
       horaHasta: horaHasta || null,
     });
-    setGuardando(false);
 
-    if (!r.ok) { setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+    if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+
+    // El banner va después: la promo no tiene id hasta que el backend la crea.
+    if (r.dato?.id) await foto.guardar("descuentos", r.dato.id);
+
+    setGuardando(false);
     await recargar();
     cerrar();
   }
@@ -992,6 +1298,13 @@ function HojaPromo({
         <h2 className="text-[1.25rem] font-bold text-tinta">Nueva promo</h2>
 
         <div className="mt-4 space-y-4">
+          <CampoFoto
+            foto={foto}
+            alFallar={setErrorCampo}
+            etiqueta="Banner"
+            ayuda="Opcional — la imagen que anuncia la promo"
+          />
+
           <Campo etiqueta="Nombre" ayuda="Lo ve el cliente en su pedido">
             <input
               value={nombre}

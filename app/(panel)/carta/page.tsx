@@ -25,7 +25,7 @@ import {
   crearCombo, eliminarCombo,
   crearDescuento, actualizarDescuento, eliminarDescuento,
   subirFotoProducto, quitarFotoProducto, subirFoto, leerFoto,
-  aCentavos, precioTexto, resumenDescuento, DIAS,
+  aCentavos, precioTexto, porcentajeDescuento, resumenDescuento, DIAS,
   type Carta, type ProductoCarta, type GrupoOpciones, type ComboCarta, type DescuentoCarta,
 } from "@/lib/carta";
 import { CampoFoto, useFoto } from "@/components/panel/CampoFoto";
@@ -367,6 +367,10 @@ function HojaPlato({
   // El precio vive como TEXTO mientras se escribe: si se guardara como número,
   // teclear "19." lo volvería 19 y el cursor saltaría.
   const [precio, setPrecio] = useState(plato ? (plato.precioCentavos / 100).toFixed(2) : "");
+  // El precio ANTES, para el tachado. Opcional: vacío = sin descuento.
+  const [precioAntes, setPrecioAntes] = useState(
+    plato?.precioAntesCentavos ? (plato.precioAntesCentavos / 100).toFixed(2) : "",
+  );
   const [categoriaId, setCategoriaId] = useState(plato?.categoriaId ?? "");
   const [grupoIds, setGrupoIds] = useState<string[]>(plato?.grupos.map((g) => g.grupoId) ?? []);
   const [guardando, setGuardando] = useState(false);
@@ -385,6 +389,14 @@ function HojaPlato({
   async function guardar() {
     if (!nombre.trim()) { setErrorCampo("Ponele un nombre al plato."); return; }
     if (centavos === null) { setErrorCampo("El precio tiene que ser un número, como 19.90."); return; }
+    if (precioAntes.trim()) {
+      const antes = aCentavos(precioAntes);
+      if (antes === null) { setErrorCampo("El precio anterior tiene que ser un número."); return; }
+      if (antes <= centavos) {
+        setErrorCampo("El precio anterior tiene que ser MAYOR al que cobrás — si no, no hay descuento que mostrar.");
+        return;
+      }
+    }
 
     setErrorCampo("");
     setGuardando(true);
@@ -395,6 +407,9 @@ function HojaPlato({
       // toques este campo", así que borrar la descripción de un plato que ya
       // la tenía no haría nada. (Tampoco `null`: el backend la valida como
       // string opcional y rechazaría el null explícito.)
+      // `null` explícito y no `undefined`: en un PATCH, `undefined` significa
+      // "no toques", así que quitar el precio tachado no haría nada.
+      precioAntesCentavos: precioAntes.trim() ? aCentavos(precioAntes) : null,
       descripcion: descripcion.trim(),
       categoriaId: categoriaId || null,
       grupoIds,
@@ -506,16 +521,59 @@ function HojaPlato({
           </Campo>
 
           <Campo etiqueta="Precio" ayuda="En soles, como 19.90">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-frio">S/</span>
-              <input
-                value={precio}
-                onChange={(e) => setPrecio(e.target.value)}
-                inputMode="decimal"
-                placeholder="19.90"
-                className="w-32 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio"
-              />
+            <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-frio">S/</span>
+                  <input
+                    value={precio}
+                    onChange={(e) => setPrecio(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="19.90"
+                    className="w-28 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio"
+                  />
+                </div>
+                <p className="mt-1 text-[0.72rem] text-frio">Lo que cobrás</p>
+              </div>
+
+              {/* El precio ANTES (2026-08-17). Un tachado al lado con el % de
+                  descuento vende más que el precio a secas: el cliente ve el
+                  ahorro en vez de tener que creerlo. Es lo que hacen todos los
+                  que venden comida por internet. */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-frio">S/</span>
+                  <input
+                    value={precioAntes}
+                    onChange={(e) => setPrecioAntes(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="—"
+                    aria-label="Precio anterior, para mostrarlo tachado"
+                    className="w-28 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio"
+                  />
+                </div>
+                <p className="mt-1 text-[0.72rem] text-frio">Antes (opcional)</p>
+              </div>
+
+              {/* La cuenta hecha, en vivo: sin esto el dueño pone un "antes"
+                  cualquiera y se entera del descuento recién al publicarlo. */}
+              {(() => {
+                const a = precioAntes.trim() ? aCentavos(precioAntes) : null;
+                const p = aCentavos(precio);
+                const pct = a !== null && p !== null ? porcentajeDescuento(a, p) : null;
+                if (!pct) return null;
+                return (
+                  <div className="pb-6">
+                    <span className="rounded-chip bg-orbita px-2.5 py-1 text-[0.8rem] font-bold text-sobre-orbita">
+                      −{pct}%
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
+            <p className="mt-2 text-[0.78rem] text-frio">
+              Poné un precio anterior y tu plato se muestra con el descuento tachado. Vende más.
+            </p>
           </Campo>
 
           {/* 4 renglones y no 2: la gente lista los ingredientes uno por línea

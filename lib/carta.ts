@@ -23,6 +23,8 @@ export interface ProductoCarta {
   nombre: string;
   descripcion: string | null;
   precioCentavos: number;
+  /** El precio ANTES, para mostrarlo tachado. null = sin descuento. */
+  precioAntesCentavos: number | null;
   disponible: boolean;
   orden: number;
   alias: string[];
@@ -137,6 +139,19 @@ export function precioTexto(centavos: number): string {
   return `S/${aSoles(centavos)}`;
 }
 
+/**
+ * El % de descuento entre dos precios: 1590 → 1290 da 19.
+ *
+ * Se CALCULA y no se guarda: guardarlo sería tener dos verdades que se
+ * desincronizan en cuanto alguien cambia un precio. Devuelve null si no hay
+ * descuento real, así quien lo llama no muestra "-0%".
+ */
+export function porcentajeDescuento(antes: number, ahora: number): number | null {
+  if (antes <= ahora || antes <= 0) return null;
+  const pct = Math.round(((antes - ahora) / antes) * 100);
+  return pct > 0 ? pct : null;
+}
+
 // ── Resultado de una escritura ────────────────────────────────────────
 //
 // El backend devuelve el mensaje real del error ("El porcentaje no puede pasar
@@ -186,6 +201,7 @@ export function eliminarCategoria(id: string, tenant?: string) {
 export interface ProductoEntrada {
   nombre: string;
   precioCentavos: number;
+  precioAntesCentavos?: number | null;
   descripcion?: string;
   categoriaId?: string | null;
   disponible?: boolean;

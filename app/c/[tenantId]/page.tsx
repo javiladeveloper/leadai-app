@@ -27,23 +27,51 @@ interface Grupo {
 }
 interface Producto {
   id: string; nombre: string; descripcion: string | null; precioCentavos: number;
+  /** El precio ANTES, para el tachado. null = sin descuento. */
+  precioAntesCentavos: number | null;
   categoriaId: string | null; fotoUrl: string | null; grupoIds: string[];
+}
+
+/** Dos o más platos a precio especial. El "antes" es la suma de sus platos. */
+interface Combo {
+  id: string; nombre: string; descripcion: string | null;
+  precioCentavos: number; precioSueltoCentavos: number;
+  fotoUrl: string | null;
+  items: { nombre: string; cantidad: number }[];
 }
 interface Carta {
   negocio: { nombre: string; abierto: boolean; horaAbre: number | null; horaCierra: number | null };
   categorias: { id: string; nombre: string }[];
   productos: Producto[];
   grupos: Grupo[];
+  combos: Combo[];
 }
 
-/** Una línea del carrito, con las opciones que eligió el cliente. */
+/**
+ * Una línea del carrito: un plato con sus extras, o un combo.
+ *
+ * Se distinguen por `combo`: un combo no lleva opciones (sus platos ya vienen
+ * definidos) y viaja al backend por otro campo, porque se cobra a SU precio.
+ */
 interface LineaCarrito {
-  producto: Producto;
+  producto: { id: string; nombre: string; precioCentavos: number };
   cantidad: number;
   opciones: Opcion[];
+  combo?: boolean;
 }
 
 const soles = (centavos: number) => `S/${(centavos / 100).toFixed(2)}`;
+
+/**
+ * El % entre dos precios. Se CALCULA, no viaja guardado: así nunca queda
+ * desfasado de los precios reales. null si no hay descuento de verdad, para
+ * no mostrar "-0%".
+ */
+function descuentoPct(antes: number, ahora: number): number | null {
+  if (antes <= ahora || antes <= 0) return null;
+  const pct = Math.round(((antes - ahora) / antes) * 100);
+  return pct > 0 ? pct : null;
+}
 
 export default function CartaPublica({ params }: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = use(params);
@@ -75,6 +103,13 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   );
 
   const agregar = (linea: LineaCarrito) => setCarrito((c) => [...c, linea]);
+  const agregarCombo = (k: Combo) =>
+    setCarrito((c) => [...c, {
+      producto: { id: k.id, nombre: k.nombre, precioCentavos: k.precioCentavos },
+      cantidad: 1,
+      opciones: [],
+      combo: true,
+    }]);
   const quitar = (i: number) => setCarrito((c) => c.filter((_, idx) => idx !== i));
 
   async function enviarPedido() {
@@ -87,11 +122,16 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           // Solo QUÉ eligió: ids y cantidades. Los precios los pone el
-          // backend desde su base.
-          items: carrito.map((l) => ({
+          // backend desde su base. Los COMBOS van por su propio campo: se
+          // cobran a su precio, no a la suma de sus platos.
+          items: carrito.filter((l) => !l.combo).map((l) => ({
             productoId: l.producto.id,
             cantidad: l.cantidad,
             opcionIds: l.opciones.map((o) => o.id),
+          })),
+          combos: carrito.filter((l) => l.combo).map((l) => ({
+            comboId: l.producto.id,
+            cantidad: l.cantidad,
           })),
         }),
       });
@@ -147,6 +187,25 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       </header>
 
       <div className="space-y-6 px-5 pt-5">
+        {/* LOS COMBOS VAN PRIMERO (2026-08-17): es lo que más conviene vender
+            y lo que el cliente compara antes de armar su pedido suelto. */}
+        {carta.combos.length > 0 && (
+          <section>
+            <h2 className="eyebrow mb-2 flex items-center gap-2">
+              <span className="h-3.5 w-1 rounded-full bg-orbita" aria-hidden />
+              Combos
+            </h2>
+            <div className="space-y-2">
+              {carta.combos.map((c) => (
+                <TarjetaCombo
+                  key={c.id}
+                  combo={c}
+                  onAgregar={() => agregarCombo(c)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
         {porCategoria.map((cat) => (
           <section key={cat.id}>
             <h2 className="eyebrow mb-2 flex items-center gap-2">
@@ -250,7 +309,21 @@ function TarjetaProducto({
             {producto.descripcion}
           </p>
         )}
-        <p className="mt-1 font-bold text-calor">{soles(producto.precioCentavos)}</p>
+        {/* El tachado y el % (2026-08-17): el cliente ve el ahorro en vez de
+            tener que creerlo. */}
+        <div className="mt-1 flex flex-wrap items-baseline gap-2">
+          <span className="font-bold text-calor">{soles(producto.precioCentavos)}</span>
+          {producto.precioAntesCentavos && descuentoPct(producto.precioAntesCentavos, producto.precioCentavos) && (
+            <>
+              <span className="text-[0.82rem] text-frio line-through">
+                {soles(producto.precioAntesCentavos)}
+              </span>
+              <span className="rounded-chip bg-orbita px-2 py-0.5 text-[0.72rem] font-bold text-sobre-orbita">
+                −{descuentoPct(producto.precioAntesCentavos, producto.precioCentavos)}%
+              </span>
+            </>
+          )}
+        </div>
       </div>
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brasa text-[1.3rem] font-bold text-sobre-brasa">
         +
@@ -464,5 +537,49 @@ function PedidoListo({ codigo, total }: { codigo: string; total: number }) {
         Enviar por WhatsApp
       </a>
     </main>
+  );
+}
+
+/**
+ * Un combo en la carta pública.
+ *
+ * Muestra el precio del combo, lo que costaría suelto tachado y el % que
+ * ahorra. Ese porcentaje es el argumento de venta: sin él el cliente no sabe
+ * si le conviene y pide los platos por separado.
+ */
+function TarjetaCombo({ combo, onAgregar }: { combo: Combo; onAgregar: () => void }) {
+  const pct = descuentoPct(combo.precioSueltoCentavos, combo.precioCentavos);
+  return (
+    <button
+      onClick={onAgregar}
+      className="flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-orbita/30 transition active:scale-[0.99]"
+    >
+      {combo.fotoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={combo.fotoUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-linea" />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold leading-snug text-tinta">{combo.nombre}</p>
+        <p className="mt-0.5 text-[0.82rem] leading-snug text-tinta-2">
+          {combo.items.map((i) => `${i.cantidad > 1 ? `${i.cantidad} ` : ""}${i.nombre}`).join(" + ")}
+        </p>
+        <div className="mt-1 flex flex-wrap items-baseline gap-2">
+          <span className="font-bold text-calor">{soles(combo.precioCentavos)}</span>
+          {pct && (
+            <>
+              <span className="text-[0.82rem] text-frio line-through">
+                {soles(combo.precioSueltoCentavos)}
+              </span>
+              <span className="rounded-chip bg-orbita px-2 py-0.5 text-[0.72rem] font-bold text-sobre-orbita">
+                −{pct}%
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brasa text-[1.3rem] font-bold text-sobre-brasa">
+        +
+      </span>
+    </button>
   );
 }

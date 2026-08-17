@@ -16,7 +16,7 @@
    libera el naranja para lo que es: acento de marca.
 
    Los cuatro colores salen del ÍCONO (leadai-mobile/design/icono-frente.png):
-   menta #0FB68B, naranja #FC8A05, blanco y el verde hondo #141A18 del fondo.
+   menta #0FB68B, naranja #FC8A05, blanco y el verde hondo #0E1614 del fondo.
    No se aclaran ni se oscurecen para la marca: un logo no cambia de color
    cuando se apaga la luz. Sí existen variantes oscurecidas para TEXTO
    (`brasa-texto`, `calor`), porque los hex del logo sobre fondo claro no
@@ -64,8 +64,8 @@
   /* El verde MUY oscuro del fondo del logo (2026-08-17). Antes era #0f172a,
      un slate navy AZUL: la marca decía verde y el panel pintaba azul. Con
      blanco encima da 17.6:1, igual que el azul que reemplaza. */
-  --color-superficie-honda: #141a18;
-  --color-superficie-honda-2: #1f2926;
+  --color-superficie-honda: #0e1614;
+  --color-superficie-honda-2: #1b2422;
   /* El naranja del logo, para FONDOS y acentos. Como texto sobre blanco da
      2.39:1 — ilegible: para eso está `--color-calor`, que es el mismo naranja
      oscurecido hasta AA. Los dos son el mismo color de marca en dos usos. */

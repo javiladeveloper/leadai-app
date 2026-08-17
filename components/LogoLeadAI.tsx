@@ -26,7 +26,7 @@
 export function LogoLeadAI({ className = "h-9 w-9" }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} role="img" aria-label="LeadAI">
-      <rect width="32" height="32" rx="7.5" fill="#141a18" />
+      <rect width="32" height="32" rx="7.5" fill="#0e1614" />
 
       {/* 1. El globo, al fondo: aro menta con su colita abajo a la derecha. */}
       <path
@@ -56,7 +56,7 @@ export function LogoLeadAI({ className = "h-9 w-9" }: { className?: string }) {
       <path
         d="M18.6 5.6 10.2 17.6h4.4l-1 8.8 8.4-12.4h-4.4l1-8.4Z"
         fill="#ffffff"
-        stroke="#141a18"
+        stroke="#0e1614"
         strokeWidth="1.1"
         strokeLinejoin="round"
       />

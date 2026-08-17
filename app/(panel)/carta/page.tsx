@@ -55,7 +55,7 @@ export default function CartaPanel() {
   const enlacePublico = tenant ? `${window.location.origin}/c/${tenant}` : null;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 px-5 py-6 lg:px-8">
+    <div className="mx-auto max-w-5xl space-y-5 px-5 py-6 lg:px-8">
       <header>
         <p className="eyebrow">Pedidos</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Carta y precios</h1>

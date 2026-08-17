@@ -49,6 +49,8 @@ interface Carta {
   productos: Producto[];
   grupos: Grupo[];
   combos: Combo[];
+  /** Ids de lo más vendido del último mes. Vacío mientras no haya ventas. */
+  masPedidos?: string[];
 }
 
 /**
@@ -174,18 +176,33 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     .map((c) => ({ ...c, productos: carta.productos.filter((p) => p.categoriaId === c.id) }))
     .filter((c) => c.productos.length > 0);
   const sueltos = carta.productos.filter((p) => !p.categoriaId);
+  // Los ids del ranking, resueltos a productos y en su orden de venta.
+  const destacados = (carta.masPedidos ?? [])
+    .map((id) => carta.productos.find((p) => p.id === id))
+    .filter((p): p is Producto => p != null);
 
   return (
-    <main className="mx-auto min-h-dvh max-w-[560px] bg-arena pb-32">
+    <main className="mx-auto min-h-dvh max-w-[900px] bg-arena pb-32">
       <Cabecera negocio={carta.negocio} />
       <BarraSecciones
         secciones={[
+          ...(destacados.length > 0 ? [{ id: "destacados", nombre: "Lo más pedido" }] : []),
           ...(carta.combos.length > 0 ? [{ id: "combos", nombre: "Combos" }] : []),
           ...porCategoria.map((c) => ({ id: c.id, nombre: c.nombre })),
         ]}
       />
 
       <div className="space-y-7 px-4 pt-5">
+        {/* LO MÁS PEDIDO, cuando hay ventas suficientes. Mientras no las haya
+            la carta arranca en los combos, que es lo que más conviene vender. */}
+        <FilaDestacados
+          titulo="Lo más pedido"
+          productos={destacados}
+          grupos={carta.grupos}
+          onElegir={(p) => setEligiendo(p)}
+          onAgregarDirecto={(p) => agregar({ producto: p, cantidad: 1, opciones: [] })}
+        />
+
         {/* LOS COMBOS VAN PRIMERO (2026-08-17): es lo que más conviene vender
             y lo que el cliente compara antes de armar su pedido suelto. */}
         {carta.combos.length > 0 && (
@@ -194,7 +211,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
               <span className="h-3.5 w-1 rounded-full bg-orbita" aria-hidden />
               Combos
             </h2>
-            <div className="space-y-2">
+            <div className="grid gap-2.5 sm:grid-cols-2">
               {carta.combos.map((c) => (
                 <TarjetaCombo
                   key={c.id}
@@ -211,7 +228,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
               <span className="h-3.5 w-1 rounded-full bg-orbita" aria-hidden />
               {cat.nombre}
             </h2>
-            <div className="space-y-2">
+            <div className="grid gap-2.5 sm:grid-cols-2">
               {cat.productos.map((p) => (
                 <TarjetaProducto
                   key={p.id}
@@ -226,7 +243,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
         ))}
         {sueltos.length > 0 && (
           <section>
-            <div className="space-y-2">
+            <div className="grid gap-2.5 sm:grid-cols-2">
               {sueltos.map((p) => (
                 <TarjetaProducto
                   key={p.id}
@@ -364,6 +381,88 @@ function BarraSecciones({ secciones }: { secciones: { id: string; nombre: string
         ))}
       </div>
     </nav>
+  );
+}
+
+/**
+ * LO MÁS PEDIDO, en fila horizontal con foto grande.
+ *
+ * Va arriba de todo porque es lo que hace que un cliente nuevo elija rápido en
+ * vez de leer veinte platos. Formato distinto al de la lista —foto cuadrada
+ * grande, sin descripción— justamente para que no se confunda con el resto: es
+ * una vidriera, no un catálogo.
+ *
+ * Se desliza en horizontal en vez de envolver: ocupa una franja fija y no
+ * empuja la carta hacia abajo.
+ */
+function FilaDestacados({
+  titulo, productos, onElegir, onAgregarDirecto, grupos,
+}: {
+  titulo: string;
+  productos: Producto[];
+  grupos: Grupo[];
+  onElegir: (p: Producto) => void;
+  onAgregarDirecto: (p: Producto) => void;
+}) {
+  if (productos.length === 0) return null;
+  return (
+    <section id="sec-destacados" className="scroll-mt-16">
+      <h2 className="eyebrow mb-2.5 flex items-center gap-2">
+        <span className="h-3.5 w-1 rounded-full bg-orbita" aria-hidden />
+        {titulo}
+      </h2>
+      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
+        {productos.map((p) => {
+          const pct = p.precioAntesCentavos
+            ? descuentoPct(p.precioAntesCentavos, p.precioCentavos)
+            : null;
+          const tieneOpciones = p.grupoIds.some((id) => grupos.some((g) => g.id === id));
+          return (
+            <button
+              key={p.id}
+              onClick={() => (tieneOpciones ? onElegir(p) : onAgregarDirecto(p))}
+              className="w-36 shrink-0 text-left"
+            >
+              <div className="relative">
+                {p.fotoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.fotoUrl}
+                    alt=""
+                    className="h-36 w-36 rounded-xl object-cover ring-1 ring-linea"
+                  />
+                ) : (
+                  <div className="grid h-36 w-36 place-items-center rounded-xl bg-carta ring-1 ring-linea">
+                    <span className="text-[2rem]">🍽️</span>
+                  </div>
+                )}
+                {/* El "+" arriba a la derecha, como en las cartas que la gente
+                    ya sabe usar. */}
+                <span className="absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-full bg-brasa text-[1.2rem] font-bold text-sobre-brasa shadow-[var(--sombra-tarjeta)]">
+                  +
+                </span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5">
+                <span className="font-bold text-calor">{soles(p.precioCentavos)}</span>
+                {pct && (
+                  <span className="rounded-chip bg-orbita px-1.5 py-0.5 text-[0.68rem] font-bold text-sobre-orbita">
+                    −{pct}%
+                  </span>
+                )}
+              </div>
+              {pct && p.precioAntesCentavos && (
+                <p className="text-[0.75rem] text-frio line-through">
+                  {soles(p.precioAntesCentavos)}
+                </p>
+              )}
+              <p className="mt-0.5 line-clamp-2 text-[0.85rem] font-medium leading-snug text-tinta">
+                {p.nombre}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

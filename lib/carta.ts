@@ -386,3 +386,44 @@ export function resumenDescuento(d: DescuentoCarta): string {
   if (d.horaDesde && d.horaHasta) partes.push(`${d.horaDesde}–${d.horaHasta}`);
   return partes.join(" · ");
 }
+
+// ── La marca del negocio en su carta ──────────────────────────────────
+//
+// Sin logo ni banner el link parece un formulario, no un restaurante.
+
+export interface NegocioCarta {
+  nombre: string;
+  logoUrl: string | null;
+  bannerUrl: string | null;
+  direccion: string | null;
+  instagramUrl: string | null;
+  entregaMinutos: number | null;
+}
+
+export async function obtenerNegocio(tenant?: string): Promise<NegocioCarta | null> {
+  try {
+    const r = await api<{ negocio: NegocioCarta | null }>("/carta/negocio", { tenant });
+    return r.negocio;
+  } catch {
+    return null;
+  }
+}
+
+export function guardarNegocio(
+  datos: Partial<Pick<NegocioCarta, "direccion" | "instagramUrl" | "entregaMinutos">>,
+  tenant?: string,
+) {
+  return escribir("/carta/negocio", "PATCH", datos, tenant);
+}
+
+/** El logo y el banner van por su propia ruta: son del negocio, no de un id. */
+export function subirImagenNegocio(cual: "logo" | "banner", imagenBase64: string, tenant?: string) {
+  return escribir<string>(
+    `/carta/negocio/${cual}`, "POST", { imagen: imagenBase64 }, tenant,
+    (r) => (r as { url: string }).url,
+  );
+}
+
+export function quitarImagenNegocio(cual: "logo" | "banner", tenant?: string) {
+  return escribir(`/carta/negocio/${cual}`, "DELETE", undefined, tenant);
+}

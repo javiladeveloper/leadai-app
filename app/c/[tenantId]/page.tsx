@@ -40,7 +40,11 @@ interface Combo {
   items: { nombre: string; cantidad: number }[];
 }
 interface Carta {
-  negocio: { nombre: string; abierto: boolean; horaAbre: number | null; horaCierra: number | null };
+  negocio: {
+    nombre: string; abierto: boolean; horaAbre: number | null; horaCierra: number | null;
+    logoUrl: string | null; bannerUrl: string | null;
+    direccion: string | null; entregaMinutos: number | null;
+  };
   categorias: { id: string; nombre: string }[];
   productos: Producto[];
   grupos: Grupo[];
@@ -173,25 +177,20 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
 
   return (
     <main className="mx-auto min-h-dvh max-w-[560px] bg-arena pb-32">
-      <header className="sticky top-0 z-10 bg-carta px-5 py-4 shadow-[var(--sombra-tarjeta)]">
-        <h1 className="text-[1.4rem] font-bold text-tinta">{carta.negocio.nombre}</h1>
-        {!carta.negocio.abierto && (
-          // Se avisa arriba y se apaga el botón de enviar: sin esto el cliente
-          // arma un pedido que nadie va a cocinar y se entera recién al
-          // escribir por WhatsApp.
-          <p className="mt-1 text-[0.9rem] font-semibold text-alerta">
-            Ahora está cerrado
-            {carta.negocio.horaAbre != null && ` · abre ${carta.negocio.horaAbre}:00`}
-          </p>
-        )}
-      </header>
+      <Cabecera negocio={carta.negocio} />
+      <BarraSecciones
+        secciones={[
+          ...(carta.combos.length > 0 ? [{ id: "combos", nombre: "Combos" }] : []),
+          ...porCategoria.map((c) => ({ id: c.id, nombre: c.nombre })),
+        ]}
+      />
 
-      <div className="space-y-6 px-5 pt-5">
+      <div className="space-y-7 px-4 pt-5">
         {/* LOS COMBOS VAN PRIMERO (2026-08-17): es lo que más conviene vender
             y lo que el cliente compara antes de armar su pedido suelto. */}
         {carta.combos.length > 0 && (
-          <section>
-            <h2 className="eyebrow mb-2 flex items-center gap-2">
+          <section id="sec-combos" className="scroll-mt-16">
+            <h2 className="eyebrow mb-2.5 flex items-center gap-2">
               <span className="h-3.5 w-1 rounded-full bg-orbita" aria-hidden />
               Combos
             </h2>
@@ -207,8 +206,8 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           </section>
         )}
         {porCategoria.map((cat) => (
-          <section key={cat.id}>
-            <h2 className="eyebrow mb-2 flex items-center gap-2">
+          <section key={cat.id} id={`sec-${cat.id}`} className="scroll-mt-16">
+            <h2 className="eyebrow mb-2.5 flex items-center gap-2">
               <span className="h-3.5 w-1 rounded-full bg-orbita" aria-hidden />
               {cat.nombre}
             </h2>
@@ -274,6 +273,100 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   );
 }
 
+/**
+ * La cabecera de la carta: banner, logo y los datos del negocio.
+ *
+ * Sin esto el link abre una lista de platos sin cara y no parece del
+ * restaurante. El logo montado sobre el banner es el patrón que usan todas
+ * las cartas que funcionan — el cliente reconoce el lugar antes de leer nada.
+ */
+function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
+  return (
+    <header>
+      {/* El banner. Sin uno cargado va una franja del verde de marca: mejor un
+          bloque de color deliberado que un hueco. */}
+      <div className="relative h-36 w-full overflow-hidden bg-superficie-honda sm:h-44">
+        {negocio.bannerUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={negocio.bannerUrl} alt="" className="h-full w-full object-cover" />
+        )}
+      </div>
+
+      <div className="relative px-5 pb-4">
+        {/* El logo monta sobre el banner (margen negativo), como en las cartas
+            que la gente ya sabe usar. */}
+        <div className="-mt-10 mb-3">
+          <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-carta shadow-[var(--sombra-tarjeta)] ring-2 ring-carta">
+            {negocio.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={negocio.logoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              // Sin logo: la inicial del negocio. Un cuadro vacío se ve roto.
+              <span className="text-[2rem] font-bold text-orbita">
+                {negocio.nombre.trim().charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <h1 className="text-[1.5rem] font-bold leading-tight text-tinta">{negocio.nombre}</h1>
+          {/* Abierto/cerrado como chip y no como texto suelto: es el dato que
+              decide si el cliente sigue o se va. */}
+          <span
+            className={`rounded-chip px-2.5 py-1 text-[0.75rem] font-bold ${
+              negocio.abierto ? "bg-brasa/15 text-brasa-texto" : "bg-alerta/12 text-alerta"
+            }`}
+          >
+            {negocio.abierto ? "● Abierto" : "● Cerrado"}
+            {!negocio.abierto && negocio.horaAbre != null && ` · abre ${negocio.horaAbre}:00`}
+          </span>
+        </div>
+
+        {(negocio.direccion || negocio.entregaMinutos) && (
+          <div className="mt-2 space-y-1 text-[0.85rem] text-tinta-2">
+            {negocio.direccion && <p>📍 {negocio.direccion}</p>}
+            {negocio.entregaMinutos && (
+              <p>
+                🕐 Entrega{" "}
+                <b>
+                  {negocio.entregaMinutos}–{negocio.entregaMinutos + 10} min
+                </b>
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}
+
+/**
+ * La barra de secciones, pegada arriba al scrollear.
+ *
+ * Con 20 platos en cinco secciones, scrollear hasta el postre es donde el
+ * cliente se cansa. Se queda fija porque su valor es justamente estar ahí
+ * cuando ya bajaste.
+ */
+function BarraSecciones({ secciones }: { secciones: { id: string; nombre: string }[] }) {
+  if (secciones.length < 2) return null;
+  return (
+    <nav className="sticky top-0 z-20 border-b border-linea bg-carta/95 backdrop-blur">
+      <div className="flex gap-1 overflow-x-auto px-4 py-2.5 [scrollbar-width:none]">
+        {secciones.map((s) => (
+          <a
+            key={s.id}
+            href={`#sec-${s.id}`}
+            className="shrink-0 whitespace-nowrap rounded-chip px-3 py-1.5 text-[0.85rem] font-semibold text-tinta-2 transition hover:bg-arena hover:text-tinta"
+          >
+            {s.nombre}
+          </a>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 function TarjetaProducto({
   producto, grupos, onElegir, onAgregarDirecto,
 }: {
@@ -296,7 +389,7 @@ function TarjetaProducto({
         <img
           src={producto.fotoUrl}
           alt=""
-          className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-linea"
+          className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-linea"
         />
       )}
       <div className="min-w-0 flex-1">
@@ -556,7 +649,7 @@ function TarjetaCombo({ combo, onAgregar }: { combo: Combo; onAgregar: () => voi
     >
       {combo.fotoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={combo.fotoUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-linea" />
+        <img src={combo.fotoUrl} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-linea" />
       )}
       <div className="min-w-0 flex-1">
         <p className="font-semibold leading-snug text-tinta">{combo.nombre}</p>

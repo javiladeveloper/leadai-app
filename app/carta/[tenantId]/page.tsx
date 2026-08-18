@@ -15,6 +15,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { haySesion, leerSesion, guardarEmpresaActiva } from "@/lib/auth";
+import { misEmpresas } from "@/lib/api";
 
 export default function CartaDeNegocio() {
   const router = useRouter();
@@ -34,14 +35,29 @@ export default function CartaDeNegocio() {
     // El negocio tiene que ser SUYO. Sin este chequeo, cambiar el id en la
     // barra de direcciones intentaría abrir la carta de otro — el backend lo
     // rechazaría, pero el dueño vería una pantalla rota en vez de un aviso.
+    //
+    // La lista de la SESIÓN es la del momento del login (2026-08-18): un
+    // negocio creado después no está ahí, y el dueño veía "ese negocio no es
+    // tuyo" para su propio negocio. Por eso se pregunta al backend, y la
+    // sesión solo sirve de atajo cuando ya lo tiene.
     const sesion = leerSesion();
-    if (!sesion?.empresas.some((e) => e.tenantId === tenantId)) {
-      setAjeno(true);
+    if (sesion?.empresas.some((e) => e.tenantId === tenantId)) {
+      guardarEmpresaActiva(tenantId);
+      router.replace("/carta");
       return;
     }
 
-    guardarEmpresaActiva(tenantId);
-    router.replace("/carta");
+    let vivo = true;
+    void misEmpresas().then((empresas) => {
+      if (!vivo) return;
+      if (empresas.some((e) => e.tenantId === tenantId)) {
+        guardarEmpresaActiva(tenantId);
+        router.replace("/carta");
+      } else {
+        setAjeno(true);
+      }
+    });
+    return () => { vivo = false; };
   }, [params.tenantId, router]);
 
   if (ajeno) {

@@ -8,6 +8,11 @@ export interface Rubro {
   emoji: string;
 }
 
+/**
+ * TODOS los rubros que existen. NO se borra ninguno aunque deje de ofrecerse:
+ * los negocios ya creados guardan su id, y sacarlo de acá los dejaría con la
+ * etiqueta cruda ("mascotas") en vez de su nombre.
+ */
 export const RUBROS: Rubro[] = [
   { id: "contable", label: "Contabilidad / Tributario", emoji: "📊" },
   { id: "ventas", label: "Ventas / Comercio / Tienda", emoji: "🛒" },
@@ -32,7 +37,29 @@ export const RUBROS: Rubro[] = [
   { id: "otro", label: "Otro", emoji: "💼" },
 ];
 
-// Devuelve la etiqueta legible de un rubro por su id (fallback: el id crudo).
+/**
+ * LOS QUE SE OFRECEN HOY (2026-08-18).
+ *
+ * El alcance se cerró a dos: gastronomía —donde el producto está terminado
+ * (carta, cocina, extras, combos, pedidos)— y ventas, que es el caso de
+ * captación con el que trabaja Guisella.
+ *
+ * El resto no se borró, se dejó de ofrecer: darle "Carta" a una veterinaria
+ * cuando su caso no está pensado es prometer algo a medias, y eso se paga más
+ * caro que no ofrecerlo. Se van sumando de a uno, cuando cada caso esté
+ * resuelto de verdad (ver lib/catalogo-por-rubro.ts).
+ *
+ * Quien YA tiene otro rubro lo conserva: `RUBROS` sigue completo y su etiqueta
+ * se resuelve igual.
+ */
+const OFRECIDOS = ['gastronomia', 'ventas'];
+
+export const RUBROS_DISPONIBLES: Rubro[] = RUBROS.filter((r) => OFRECIDOS.includes(r.id));
+
+/**
+ * La etiqueta legible de un rubro. Busca en la lista COMPLETA, no en la de
+ * ofrecidos: un negocio con rubro viejo tiene que seguir viéndose bien.
+ */
 export function etiquetaRubro(id: string): string {
   return RUBROS.find((r) => r.id === id)?.label ?? id;
 }

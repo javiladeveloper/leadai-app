@@ -10,6 +10,7 @@
 // y no se hace a mano en ningún otro lado.
 
 import { api } from "./api";
+import { leerSesion, leerEmpresaActiva } from "./auth";
 
 export interface CategoriaCarta {
   id: string;
@@ -428,4 +429,111 @@ export function subirImagenNegocio(cual: "logo" | "banner", imagenBase64: string
 
 export function quitarImagenNegocio(cual: "logo" | "banner", tenant?: string) {
   return escribir(`/carta/negocio/${cual}`, "DELETE", undefined, tenant);
+}
+
+// ── Importar la carta ─────────────────────────────────────────────────
+//
+// Muchos restaurantes ya tienen su carta en una foto, un PDF o un Excel.
+// Retipearla plato por plato es donde abandonan.
+
+/** Un plato leído de un archivo, antes de que el dueño lo confirme. */
+export interface ItemImportado {
+  nombre: string;
+  precioCentavos: number;
+  precioAntesCentavos?: number;
+  descripcion?: string;
+  seccion?: string;
+}
+
+export interface LecturaExcel {
+  items: ItemImportado[];
+  /** Filas que no se pudieron leer. El dueño las corrige a mano. */
+  errores: { fila: number; motivo: string }[];
+}
+
+/** Lee un Excel y devuelve los platos SIN guardarlos: primero se revisan. */
+export function leerExcel(archivoBase64: string, tenant?: string) {
+  return escribir<LecturaExcel>(
+    "/carta/leer-excel", "POST", { archivo: archivoBase64 }, tenant,
+    (r) => r as LecturaExcel,
+  );
+}
+
+/**
+ * Lee una foto o un PDF con IA. Mismo formato de vuelta que el Excel para que
+ * la pantalla de revisión sea una sola.
+ */
+export async function leerFotoOPdf(
+  archivo: { imagenBase64?: string; imagenMime?: string; pdfBase64?: string },
+  tenant?: string,
+): Promise<Resultado<LecturaExcel>> {
+  const r = await escribir<{ items: { nombre: string; precio?: string; descripcion?: string; categoria?: string }[] }>(
+    "/perfil/carta-importar", "POST", archivo, tenant,
+    (x) => x as { items: { nombre: string; precio?: string; descripcion?: string; categoria?: string }[] },
+  );
+  if (!r.ok || !r.dato) return { ok: false, error: r.error };
+
+  // El endpoint viejo devuelve el precio como TEXTO libre ("S/ 12.90"): viene
+  // de lo que la IA leyó en la imagen. Se normaliza acá para que la pantalla
+  // de revisión trate igual las tres fuentes.
+  const items: ItemImportado[] = [];
+  const errores: { fila: number; motivo: string }[] = [];
+  r.dato.items.forEach((i, n) => {
+    const centavos = i.precio ? aCentavos(i.precio) : null;
+    if (centavos == null) {
+      errores.push({ fila: n + 1, motivo: `No se entendió el precio de "${i.nombre}"` });
+      return;
+    }
+    items.push({
+      nombre: i.nombre,
+      precioCentavos: centavos,
+      ...(i.descripcion ? { descripcion: i.descripcion } : {}),
+      ...(i.categoria ? { seccion: i.categoria } : {}),
+    });
+  });
+  return { ok: true, dato: { items, errores } };
+}
+
+/** Guarda los platos revisados. `reemplazar` borra la carta anterior. */
+export function importarCarta(
+  items: ItemImportado[],
+  modo: "agregar" | "reemplazar" = "agregar",
+  tenant?: string,
+) {
+  return escribir<{ creados: number; salteados: number; secciones: number }>(
+    "/carta/importar", "POST", { items, modo }, tenant,
+    (r) => r as { creados: number; salteados: number; secciones: number },
+  );
+}
+
+/**
+ * Baja la plantilla de Excel y la guarda.
+ *
+ * Con `fetch` y no un `<a href>`: la ruta pide autenticación, así que un link
+ * directo devolvería 401 y el dueño se quedaría mirando una pantalla de error
+ * sin entender por qué.
+ */
+export async function descargarPlantilla(tenant?: string): Promise<boolean> {
+  const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  const sesion = leerSesion();
+  const empresa = tenant ?? leerEmpresaActiva();
+  try {
+    const res = await fetch(`${API}/carta/plantilla`, {
+      headers: {
+        ...(sesion?.token ? { Authorization: `Bearer ${sesion.token}` } : {}),
+        ...(empresa ? { "X-Tenant-Id": empresa } : {}),
+      },
+    });
+    if (!res.ok) return false;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "carta-leadai.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+    return true;
+  } catch {
+    return false;
+  }
 }

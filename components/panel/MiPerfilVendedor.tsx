@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { miPerfilVendedor, guardarPerfilVendedor, subirFotoVendedor, type PerfilVendedor, type Experiencia } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
+import { Seccion } from "@/components/panel/Seccion";
 
 const inputCls =
   "w-full rounded-tarjeta border border-linea bg-carta px-3.5 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa";
@@ -85,7 +86,16 @@ export function MiPerfilVendedorPanel() {
     if (r.ok) { setOk(true); setTimeout(() => setOk(false), 1800); }
   }
 
-  if (cargando || !perfil) return <div className="p-8 text-frio">Cargando…</div>;
+  // Skeleton con la forma real de la pantalla, como el resto del panel: un
+  // "Cargando…" plano hace saltar todo el contenido cuando llega.
+  if (cargando || !perfil) {
+    return (
+      <div className="space-y-5">
+        <div className="h-52 animate-pulse rounded-tarjeta bg-arena-2/70" />
+        <div className="h-72 animate-pulse rounded-tarjeta bg-arena-2/70" />
+      </div>
+    );
+  }
 
   return (
     // Sin encabezado ni ancho propios (2026-08-18): esto se escribió como
@@ -94,59 +104,93 @@ export function MiPerfilVendedorPanel() {
     // y un max-w-2xl que lo dejaba más angosto que las otras tres pestañas.
     <div className="space-y-5">
 
-      {/* Métricas reales */}
-      <div className="flex gap-3">
-        <div className="flex-1 rounded-tarjeta bg-carta p-4 text-center ring-1 ring-linea">
-          <p className="text-2xl font-bold text-ok">{perfil.ventasCerradas}</p>
-          <p className="text-[0.78rem] text-frio">Ventas cerradas</p>
-        </div>
-        <div className="flex-1 rounded-tarjeta bg-carta p-4 text-center ring-1 ring-linea">
-          <p className="text-2xl font-bold text-tinta">{perfil.aniosExp}</p>
-          <p className="text-[0.78rem] text-frio">Años de experiencia</p>
-        </div>
-      </div>
+      {/* La CABECERA del perfil, en verde hondo (2026-08-18): es lo que otro
+          negocio ve de vos, así que la foto, el nombre y las métricas van
+          arriba y juntos. Antes la foto estaba enterrada en el medio del
+          formulario, entre "Sobre vos" y los años de experiencia. */}
+      <Seccion
+        titulo="Así te ven los negocios"
+        bajada="Tu foto, tu experiencia y cómo contactarte. Un perfil completo te consigue más oportunidades."
+        tono="hondo"
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-4">
+            {perfil.fotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={perfil.fotoUrl}
+                alt="Tu foto"
+                className="h-20 w-20 shrink-0 rounded-full object-cover ring-2 ring-arena/20"
+              />
+            ) : (
+              /* Sin foto, la inicial va sobre el MENTA de marca: el círculo
+                 gris sobre el verde hondo se perdía contra el fondo, y es lo
+                 primero que ve alguien que abre tu perfil. */
+              <span className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-brasa text-2xl font-bold text-sobre-brasa">
+                {(perfil.nombre ?? "V").charAt(0).toUpperCase()}
+              </span>
+            )}
 
-      {/* Visible en el marketplace */}
-      <label className="flex items-center gap-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
-        <input
-          type="checkbox"
-          checked={perfil.publico}
-          onChange={(e) => set("publico", e.target.checked)}
-          className="h-5 w-5 accent-brasa"
-        />
-        <span>
-          <span className="block font-semibold text-tinta">Aparecer en el marketplace</span>
-          <span className="block text-[0.8rem] text-frio">Si lo activás, los negocios pueden encontrarte y darte oportunidades.</span>
-        </span>
-      </label>
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.15rem] font-bold text-arena">{perfil.nombre || "Tu nombre"}</p>
+              {/* Las dos métricas en línea: el número en naranja, que es el
+                  dato con el que un negocio te evalúa. */}
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[0.84rem] text-arena/70">
+                <span>
+                  <b className="text-[1.05rem] font-bold text-orbita">{perfil.ventasCerradas}</b>{" "}
+                  {perfil.ventasCerradas === 1 ? "venta cerrada" : "ventas cerradas"}
+                </span>
+                <span>
+                  <b className="text-[1.05rem] font-bold text-orbita">{perfil.aniosExp}</b>{" "}
+                  {perfil.aniosExp === 1 ? "año de experiencia" : "años de experiencia"}
+                </span>
+              </div>
+              <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-chip bg-arena/10 px-3 py-1.5 text-[0.82rem] font-semibold text-arena ring-1 ring-arena/15 transition hover:bg-arena/20">
+                {subiendoFoto ? "Subiendo…" : perfil.fotoUrl ? "Cambiar foto" : "Subir foto"}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                  disabled={subiendoFoto} onChange={subirFoto} />
+              </label>
+              <p className="mt-1 text-[0.75rem] text-arena/50">JPG, PNG o WebP. Máximo 5MB.</p>
+              {errorFoto && <p className="mt-1 text-[0.8rem] font-semibold text-orbita">{errorFoto}</p>}
+            </div>
+          </div>
 
-      <div className="space-y-4 rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
-        {/* Foto de perfil: subir desde el dispositivo (o pegar un link) */}
-        <div className="flex items-center gap-4">
-          {perfil.fotoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={perfil.fotoUrl}
-              alt="Tu foto"
-              className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-linea"
-            />
-          ) : (
-            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-arena text-2xl font-bold text-frio ring-1 ring-linea">
-              {(perfil.nombre ?? "V").charAt(0).toUpperCase()}
-            </span>
-          )}
-          <div className="flex-1">
-            <span className="mb-1 block text-sm font-medium text-tinta">Foto de perfil</span>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-tarjeta bg-arena px-4 py-2 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-linea">
-              {subiendoFoto ? "Subiendo…" : perfil.fotoUrl ? "Cambiar foto" : "Subir foto"}
-              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                disabled={subiendoFoto} onChange={subirFoto} />
-            </label>
-            <p className="mt-1 text-[0.78rem] text-frio">JPG, PNG o WebP. Máximo 5MB.</p>
-            {errorFoto && <p className="mt-1 text-[0.8rem] text-brasa-hondo">{errorFoto}</p>}
+          {/* El interruptor de VISIBILIDAD va acá: es la decisión que define si
+              todo lo de abajo lo ve alguien o no. */}
+          {/* El mismo interruptor que usa el resto del panel (el bot, la IA):
+              el checkbox nativo se veía como una caja blanca cuadrada, ajena
+              a todo lo demás — y encima acá va sobre fondo oscuro. */}
+          <div className="flex items-center justify-between gap-4 rounded-tarjeta bg-arena/10 px-4 py-3 ring-1 ring-arena/15">
+            <div className="min-w-0">
+              <p className="text-[0.92rem] font-semibold text-arena">Aparecer en el marketplace</p>
+              <p className="text-[0.8rem] text-arena/65">
+                {perfil.publico
+                  ? "Los negocios pueden encontrarte y darte oportunidades."
+                  : "Tu perfil está oculto: nadie te ve todavía."}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={perfil.publico}
+              aria-label="Aparecer en el marketplace"
+              onClick={() => set("publico", !perfil.publico)}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                perfil.publico ? "bg-brasa" : "bg-arena/20"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-carta shadow transition-transform ${
+                  perfil.publico ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
           </div>
         </div>
+      </Seccion>
 
+      <Seccion titulo="Tus datos" bajada="Lo que un negocio lee antes de escribirte.">
+        <div className="space-y-4">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-tinta">Sobre vos</span>
           <textarea value={perfil.bio} onChange={(e) => set("bio", e.target.value)} rows={3}
@@ -210,21 +254,22 @@ export function MiPerfilVendedorPanel() {
             <input value={perfil.web} onChange={(e) => set("web", e.target.value)} placeholder="https://…" className={inputCls} />
           </label>
         </div>
-      </div>
+        </div>
+      </Seccion>
 
-      {/* Experiencia profesional (dónde trabajó) */}
-      <div className="space-y-3 rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-tinta">Experiencia profesional</h2>
-            <p className="text-[0.8rem] text-frio">Dónde trabajaste. Le da confianza a los negocios que te contactan.</p>
-          </div>
+      {/* Experiencia profesional (dónde trabajó). El "+ Agregar" va en la
+          cabecera de la sección, como acción del bloque. */}
+      <Seccion
+        titulo="Experiencia profesional"
+        bajada="Dónde trabajaste. Le da confianza a los negocios que te contactan."
+        accion={
           <button type="button" onClick={agregarExperiencia}
             className="shrink-0 rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea hover:bg-linea">
             + Agregar
           </button>
-        </div>
-
+        }
+      >
+        <div className="space-y-3">
         {perfil.experiencia.length === 0 && (
           <p className="rounded-tarjeta bg-arena/40 px-4 py-3 text-[0.85rem] text-frio">
             Todavía no agregaste experiencia. Tocá “+ Agregar”.
@@ -249,7 +294,8 @@ export function MiPerfilVendedorPanel() {
             </button>
           </div>
         ))}
-      </div>
+        </div>
+      </Seccion>
 
       <div className="flex items-center gap-3">
         <button onClick={guardar} disabled={guardando}

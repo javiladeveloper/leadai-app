@@ -12,6 +12,7 @@ import {
 import { precioRecargaCentavos, soles } from "@/lib/precio";
 import CheckoutCulqi from "@/components/panel/CheckoutCulqi";
 import { Seccion } from "@/components/panel/Seccion";
+import { PlanRestaurante } from "@/components/panel/PlanRestaurante";
 
 // Un cliente atendido de punta a punta ≈ 8 hits (calificar + responder por
 // mensaje). La unidad que ve el negocio es "clientes", no hits internos.
@@ -610,6 +611,11 @@ export function PlanConsumo() {
           <TarjetaPedidos pedidos={uso.pedidos} plan={uso.plan} seResetea={uso.bolsa.seResetea} />
         </Seccion>
       )}
+
+      {/* Contratar o cambiar el plan — solo restaurantes (2026-08-18). Los
+          planes de captación se venden por otro lado y con otra unidad; acá
+          se cobraría lo que no corresponde. */}
+      {esRestaurante && <PlanRestaurante />}
 
       {/* "Clientes atendidos por la IA" y "comprar clientes extra" son de los
           planes de CAPTACIÓN. En un plan de restaurante la unidad es el pedido

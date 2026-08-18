@@ -609,6 +609,100 @@ export async function iniciarRecarga(
   }
 }
 
+// ─── SUSCRIPCIÓN A UN PLAN (2026-08-18) ─────────────────────────────────────
+
+export type Periodicidad = "mensual" | "anual";
+
+export interface PlanDisponible {
+  id: string;
+  precioCentavos: number;
+  pedidosMes: number;
+  /**
+   * El pago anual. OPCIONAL a propósito: durante un deploy el backend viejo
+   * todavía no lo manda, y sin esto la pantalla del plan se cae entera.
+   */
+  anual?: {
+    precioCentavos: number;
+    ahorroCentavos: number;
+    /** Lo que sale por mes pagando anual: el número con el que se compara. */
+    equivalenteMensualCentavos: number;
+    mesesGratis: number;
+  };
+}
+
+export interface EstadoSuscripcion {
+  plan: string;
+  periodicidad: Periodicidad;
+  /** 'activa' | 'en_gracia' | 'cancelada'. */
+  estado: string;
+  precioCentavos: number;
+  vigenteHasta: string;
+  fallaDesde: string | null;
+  tarjetaUltimos4: string | null;
+  tarjetaMarca: string | null;
+}
+
+export interface RespuestaSuscripcion {
+  suscripcion: EstadoSuscripcion | null;
+  disponibles: PlanDisponible[];
+  /** Sin esto el panel no puede tokenizar y no hay pago posible. */
+  llavePublica: string | null;
+}
+
+export async function obtenerSuscripcion(): Promise<RespuestaSuscripcion | null> {
+  try {
+    return await api<RespuestaSuscripcion>("/suscripcion");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Contrata un plan. El precio NO se manda: lo calcula el backend desde el
+ * catálogo — quien pide el cobro no decide cuánto paga.
+ */
+export async function contratarPlan(datos: {
+  plan: string;
+  tokenId: string;
+  email: string;
+  nombre: string;
+  periodicidad: Periodicidad;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/suscripcion", { method: "POST", body: datos });
+    return { ok: true };
+  } catch (e) {
+    // El mensaje de Culqi es accionable ("Tarjeta sin fondos"): se muestra
+    // tal cual en vez de un "ocurrió un error".
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo contratar el plan" };
+  }
+}
+
+export async function cancelarPlan(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/suscripcion", { method: "DELETE" });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo dar de baja" };
+  }
+}
+
+export interface PagoSuscripcion {
+  estado: string; // 'pagado' | 'fallido'
+  montoCentavos: number;
+  motivoFalla: string | null;
+  creadoEn: string;
+}
+
+export async function historialPagos(): Promise<PagoSuscripcion[]> {
+  try {
+    const r = await api<{ pagos: PagoSuscripcion[] }>("/suscripcion/pagos");
+    return r.pagos;
+  } catch {
+    return [];
+  }
+}
+
 // Lista las empresas del usuario EN VIVO desde el backend. La sesión cachea la
 // lista del momento del login, así que un negocio nuevo (invitación, seed,
 // creado en otro dispositivo) no aparecería sin este refresco.

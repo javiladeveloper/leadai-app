@@ -23,6 +23,12 @@ const NOMBRE_PLAN: Record<string, string> = {
   light: "Emprende",
   pro: "Pro",
   business: "Business",
+  // Planes de restaurante. `pedidos` es el nombre viejo de `arranque`.
+  resto_gratis: "Gratis",
+  pedidos: "Arranque",
+  arranque: "Arranque",
+  crecer: "Crecer",
+  full: "Full",
 };
 
 // Bloque skeleton reutilizable, mismo estilo que Skeletons.tsx (pulso sobre
@@ -110,6 +116,78 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
         <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes que te quedan</p>
         <p className="text-[1rem] font-bold text-tinta">{restanteCli.toLocaleString("es-PE")}</p>
       </div>
+    </div>
+  );
+}
+
+// ─── Pedidos del mes (solo restaurantes) ───────────────────────────────
+/**
+ * Los PEDIDOS del mes contra el cupo del plan.
+ *
+ * Va arriba del saldo de clientes porque es el número que el dueño de un
+ * restaurante reconoce: "clientes atendidos por la IA" no le dice nada, los
+ * pedidos del mes los sabe de memoria.
+ *
+ * Nunca dice "te quedaste sin": pasarse del cupo no corta las ventas, se cobra
+ * con upgrade. Por eso pasado el tope el mensaje es "seguimos tomando todos",
+ * no una alarma.
+ */
+function TarjetaPedidos({
+  pedidos, plan, seResetea,
+}: { pedidos: NonNullable<Uso["pedidos"]>; plan: string; seResetea: string }) {
+  const { usados, limite } = pedidos;
+  // El plan y el corte se muestran ACÁ porque en un restaurante esta tarjeta
+  // reemplaza a "Tu saldo", que era donde vivían.
+  const dias = Math.max(0, Math.ceil((new Date(seResetea).getTime() - Date.now()) / 86_400_000));
+  const ilimitado = limite === 0;
+  const pct = ilimitado ? 0 : Math.min(100, Math.round((usados / limite) * 100));
+  const pasado = !ilimitado && usados > limite;
+  // Verde hasta el 80%, NARANJA de ahí en más: el naranja es "hacé algo", y a
+  // partir del 80% lo que hay para hacer es decidir si subís de plan.
+  //
+  // `orbita`, no `brasa`: pese al nombre, `brasa` es el MENTA del logo (lo
+  // dice globals.css — se llama así por historia). El naranja para fondos es
+  // `orbita`. No es rojo a propósito: el rojo es alerta, y pasarse del cupo no
+  // es un error, se sigue vendiendo igual.
+  const color = pasado || pct >= 80 ? "bg-orbita" : "bg-ok";
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-[0.68rem] font-bold uppercase tracking-wide text-frio">Plan actual</p>
+          <p className="text-[1.1rem] font-bold text-tinta">{NOMBRE_PLAN[plan] ?? plan}</p>
+        </div>
+        <span className="rounded-chip bg-arena px-3 py-1 text-[0.78rem] font-semibold text-tinta-2 ring-1 ring-linea">
+          {dias === 0 ? "Se renueva hoy" : `Se renueva en ${dias} ${dias === 1 ? "día" : "días"}`}
+        </span>
+      </div>
+
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[2rem] font-bold leading-none tabular-nums text-tinta">
+          {usados.toLocaleString("es-PE")}
+        </p>
+        <p className="text-[0.82rem] text-frio">
+          {ilimitado ? "sin tope" : `de ${limite.toLocaleString("es-PE")} incluidos`}
+        </p>
+      </div>
+
+      {!ilimitado && (
+        <div className="h-2.5 w-full overflow-hidden rounded-full bg-arena">
+          <div
+            className={`h-full rounded-full ${color} transition-[width] duration-500`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+
+      <p className="text-[0.82rem] text-tinta-2">
+        {ilimitado
+          ? "Tu plan no tiene tope de pedidos."
+          : pasado
+            ? `Pasaste los ${limite.toLocaleString("es-PE")} de tu plan y seguimos tomando todos. Subí cuando quieras.`
+            : `Te quedan ${(limite - usados).toLocaleString("es-PE")} este mes. Si te pasás, seguís vendiendo igual.`}
+      </p>
     </div>
   );
 }
@@ -497,6 +575,10 @@ export function PlanConsumo() {
     });
   }, []);
 
+  // Lo decide el BACKEND, no el rubro ni el nombre del plan: `uso.pedidos` sale
+  // del catálogo, así que agregar un plan de restaurante no obliga a tocar acá.
+  const esRestaurante = !!uso?.pedidos;
+
   return (
     <div className="grid gap-6">
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-2 ring-brasa/30 lg:p-6">
@@ -514,19 +596,40 @@ export function PlanConsumo() {
         />
       </div>
 
-      <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-        <h3 className="text-[0.95rem] font-bold text-tinta">Tu saldo</h3>
-        <p className="mb-4 text-[0.8rem] text-frio">Cuántos clientes podés atender este mes y cuándo se renueva.</p>
-        <TarjetaSaldo uso={uso} cargando={cargandoUso} error={errorUso} />
-      </div>
+      {/* Solo si el plan cuenta pedidos. A un negocio de captación un contador
+          de pedidos le sería ruido, y por eso el backend manda `null`. */}
+      {!cargandoUso && uso?.pedidos && (
+        <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
+          <h3 className="text-[0.95rem] font-bold text-tinta">Pedidos de este mes</h3>
+          <p className="mb-4 text-[0.8rem] text-frio">
+            Lo que llevás vendido contra lo que incluye tu plan.
+          </p>
+          <TarjetaPedidos pedidos={uso.pedidos} plan={uso.plan} seResetea={uso.bolsa.seResetea} />
+        </div>
+      )}
 
-      <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-        <h3 className="text-[0.95rem] font-bold text-tinta">Comprar más clientes</h3>
-        <p className="mb-4 text-[0.8rem] text-frio">
-          Sumá clientes extra que no vencen con el mes. Cuantos más comprás, más barato sale.
-        </p>
-        <TarjetaComprar catalogo={catalogo} cargando={cargandoCatalogo} onExito={recargarSaldo} />
-      </div>
+      {/* "Clientes atendidos por la IA" y "comprar clientes extra" son de los
+          planes de CAPTACIÓN. En un plan de restaurante la unidad es el pedido
+          —ya está arriba— y no se compran clientes sueltos: si te pasás del
+          cupo seguís vendiendo y subís de plan. Mostrarlas acá sería pedirle al
+          dueño que ignore dos tarjetas cada vez que entra. */}
+      {!esRestaurante && (
+        <>
+          <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
+            <h3 className="text-[0.95rem] font-bold text-tinta">Tu saldo</h3>
+            <p className="mb-4 text-[0.8rem] text-frio">Cuántos clientes podés atender este mes y cuándo se renueva.</p>
+            <TarjetaSaldo uso={uso} cargando={cargandoUso} error={errorUso} />
+          </div>
+
+          <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
+            <h3 className="text-[0.95rem] font-bold text-tinta">Comprar más clientes</h3>
+            <p className="mb-4 text-[0.8rem] text-frio">
+              Sumá clientes extra que no vencen con el mes. Cuantos más comprás, más barato sale.
+            </p>
+            <TarjetaComprar catalogo={catalogo} cargando={cargandoCatalogo} onExito={recargarSaldo} />
+          </div>
+        </>
+      )}
 
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
         <h3 className="text-[0.95rem] font-bold text-tinta">

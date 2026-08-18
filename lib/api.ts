@@ -506,6 +506,16 @@ export interface Uso {
   plan: string;
   // Unidad REAL de cobro: clientes únicos atendidos por la IA este mes.
   clientes?: { usados: number; limite: number; restante: number };
+  /**
+   * Cupo de PEDIDOS del mes — solo en planes de restaurante.
+   *
+   * `null`/ausente = el plan no cuenta pedidos (captación: un contador de
+   * pedidos ahí es ruido). `limite: 0` = ilimitado (plan Full).
+   *
+   * Opcional además de nullable: durante un deploy el backend viejo todavía no
+   * manda el campo.
+   */
+  pedidos?: { usados: number; limite: number; restante: number } | null;
   bolsa: {
     mensual: { total: number; usado: number; restante: number };
     prepago: { total: number; restante: number };

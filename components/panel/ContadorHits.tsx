@@ -44,6 +44,11 @@ export function ContadorHits() {
   }
   if (!uso) return null;
 
+  // Un RESTAURANTE cuenta pedidos, no "clientes atendidos por la IA". Mostrarle
+  // la unidad de captación acá es pedirle que traduzca cada vez que mira el
+  // menú — y el número que le importa no aparece en ninguna parte.
+  if (uso.pedidos) return <ContadorPedidos pedidos={uso.pedidos} seResetea={uso.bolsa.seResetea} />;
+
   const { bolsa } = uso;
   // Conteo REAL de clientes (nuevo backend). Fallback al estimado hits÷8 si el
   // backend aún no expone `clientes` (durante el deploy).
@@ -91,6 +96,65 @@ export function ContadorHits() {
       >
         Comprar más
       </Link>
+    </div>
+  );
+}
+
+/**
+ * El contador del sidebar para planes de restaurante: PEDIDOS del mes.
+ *
+ * Misma estructura que el de clientes (etiqueta naranja, barra, cifra, días
+ * para el corte) para que el sidebar no cambie de forma según el plan. Lo que
+ * cambia es la unidad y el remate: acá no hay "Comprar más" porque no se
+ * compran pedidos sueltos — si te pasás, seguís vendiendo y subís de plan.
+ */
+function ContadorPedidos({
+  pedidos, seResetea,
+}: { pedidos: NonNullable<Uso["pedidos"]>; seResetea: string }) {
+  const { usados, limite } = pedidos;
+  const ilimitado = limite === 0;
+  const pct = ilimitado ? 0 : Math.min(100, Math.round((usados / limite) * 100));
+  const pasado = !ilimitado && usados > limite;
+  // Igual que la tarjeta de Configuración: naranja del 80% en adelante. No es
+  // rojo porque pasarse no es un error — se sigue vendiendo.
+  const color = pasado || pct >= 80 ? "bg-orbita" : "bg-ok";
+  const dias = Math.max(0, Math.ceil((new Date(seResetea).getTime() - Date.now()) / 86_400_000));
+
+  return (
+    <div className="border-t border-white/10 px-5 py-4">
+      <p className="text-[0.68rem] font-bold uppercase tracking-wide text-orbita">
+        Pedidos este mes
+      </p>
+      {!ilimitado && (
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-arena/15">
+          <div
+            className={`h-full rounded-full ${color} transition-[width] duration-500`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+      <p className="mt-1.5 text-[0.9rem] font-semibold text-arena">
+        {usados.toLocaleString("es-PE")}{" "}
+        <span className="text-arena/50">
+          {ilimitado ? "pedidos" : `de ${limite.toLocaleString("es-PE")} incluidos`}
+        </span>
+      </p>
+      {!ilimitado && (
+        <p className="text-[0.72rem] text-arena/60">
+          {pasado ? "Seguís vendiendo igual" : `Te quedan ${(limite - usados).toLocaleString("es-PE")}`}
+        </p>
+      )}
+      <p className="text-[0.72rem] text-arena/50">
+        {dias === 0 ? "Se renueva hoy" : `Se renueva en ${dias} ${dias === 1 ? "día" : "días"}`}
+      </p>
+      {pasado && (
+        <Link
+          href="/configuracion?tab=plan"
+          className="mt-2 inline-block rounded-chip bg-orbita px-3 py-1 text-[0.72rem] font-bold text-sobre-orbita transition hover:bg-orbita-hondo"
+        >
+          Subir de plan
+        </Link>
+      )}
     </div>
   );
 }

@@ -571,75 +571,153 @@ function HojaOpciones({
   const extras = elegidas.reduce((s, o) => s + o.precioCentavos, 0);
 
   return (
-    <div className="aparece fixed inset-0 z-20 flex items-end bg-tinta/40" onClick={onCancelar}>
+    <div className="aparece fixed inset-0 z-20 flex items-end bg-tinta/50" onClick={onCancelar}>
       <div
-        className="sube max-h-[85dvh] w-full overflow-y-auto rounded-t-[1.5rem] bg-carta p-5"
+        className="sube flex max-h-[88dvh] w-full flex-col rounded-t-[1.5rem] bg-carta"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-[1.2rem] font-bold text-tinta">{producto.nombre}</h3>
-        <p className="mt-0.5 text-tinta-2">{soles(producto.precioCentavos)}</p>
-
-        <div className="mt-5 space-y-5">
-          {grupos.map((g) => (
-            <div key={g.id}>
-              <div className="flex items-baseline justify-between">
-                <h4 className="font-semibold text-tinta">{g.nombre}</h4>
-                {g.minSelec > 0 && (
-                  <span className="text-[0.78rem] font-semibold text-calor">Obligatorio</span>
-                )}
-              </div>
-              <div className="mt-2 space-y-1.5">
-                {g.opciones.map((o) => {
-                  const marcada = elegidas.some((e) => e.id === o.id);
-                  return (
-                    <button
-                      key={o.id}
-                      onClick={() => alternar(g, o)}
-                      className={`flex w-full items-center justify-between rounded-tarjeta px-4 py-3 text-left ring-1 transition ${
-                        marcada ? "bg-brasa-suave ring-brasa" : "bg-arena ring-linea"
-                      }`}
-                    >
-                      <span className="text-tinta">{o.nombre}</span>
-                      <span className="text-[0.9rem] font-semibold text-tinta-2">
-                        {o.precioCentavos > 0 ? `+${soles(o.precioCentavos)}` : ""}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 flex items-center gap-3">
-          <div className="flex items-center gap-3 rounded-chip bg-arena px-2 py-1 ring-1 ring-linea">
-            <button
-              onClick={() => setCantidad((c) => Math.max(1, c - 1))}
-              className="grid h-9 w-9 place-items-center text-[1.3rem] text-tinta"
-              aria-label="Quitar uno"
-            >
-              −
-            </button>
-            <span className="w-6 text-center font-bold tabular-nums text-tinta">{cantidad}</span>
-            <button
-              onClick={() => setCantidad((c) => Math.min(50, c + 1))}
-              className="grid h-9 w-9 place-items-center text-[1.3rem] text-tinta"
-              aria-label="Agregar uno"
-            >
-              +
-            </button>
+        {/* La cabecera con la FOTO: el cliente tiene que seguir viendo qué
+            está pidiendo mientras elige sus extras. Sin ella, tres grupos más
+            abajo ya no se acuerda de cuál plato abrió. */}
+        <div className="flex items-center gap-3 border-b border-linea px-5 py-4">
+          {producto.fotoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={producto.fotoUrl}
+              alt=""
+              className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-linea"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <h3 className="font-bold leading-tight text-tinta">{producto.nombre}</h3>
+            <p className="text-[0.9rem] font-semibold text-calor">
+              {soles(producto.precioCentavos)}
+            </p>
           </div>
           <button
-            onClick={() => onAgregar(elegidas, cantidad)}
-            disabled={faltanObligatorios.length > 0}
-            className="flex-1 rounded-tarjeta bg-brasa py-3.5 font-bold text-sobre-brasa transition disabled:opacity-40"
+            onClick={onCancelar}
+            aria-label="Cerrar"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[1.4rem] leading-none text-frio transition hover:bg-arena hover:text-tinta"
           >
-            {faltanObligatorios.length > 0
-              // Se dice QUÉ falta, no solo se deshabilita: un botón gris sin
-              // explicación deja al cliente tocándolo sin entender.
-              ? `Elige ${faltanObligatorios[0].nombre.toLowerCase()}`
-              : `Agregar · ${soles((producto.precioCentavos + extras) * cantidad)}`}
+            ×
           </button>
+        </div>
+
+        <div className="scroll-fino min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div className="space-y-6">
+            {grupos.map((g) => {
+              const cuantas = elegidas.filter((e) => g.opciones.some((o) => o.id === e.id)).length;
+              const lleno = g.maxSelec != null && cuantas >= g.maxSelec;
+              return (
+                <div key={g.id}>
+                  <div className="mb-2.5 flex items-baseline justify-between gap-2">
+                    <h4 className="font-bold text-tinta">{g.nombre}</h4>
+                    {/* La REGLA en palabras, no "min 1 max 1": el cliente
+                        necesita saber cuántas puede elegir ANTES de tocar. */}
+                    {g.minSelec > 0 ? (
+                      <span className="shrink-0 rounded-chip bg-orbita/12 px-2 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-calor">
+                        Obligatorio
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-[0.75rem] text-frio">
+                        {g.maxSelec === 1 ? "Elegí 1" : g.maxSelec ? `Hasta ${g.maxSelec}` : "Opcional"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {g.opciones.map((o) => {
+                      const marcada = elegidas.some((e) => e.id === o.id);
+                      // Un grupo lleno bloquea lo NO elegido, pero deja
+                      // destildar: si no, el cliente queda atrapado con una
+                      // elección que ya no quiere.
+                      const bloqueada = lleno && !marcada && g.maxSelec !== 1;
+                      return (
+                        <button
+                          key={o.id}
+                          onClick={() => !bloqueada && alternar(g, o)}
+                          disabled={bloqueada}
+                          className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left transition ${
+                            marcada
+                              ? "bg-brasa/10 ring-2 ring-brasa"
+                              : bloqueada
+                                ? "opacity-40 ring-1 ring-linea"
+                                : "ring-1 ring-linea hover:bg-arena/60 hover:ring-brasa/40"
+                          }`}
+                        >
+                          {/* La marca de selección: un círculo que se llena.
+                              Antes solo cambiaba el fondo y no se veía qué
+                              estaba elegido. */}
+                          <span
+                            className={`grid h-5 w-5 shrink-0 place-items-center text-[0.7rem] font-bold transition ${
+                              g.maxSelec === 1 ? "rounded-full" : "rounded-md"
+                            } ${
+                              marcada
+                                ? "bg-brasa text-sobre-brasa"
+                                : "ring-1 ring-linea"
+                            }`}
+                            aria-hidden
+                          >
+                            {marcada ? "✓" : ""}
+                          </span>
+                          <span className={`min-w-0 flex-1 ${marcada ? "font-semibold text-tinta" : "text-tinta-2"}`}>
+                            {o.nombre}
+                          </span>
+                          {o.precioCentavos > 0 && (
+                            <span className={`shrink-0 text-[0.85rem] font-semibold tabular-nums ${marcada ? "text-calor" : "text-frio"}`}>
+                              +{soles(o.precioCentavos)}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* El pie queda FIJO, fuera del scroll: con tres grupos de extras el
+            botón de agregar se perdía abajo y había que scrollear para
+            encontrarlo. */}
+        <div className="border-t border-linea bg-carta px-5 py-4">
+          {extras > 0 && (
+            <p className="mb-2 text-[0.82rem] text-frio">
+              {soles(producto.precioCentavos)} + {soles(extras)} en extras
+            </p>
+          )}
+          <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center rounded-chip ring-1 ring-linea">
+              <button
+                onClick={() => setCantidad((c) => Math.max(1, c - 1))}
+                className="grid h-10 w-10 place-items-center rounded-l-chip text-[1.3rem] text-tinta-2 transition hover:bg-arena disabled:opacity-30"
+                disabled={cantidad <= 1}
+                aria-label="Quitar uno"
+              >
+                −
+              </button>
+              <span className="w-8 text-center font-bold tabular-nums text-tinta">{cantidad}</span>
+              <button
+                onClick={() => setCantidad((c) => Math.min(50, c + 1))}
+                className="grid h-10 w-10 place-items-center rounded-r-chip text-[1.3rem] text-tinta-2 transition hover:bg-arena"
+                aria-label="Agregar uno"
+              >
+                +
+              </button>
+            </div>
+            <button
+              onClick={() => onAgregar(elegidas, cantidad)}
+              disabled={faltanObligatorios.length > 0}
+              className="flex-1 rounded-tarjeta bg-brasa py-3.5 font-bold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.99] disabled:bg-arena disabled:text-frio"
+            >
+              {faltanObligatorios.length > 0
+                // Se dice QUÉ falta, no solo se deshabilita: un botón gris sin
+                // explicación deja al cliente tocándolo sin entender.
+                ? `Elegí ${faltanObligatorios[0].nombre.toLowerCase()}`
+                : `Agregar · ${soles((producto.precioCentavos + extras) * cantidad)}`}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -673,7 +751,7 @@ function BarraCarrito({
   return (
     <div className="sube fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[900px] bg-carta px-5 pb-5 pt-3 shadow-[0_-4px_24px_rgba(15,20,18,0.08)]">
       {abiertoDetalle && (
-        <div className="mb-3 max-h-[40dvh] space-y-2 overflow-y-auto">
+        <div className="scroll-fino mb-3 max-h-[40dvh] space-y-2 overflow-y-auto">
           {carrito.map((l, i) => (
             <div key={i} className="flex items-start justify-between gap-3">
               <div className="min-w-0">

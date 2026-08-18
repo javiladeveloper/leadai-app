@@ -228,6 +228,37 @@ button, [role="button"] {
 }
 .late { animation: latido 0.3s ease-out; }
 
+/* 4. El BANNER se agranda apenas al bajar (parallax barato). Da profundidad
+      sin JavaScript ni listeners de scroll: la imagen queda fija y el
+      contenido pasa por encima. */
+.banner-fijo {
+  background-attachment: fixed;
+}
+
+/* 5. Scroll SUAVE al saltar entre secciones desde la barra. Sin esto el salto
+      es instantáneo y el cliente pierde de vista dónde estaba. */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 6. Las imágenes ENTRAN cuando terminan de cargar, en vez de aparecer de
+      golpe cuando el navegador las tiene. Una carta con veinte fotos que
+      aparecen a destiempo se ve rota; así cada una se acomoda sola. */
+@keyframes revelar {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+img { animation: revelar 0.4s ease-out; }
+
+/* 7. La barra de scroll, discreta. La de Windows es gris y ancha y le pone
+      un borde industrial a una carta de comida. */
+.scroll-fino::-webkit-scrollbar { width: 6px; height: 6px; }
+.scroll-fino::-webkit-scrollbar-thumb {
+  background: var(--color-linea);
+  border-radius: 999px;
+}
+.scroll-fino::-webkit-scrollbar-track { background: transparent; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;

@@ -7,6 +7,7 @@ import { EtapasEditor } from "@/components/panel/EtapasEditor";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { PanelCanales } from "@/components/panel/PanelCanales";
+import { Seccion } from "@/components/panel/Seccion";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
 import { ConfigComision } from "@/components/panel/ConfigComision";
 import { MiPerfilVendedorPanel } from "@/components/panel/MiPerfilVendedor";
@@ -24,11 +25,13 @@ import type { NegocioBandeja } from "@/lib/api";
 // del header, que ya no existe).
 type Tab = "negocio" | "canales" | "plan" | "perfil";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "negocio", label: "Tu negocio" },
-  { id: "canales", label: "Canales" },
-  { id: "plan", label: "Plan y consumo" },
-  { id: "perfil", label: "Mi perfil" },
+// La BAJADA cambia con la pestaña (2026-08-18): una sola frase genérica no
+// dice nada, y "Mi perfil" traía la suya en un segundo encabezado propio.
+const TABS: { id: Tab; label: string; bajada: string }[] = [
+  { id: "negocio", label: "Tu negocio", bajada: "Lo que el bot necesita saber para responder por vos." },
+  { id: "canales", label: "Canales", bajada: "Conectá tus redes para que LeadAI atienda en cada una." },
+  { id: "plan", label: "Plan y consumo", bajada: "Qué incluye tu plan, cuánto llevás usado y cómo atiende el bot." },
+  { id: "perfil", label: "Mi perfil", bajada: "Así te ven los negocios que buscan vendedores." },
 ];
 
 function ConfiguracionInner() {
@@ -87,6 +90,10 @@ function ConfiguracionInner() {
         <div>
           <p className="eyebrow">Ajustes</p>
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Configuración</h1>
+          {/* Una bajada, como en Carta: el H1 solo no dice qué se hace acá. */}
+          <p className="mt-1 text-[0.92rem] text-frio">
+            {TABS.find((t) => t.id === tab)?.bajada}
+          </p>
         </div>
         <button
           onClick={() => router.push("/bienvenida?agregar=1")}
@@ -96,8 +103,13 @@ function ConfiguracionInner() {
         </button>
       </header>
 
-      {/* Pestañas */}
-      <div className="flex gap-1 overflow-x-auto border-b border-linea [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* Pestañas como SEGMENTOS, el mismo control que usa Carta (2026-08-18):
+          el subrayado fino que había antes no se leía como algo tocable, y en
+          celular obligaba a adivinar cuál estaba activa. */}
+      {/* En celular las cuatro no entran: hacen scroll y un degradado al borde
+          derecho avisa que hay más (si no, "Mi perfil" simplemente no existe
+          para quien no se le ocurra deslizar). */}
+      <nav className="relative flex gap-1 overflow-x-auto rounded-tarjeta bg-carta p-1 ring-1 ring-linea [scrollbar-width:none] after:pointer-events-none after:sticky after:right-0 after:-ml-8 after:h-9 after:w-8 after:shrink-0 after:bg-gradient-to-l after:from-carta after:to-transparent sm:after:hidden [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => {
           const activa = tab === t.id;
           return (
@@ -105,19 +117,16 @@ function ConfiguracionInner() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`relative shrink-0 px-4 py-2.5 text-[0.92rem] font-semibold transition-colors ${
-                activa ? "text-brasa" : "text-frio hover:text-tinta-2"
+              className={`flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-[0.9rem] font-semibold transition ${
+                activa ? "bg-brasa text-sobre-brasa" : "text-tinta-2 hover:bg-arena"
               }`}
               aria-current={activa ? "page" : undefined}
             >
               {t.label}
-              {activa && (
-                <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-brasa" />
-              )}
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {/* Chips de negocio — solo en pestañas de negocio y con 2+ negocios */}
       {tabDeNegocio && (
@@ -128,16 +137,16 @@ function ConfiguracionInner() {
           resuelto y se remontan (key) al cambiarlo. */}
       {tabDeNegocio && !tenantCfg && null}
       {tabDeNegocio && tenantCfg && (
-        <section
-          key={tenantCfg}
-          className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6"
-        >
+        /* SIN tarjeta contenedora (2026-08-18). Antes esto era una <section>
+           blanca y adentro cada bloque era OTRA tarjeta blanca con borde: tres
+           capas de la misma superficie, y nada con más peso que lo demás. Cada
+           bloque es ahora su propia tarjeta sobre el fondo arena, como en Carta.
+
+           Los <h2> "Tu negocio" / "Tus redes" / "Tu plan y consumo" también se
+           fueron: repetían la pestaña activa, que está tres centímetros arriba. */
+        <div key={tenantCfg} className="space-y-5">
           {tab === "negocio" && (
             <>
-              <h2 className="text-[1.05rem] font-bold text-tinta">Tu negocio</h2>
-              <p className="mb-4 text-[0.82rem] text-frio">
-                El playbook que usa la IA para responder por vos: tono, catálogo, preguntas clave y objeciones.
-              </p>
               <PlaybookEditor />
               <EtapasEditor />
               <RitmoSeguimiento />
@@ -145,26 +154,22 @@ function ConfiguracionInner() {
           )}
 
           {tab === "canales" && (
-            <>
-              <h2 className="text-[1.05rem] font-bold text-tinta">Tus redes</h2>
-              <p className="mb-4 text-[0.82rem] text-frio">
-                Conectá tus redes para que LeadAI atienda por vos en cada una.
-              </p>
+            <Seccion
+              titulo="Por dónde te escriben"
+              bajada="Conectá tus redes para que LeadAI atienda por vos en cada una."
+              acento
+            >
               <PanelCanales />
-            </>
+            </Seccion>
           )}
 
           {tab === "plan" && (
             <>
-              <h2 className="text-[1.05rem] font-bold text-tinta">Tu plan y consumo</h2>
-              <p className="mb-4 text-[0.82rem] text-frio">
-                Cuánto te queda, cómo comprar más respuestas y cómo poner límites a tu gasto.
-              </p>
               <PlanConsumo />
               <ConfigComision />
             </>
           )}
-        </section>
+        </div>
       )}
 
       {tab === "perfil" && <MiPerfilVendedorPanel />}

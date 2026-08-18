@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { obtenerMiPlan, guardarMiPlan } from "@/lib/api";
+import { Seccion } from "@/components/panel/Seccion";
 
 // Configuración de la comisión del negocio: define cómo se calcula la comisión
 // por venta cerrada (un % del monto, o un monto fijo). Así, al cerrar una venta,
@@ -34,13 +35,11 @@ export function ConfigComision() {
   if (!cargado) return null;
 
   return (
-    <div className="mt-6 border-t border-linea pt-6">
-      <h3 className="text-[0.98rem] font-bold text-tinta">Comisión por venta</h3>
-      <p className="mt-1 text-[0.82rem] text-frio">
-        Configurala una vez y, al cerrar una venta, se calcula sola. Podés cambiarla en cualquier momento.
-      </p>
-
-      <div className="mt-4 flex flex-wrap items-end gap-3">
+    <Seccion
+      titulo="Comisión por venta"
+      bajada="Configurala una vez y, al cerrar una venta, se calcula sola. Podés cambiarla en cualquier momento."
+    >
+      <div className="flex flex-wrap items-end gap-3">
         {/* Tipo */}
         <div>
           <label className="mb-1 block text-[0.8rem] font-semibold text-tinta-2">Tipo</label>
@@ -94,6 +93,6 @@ export function ConfigComision() {
           : `cada venta cerrada suma S/${Number(valor) || 0} de comisión.`}
         {" "}Dejá el valor en 0 para ingresar la comisión a mano cada vez.
       </p>
-    </div>
+    </Seccion>
   );
 }

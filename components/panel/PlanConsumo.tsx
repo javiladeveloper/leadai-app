@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { precioRecargaCentavos, soles } from "@/lib/precio";
 import CheckoutCulqi from "@/components/panel/CheckoutCulqi";
+import { Seccion } from "@/components/panel/Seccion";
 
 // Un cliente atendido de punta a punta ≈ 8 hits (calificar + responder por
 // mensaje). La unidad que ve el negocio es "clientes", no hits internos.
@@ -580,32 +581,20 @@ export function PlanConsumo() {
   const esRestaurante = !!uso?.pedidos;
 
   return (
-    <div className="grid gap-6">
-      <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-2 ring-brasa/30 lg:p-6">
-        <h3 className="text-[0.95rem] font-bold text-tinta">¿El bot está atendiendo?</h3>
-        <p className="mb-4 text-[0.8rem] text-frio">
-          El interruptor principal: prendé o apagá al bot cuando quieras.
-        </p>
-        <TarjetaSwitch
-          cargando={cargandoPlan} valorInicial={botActivoInicial} error={errorPlan} campo="botActivo"
-          aria="¿El bot está atendiendo?"
-          textoOn="Activo — el bot responde a tus clientes"
-          textoOff="Pausado — el bot no responde (atendés vos)"
-          subtextoOn="Apagalo un momento si querés atender vos mismo, sin que el bot conteste."
-          subtextoOff="Los mensajes se siguen guardando; el bot no va a contestar hasta que lo actives de nuevo."
-        />
-      </div>
-
+    // El ORDEN cuenta (2026-08-18): primero lo que el dueño vino a ver —cuánto
+    // lleva usado de su plan—, después los ajustes. El interruptor del bot
+    // estaba arriba de todo, y es lo que menos se toca en esta pantalla.
+    <div className="space-y-5">
       {/* Solo si el plan cuenta pedidos. A un negocio de captación un contador
           de pedidos le sería ruido, y por eso el backend manda `null`. */}
       {!cargandoUso && uso?.pedidos && (
-        <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-          <h3 className="text-[0.95rem] font-bold text-tinta">Pedidos de este mes</h3>
-          <p className="mb-4 text-[0.8rem] text-frio">
-            Lo que llevás vendido contra lo que incluye tu plan.
-          </p>
+        <Seccion
+          titulo="Pedidos de este mes"
+          bajada="Lo que llevás vendido contra lo que incluye tu plan."
+          acento
+        >
           <TarjetaPedidos pedidos={uso.pedidos} plan={uso.plan} seResetea={uso.bolsa.seResetea} />
-        </div>
+        </Seccion>
       )}
 
       {/* "Clientes atendidos por la IA" y "comprar clientes extra" son de los
@@ -615,35 +604,47 @@ export function PlanConsumo() {
           dueño que ignore dos tarjetas cada vez que entra. */}
       {!esRestaurante && (
         <>
-          <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-            <h3 className="text-[0.95rem] font-bold text-tinta">Tu saldo</h3>
-            <p className="mb-4 text-[0.8rem] text-frio">Cuántos clientes podés atender este mes y cuándo se renueva.</p>
+          <Seccion
+            titulo="Tu saldo"
+            bajada="Cuántos clientes podés atender este mes y cuándo se renueva."
+            acento
+          >
             <TarjetaSaldo uso={uso} cargando={cargandoUso} error={errorUso} />
-          </div>
+          </Seccion>
 
-          <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-            <h3 className="text-[0.95rem] font-bold text-tinta">Comprar más clientes</h3>
-            <p className="mb-4 text-[0.8rem] text-frio">
-              Sumá clientes extra que no vencen con el mes. Cuantos más comprás, más barato sale.
-            </p>
+          <Seccion
+            titulo="Comprar más clientes"
+            bajada="Sumá clientes extra que no vencen con el mes. Cuantos más comprás, más barato sale."
+          >
             <TarjetaComprar catalogo={catalogo} cargando={cargandoCatalogo} onExito={recargarSaldo} />
-          </div>
+          </Seccion>
         </>
       )}
 
-      <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
-        <h3 className="text-[0.95rem] font-bold text-tinta">
-          ¿Hasta dónde querés que el bot insista con cada cliente?
-        </h3>
-        <p className="mb-4 text-[0.8rem] text-frio">
-          Definí cuánto conversa el bot antes de avisarte que un cliente necesita atención tuya.
-        </p>
+      <Seccion
+        titulo="¿El bot está atendiendo?"
+        bajada="El interruptor principal: prendé o apagá al bot cuando quieras."
+      >
+        <TarjetaSwitch
+          cargando={cargandoPlan} valorInicial={botActivoInicial} error={errorPlan} campo="botActivo"
+          aria="¿El bot está atendiendo?"
+          textoOn="Activo — el bot responde a tus clientes"
+          textoOff="Pausado — el bot no responde (atendés vos)"
+          subtextoOn="Apagalo un momento si querés atender vos mismo, sin que el bot conteste."
+          subtextoOff="Los mensajes se siguen guardando; el bot no va a contestar hasta que lo actives de nuevo."
+        />
+      </Seccion>
+
+      <Seccion
+        titulo="¿Hasta dónde querés que el bot insista?"
+        bajada="Definí cuánto conversa el bot con cada cliente antes de avisarte que necesita atención tuya."
+      >
         <TarjetaInsistencia
           cargando={cargandoPlan}
           valorInicial={insistenciaInicial}
           error={errorPlan}
         />
-      </div>
+      </Seccion>
     </div>
   );
 }

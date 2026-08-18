@@ -5,6 +5,7 @@ import {
   obtenerEtapas, guardarEtapas,
   type EtapaEmbudo,
 } from "@/lib/api";
+import { Seccion } from "@/components/panel/Seccion";
 
 // Editor de las ETAPAS PERSONALIZADAS del embudo (rediseño 2026-08-04, estilo
 // Clinera): cada negocio define sus etapas (nombre, color) y a qué estado del
@@ -86,17 +87,15 @@ export function EtapasEditor() {
   if (cargando) return null;
 
   return (
-    <section className="mt-6 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-      <h3 className="text-[1rem] font-bold text-tinta">Etapas de tu embudo</h3>
-      <p className="mb-4 mt-1 text-[0.82rem] text-frio">
-        Ponéles los nombres de TU proceso de venta (ej. &quot;Visita agendada&quot;,
-        &quot;Cotización enviada&quot;). Cada etapa se conecta a un comportamiento del bot —
-        eso no cambia, solo cómo la ves en tu bandeja.
-      </p>
-
+    // La tarjeta y la cabecera las pone <Seccion> (2026-08-18): antes cada
+    // bloque de Configuración las armaba a su manera y no había dos iguales.
+    <Seccion
+      titulo="Etapas de tu embudo"
+      bajada={'Ponéles los nombres de TU proceso de venta (ej. "Visita agendada", "Cotización enviada"). Cada etapa se conecta a un comportamiento del bot — eso no cambia, solo cómo la ves en tu bandeja.'}
+    >
       <div className="space-y-2">
         {etapas.map((e, i) => (
-          <div key={e.id} className="flex flex-wrap items-center gap-2 rounded-xl bg-arena/50 p-2 ring-1 ring-linea">
+          <div key={e.id} className="flex flex-wrap items-center gap-2 rounded-xl bg-arena/50 px-2 py-1.5">
             <div className="flex flex-col">
               <button onClick={() => mover(i, -1)} disabled={i === 0} className="px-1 text-[0.7rem] text-frio disabled:opacity-30">▲</button>
               <button onClick={() => mover(i, 1)} disabled={i === etapas.length - 1} className="px-1 text-[0.7rem] text-frio disabled:opacity-30">▼</button>
@@ -157,6 +156,6 @@ export function EtapasEditor() {
           </p>
         )}
       </div>
-    </section>
+    </Seccion>
   );
 }

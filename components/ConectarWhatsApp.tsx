@@ -149,10 +149,14 @@ export default function ConectarWhatsApp({
         type="button"
         onClick={() => conectar("nuevo")}
         disabled={estado === "abriendo" || estado === "conectando"}
+        // NARANJA y no `bg-ok` (2026-08-18): conectar WhatsApp es LA acción de
+        // esta pantalla, y en la regla de los cuatro colores el naranja es
+        // "hacé esto". `ok` es el verde de venta cerrada — acá no cerró nada
+        // todavía, y además no es ninguno de los colores del logo.
         className={
           otroNumero
-            ? "rounded-full px-5 py-2 text-sm font-semibold text-ok ring-1 ring-ok/40 transition hover:bg-ok/10 disabled:opacity-60"
-            : "rounded-full bg-ok px-5 py-2.5 text-sm font-semibold text-carta transition hover:brightness-95 disabled:opacity-60"
+            ? "rounded-full px-5 py-2 text-sm font-semibold text-calor ring-1 ring-orbita/40 transition hover:bg-orbita/10 disabled:opacity-60"
+            : "rounded-full bg-orbita px-5 py-2.5 text-sm font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
         }
       >
         {estado === "conectando"

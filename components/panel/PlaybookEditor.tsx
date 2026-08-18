@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
+import { Seccion } from "@/components/panel/Seccion";
 
 // Tonos CURADOS del bot — lista canónica compartida con el backend
 // (TONOS_BOT en core/types.ts) y la app. Texto libre ya no se acepta.
@@ -84,7 +85,14 @@ export function PlaybookEditor() {
   }
 
   return (
-    <div className="space-y-5">
+    // El bloque PRINCIPAL de "Tu negocio": lleva la barrita naranja para que
+    // se distinga de las secciones de abajo, que son ajustes de segundo orden.
+    <Seccion
+      titulo="Cómo atiende tu bot"
+      bajada="El playbook que usa la IA para responder por vos: tono, qué vendés, preguntas clave y objeciones."
+      acento
+    >
+      <div className="space-y-5">
       <div className="grid gap-4 lg:grid-cols-2">
         <Campo
           label="Nombre del negocio"
@@ -216,7 +224,8 @@ export function PlaybookEditor() {
         {estado === "ok" && <p className="text-sm font-medium text-ok">Guardado ✓</p>}
         {estado === "error" && <p className="text-sm text-brasa-texto">{error}</p>}
       </div>
-    </div>
+      </div>
+    </Seccion>
   );
 }
 
@@ -296,9 +305,12 @@ function ListaSimple({
   }
 
   return (
-    <div className="rounded-xl border border-linea bg-arena/40 p-4">
-      <p className="text-sm font-medium text-tinta">{titulo}</p>
-      {descripcion && <p className="mb-2 text-xs text-frio">{descripcion}</p>}
+    // Bloque separado por una LÍNEA, no otra caja (2026-08-18): estas listas
+    // ya viven dentro de la tarjeta de la sección, y una caja gris adentro de
+    // una tarjeta blanca adentro de la página era la tercera superficie.
+    <div className="border-t border-linea pt-4">
+      <p className="text-[0.88rem] font-bold text-tinta">{titulo}</p>
+      {descripcion && <p className="mb-2.5 mt-0.5 text-[0.78rem] text-frio">{descripcion}</p>}
       <div className="space-y-2">
         {valores.map((v, i) => (
           <div key={i} className="flex items-center gap-2">
@@ -353,11 +365,11 @@ function ListaCatalogo({
   }
 
   return (
-    <div className="rounded-xl border border-linea bg-arena/40 p-4">
+    <div className="border-t border-linea pt-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <div>
-          <p className="text-sm font-medium text-tinta">Qué vendés</p>
-          <p className="text-xs text-frio">Productos o servicios que ofrece el negocio</p>
+          <p className="text-[0.88rem] font-bold text-tinta">Qué vendés</p>
+          <p className="mt-0.5 text-[0.78rem] text-frio">Productos o servicios que ofrece el negocio</p>
         </div>
         <span className={`shrink-0 text-xs font-semibold ${lleno ? "text-brasa-hondo" : "text-frio"}`}>
           {catalogo.length}/{MAX}
@@ -434,8 +446,8 @@ function ListaRespuestasFijas({
   }
 
   return (
-    <div className="rounded-xl border border-linea bg-arena/40 p-4">
-      <p className="text-sm font-medium text-tinta">Respuestas listas</p>
+    <div className="border-t border-linea pt-4">
+      <p className="text-[0.88rem] font-bold text-tinta">Respuestas listas</p>
       <p className="mb-2 text-xs text-frio">
         Para preguntas que se repiten mucho: si el cliente escribe esa palabra, el bot contesta esto
         directo, sin pensarlo.
@@ -497,8 +509,8 @@ function ListaObjeciones({
   }
 
   return (
-    <div className="rounded-xl border border-linea bg-arena/40 p-4">
-      <p className="text-sm font-medium text-tinta">Dudas comunes de tus clientes</p>
+    <div className="border-t border-linea pt-4">
+      <p className="text-[0.88rem] font-bold text-tinta">Dudas comunes de tus clientes</p>
       <p className="mb-2 text-xs text-frio">Qué suele frenar la venta y cómo responderlo</p>
       <div className="space-y-3">
         {objeciones.map((item, i) => (

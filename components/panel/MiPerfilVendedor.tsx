@@ -88,14 +88,11 @@ export function MiPerfilVendedorPanel() {
   if (cargando || !perfil) return <div className="p-8 text-frio">Cargando…</div>;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 px-5 py-6 lg:px-8">
-      <header>
-        <p className="eyebrow">Marketplace</p>
-        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Mi perfil de vendedor</h1>
-        <p className="mt-1 text-[0.92rem] text-frio">
-          Así te ven los negocios que buscan vendedores. Un buen perfil te consigue más oportunidades.
-        </p>
-      </header>
+    // Sin encabezado ni ancho propios (2026-08-18): esto se escribió como
+    // página suelta y hoy es una PESTAÑA de Configuración. Traía su propio
+    // eyebrow + <h1> debajo del <h1> "Configuración" —dos encabezados apilados—
+    // y un max-w-2xl que lo dejaba más angosto que las otras tres pestañas.
+    <div className="space-y-5">
 
       {/* Métricas reales */}
       <div className="flex gap-3">

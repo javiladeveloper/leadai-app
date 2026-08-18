@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { obtenerMiPlan, guardarMiPlan, type RitmoSeguimiento as Ritmo } from "@/lib/api";
+import { Seccion } from "@/components/panel/Seccion";
 
 // Los 3 presets de ritmo de seguimiento. Cada uno explica CUÁNDO se manda cada
 // uno de los 3 seguimientos (deben coincidir con RITMOS en el backend).
@@ -52,14 +53,11 @@ export function RitmoSeguimiento() {
   }
 
   return (
-    <div className="mt-6 border-t border-linea pt-6">
-      <h3 className="text-[0.98rem] font-bold text-tinta">Ritmo de seguimiento</h3>
-      <p className="mt-1 text-[0.82rem] text-frio">
-        Cuando un cliente queda interesado pero no cierra, el bot le manda hasta 3
-        recordatorios automáticos. Elegí cada cuánto.
-      </p>
-
-      <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
+    <Seccion
+      titulo="Ritmo de seguimiento"
+      bajada="Cuando un cliente queda interesado pero no cierra, el bot le manda hasta 3 recordatorios automáticos. Elegí cada cuánto."
+    >
+      <div className="grid gap-2.5 sm:grid-cols-3">
         {OPCIONES.map((o) => {
           const activo = ritmo === o.id;
           return (
@@ -86,6 +84,6 @@ export function RitmoSeguimiento() {
         })}
       </div>
       {error && <p className="mt-2 text-[0.8rem] text-brasa-hondo">{error}</p>}
-    </div>
+    </Seccion>
   );
 }

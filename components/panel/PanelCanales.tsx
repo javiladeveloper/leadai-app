@@ -73,9 +73,12 @@ export function PanelCanales() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-      {/* Izquierda: lista de redes */}
-      <div className="space-y-2">
+    // Redes ARRIBA en grilla y el detalle a todo el ancho debajo (2026-08-18).
+    // Antes eran una columna angosta de 260px y un panel medio vacío al lado:
+    // con solo cuatro redes, la columna desperdiciaba media pantalla y el
+    // detalle no llenaba la otra mitad.
+    <div className="space-y-4">
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         {REDES.map((r) => {
           const n = cuenta(r.tipo);
           const activa = seleccion === r.tipo;
@@ -84,7 +87,9 @@ export function PanelCanales() {
               key={r.tipo}
               onClick={() => setSeleccion(r.tipo)}
               className={`flex w-full items-center gap-3 rounded-tarjeta px-3.5 py-3 text-left transition ${
-                activa ? "bg-carta ring-2 ring-brasa" : "bg-carta ring-1 ring-linea hover:ring-brasa/50"
+                activa
+                  ? "bg-carta ring-2 ring-brasa"
+                  : "bg-arena/60 ring-1 ring-linea hover:bg-carta hover:ring-brasa/50"
               }`}
             >
               <span
@@ -105,8 +110,8 @@ export function PanelCanales() {
         })}
       </div>
 
-      {/* Derecha: detalle de la red seleccionada */}
-      <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+      {/* Detalle de la red elegida, a todo el ancho. */}
+      <div className="rounded-tarjeta bg-arena/50 p-5 ring-1 ring-linea">
         <div className="flex items-center gap-3">
           <span
             className="grid h-11 w-11 place-items-center rounded-full"

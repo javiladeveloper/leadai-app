@@ -30,8 +30,9 @@ import {
 } from "@/lib/carta";
 import { CampoFoto, useFoto } from "@/components/panel/CampoFoto";
 import { SkeletonLista } from "@/components/Skeletons";
+import { MarcaCarta } from "@/components/panel/MarcaCarta";
 
-type Pestana = "platos" | "extras" | "combos" | "promos";
+type Pestana = "platos" | "extras" | "combos" | "promos" | "marca";
 
 export default function CartaPanel() {
   const router = useRouter();
@@ -82,6 +83,9 @@ export default function CartaPanel() {
           ["extras", "Extras"],
           ["combos", "Combos"],
           ["promos", "Promos"],
+          // La MARCA va última: se toca una vez al empezar y casi nunca más,
+          // a diferencia de los platos.
+          ["marca", "Tu marca"],
         ] as [Pestana, string][]).map(([id, nombre]) => (
           <button
             key={id}
@@ -116,6 +120,7 @@ export default function CartaPanel() {
           {pestana === "promos" && (
             <Promos carta={carta} recargar={cargar} avisar={setError} />
           )}
+          {pestana === "marca" && <MarcaCarta />}
         </>
       )}
     </div>

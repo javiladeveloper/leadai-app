@@ -143,6 +143,31 @@ export default function ConectarWhatsApp({
     return <p className="text-sm font-medium text-ok">WhatsApp conectado ✅</p>;
   }
 
+  // Sin la configuración de Meta el popup se abre y falla sin decir por qué
+  // (2026-08-18): el dueño toca el botón, ve parpadear una ventana y queda sin
+  // saber qué pasó. Mejor decirlo de frente.
+  if (!APP_ID || !CONFIG_ID) {
+    return (
+      <div className="rounded-tarjeta bg-calor-suave px-4 py-3">
+        <p className="text-sm font-semibold text-calor-hondo">
+          Conectar WhatsApp todavía no está habilitado
+        </p>
+        <p className="mt-0.5 text-[0.82rem] text-tinta-2">
+          Nos falta terminar la configuración con Meta. Escribinos y lo activamos.
+        </p>
+        {/* El detalle técnico solo en desarrollo: al dueño no le sirve, y a
+            quien está integrando le ahorra media hora de adivinar. */}
+        {process.env.NODE_ENV === "development" && (
+          <p className="mt-2 font-mono text-[0.72rem] text-frio">
+            falta {!APP_ID && "NEXT_PUBLIC_META_APP_ID"}
+            {!APP_ID && !CONFIG_ID && " y "}
+            {!CONFIG_ID && "NEXT_PUBLIC_META_ES_CONFIG_ID"}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       <button

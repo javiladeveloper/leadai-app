@@ -90,9 +90,12 @@ export function PlaybookEditor() {
     <Seccion
       titulo="Cómo atiende tu bot"
       bajada="El playbook que usa la IA para responder por vos: tono, qué vendés, preguntas clave y objeciones."
-      acento
+      tono="hondo"
     >
-      <div className="space-y-5">
+      {/* El formulario en BLANCO dentro de la sección oscura: son ocho campos,
+          chips y cuatro listas pensadas para fondo claro, y un formulario largo
+          sobre oscuro se lee peor. El verde hondo enmarca; acá se escribe. */}
+      <div className="space-y-5 rounded-tarjeta bg-carta p-5">
       <div className="grid gap-4 lg:grid-cols-2">
         <Campo
           label="Nombre del negocio"

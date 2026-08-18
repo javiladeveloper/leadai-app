@@ -40,20 +40,22 @@ function SkeletonBloque({ className = "" }: { className?: string }) {
 
 // ─── Tarjeta 1: Tu saldo ────────────────────────────────────────────────
 function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boolean; error: boolean }) {
+  // Esta tarjeta va sobre el VERDE HONDO: el skeleton gris y el texto de error
+  // en verde oscuro serían invisibles ahí.
   if (cargando) {
     return (
       <div className="space-y-3">
-        <SkeletonBloque className="h-4 w-28" />
-        <SkeletonBloque className="h-2.5 w-full" />
-        <SkeletonBloque className="h-3 w-40" />
-        <SkeletonBloque className="h-3 w-32" />
+        <div className="h-4 w-28 animate-pulse rounded-xl bg-arena/15" />
+        <div className="h-9 w-24 animate-pulse rounded-xl bg-arena/15" />
+        <div className="h-2.5 w-full animate-pulse rounded-full bg-arena/15" />
+        <div className="h-3 w-40 animate-pulse rounded-xl bg-arena/15" />
       </div>
     );
   }
 
   if (error || !uso) {
     return (
-      <p className="text-sm text-brasa-texto">
+      <p className="text-sm text-arena/80">
         No pudimos cargar tu saldo. Recargá la página para intentar de nuevo.
       </p>
     );
@@ -67,55 +69,61 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
   const restanteCli = uso.clientes ? uso.clientes.restante : aClientes(bolsa.totalDisponible);
   const pctUsado = totalCli > 0 ? Math.min(100, Math.round((usadosCli / totalCli) * 100)) : 0;
   const pctRestante = totalCli > 0 ? restanteCli / totalCli : 0;
-  const color = pctRestante > 0.4 ? "bg-ok" : pctRestante >= 0.15 ? "bg-tibio" : "bg-brasa";
+  // Sobre el verde hondo: menta mientras sobra saldo, ámbar cuando aprieta,
+  // naranja cuando queda poco. `ok` acá casi no se distingue del fondo.
+  const color = pctRestante > 0.4 ? "bg-brasa" : pctRestante >= 0.15 ? "bg-tibio" : "bg-orbita";
   const dias = Math.max(
     0,
     Math.ceil((new Date(bolsa.seResetea).getTime() - Date.now()) / 86_400_000),
   );
   const hayPrepago = bolsa.prepago.total > 0;
 
+  // Misma estructura que la tarjeta de pedidos, para que las dos versiones de
+  // esta pantalla —captación y restaurante— se lean igual: plan arriba, el
+  // número grande en naranja, la barra, y el detalle abajo.
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[0.68rem] font-bold uppercase tracking-wide text-frio">Plan actual</p>
-          <p className="text-[1.1rem] font-bold text-tinta">
+          <p className="text-[0.68rem] font-bold uppercase tracking-wide text-orbita">Plan actual</p>
+          <p className="text-[1.1rem] font-bold text-arena">
             {NOMBRE_PLAN[uso.plan] ?? uso.plan}
           </p>
         </div>
-        <span className="rounded-chip bg-arena px-3 py-1 text-[0.78rem] font-semibold text-tinta-2 ring-1 ring-linea">
+        <span className="rounded-chip bg-arena/10 px-3 py-1 text-[0.78rem] font-semibold text-arena/80 ring-1 ring-arena/15">
           {dias === 0 ? "Se renueva hoy" : `Se renueva en ${dias} ${dias === 1 ? "día" : "días"}`}
         </span>
       </div>
 
-      <div>
-        <div className="flex items-baseline justify-between">
-          <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes atendidos este mes</p>
-          <p className="text-[0.82rem] text-frio">
-            {usadosCli.toLocaleString("es-PE")} de {totalCli.toLocaleString("es-PE")}
-          </p>
-        </div>
-        <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-arena">
-          {/* La barra crece con lo USADO. */}
-          <div
-            className={`h-full rounded-full ${color} transition-[width] duration-500`}
-            style={{ width: `${pctUsado}%` }}
-          />
-        </div>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[2.6rem] font-bold leading-none tabular-nums text-orbita">
+          {usadosCli.toLocaleString("es-PE")}
+        </p>
+        <p className="text-[0.82rem] text-arena/60">
+          de {totalCli.toLocaleString("es-PE")} clientes atendidos
+        </p>
       </div>
 
-      {hayPrepago && (
-        <div className="flex items-center justify-between rounded-xl bg-arena px-4 py-3">
-          <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes extra (prepago)</p>
-          <p className="text-[0.9rem] font-bold text-tinta">
-            Te quedan {aClientes(bolsa.prepago.restante).toLocaleString("es-PE")}
-          </p>
-        </div>
-      )}
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-arena/15">
+        {/* La barra crece con lo USADO. */}
+        <div
+          className={`h-full rounded-full ${color} transition-[width] duration-500`}
+          style={{ width: `${pctUsado}%` }}
+        />
+      </div>
 
-      <div className="flex items-center justify-between rounded-xl bg-arena px-4 py-3">
-        <p className="text-[0.82rem] font-semibold text-tinta-2">Clientes que te quedan</p>
-        <p className="text-[1rem] font-bold text-tinta">{restanteCli.toLocaleString("es-PE")}</p>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[0.82rem]">
+        <p className="text-arena/75">
+          Te quedan <b className="font-bold text-arena">{restanteCli.toLocaleString("es-PE")}</b> este mes
+        </p>
+        {hayPrepago && (
+          <p className="text-arena/75">
+            Extra (prepago):{" "}
+            <b className="font-bold text-arena">
+              {aClientes(bolsa.prepago.restante).toLocaleString("es-PE")}
+            </b>
+          </p>
+        )}
       </div>
     </div>
   );
@@ -150,31 +158,37 @@ function TarjetaPedidos({
   // dice globals.css — se llama así por historia). El naranja para fondos es
   // `orbita`. No es rojo a propósito: el rojo es alerta, y pasarse del cupo no
   // es un error, se sigue vendiendo igual.
-  const color = pasado || pct >= 80 ? "bg-orbita" : "bg-ok";
+  // Sobre el verde hondo el `ok` (#1e5c22) casi no se distingue del fondo: el
+  // menta del logo sí, y es el color de marca para "vas bien".
+  const color = pasado || pct >= 80 ? "bg-orbita" : "bg-brasa";
 
+  // Va sobre el VERDE HONDO, así que los colores son los de fondo oscuro: el
+  // menta y el naranja del logo se usan pelados (sobre oscuro dan 7.1:1 y
+  // 7.7:1), no las variantes oscurecidas que existen para fondo claro.
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[0.68rem] font-bold uppercase tracking-wide text-frio">Plan actual</p>
-          <p className="text-[1.1rem] font-bold text-tinta">{NOMBRE_PLAN[plan] ?? plan}</p>
+          <p className="text-[0.68rem] font-bold uppercase tracking-wide text-orbita">Plan actual</p>
+          <p className="text-[1.1rem] font-bold text-arena">{NOMBRE_PLAN[plan] ?? plan}</p>
         </div>
-        <span className="rounded-chip bg-arena px-3 py-1 text-[0.78rem] font-semibold text-tinta-2 ring-1 ring-linea">
+        <span className="rounded-chip bg-arena/10 px-3 py-1 text-[0.78rem] font-semibold text-arena/80 ring-1 ring-arena/15">
           {dias === 0 ? "Se renueva hoy" : `Se renueva en ${dias} ${dias === 1 ? "día" : "días"}`}
         </span>
       </div>
 
+      {/* El número en NARANJA y grande: es el dato por el que se entra acá. */}
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[2rem] font-bold leading-none tabular-nums text-tinta">
+        <p className="text-[2.6rem] font-bold leading-none tabular-nums text-orbita">
           {usados.toLocaleString("es-PE")}
         </p>
-        <p className="text-[0.82rem] text-frio">
+        <p className="text-[0.82rem] text-arena/60">
           {ilimitado ? "sin tope" : `de ${limite.toLocaleString("es-PE")} incluidos`}
         </p>
       </div>
 
       {!ilimitado && (
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-arena">
+        <div className="h-2.5 w-full overflow-hidden rounded-full bg-arena/15">
           <div
             className={`h-full rounded-full ${color} transition-[width] duration-500`}
             style={{ width: `${pct}%` }}
@@ -182,7 +196,7 @@ function TarjetaPedidos({
         </div>
       )}
 
-      <p className="text-[0.82rem] text-tinta-2">
+      <p className="text-[0.82rem] text-arena/75">
         {ilimitado
           ? "Tu plan no tiene tope de pedidos."
           : pasado
@@ -591,7 +605,7 @@ export function PlanConsumo() {
         <Seccion
           titulo="Pedidos de este mes"
           bajada="Lo que llevás vendido contra lo que incluye tu plan."
-          acento
+          tono="hondo"
         >
           <TarjetaPedidos pedidos={uso.pedidos} plan={uso.plan} seResetea={uso.bolsa.seResetea} />
         </Seccion>
@@ -607,7 +621,7 @@ export function PlanConsumo() {
           <Seccion
             titulo="Tu saldo"
             bajada="Cuántos clientes podés atender este mes y cuándo se renueva."
-            acento
+            tono="hondo"
           >
             <TarjetaSaldo uso={uso} cargando={cargandoUso} error={errorUso} />
           </Seccion>

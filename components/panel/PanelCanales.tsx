@@ -86,10 +86,13 @@ export function PanelCanales() {
             <button
               key={r.tipo}
               onClick={() => setSeleccion(r.tipo)}
+              // Sobre el verde hondo: la elegida en blanco (salta), el resto
+              // en un velo claro. `bg-arena/60` acá daba un gris sucio — el
+              // arena semitransparente sobre oscuro pierde su color.
               className={`flex w-full items-center gap-3 rounded-tarjeta px-3.5 py-3 text-left transition ${
                 activa
                   ? "bg-carta ring-2 ring-brasa"
-                  : "bg-arena/60 ring-1 ring-linea hover:bg-carta hover:ring-brasa/50"
+                  : "bg-arena/10 ring-1 ring-arena/15 hover:bg-arena/20"
               }`}
             >
               <span
@@ -99,8 +102,10 @@ export function PanelCanales() {
                 <r.Icono className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[0.92rem] font-semibold text-tinta">{r.nombre}</span>
-                <span className="block text-[0.75rem] text-frio">
+                <span className={`block text-[0.92rem] font-semibold ${activa ? "text-tinta" : "text-arena"}`}>
+                  {r.nombre}
+                </span>
+                <span className={`block text-[0.75rem] ${activa ? "text-frio" : "text-arena/60"}`}>
                   {n > 0 ? `${n} conectada${n > 1 ? "s" : ""}` : "Sin conectar"}
                 </span>
               </span>
@@ -110,8 +115,11 @@ export function PanelCanales() {
         })}
       </div>
 
-      {/* Detalle de la red elegida, a todo el ancho. */}
-      <div className="rounded-tarjeta bg-arena/50 p-5 ring-1 ring-linea">
+      {/* El detalle en BLANCO sobre la sección oscura: acá hay listas de
+          cuentas, links y formularios pensados para fondo claro. El contraste
+          marca la estructura —elegís arriba, operás abajo— sin obligar a
+          reescribir cada control. */}
+      <div className="rounded-tarjeta bg-carta p-5">
         <div className="flex items-center gap-3">
           <span
             className="grid h-11 w-11 place-items-center rounded-full"

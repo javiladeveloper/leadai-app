@@ -157,7 +157,7 @@ function ConfiguracionInner() {
             <Seccion
               titulo="Por dónde te escriben"
               bajada="Conectá tus redes para que LeadAI atienda por vos en cada una."
-              acento
+              tono="hondo"
             >
               <PanelCanales />
             </Seccion>

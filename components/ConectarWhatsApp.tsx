@@ -43,7 +43,19 @@ export default function ConectarWhatsApp({
   const [estado, setEstado] = useState<Estado>("idle");
   const [error, setError] = useState("");
   // Datos que el popup entrega vía postMessage (wabaId/phoneNumberId).
-  const [sesionES, setSesionES] = useState<{ wabaId?: string; phoneNumberId?: string }>({});
+  /**
+   * Los datos del Embedded Signup en una REF, no en estado (2026-08-18).
+   *
+   * El callback de FB.login CIERRA SOBRE EL RENDER en el que se creó: con
+   * `useState` leía siempre el objeto vacío del primer render y el backend
+   * recibía el code SIN wabaId. El síntoma es "No se pudo resolver la cuenta
+   * de WhatsApp (WABA) del token (scopes: ninguno)".
+   *
+   * Es el mismo bug que Sania encontró y arregló (ai-clinic-dashboard,
+   * `embedded-signup-waba.test.ts`); este componente ya usaba una ref para el
+   * redirectUri por la misma razón, y el waba_id se había quedado en estado.
+   */
+  const sesionES = useRef<{ wabaId?: string; phoneNumberId?: string }>({});
   // redirect_uri exacto con el que el SDK abrió el diálogo: Meta exige ese
   // MISMO valor al canjear el code en el backend (error 100 si no coincide).
   // Ref (no estado): el callback de FB.login cierra sobre el render viejo.
@@ -72,7 +84,11 @@ export default function ConectarWhatsApp({
       try {
         const d = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
         if (d?.type === "WA_EMBEDDED_SIGNUP" && d?.data) {
-          setSesionES({ wabaId: d.data.waba_id, phoneNumberId: d.data.phone_number_id });
+          // Se ACUMULA campo por campo: Meta manda varios eventos durante el
+          // flujo y los últimos pueden venir incompletos. Pisar el objeto
+          // entero borraría el waba_id que ya había llegado.
+          if (d.data.waba_id) sesionES.current.wabaId = d.data.waba_id;
+          if (d.data.phone_number_id) sesionES.current.phoneNumberId = d.data.phone_number_id;
         }
       } catch { /* ignore */ }
     };
@@ -89,6 +105,9 @@ export default function ConectarWhatsApp({
     if (!CONFIG_ID) { setEstado("error"); setError("Falta configurar el conector de WhatsApp."); return; }
     setEstado("abriendo");
     setError("");
+    // Se limpia antes de abrir: sin esto, un segundo intento arrastraría el
+    // wabaId del primero y conectaría la cuenta equivocada.
+    sesionES.current = {};
     // Capturar la URL del diálogo que abre el SDK para extraer su redirect_uri
     // (dinámico, apunta a xd_arbiter de Facebook). Se restaura window.open al toque.
     const openOriginal = window.open.bind(window);
@@ -129,14 +148,24 @@ export default function ConectarWhatsApp({
   async function finalizarConexion(code: string, modo: "nuevo" | "coexistencia") {
     const res = await conectarWhatsAppEmbedded({
       code,
-      ...sesionES,
+      ...sesionES.current,
       ...(redirectUriDialogo.current ? { redirectUri: redirectUriDialogo.current } : {}),
       // Coexistencia: el backend salta /register (el número ya está registrado
       // del lado de Meta porque sigue viviendo en la app del celular).
       ...(modo === "coexistencia" ? { featureType: "whatsapp_business_app_onboarding" } : {}),
     });
     if (res.ok) { setEstado("ok"); onConectado?.(); }
-    else { setEstado("error"); setError(res.error ?? "No se pudo conectar."); }
+    else {
+      setEstado("error");
+      // Si Meta nunca mandó el waba_id, el error del backend ("no se pudo
+      // resolver la cuenta de WhatsApp") no le dice al dueño qué hacer. Se
+      // traduce a la acción concreta.
+      setError(
+        !sesionES.current.wabaId
+          ? "La conexión no llegó a completarse en la ventana de Meta. Probá de nuevo y completá todos los pasos sin cerrarla."
+          : (res.error ?? "No se pudo conectar."),
+      );
+    }
   }
 
   if (estado === "ok") {

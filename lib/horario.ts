@@ -21,6 +21,30 @@ export interface ConfigHorario {
    * Solo delivery: quien pasa a recoger no le cuesta un viaje al local.
    */
   minimoDeliveryCentavos: number;
+
+  // ── Cómo le pagan (2026-08-19) ──────────────────────────────────────
+  //
+  // Esto SOLO se editaba desde la app móvil, así que un dueño en su
+  // computadora no podía cargar su Yape. Y sin número el bot no tiene a
+  // dónde mandar al cliente: el pedido llega hasta el pago y muere ahí.
+
+  /** A qué número le yapean/plinean. Vacío = el bot pide coordinar por chat. */
+  yapeNumero: string;
+  /** El titular de esa cuenta, para que el cliente sepa a quién le paga. */
+  yapeNombre: string;
+  aceptaYape: boolean;
+  aceptaPlin: boolean;
+
+  // ── Cuánto puede la cocina ──────────────────────────────────────────
+  //
+  // Alimentan el tiempo de espera que ve el cliente ("listo en 35-50 min").
+
+  /** Pedidos que la cocina saca a la vez. */
+  capacidadSimultanea: number;
+  /** Cuánto tarda cada pedido. */
+  minutosPorPedido: number;
+  /** ¿Toma reservas de mesa? Local físico vs solo delivery. */
+  aceptaReservas: boolean;
 }
 
 /** Los días como los ve el dueño, en el orden de la semana peruana. */
@@ -46,6 +70,15 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       // pintaría "cerrado todos los días" sobre un negocio que abre siempre.
       diasCerrado: r.config.diasCerrado ?? [],
       minimoDeliveryCentavos: r.config.minimoDeliveryCentavos ?? 0,
+      yapeNumero: r.config.yapeNumero ?? "",
+      yapeNombre: r.config.yapeNombre ?? "",
+      // `?? true`: es lo que el backend devuelve para los negocios ya
+      // existentes, y apagarlos por un campo ausente les cortaría el cobro.
+      aceptaYape: r.config.aceptaYape ?? true,
+      aceptaPlin: r.config.aceptaPlin ?? true,
+      capacidadSimultanea: r.config.capacidadSimultanea ?? 3,
+      minutosPorPedido: r.config.minutosPorPedido ?? 20,
+      aceptaReservas: r.config.aceptaReservas ?? true,
     };
   } catch {
     return null;

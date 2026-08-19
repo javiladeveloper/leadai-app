@@ -7,6 +7,7 @@ import { EtapasEditor } from "@/components/panel/EtapasEditor";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { HorarioEditor } from "@/components/panel/HorarioEditor";
+import { PagosEditor } from "@/components/panel/PagosEditor";
 import { PanelCanales } from "@/components/panel/PanelCanales";
 import { Seccion } from "@/components/panel/Seccion";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
@@ -181,6 +182,10 @@ function ConfiguracionInner() {
                   (2026-08-19). Va detrás de `tieneCocina` porque un negocio de
                   captación no tiene cocina que abrir ni cerrar. */}
               {caps.tieneCocina && <HorarioEditor />}
+              {/* A dónde le pagan. Solo se editaba desde la app, y sin número
+                  cargado el bot no puede cobrarle a nadie: el pedido llega al
+                  pago y muere ahí (2026-08-19). */}
+              {caps.validaPagos && <PagosEditor />}
             </>
           )}
 

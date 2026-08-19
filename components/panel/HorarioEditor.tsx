@@ -203,6 +203,53 @@ export function HorarioEditor() {
           )}
         </div>
 
+        {/* CUÁNTO PUEDE LA COCINA (2026-08-19). Solo se editaba desde la app.
+            Estos dos números son los que arman el "listo en 35-50 min" que el
+            cliente ve antes de pagar: si están mal, el bot promete un tiempo
+            que la cocina no puede cumplir. */}
+        <div>
+          <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+            Capacidad de la cocina
+          </p>
+          <p className="mt-0.5 text-[0.84rem] text-frio">
+            Con esto el bot calcula el tiempo de espera que le promete al cliente.
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-4">
+            <Numero
+              etiqueta="Pedidos a la vez"
+              valor={cfg.capacidadSimultanea}
+              min={1}
+              max={20}
+              onChange={(n) => aplicar({ capacidadSimultanea: n })}
+            />
+            <Numero
+              etiqueta="Minutos por pedido"
+              valor={cfg.minutosPorPedido}
+              min={5}
+              max={120}
+              paso={5}
+              onChange={(n) => aplicar({ minutosPorPedido: n })}
+            />
+          </div>
+        </div>
+
+        {/* RESERVAS. Local físico vs solo delivery: controla si la pestaña
+            Reservas existe en la app y si el bot las toma. */}
+        <label className="flex cursor-pointer items-start justify-between gap-4 rounded-tarjeta bg-arena/50 p-4">
+          <span className="min-w-0">
+            <span className="block font-bold text-tinta">Acepto reservas de mesa</span>
+            <span className="mt-0.5 block text-[0.84rem] text-frio">
+              Apágalo si atiendes solo por delivery.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={cfg.aceptaReservas}
+            onChange={(e) => aplicar({ aceptaReservas: e.target.checked })}
+            className="mt-1 size-5 shrink-0 accent-[var(--color-brasa)]"
+          />
+        </label>
+
         {/* PEDIDO MÍNIMO. Va con el horario porque son las dos reglas de
             "cuándo y cómo tomo pedidos", y un dueño las piensa juntas. */}
         <div>
@@ -237,6 +284,42 @@ export function HorarioEditor() {
         </div>
       </div>
     </Seccion>
+  );
+}
+
+/** Un número con - y +: en el celular escribir "12" en un input es peor. */
+function Numero({
+  etiqueta, valor, min, max, paso = 1, onChange,
+}: {
+  etiqueta: string; valor: number; min: number; max: number; paso?: number;
+  onChange: (n: number) => void;
+}) {
+  const mover = (d: number) => onChange(Math.min(max, Math.max(min, valor + d * paso)));
+  return (
+    <div>
+      <span className="block text-[0.82rem] text-frio">{etiqueta}</span>
+      <div className="mt-1 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => mover(-1)}
+          disabled={valor <= min}
+          aria-label={`Bajar ${etiqueta}`}
+          className="grid size-9 place-items-center rounded-lg text-[1.1rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-arena disabled:opacity-40"
+        >
+          −
+        </button>
+        <span className="w-10 text-center text-[1.05rem] font-bold tabular-nums text-tinta">{valor}</span>
+        <button
+          type="button"
+          onClick={() => mover(1)}
+          disabled={valor >= max}
+          aria-label={`Subir ${etiqueta}`}
+          className="grid size-9 place-items-center rounded-lg text-[1.1rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-arena disabled:opacity-40"
+        >
+          +
+        </button>
+      </div>
+    </div>
   );
 }
 

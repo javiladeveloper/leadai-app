@@ -897,24 +897,36 @@ function PedidoListo({ codigo, total, whatsapp }: { codigo: string; total: numbe
     <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center">
       <div className="text-[3rem]">🧾</div>
       <h1 className="text-[1.5rem] font-bold text-tinta">Tu pedido está listo</h1>
+
+      {/* EL BOTÓN HACE EL TRABAJO, NO EL CLIENTE (2026-08-19).
+          Antes esta pantalla decía "Mándanos este código por WhatsApp" con el
+          código gigante en el medio, así que se leía como una tarea: copiar
+          algo y pegarlo. Nunca lo fue —el botón ya abre WhatsApp con el
+          mensaje escrito— pero el texto pedía otra cosa, y alguien que acaba
+          de armar su pedido no tiene por qué descubrir eso solo. */}
       <p className="text-tinta-2">
-        Mándanos este código por WhatsApp y te confirmamos al toque.
+        Toca el botón y te confirmamos por WhatsApp al toque.
       </p>
 
-      <p className="rounded-tarjeta bg-carta px-8 py-5 text-[2.2rem] font-bold tracking-widest text-brasa-texto ring-1 ring-linea">
-        #{codigo}
-      </p>
-      <p className="text-[0.9rem] text-tinta-2">Total: {soles(total)}</p>
+      <p className="text-[1.05rem] font-bold text-tinta">Total: {soles(total)}</p>
 
       {/* CON el número del restaurante (2026-08-17): antes era `wa.me/` a
           secas y abría WhatsApp sin destinatario, así que el cliente tenía que
           buscar el contacto a mano — justo después de armar todo su pedido. */}
       <a
         href={`https://wa.me/${whatsapp ?? ""}?text=${encodeURIComponent(`Hola! Mi pedido es el #${codigo}`)}`}
-        className="mt-2 w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa"
+        className="mt-1 w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa"
       >
-        Enviar por WhatsApp
+        Enviar mi pedido por WhatsApp
       </a>
+
+      {/* El código queda como RESPALDO: chico, explicado y abajo. Si WhatsApp
+          no abre —navegador raro, app sin instalar— es la única forma de
+          recuperar el pedido, así que no se puede sacar. */}
+      <p className="text-[0.82rem] text-frio">
+        ¿No se abrió WhatsApp? Escríbenos el código{" "}
+        <span className="font-bold tracking-wide text-tinta-2">#{codigo}</span>
+      </p>
     </main>
   );
 }

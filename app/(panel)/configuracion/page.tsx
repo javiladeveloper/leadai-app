@@ -6,6 +6,7 @@ import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, EMPRESA_GLOBAL } fr
 import { EtapasEditor } from "@/components/panel/EtapasEditor";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
+import { HorarioEditor } from "@/components/panel/HorarioEditor";
 import { PanelCanales } from "@/components/panel/PanelCanales";
 import { Seccion } from "@/components/panel/Seccion";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
@@ -163,6 +164,11 @@ function ConfiguracionInner() {
                   las dos. */}
               {caps?.tieneEmbudo && <EtapasEditor />}
               {caps?.nutreLeads && <RitmoSeguimiento />}
+              {/* El horario solo existía en la app móvil: un dueño en la
+                  computadora no podía cerrar su cocina sin buscar el celular
+                  (2026-08-19). Va detrás de `tieneCocina` porque un negocio de
+                  captación no tiene cocina que abrir ni cerrar. */}
+              {caps?.tieneCocina && <HorarioEditor />}
             </>
           )}
 

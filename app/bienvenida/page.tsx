@@ -28,6 +28,18 @@ import { PasosOnboarding, Preparando } from "@/components/panel/PasosOnboarding"
 
 const TOTAL_PASOS = 5;
 
+/** Los países donde puede estar el negocio. Perú primero: es donde estamos. */
+const PAISES = [
+  { code: "51", bandera: "🇵🇪" },
+  { code: "54", bandera: "🇦🇷" },
+  { code: "56", bandera: "🇨🇱" },
+  { code: "57", bandera: "🇨🇴" },
+  { code: "593", bandera: "🇪🇨" },
+  { code: "591", bandera: "🇧🇴" },
+  { code: "52", bandera: "🇲🇽" },
+  { code: "1", bandera: "🇺🇸" },
+];
+
 export default function BienvenidaPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
@@ -39,6 +51,7 @@ export default function BienvenidaPanel() {
   // Paso 1 — el negocio
   const [nombre, setNombre] = useState("");
   const [rubro, setRubro] = useState("");
+  const [codigoPais, setCodigoPais] = useState("51");
   const [whatsapp, setWhatsapp] = useState("");
   const [tenantId, setTenantId] = useState<string | null>(null);
 
@@ -254,13 +267,31 @@ export default function BienvenidaPanel() {
                 etiqueta="Tu WhatsApp"
                 ayuda="A dónde te llegan los pedidos de tus clientes"
               >
+                {/* El PAÍS se elige (2026-08-19): estaba fijo en +51 y un
+                    negocio fuera de Perú no podía cargar su número. */}
                 <div className="flex items-center gap-2">
-                  <span className="shrink-0 rounded-lg bg-arena px-3 py-3 text-[0.95rem] font-semibold text-tinta-2 ring-1 ring-linea">
-                    🇵🇪 +51
-                  </span>
+                  <select
+                    value={codigoPais}
+                    onChange={(e) => {
+                      const nuevo = e.target.value;
+                      const local = whatsapp.slice(codigoPais.length);
+                      setCodigoPais(nuevo);
+                      setWhatsapp(`${nuevo}${local}`);
+                    }}
+                    aria-label="País"
+                    className={`${ENTRADA} w-28 shrink-0`}
+                  >
+                    {PAISES.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.bandera} +{p.code}
+                      </option>
+                    ))}
+                  </select>
                   <input
-                    value={whatsapp.replace(/^51/, "")}
-                    onChange={(e) => setWhatsapp(`51${e.target.value.replace(/\D/g, "")}`)}
+                    value={whatsapp.slice(codigoPais.length)}
+                    onChange={(e) =>
+                      setWhatsapp(`${codigoPais}${e.target.value.replace(/\D/g, "")}`)
+                    }
                     inputMode="tel"
                     placeholder="987 654 321"
                     className={ENTRADA}
@@ -271,8 +302,8 @@ export default function BienvenidaPanel() {
 
             {/* El aviso aparece solo si empezó a escribir y va corto: en
                 blanco todavía no se equivocó en nada. */}
-            {whatsapp.replace(/^51/, "").length > 0 &&
-              whatsapp.replace(/^51/, "").length < 9 && (
+            {whatsapp.slice(codigoPais.length).length > 0 &&
+              whatsapp.slice(codigoPais.length).length < 8 && (
                 <p className="mt-3 text-[0.85rem] text-brasa-texto">
                   El número va con sus 9 dígitos.
                 </p>
@@ -281,7 +312,7 @@ export default function BienvenidaPanel() {
             <button
               onClick={crearNegocio}
               disabled={
-                guardando || !nombre.trim() || whatsapp.replace(/^51/, "").length < 9
+                guardando || !nombre.trim() || whatsapp.slice(codigoPais.length).length < 8
               }
               className={BOTON}
             >

@@ -24,6 +24,37 @@ import { Seccion } from "@/components/panel/Seccion";
  * cliente.
  */
 
+/**
+ * Los países donde puede estar el negocio, con su código telefónico.
+ *
+ * El backend guarda el número JUNTO al código y sin el "+" ("51987654321"),
+ * así que acá se separan para mostrarlos y se vuelven a unir al guardar.
+ *
+ * Perú primero: es donde estamos. El resto son los vecinos, por si el negocio
+ * o el dueño están afuera.
+ */
+const PAISES = [
+  { code: "51", pais: "PE", bandera: "🇵🇪", largo: 9 },
+  { code: "54", pais: "AR", bandera: "🇦🇷", largo: 10 },
+  { code: "56", pais: "CL", bandera: "🇨🇱", largo: 9 },
+  { code: "57", pais: "CO", bandera: "🇨🇴", largo: 10 },
+  { code: "593", pais: "EC", bandera: "🇪🇨", largo: 9 },
+  { code: "591", pais: "BO", bandera: "🇧🇴", largo: 8 },
+  { code: "52", pais: "MX", bandera: "🇲🇽", largo: 10 },
+  { code: "1", pais: "US", bandera: "🇺🇸", largo: 10 },
+];
+
+/** Parte "51987654321" en su código de país y el número local. */
+function partirNumero(completo: string): { code: string; local: string } {
+  const limpio = (completo ?? "").replace(/\D/g, "");
+  // Del más largo al más corto: si no, "51" se comería el "591" de Bolivia.
+  const orden = [...PAISES].sort((a, b) => b.code.length - a.code.length);
+  const p = orden.find((x) => limpio.startsWith(x.code));
+  return p
+    ? { code: p.code, local: limpio.slice(p.code.length) }
+    : { code: "51", local: limpio };
+}
+
 /** Solo dígitos, como lo quiere el backend ("51987654321"). */
 function soloDigitos(v: string): string {
   return v.replace(/\D/g, "").slice(0, 15);
@@ -40,6 +71,7 @@ export function MarcaCarta() {
   // Los campos de texto se editan localmente y se guardan con el botón: ir
   // guardando en cada tecla haría una petición por letra.
   const [direccion, setDireccion] = useState("");
+  const [codigoPais, setCodigoPais] = useState("51");
   const [whatsapp, setWhatsapp] = useState("");
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
@@ -53,7 +85,9 @@ export function MarcaCarta() {
     void obtenerNegocio().then((n) => {
       setNegocio(n);
       setDireccion(n?.direccion ?? "");
-      setWhatsapp(n?.whatsappCarta ?? "");
+      const { code, local } = partirNumero(n?.whatsappCarta ?? "");
+      setCodigoPais(code);
+      setWhatsapp(local);
       setInstagram(n?.instagramUrl ?? "");
       setFacebook(n?.facebookUrl ?? "");
       setTiktok(n?.tiktokUrl ?? "");
@@ -99,7 +133,8 @@ export function MarcaCarta() {
     const r = await guardarNegocio({
       // `null` y no cadena vacía: es como el backend borra un campo.
       direccion: direccion.trim() || null,
-      whatsappCarta: soloDigitos(whatsapp) || null,
+      // Se guardan juntos, como los espera el backend.
+      whatsappCarta: whatsapp ? `${codigoPais}${soloDigitos(whatsapp)}` : null,
       instagramUrl: instagram.trim() || null,
       facebookUrl: facebook.trim() || null,
       tiktokUrl: tiktok.trim() || null,
@@ -191,60 +226,26 @@ export function MarcaCarta() {
           </div>
         </div>
 
-        {/* CAMBIAR es la acción principal (2026-08-19): el dueño que ya subió
-            su logo quiere reemplazarlo, no borrarlo. Quitar queda como acción
-            secundaria y solo aparece si hay algo que quitar. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="cursor-pointer rounded-chip bg-arena/10 px-3.5 py-2 text-[0.82rem] font-semibold text-arena ring-1 ring-arena/15 transition hover:bg-arena/20">
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void subir("logo", f);
-              }}
-            />
-            {negocio?.logoUrl ? "Cambiar logo" : "Subir logo"}
-          </label>
-
-          <label className="cursor-pointer rounded-chip bg-arena/10 px-3.5 py-2 text-[0.82rem] font-semibold text-arena ring-1 ring-arena/15 transition hover:bg-arena/20">
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void subir("banner", f);
-              }}
-            />
-            {negocio?.bannerUrl ? "Cambiar portada" : "Subir portada"}
-          </label>
-
-          {(negocio?.logoUrl || negocio?.bannerUrl) && (
-            <span className="flex flex-wrap gap-3 text-[0.78rem]">
-              {negocio.logoUrl && (
-                <button
-                  type="button"
-                  onClick={() => void quitar("logo")}
-                  className="text-arena/50 underline underline-offset-2 transition hover:text-arena/80"
-                >
-                  Quitar logo
-                </button>
-              )}
-              {negocio.bannerUrl && (
-                <button
-                  type="button"
-                  onClick={() => void quitar("banner")}
-                  className="text-arena/50 underline underline-offset-2 transition hover:text-arena/80"
-                >
-                  Quitar portada
-                </button>
-              )}
-            </span>
-          )}
+        {/* UNA FILA POR IMAGEN (2026-08-19): la miniatura de lo que ya tiene,
+            el botón que dice si va a cambiarla o insertarla, y una ✕ para
+            quitarla. Antes los dos botones y los dos "quitar" iban en la misma
+            línea y no se sabía cuál era de cuál. */}
+        <div className="space-y-2">
+          <FilaImagen
+            etiqueta="Logo"
+            url={negocio?.logoUrl ?? null}
+            subiendo={subiendo === "logo"}
+            onElegir={(f) => void subir("logo", f)}
+            onQuitar={() => void quitar("logo")}
+          />
+          <FilaImagen
+            etiqueta="Portada"
+            url={negocio?.bannerUrl ?? null}
+            subiendo={subiendo === "banner"}
+            onElegir={(f) => void subir("banner", f)}
+            onQuitar={() => void quitar("banner")}
+            ancha
+          />
         </div>
 
         {/* EL TEMA (2026-08-19). Dos opciones probadas y no un editor de
@@ -306,14 +307,34 @@ export function MarcaCarta() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Campo etiqueta="WhatsApp de pedidos" ayuda="Con código de país">
-            <input
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(soloDigitos(e.target.value))}
-              inputMode="numeric"
-              placeholder="51987654321"
-              className={ENTRADA}
-            />
+          {/* El PAÍS al costado (2026-08-19): antes había que saber que el
+              número va con el código pegado adelante y sin "+". Escribirlo mal
+              es un pedido que no llega.
+
+              Es el MISMO número que atiende el bot: si hay WhatsApp conectado,
+              la carta usa ese y este queda de respaldo. */}
+          <Campo etiqueta="WhatsApp de pedidos" ayuda="A donde te llegan">
+            <div className="flex gap-2">
+              <select
+                value={codigoPais}
+                onChange={(e) => setCodigoPais(e.target.value)}
+                aria-label="País"
+                className={`${ENTRADA} w-28 shrink-0`}
+              >
+                {PAISES.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.bandera} +{p.code}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(soloDigitos(e.target.value))}
+                inputMode="numeric"
+                placeholder="987654321"
+                className={ENTRADA}
+              />
+            </div>
           </Campo>
 
           <Campo etiqueta="Tiempo de entrega" ayuda="En minutos">
@@ -413,3 +434,72 @@ function Campo({
 }
 
 export default MarcaCarta;
+
+/**
+ * Una imagen de la marca: miniatura, botón y ✕ para quitarla.
+ *
+ * El botón dice CAMBIAR si ya hay una e INSERTAR si no: "subir foto" cuando ya
+ * subiste una no dice si la agrega o la reemplaza.
+ */
+function FilaImagen({
+  etiqueta, url, subiendo, onElegir, onQuitar, ancha = false,
+}: {
+  etiqueta: string;
+  url: string | null;
+  subiendo: boolean;
+  onElegir: (f: File) => void;
+  onQuitar: () => void;
+  /** La portada es apaisada: se muestra con esa proporción, no cuadrada. */
+  ancha?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-tarjeta bg-arena/5 p-2 ring-1 ring-arena/10">
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt=""
+          className={`h-12 shrink-0 rounded-lg object-cover ${ancha ? "w-20" : "w-12"}`}
+        />
+      ) : (
+        <span
+          className={`grid h-12 shrink-0 place-items-center rounded-lg bg-arena/10 text-[0.7rem] text-arena/40 ${
+            ancha ? "w-20" : "w-12"
+          }`}
+        >
+          sin
+        </span>
+      )}
+
+      <span className="min-w-0 flex-1 text-[0.85rem] font-semibold text-arena">{etiqueta}</span>
+
+      <label className="cursor-pointer rounded-chip bg-arena/10 px-3.5 py-2 text-[0.8rem] font-semibold text-arena ring-1 ring-arena/15 transition hover:bg-arena/20">
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) onElegir(f);
+          }}
+        />
+        {subiendo ? "Subiendo…" : url ? `Cambiar ${etiqueta.toLowerCase()}` : `Insertar ${etiqueta.toLowerCase()}`}
+      </label>
+
+      {/* La ✕ solo si hay algo que quitar. Va al lado de SU imagen, no en una
+          lista aparte donde no se sabía cuál era cuál. */}
+      {url && (
+        <button
+          type="button"
+          onClick={onQuitar}
+          title={`Quitar ${etiqueta.toLowerCase()}`}
+          aria-label={`Quitar ${etiqueta.toLowerCase()}`}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-arena/50 transition hover:bg-arena/10 hover:text-arena"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}

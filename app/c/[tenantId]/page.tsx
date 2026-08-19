@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { volarAlCarrito } from "@/lib/vuelo-carrito";
+import { usarNumeroAnimado } from "@/lib/usar-numero-animado";
 import { use } from "react";
 
 /**
@@ -84,6 +86,22 @@ interface LineaCarrito {
 const soles = (centavos: number) => `S/${(centavos / 100).toFixed(2)}`;
 
 /**
+ * Qué dice el botón cuando falta elegir algo obligatorio.
+ *
+ * El dueño escribe el nombre de sus grupos como quiere: "Tamaño", "Elige tu
+ * tartar", "¿Con qué salsa?". Anteponerle "Elige" a todos daba "Elige elige tu
+ * tartar" — se vio en la carta de Shiro.
+ */
+function etiquetaFaltante(nombre: string): string {
+  const n = nombre.trim();
+  // Ya viene con verbo o con pregunta: se respeta lo que escribió el dueño.
+  if (/^(elige|elegí|escoge|selecciona|¿|con qué|qué)/i.test(n)) {
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  }
+  return `Elige ${n.toLowerCase()}`;
+}
+
+/**
  * El % entre dos precios. Se CALCULA, no viaja guardado: así nunca queda
  * desfasado de los precios reales. null si no hay descuento de verdad, para
  * no mostrar "-0%".
@@ -127,14 +145,39 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     [carrito],
   );
 
-  const agregar = (linea: LineaCarrito) => setCarrito((c) => [...c, linea]);
-  const agregarCombo = (k: Combo) =>
-    setCarrito((c) => [...c, {
+  /**
+   * EL VUELO AL CARRITO (2026-08-19).
+   *
+   * Cuando el cliente toca un plato, una copia sale de la tarjeta y aterriza
+   * en la barra de abajo. Responde la única pregunta de ese instante —"¿se
+   * agregó?"— sin ocupar pantalla.
+   *
+   * Sin esto la carta se agrega en silencio: en un teléfono, con una mano, la
+   * gente toca de nuevo y pide el doble.
+   */
+  const carritoRef = useRef<HTMLDivElement>(null);
+  // De dónde salió el último toque. Se guarda en el capture del contenedor y
+  // no en cada tarjeta: así vale para platos, combos y destacados sin tocar
+  // los tres componentes.
+  const ultimoToque = useRef<HTMLElement | null>(null);
+
+  function despegar() {
+    volarAlCarrito(ultimoToque.current, carritoRef.current);
+  }
+
+  const agregar = (linea: LineaCarrito) => {
+    despegar();
+    setCarrito((c) => [...c, linea]);
+  };
+  const agregarCombo = (k: Combo) => {
+    despegar();
+    return setCarrito((c) => [...c, {
       producto: { id: k.id, nombre: k.nombre, precioCentavos: k.precioCentavos },
       cantidad: 1,
       opciones: [],
       combo: true,
     }]);
+  };
   const quitar = (i: number) => setCarrito((c) => c.filter((_, idx) => idx !== i));
 
   async function enviarPedido() {
@@ -229,7 +272,16 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   } as React.CSSProperties;
 
   return (
-    <main className="mx-auto min-h-dvh max-w-[900px] bg-arena pb-32" style={estiloTema}>
+    <main
+      className="mx-auto min-h-dvh max-w-[900px] bg-arena pb-32"
+      style={estiloTema}
+      // `capture`: se registra ANTES de que React procese el click, así el
+      // elemento todavía está donde el cliente lo tocó.
+      onClickCapture={(e) => {
+        const tarjeta = (e.target as HTMLElement).closest("button");
+        ultimoToque.current = tarjeta as HTMLElement | null;
+      }}
+    >
       <Cabecera negocio={carta.negocio} />
       <BarraSecciones
         secciones={[
@@ -316,6 +368,11 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           grupos={carta.grupos.filter((g) => eligiendo.grupoIds.includes(g.id))}
           onCancelar={() => setEligiendo(null)}
           onAgregar={(opciones, cantidad) => {
+            // El vuelo sale del botón "Agregar" de la hoja, que es lo último
+            // que el cliente tocó. `agregar` lo dispara antes de que
+            // `setEligiendo(null)` desmonte la hoja: si se cerrara primero, el
+            // elemento ya no existiría y el plato se sumaría en silencio —
+            // justo en los platos con opciones, que son los más elaborados.
             agregar({ producto: eligiendo, cantidad, opciones });
             setEligiendo(null);
           }}
@@ -326,6 +383,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
 
       {carrito.length > 0 && (
         <BarraCarrito
+          refCarrito={carritoRef}
           minimo={carta.negocio.minimoDeliveryCentavos ?? 0}
           carrito={carrito}
           total={total}
@@ -670,7 +728,7 @@ function HojaOpciones({
                       </span>
                     ) : (
                       <span className="shrink-0 text-[0.75rem] text-frio">
-                        {g.maxSelec === 1 ? "Elegí 1" : g.maxSelec ? `Hasta ${g.maxSelec}` : "Opcional"}
+                        {g.maxSelec === 1 ? "Elige 1" : g.maxSelec ? `Hasta ${g.maxSelec}` : "Opcional"}
                       </span>
                     )}
                   </div>
@@ -779,7 +837,12 @@ function HojaOpciones({
               {faltanObligatorios.length > 0
                 // Se dice QUÉ falta, no solo se deshabilita: un botón gris sin
                 // explicación deja al cliente tocándolo sin entender.
-                ? `Elegí ${faltanObligatorios[0].nombre.toLowerCase()}`
+                //
+                // SIN DUPLICAR EL VERBO (2026-08-19): el dueño suele nombrar
+                // su grupo "Elige tu tartar", y el prefijo lo repetía —"Elige
+                // elige tu tartar"—. Si el nombre ya arranca con el verbo, se
+                // usa tal cual.
+                ? etiquetaFaltante(faltanObligatorios[0].nombre)
                 : `Agregar · ${soles((producto.precioCentavos + extras) * cantidad)}`}
             </button>
           </div>
@@ -791,9 +854,12 @@ function HojaOpciones({
 
 function BarraCarrito({
   carrito, total, abierto, modalidad, onModalidad, enviando, error, onQuitar, onEnviar, minimo,
+  refCarrito,
 }: {
   carrito: LineaCarrito[];
   total: number;
+  /** Dónde aterriza el plato que vuela. */
+  refCarrito: React.RefObject<HTMLDivElement | null>;
   abierto: boolean;
   /** Pedido mínimo para delivery, en céntimos. 0 = sin mínimo. */
   minimo: number;
@@ -811,6 +877,9 @@ function BarraCarrito({
 
   const [abiertoDetalle, setAbiertoDetalle] = useState(false);
   const unidades = carrito.reduce((s, l) => s + l.cantidad, 0);
+  // El total SUBE en vez de saltar: el ojo lee "creció" en vez de "otro
+  // número", y es el dato que decide si sigue agregando o toca enviar.
+  const totalVisible = usarNumeroAnimado(total);
 
   // El botón LATE cuando entra algo al carrito. Es el único aviso de que el
   // toque funcionó: sin esto el cliente toca de nuevo y pide el doble.
@@ -823,7 +892,7 @@ function BarraCarrito({
   }, [unidades]);
 
   return (
-    <div className="sube fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[900px] bg-carta px-5 pb-5 pt-3 shadow-[0_-4px_24px_rgba(15,20,18,0.08)]">
+    <div ref={refCarrito} className="sube fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[900px] bg-carta px-5 pb-5 pt-3 shadow-[0_-4px_24px_rgba(15,20,18,0.08)]">
       {abiertoDetalle && (
         <div className="scroll-fino mb-3 max-h-[40dvh] space-y-2 overflow-y-auto">
           {/* Cada línea ENTRA: sin esto, agregar algo mientras el detalle está
@@ -905,7 +974,7 @@ function BarraCarrito({
             ? `Mínimo ${soles(minimo)} para delivery`
             : enviando
               ? "Enviando…"
-              : `Enviar mi pedido · ${soles(total)}`}
+              : `Enviar mi pedido · ${soles(totalVisible)}`}
       </button>
     </div>
   );

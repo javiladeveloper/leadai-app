@@ -348,6 +348,16 @@ button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
   .tarjeta-viva:hover { transform: translateY(-2px); }
 }
 
+/* LO URGENTE RESPIRA. Un borde fijo se vuelve invisible: el dueño mira la
+   cocina durante todo el turno y a los veinte minutos ya no lo registra.
+   1.6s por ciclo — más rápido parece una alarma y estresa una cocina que ya
+   está a full. Mismo tiempo que en la app, para que las dos se sientan igual. */
+@keyframes respirar {
+  0%, 100% { box-shadow: 0 0 0 2px var(--color-calor); }
+  50%      { box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-calor) 45%, transparent); }
+}
+.respira { animation: respirar 1.6s ease-in-out infinite; }
+
 /* EL SKELETON, más lento que el default de Tailwind. Un pulso rápido parece
    un error; uno lento parece que está trabajando. */
 .animate-pulse { animation-duration: 1.6s; }

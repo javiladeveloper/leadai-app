@@ -27,6 +27,10 @@ import {
 export const SECCIONES: Seccion[] = [
   { href: "/inicio", label: "Inicio", Icono: IconoInicio, rapido: 0 },
   { href: "/conversaciones", label: "Conversaciones", corto: "Chats", Icono: IconoConversaciones, rapido: 1 },
+  // LA COCINA (2026-08-19): despachar pedidos desde la computadora. Existía
+  // solo en la app, así que el dueño con la compu en el mostrador tenía que
+  // agarrar el celular con las manos ocupadas.
+  { href: "/cocina", label: "Cocina", Icono: IconoInicio, requiere: "tieneCocina", rapido: 2 },
   { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones, requiere: "calificaLeads" },
   { href: "/publicar", label: "Publicar", Icono: IconoOportunidades, requiere: "calificaLeads" },
   { href: "/anuncios", label: "Anuncios", Icono: IconoRayo, requiere: "calificaLeads" },

@@ -21,7 +21,7 @@ import { use } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
-interface Opcion { id: string; nombre: string; precioCentavos: number }
+interface Opcion { id: string; nombre: string; precioCentavos: number; fotoUrl: string | null }
 interface Grupo {
   id: string; nombre: string; minSelec: number; maxSelec: number | null; opciones: Opcion[];
 }
@@ -660,6 +660,21 @@ function HojaOpciones({
                           >
                             {marcada ? "✓" : ""}
                           </span>
+
+                          {/* La FOTO de la opción (2026-08-19). En un combo de
+                              sushi la lista son 39 nombres —"Calamar Spyce",
+                              "Dragón roll"— y quien no conoce la carta elige a
+                              ciegas. Solo aparece si la opción tiene foto: sin
+                              ella la fila queda como estaba, sin un hueco. */}
+                          {o.fotoUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={o.fotoUrl}
+                              alt=""
+                              loading="lazy"
+                              className="h-11 w-11 shrink-0 rounded-lg object-cover"
+                            />
+                          )}
                           <span className={`min-w-0 flex-1 ${marcada ? "font-semibold text-tinta" : "text-tinta-2"}`}>
                             {o.nombre}
                           </span>

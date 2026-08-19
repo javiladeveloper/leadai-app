@@ -43,6 +43,8 @@ export function MarcaCarta() {
   const [whatsapp, setWhatsapp] = useState("");
   const [instagram, setInstagram] = useState("");
   const [entrega, setEntrega] = useState("");
+  const [tema, setTema] = useState<"claro" | "oscuro">("claro");
+  const [color, setColor] = useState("");
 
   useEffect(() => {
     void obtenerNegocio().then((n) => {
@@ -51,6 +53,8 @@ export function MarcaCarta() {
       setWhatsapp(n?.whatsappCarta ?? "");
       setInstagram(n?.instagramUrl ?? "");
       setEntrega(n?.entregaMinutos ? String(n.entregaMinutos) : "");
+      setTema(n?.temaCarta === "oscuro" ? "oscuro" : "claro");
+      setColor(n?.colorCarta ?? "");
       setCargando(false);
     });
   }, []);
@@ -92,6 +96,9 @@ export function MarcaCarta() {
       whatsappCarta: soloDigitos(whatsapp) || null,
       instagramUrl: instagram.trim() || null,
       entregaMinutos: entrega ? Number(entrega) : null,
+      temaCarta: tema,
+      // Vacío = sin color propio, vuelve al menta de LeadAI.
+      colorCarta: color || null,
     });
     setGuardando(false);
     if (r.ok) {
@@ -197,6 +204,64 @@ export function MarcaCarta() {
             )}
           </div>
         )}
+
+        {/* EL TEMA (2026-08-19). Dos opciones probadas y no un editor de
+            colores libre: dejar elegir cada color termina en cartas
+            ilegibles, y quien las arma no mide contraste. */}
+        <div>
+          <p className="text-[0.82rem] font-semibold text-arena">Color de tu carta</p>
+          <div className="mt-2 grid grid-cols-2 gap-2.5">
+            {([
+              { id: "claro", nombre: "Claro", fondo: "#f6faf8", texto: "#0e1614" },
+              { id: "oscuro", nombre: "Oscuro", fondo: "#14100e", texto: "#f7f3f0" },
+            ] as const).map((op) => (
+              <button
+                key={op.id}
+                type="button"
+                onClick={() => setTema(op.id)}
+                aria-pressed={tema === op.id}
+                className={`rounded-tarjeta p-3 text-left transition ${
+                  tema === op.id ? "ring-2 ring-brasa" : "ring-1 ring-arena/20 hover:ring-arena/40"
+                }`}
+                style={{ backgroundColor: op.fondo }}
+              >
+                <span className="text-[0.88rem] font-bold" style={{ color: op.texto }}>
+                  {op.nombre}
+                </span>
+                {/* Una fila de muestra: se ve cómo queda un plato, no un
+                    cuadrado de color suelto. */}
+                <span
+                  className="mt-1.5 block text-[0.72rem]"
+                  style={{ color: op.id === "claro" ? "#586661" : "#9a8f87" }}
+                >
+                  Acevichado · <b style={{ color: color || "#0fb68b" }}>S/27.00</b>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <label className="mt-3 flex items-center gap-3">
+            <input
+              type="color"
+              value={color || "#0fb68b"}
+              onChange={(e) => setColor(e.target.value)}
+              className="h-9 w-14 cursor-pointer rounded-lg border border-arena/20 bg-transparent"
+              aria-label="Color de precios y botones"
+            />
+            <span className="text-[0.8rem] text-arena/70">
+              Color de precios y botones
+              {color && (
+                <button
+                  type="button"
+                  onClick={() => setColor("")}
+                  className="ml-2 font-semibold text-arena underline underline-offset-2"
+                >
+                  usar el de LeadAI
+                </button>
+              )}
+            </span>
+          </label>
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo etiqueta="Dirección" ayuda="La ve el cliente en la carta">

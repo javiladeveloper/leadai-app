@@ -46,6 +46,10 @@ interface Carta {
     direccion: string | null; entregaMinutos: number | null;
     /** A dónde llega el pedido. null = el negocio no conectó WhatsApp. */
     whatsapp: string | null;
+    /** 'claro' | 'oscuro'. Lo elige el dueño; por defecto claro. */
+    tema?: string | null;
+    /** Color de acento en hex. null = el menta de LeadAI. */
+    color?: string | null;
   };
   categorias: { id: string; nombre: string }[];
   productos: Producto[];
@@ -183,8 +187,35 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     .map((id) => carta.productos.find((p) => p.id === id))
     .filter((p): p is Producto => p != null);
 
+  // EL TEMA DEL NEGOCIO (2026-08-19).
+  //
+  // Se pisan las VARIABLES de color sobre el contenedor en vez de tocar las
+  // ~60 clases de la carta una por una: `bg-arena`, `text-tinta` y compañía
+  // resuelven contra estas variables, así que cambiarlas repinta todo.
+  //
+  // El oscuro NO es el claro invertido: son valores elegidos y medidos
+  // (arena #14100e sobre carta #1c1815 da la separación de tarjeta que en
+  // claro dan la sombra y el borde).
+  const oscuro = carta.negocio.tema === "oscuro";
+  const acento = carta.negocio.color || null;
+  const estiloTema = {
+    ...(oscuro
+      ? {
+          "--color-arena": "#14100e",
+          "--color-arena-2": "#241e1a",
+          "--color-carta": "#1c1815",
+          "--color-tinta": "#f7f3f0",
+          "--color-tinta-2": "#c9c0b9",
+          "--color-frio": "#9a8f87",
+          "--color-linea": "#332b26",
+        }
+      : {}),
+    // El acento pisa el menta de marca: es el color del negocio, no el nuestro.
+    ...(acento ? { "--color-brasa": acento, "--color-brasa-texto": acento } : {}),
+  } as React.CSSProperties;
+
   return (
-    <main className="mx-auto min-h-dvh max-w-[900px] bg-arena pb-32">
+    <main className="mx-auto min-h-dvh max-w-[900px] bg-arena pb-32" style={estiloTema}>
       <Cabecera negocio={carta.negocio} />
       <BarraSecciones
         secciones={[

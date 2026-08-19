@@ -401,6 +401,10 @@ export interface NegocioCarta {
   entregaMinutos: number | null;
   /** A dónde llega el pedido de la carta. Solo dígitos con código de país. */
   whatsappCarta: string | null;
+  /** Cómo se pinta la carta pública: 'claro' | 'oscuro'. */
+  temaCarta?: string | null;
+  /** Color de acento en hex (#RRGGBB). null = el menta de LeadAI. */
+  colorCarta?: string | null;
 }
 
 export async function obtenerNegocio(tenant?: string): Promise<NegocioCarta | null> {
@@ -413,7 +417,8 @@ export async function obtenerNegocio(tenant?: string): Promise<NegocioCarta | nu
 }
 
 export function guardarNegocio(
-  datos: Partial<Pick<NegocioCarta, "direccion" | "instagramUrl" | "entregaMinutos" | "whatsappCarta">>,
+  datos: Partial<Pick<NegocioCarta,
+    "direccion" | "instagramUrl" | "entregaMinutos" | "whatsappCarta" | "temaCarta" | "colorCarta">>,
   tenant?: string,
 ) {
   return escribir("/carta/negocio", "PATCH", datos, tenant);

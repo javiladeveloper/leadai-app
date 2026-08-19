@@ -92,6 +92,10 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   const [carrito, setCarrito] = useState<LineaCarrito[]>([]);
   const [eligiendo, setEligiendo] = useState<Producto | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // Cómo lo quiere: se elige ACÁ y no en el chat (2026-08-19, decisión de
+  // Jonathan: "primero es hacer el pedido") — el bot ya no pregunta
+  // delivery/recojo; con esto el pedido vuelve al chat con todo resuelto.
+  const [modalidad, setModalidad] = useState<"delivery" | "recojo">("delivery");
   const [codigo, setCodigo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -145,6 +149,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
             comboId: l.producto.id,
             cantidad: l.cantidad,
           })),
+          modalidad,
         }),
       });
       const data = await res.json();
@@ -313,6 +318,8 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           carrito={carrito}
           total={total}
           abierto={carta.negocio.abierto}
+          modalidad={modalidad}
+          onModalidad={setModalidad}
           enviando={enviando}
           error={error}
           onQuitar={quitar}
@@ -771,11 +778,13 @@ function HojaOpciones({
 }
 
 function BarraCarrito({
-  carrito, total, abierto, enviando, error, onQuitar, onEnviar,
+  carrito, total, abierto, modalidad, onModalidad, enviando, error, onQuitar, onEnviar,
 }: {
   carrito: LineaCarrito[];
   total: number;
   abierto: boolean;
+  modalidad: "delivery" | "recojo";
+  onModalidad: (m: "delivery" | "recojo") => void;
   enviando: boolean;
   error: string | null;
   onQuitar: (i: number) => void;
@@ -829,6 +838,28 @@ function BarraCarrito({
       >
         {unidades} {unidades === 1 ? "producto" : "productos"} · {abiertoDetalle ? "ocultar" : "ver detalle"}
       </button>
+
+      {/* La modalidad se decide acá, con el pedido ya armado — el chat no la
+          vuelve a preguntar. Dos opciones grandes, nada de dropdown: esto se
+          toca con el pulgar apurado y con hambre. */}
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        {([
+          ["delivery", "🛵 Delivery"],
+          ["recojo", "🥡 Para llevar"],
+        ] as const).map(([valor, etiqueta]) => (
+          <button
+            key={valor}
+            onClick={() => onModalidad(valor)}
+            className={`rounded-tarjeta border py-2.5 text-[0.9rem] font-semibold transition ${
+              modalidad === valor
+                ? "border-brasa bg-brasa/10 text-brasa"
+                : "border-linea text-tinta-2"
+            }`}
+          >
+            {etiqueta}
+          </button>
+        ))}
+      </div>
 
       <button
         onClick={onEnviar}

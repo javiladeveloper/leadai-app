@@ -765,9 +765,11 @@ export default function ConversacionesPanel() {
                       <span>{NOMBRE_CANAL[lead.canalOrigen] ?? lead.canalOrigen}</span>
                     </p>
                   </div>
-                  {/* La TEMPERATURA es de captación: un cliente que pide
-                      comida no está "frío" ni "caliente", está pidiendo. */}
-                  {!modoPedidos && <ChipTemp t={lead.nivelInteres} />}
+                  {/* La TEMPERATURA es de quien CALIFICA: un cliente que
+                      pide comida no está "frío" ni "caliente", está pidiendo.
+                      Una clínica sí califica —hay que saber quién viene a
+                      consulta—, así que ella lo conserva. */}
+                  {caps?.calificaLeads && <ChipTemp t={lead.nivelInteres} />}
                 </div>
                 <button
                   onClick={alternarBot}
@@ -939,9 +941,11 @@ export default function ConversacionesPanel() {
                   <h2 className="text-[1.05rem] font-bold text-tinta">
                     {lead.nombre ?? lead.contactoExterno}
                   </h2>
-                  {/* La TEMPERATURA es de captación: un cliente que pide
-                      comida no está "frío" ni "caliente", está pidiendo. */}
-                  {!modoPedidos && <ChipTemp t={lead.nivelInteres} />}
+                  {/* La TEMPERATURA es de quien CALIFICA: un cliente que
+                      pide comida no está "frío" ni "caliente", está pidiendo.
+                      Una clínica sí califica —hay que saber quién viene a
+                      consulta—, así que ella lo conserva. */}
+                  {caps?.calificaLeads && <ChipTemp t={lead.nivelInteres} />}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <p className="text-[0.82rem] text-frio">{lead.contactoExterno}</p>

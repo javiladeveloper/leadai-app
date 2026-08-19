@@ -541,7 +541,7 @@ function TarjetaProducto({
   return (
     <button
       onClick={tieneOpciones ? onElegir : onAgregarDirecto}
-      className="entra group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-linea transition hover:ring-brasa/40 active:scale-[0.99]"
+      className="entra tarjeta-viva group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-linea transition hover:ring-brasa/40 active:scale-[0.99]"
     >
       {producto.fotoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -826,8 +826,11 @@ function BarraCarrito({
     <div className="sube fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[900px] bg-carta px-5 pb-5 pt-3 shadow-[0_-4px_24px_rgba(15,20,18,0.08)]">
       {abiertoDetalle && (
         <div className="scroll-fino mb-3 max-h-[40dvh] space-y-2 overflow-y-auto">
+          {/* Cada línea ENTRA: sin esto, agregar algo mientras el detalle está
+              abierto solo hace que la lista sea más larga, y no se ve qué se
+              sumó. */}
           {carrito.map((l, i) => (
-            <div key={i} className="flex items-start justify-between gap-3">
+            <div key={i} className="fila-entra flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[0.95rem] text-tinta">
                   {l.cantidad}× {l.producto.nombre}
@@ -966,7 +969,7 @@ function TarjetaCombo({ combo, onAgregar }: { combo: Combo; onAgregar: () => voi
   return (
     <button
       onClick={onAgregar}
-      className="entra group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-orbita/30 transition hover:ring-orbita/60 active:scale-[0.99]"
+      className="entra tarjeta-viva group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-orbita/30 transition hover:ring-orbita/60 active:scale-[0.99]"
     >
       {combo.fotoUrl && (
         // eslint-disable-next-line @next/next/no-img-element

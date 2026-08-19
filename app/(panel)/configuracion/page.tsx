@@ -162,7 +162,10 @@ function ConfiguracionInner() {
 
            Los <h2> "Tu negocio" / "Tus redes" / "Tu plan y consumo" también se
            fueron: repetían la pestaña activa, que está tres centímetros arriba. */
-        <div key={tenantCfg} className="space-y-5">
+        // `key` con la pestaña: al cambiarla el bloque se remonta y la
+        // animación corre de nuevo. Sin eso, cambiar de pestaña es un corte
+        // seco y no se ve que el contenido es OTRO.
+        <div key={`${tenantCfg}-${tab}`} className="surge space-y-5">
           {tab === "negocio" && (
             <>
               <PlaybookEditor />

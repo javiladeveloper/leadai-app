@@ -259,6 +259,99 @@ img { animation: revelar 0.4s ease-out; }
 }
 .scroll-fino::-webkit-scrollbar-track { background: transparent; }
 
+/* ═══ MOVIMIENTO DEL PANEL (2026-08-19) ═══════════════════════════════════
+   Lo de arriba es de la CARTA (lo que ve el cliente). Esto es del PANEL, que
+   estaba seco: todo aparecía y desaparecía de golpe.
+
+   Regla: cada animación dice algo. De dónde vino una hoja, que un toque se
+   registró, que algo se guardó, qué cambió en una lista. Lo que solo decora
+   se saca — un panel que el dueño abre veinte veces al día no puede hacerle
+   esperar por adornos. Por eso todo está entre 120 y 320ms.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* CURVAS. Una sola familia para que todo el panel se sienta del mismo
+   material. `salida` es más rápida que `entrada` a propósito: esperar a que
+   algo se vaya es lo que hace lento a un sistema. */
+:root {
+  --curva-entrada: cubic-bezier(0.22, 1, 0.36, 1);
+  --curva-salida: cubic-bezier(0.4, 0, 1, 1);
+  --t-rapido: 140ms;
+  --t-normal: 220ms;
+}
+
+/* TODO LO QUE SE TOCA responde. Sin esto, un botón se siente una imagen: el
+   dueño no sabe si su toque llegó hasta que la pantalla cambia. */
+button, a, [role="button"], select, input[type="checkbox"] {
+  transition:
+    background-color var(--t-rapido) ease-out,
+    color var(--t-rapido) ease-out,
+    border-color var(--t-rapido) ease-out,
+    box-shadow var(--t-rapido) ease-out,
+    transform var(--t-rapido) var(--curva-salida),
+    opacity var(--t-rapido) ease-out;
+}
+/* El HUNDIDO al presionar: es el feedback más honesto que existe —el dedo
+   empuja y la cosa cede— y funciona incluso antes de que la red conteste. */
+button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
+
+/* FOCO VISIBLE, sin marco permanente. `:focus-visible` solo lo pinta cuando
+   alguien navega con teclado; con el mouse no aparece. */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-brasa);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* UNA SECCIÓN QUE LLEGA. Más suave que `.entra` de la carta: acá no se está
+   sirviendo un plato, solo apareció un bloque de configuración. */
+@keyframes surgir {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.surge { animation: surgir var(--t-normal) var(--curva-entrada) backwards; }
+
+/* UNA FILA QUE ENTRA O SALE de una lista. Sin esto, agregar un plato o
+   borrar una promo es un salto: la lista queda distinta y no se ve qué
+   cambió. */
+@keyframes fila-entra {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+.fila-entra { animation: fila-entra 180ms var(--curva-entrada) backwards; }
+
+/* LO QUE SE GUARDÓ. El "Guardado ✓" aparece y se va solo; si entrara de golpe
+   el ojo no lo alcanza, y es la única confirmación de que el cambio viajó. */
+@keyframes confirmar {
+  0%   { opacity: 0; transform: translateY(4px); }
+  15%  { opacity: 1; transform: none; }
+  85%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+.confirma { animation: confirmar 1.8s ease-out forwards; }
+
+/* PESTAÑAS. El subrayado se DESLIZA de una a otra en vez de saltar, así el ojo
+   sigue el cambio y entiende que es el mismo control. */
+.tab-activa { transition: color var(--t-rapido) ease-out; }
+.tab-linea {
+  transition: transform var(--t-normal) var(--curva-entrada),
+              width var(--t-normal) var(--curva-entrada);
+}
+
+/* TARJETAS QUE SE PUEDEN TOCAR. Se levantan apenas: dice "esto hace algo" sin
+   pintarlas de otro color. Solo donde hay mouse — en un teléfono el hover se
+   queda pegado después del toque. */
+@media (hover: hover) {
+  .tarjeta-viva {
+    transition: transform var(--t-rapido) var(--curva-entrada),
+                box-shadow var(--t-rapido) ease-out;
+  }
+  .tarjeta-viva:hover { transform: translateY(-2px); }
+}
+
+/* EL SKELETON, más lento que el default de Tailwind. Un pulso rápido parece
+   un error; uno lento parece que está trabajando. */
+.animate-pulse { animation-duration: 1.6s; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;

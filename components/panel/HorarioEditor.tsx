@@ -278,9 +278,9 @@ export function HorarioEditor() {
         </div>
 
         <div className="min-h-[1.2rem] text-[0.84rem]">
-          {error && <span className="font-semibold text-alerta">{error}</span>}
+          {error && <span className="fila-entra font-semibold text-alerta">{error}</span>}
           {!error && guardando && <span className="text-frio">Guardando…</span>}
-          {!error && !guardando && guardado && <span className="font-semibold text-ok">Guardado ✓</span>}
+          {!error && !guardando && guardado && <span className="confirma font-semibold text-ok">Guardado ✓</span>}
         </div>
       </div>
     </Seccion>

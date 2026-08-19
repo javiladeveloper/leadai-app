@@ -454,11 +454,11 @@ function HojaPlato({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 p-0 sm:items-center sm:p-6"
+      className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 p-0 sm:items-center sm:p-6"
       onClick={cerrar}
     >
       <div
-        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
+        className="sube scroll-fino max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-[1.25rem] font-bold text-tinta">
@@ -833,11 +833,11 @@ function HojaGrupo({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 sm:items-center sm:p-6"
+      className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 backdrop-blur-[2px] sm:items-center sm:p-6"
       onClick={cerrar}
     >
       <div
-        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
+        className="sube scroll-fino max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-[1.25rem] font-bold text-tinta">Nuevo grupo de extras</h2>
@@ -1148,9 +1148,9 @@ function HojaCombo({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 sm:items-center sm:p-6" onClick={cerrar}>
+    <div className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 backdrop-blur-[2px] sm:items-center sm:p-6" onClick={cerrar}>
       <div
-        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
+        className="sube scroll-fino max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-[1.25rem] font-bold text-tinta">Nuevo combo</h2>
@@ -1316,8 +1316,10 @@ function Promos({
         </div>
       )}
 
+      {/* Cada promo ENTRA: sin esto, crear o borrar una solo hace que la lista
+          sea distinta y no se ve cuál cambió. */}
       {carta.descuentos.map((d) => (
-        <div key={d.id} className="flex items-center gap-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+        <div key={d.id} className="fila-entra tarjeta-viva flex items-center gap-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-tinta">{d.nombre}</p>
             <p className="text-[0.8rem] text-frio">{resumenDescuento(d, carta.categorias)}</p>
@@ -1483,11 +1485,11 @@ function HojaPromo({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 sm:items-center sm:p-6"
+      className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 backdrop-blur-[2px] sm:items-center sm:p-6"
       onClick={cerrar}
     >
       <div
-        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
+        className="sube scroll-fino max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-[1.25rem] font-bold text-tinta">Nueva promo</h2>

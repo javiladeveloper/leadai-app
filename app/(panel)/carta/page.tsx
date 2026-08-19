@@ -25,7 +25,7 @@ import {
   crearCombo, eliminarCombo,
   crearDescuento, actualizarDescuento, eliminarDescuento,
   subirFotoProducto, quitarFotoProducto, subirFoto, leerFoto,
-  aCentavos, precioTexto, porcentajeDescuento, resumenDescuento, DIAS,
+  aCentavos, precioTexto, porcentajeDescuento, resumenDescuento, sinTildes, DIAS,
   type Carta, type ProductoCarta, type GrupoOpciones, type ComboCarta, type DescuentoCarta,
 } from "@/lib/carta";
 import { CampoFoto, useFoto } from "@/components/panel/CampoFoto";
@@ -1083,6 +1083,32 @@ function HojaCombo({
   const [guardando, setGuardando] = useState(false);
   const [errorCampo, setErrorCampo] = useState("");
   const foto = useFoto(null);
+  // BUSCADOR (2026-08-19). Shiro tiene 48 platos y esta lista los mostraba
+  // todos planos en una caja de 56px: armar un combo era scrollear a ciegas.
+  const [busca, setBusca] = useState("");
+
+  /**
+   * Los platos AGRUPADOS POR SECCIÓN, como están en la carta.
+   *
+   * Antes era una lista corrida sin separaciones, así que "California" y
+   * "Langostinos al panko" —de secciones distintas— se veían igual de
+   * cercanos. Con la carta agrupada, elegir es reconocer en vez de buscar.
+   */
+  const gruposCombo = (() => {
+    const q = sinTildes(busca.trim().toLowerCase());
+    const visibles = q
+      ? carta.productos.filter((x) => sinTildes(x.nombre.toLowerCase()).includes(q))
+      : carta.productos;
+    const secciones = carta.categorias.map((c) => ({
+      id: c.id,
+      nombre: c.nombre,
+      productos: visibles.filter((x) => x.categoriaId === c.id),
+    }));
+    // Los que no tienen sección van al final, no se pierden.
+    const sueltos = visibles.filter((x) => !x.categoriaId);
+    if (sueltos.length > 0) secciones.push({ id: "_sin", nombre: "Sin sección", productos: sueltos });
+    return secciones.filter((s) => s.productos.length > 0);
+  })();
 
   const centavos = aCentavos(precio);
   // Lo que costarían sueltos, para que el dueño vea si su precio tiene sentido.
@@ -1142,9 +1168,33 @@ function HojaCombo({
             />
           </Campo>
 
-          <Campo etiqueta="Qué lleva" ayuda="Elegí dos o más platos">
+          <Campo
+            etiqueta="Qué lleva"
+            ayuda={elegidos.length > 0 ? `${elegidos.length} elegido(s)` : "Elegí dos o más platos"}
+          >
+            {/* BUSCADOR (2026-08-19). Con 48 platos, encontrar "California"
+                era scrollear a ciegas una lista corrida. */}
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="🔍 Buscar un plato…"
+              aria-label="Buscar un plato"
+              className="mb-2 w-full rounded-lg border border-linea bg-arena/40 px-3 py-2 text-[0.9rem] text-tinta placeholder:text-frio"
+            />
             <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg bg-arena/40 p-2">
-              {carta.productos.map((p) => {
+              {gruposCombo.length === 0 && (
+                <p className="px-1.5 py-3 text-center text-[0.85rem] text-frio">
+                  Ningún plato coincide con «{busca}».
+                </p>
+              )}
+              {gruposCombo.map((seccion) => (
+              <div key={seccion.id}>
+                {/* El nombre de la sección, pegajoso: al scrollear sigue
+                    diciendo dónde estás parado. */}
+                <p className="sticky top-0 z-10 bg-arena/95 px-1.5 pb-1 pt-1.5 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+                  {seccion.nombre}
+                </p>
+              {seccion.productos.map((p) => {
                 const elegido = elegidos.find((x) => x.productoId === p.id);
                 return (
                   <div key={p.id} className="flex items-center gap-2 rounded px-1.5 py-1">
@@ -1175,6 +1225,8 @@ function HojaCombo({
                   </div>
                 );
               })}
+              </div>
+              ))}
             </div>
           </Campo>
 

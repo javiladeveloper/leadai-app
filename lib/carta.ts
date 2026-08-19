@@ -392,6 +392,16 @@ export function eliminarDescuento(id: string, tenant?: string) {
 }
 
 /** Los días como los escribe la gente, para armar el resumen de un descuento. */
+/**
+ * Sin tildes y en minúsculas, para buscar.
+ *
+ * Nadie escribe "acevichado" con tilde cuando busca rápido, y un buscador que
+ * no encuentra "maki" porque el plato dice "Makis" es un buscador que estorba.
+ */
+export function sinTildes(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
 export const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 /**

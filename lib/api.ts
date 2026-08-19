@@ -703,6 +703,26 @@ export async function historialPagos(): Promise<PagoSuscripcion[]> {
   }
 }
 
+/** Cómo va la cocina ahora mismo, para el inicio de un restaurante. */
+export interface ResumenPedidos {
+  /** Pagados y esperando que la cocina los tome. */
+  enCola: number;
+  preparando: number;
+  listos: number;
+  enCamino: number;
+  /** Vendido HOY, solo lo entregado. Céntimos. */
+  hoyCentavos: number;
+  hoyPedidos: number;
+}
+
+export async function resumenPedidos(): Promise<ResumenPedidos | null> {
+  try {
+    return await api<ResumenPedidos>("/pedidos-resumen");
+  } catch {
+    return null;
+  }
+}
+
 // Lista las empresas del usuario EN VIVO desde el backend. La sesión cachea la
 // lista del momento del login, así que un negocio nuevo (invitación, seed,
 // creado en otro dispositivo) no aparecería sin este refresco.

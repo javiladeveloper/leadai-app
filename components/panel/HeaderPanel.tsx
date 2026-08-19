@@ -6,6 +6,7 @@ import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cer
 import { misEmpresas } from "@/lib/api";
 import { IconoChevron } from "@/components/Iconos";
 import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
+import { useModoPedidos } from "@/lib/modo-negocio";
 
 // Header del panel UNIFICADO (decisión 2026-07-22): ya NO hay selector de
 // empresa — el panel muestra siempre la operación completa y cada módulo
@@ -14,6 +15,7 @@ import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
 // "clavados" a pantallas profundas), pero dejó de ser un concepto visible.
 // "＋ Agregar otro negocio" vive ahora en Configuración.
 export function HeaderPanel() {
+  const modoPedidos = useModoPedidos();
   const router = useRouter();
 
   // Higiene de la empresa activa interna: refresca la lista de empresas en la
@@ -51,7 +53,8 @@ export function HeaderPanel() {
         <input
           name="q"
           type="search"
-          placeholder="🔍 Buscar leads o mensajes…"
+          // Un restaurante no tiene "leads": busca pedidos y clientes.
+          placeholder={modoPedidos ? "🔍 Buscar pedidos o clientes…" : "🔍 Buscar leads o mensajes…"}
           className="w-full rounded-chip bg-white/8 px-4 py-2 text-sm text-arena outline-none ring-1 ring-white/15 placeholder:text-arena/45 focus:ring-brasa/50"
           aria-label="Buscar leads"
         />

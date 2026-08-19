@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion, leerSesion, esModoGlobal } from "@/lib/auth";
+import { useModoPedidos } from "@/lib/modo-negocio";
+import { InicioRestaurante } from "@/components/panel/InicioRestaurante";
 import {
   obtenerResumen, obtenerUso, leadsRecientes, obtenerReporteNegocio,
   type Resumen, type Uso, type Lead, type ReporteNegocio,
@@ -41,6 +43,11 @@ function haceTexto(iso: string): string {
 // calientes + métricas + accesos rápidos + progreso del mes + actividad reciente.
 export default function InicioPanel() {
   const router = useRouter();
+  // Un RESTAURANTE ve otro inicio (2026-08-19): el de captación le mostraba
+  // "leads calientes sin atender" y accesos a secciones que ni siquiera están
+  // en su menú. `null` = todavía no se sabe; se espera antes de pintar, que es
+  // lo mismo que hace el sidebar para no parpadear.
+  const modoPedidos = useModoPedidos();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [resumen, setResumen] = useState<Resumen | null>(null);
@@ -84,8 +91,12 @@ export default function InicioPanel() {
 
   useEffect(() => {
     if (!listo) return;
+    // Un restaurante no usa NADA de esto: su inicio pide su propio resumen de
+    // pedidos. Sin la guarda serían cuatro llamadas (leads, reporte, resumen y
+    // uso) cuyo resultado no se dibuja.
+    if (modoPedidos !== false) return;
     cargar();
-  }, [listo, cargar]);
+  }, [listo, cargar, modoPedidos]);
 
   if (!listo) return null;
 
@@ -111,15 +122,19 @@ export default function InicioPanel() {
         <p className="mt-0.5 text-[0.95rem] text-frio">Así va tu negocio hoy.</p>
       </header>
 
-      {estado === "cargando" && <SkeletonMetricas />}
+      {modoPedidos && <InicioRestaurante />}
 
-      {estado === "error" && (
+      {modoPedidos === null && <SkeletonMetricas />}
+
+      {!modoPedidos && estado === "cargando" && <SkeletonMetricas />}
+
+      {!modoPedidos && estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="font-semibold text-tinta">No pudimos cargar tus datos. Recargá.</p>
         </div>
       )}
 
-      {estado === "ok" && vacio && (
+      {!modoPedidos && estado === "ok" && vacio && (
         <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="text-[1.05rem] font-bold text-tinta">
             Aún no tenés leads. Conectá WhatsApp para empezar a recibirlos
@@ -133,7 +148,7 @@ export default function InicioPanel() {
         </div>
       )}
 
-      {estado === "ok" && resumen && !vacio && (
+      {!modoPedidos && estado === "ok" && resumen && !vacio && (
         <>
           {/* Alerta: calientes sin atender (ícono en círculo + chevron, estilo Stitch) */}
           {resumen.calientesSinAtender > 0 && (

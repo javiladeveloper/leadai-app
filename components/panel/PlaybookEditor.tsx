@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
 import { Seccion } from "@/components/panel/Seccion";
-import { useCapacidades } from "@/lib/modo-negocio";
+import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 
 // Tonos CURADOS del bot — lista canónica compartida con el backend
 // (TONOS_BOT en core/types.ts) y la app. Texto libre ya no se acepta.
@@ -56,8 +56,12 @@ export function PlaybookEditor() {
   // no por "¿es restaurante?". Son preguntas distintas: el catálogo es de
   // quien CALIFICA, las respuestas fijas de quien REDACTA. Una clínica dice
   // que sí a las dos; un restaurante, a ninguna.
-  const negocio = useCapacidades();
-  const caps = negocio?.capacidades ?? null;
+  // `useCapacidadesOptimista`: mientras no se sabe, muestra TODO. Con
+  // `useCapacidades()` a secas los gates eran `caps.X &&`, y `null && X` no
+  // renderiza — o sea que el formulario arrancaba corto y CRECÍA de golpe al
+  // llegar la respuesta, justo lo contrario de lo que decía el comentario de
+  // arriba. Reportado por Jonathan: "carga una cosa y al ratito otra".
+  const caps = useCapacidadesOptimista();
 
   useEffect(() => {
     let cancelado = false;
@@ -106,7 +110,7 @@ export function PlaybookEditor() {
     <Seccion
       titulo="Cómo atiende tu bot"
       bajada={
-        caps?.tieneCarta
+        caps.tieneCarta
           ? "Cómo saluda y responde tu bot: tono, tu saludo y tus horarios y formas de pago. Tu carta se edita en su propia sección."
           : "El playbook que usa la IA para responder por vos: tono, qué vendés, preguntas clave y objeciones."
       }
@@ -175,7 +179,7 @@ export function PlaybookEditor() {
         placeholder="Ej: 20 años de experiencia, atención el mismo día"
       />
 
-      {caps?.calificaLeads && (
+      {caps.calificaLeads && (
         <>
           <ListaCatalogo
             catalogo={perfil.catalogo}
@@ -211,7 +215,7 @@ export function PlaybookEditor() {
 
       <div>
         <p className="mb-1 text-xs text-frio">
-          {caps?.tieneCarta
+          {caps.tieneCarta
             ? "Abre el menú de pedidos: es lo primero que el cliente lee, antes de los botones y el link de tu carta."
             : "Es lo primero que el cliente lee cuando te escribe por primera vez."}
         </p>
@@ -220,14 +224,14 @@ export function PlaybookEditor() {
           value={perfil.mensajeBienvenida ?? ""}
           onChange={(v) => setPerfil({ ...perfil, mensajeBienvenida: v })}
           placeholder={
-            caps?.tieneCarta
+            caps.tieneCarta
               ? "Ej: ¡Bienvenido a [tu negocio]! 🍗 El mejor sabor de la zona."
               : "Ej: ¡Hola! Soy el asistente de [tu negocio] 😊 ¿En qué te puedo ayudar?"
           }
         />
       </div>
 
-      {caps?.redactaRespuestas && (
+      {caps.redactaRespuestas && (
         <ListaRespuestasFijas
           respuestasFijas={perfil.respuestasFijas ?? []}
           onChange={(respuestasFijas) => setPerfil({ ...perfil, respuestasFijas })}
@@ -240,7 +244,7 @@ export function PlaybookEditor() {
         onChange={(v) => setPerfil({ ...perfil, politicas: v })}
         placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
       />
-      {caps?.calificaLeads && (
+      {caps.calificaLeads && (
         <CampoArea
           label="Qué querés que hagan"
           value={perfil.llamadaAccion}

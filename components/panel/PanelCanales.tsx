@@ -105,8 +105,13 @@ export function PanelCanales() {
                 <span className={`block text-[0.92rem] font-semibold ${activa ? "text-tinta" : "text-arena"}`}>
                   {r.nombre}
                 </span>
+                {/* MIENTRAS CARGA NO SE AFIRMA NADA (2026-08-19). Antes decía
+                    "Sin conectar" desde el primer render —porque la lista
+                    todavía estaba vacía— así que alguien con WhatsApp conectado
+                    leía que no lo estaba, y un segundo después cambiaba. Un
+                    guion no miente. */}
                 <span className={`block text-[0.75rem] ${activa ? "text-frio" : "text-arena/60"}`}>
-                  {n > 0 ? `${n} conectada${n > 1 ? "s" : ""}` : "Sin conectar"}
+                  {cargando ? "—" : n > 0 ? `${n} conectada${n > 1 ? "s" : ""}` : "Sin conectar"}
                 </span>
               </span>
               {n > 0 && <span className="h-2 w-2 shrink-0 rounded-full bg-ok" />}
@@ -137,7 +142,12 @@ export function PanelCanales() {
           {/* WhatsApp: su propio componente de conexión + cuentas conectadas */}
           {red.tipo === "whatsapp" ? (
             <div className="space-y-4">
-              {conexiones.length > 0 && (
+              {/* Mientras carga, un placeholder del alto de la lista: antes se
+                  saltaba directo al formulario de conectar —invitando a
+                  conectar un número que ya estaba— y después la lista aparecía
+                  empujando el botón hacia abajo. */}
+              {cargando && <div className="h-16 animate-pulse rounded-lg bg-arena/40" />}
+              {!cargando && conexiones.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">Números conectados</p>
                   {conexiones.map((c) => (
@@ -172,7 +182,12 @@ export function PanelCanales() {
                   ))}
                 </div>
               )}
-              <ConectarWhatsApp onConectado={cargar} otroNumero={conexiones.length > 0} />
+              {/* Tampoco antes de saber: `otroNumero` cambia el texto del
+                  botón ("conectar otro" vs "conectar"), y con la lista vacía
+                  decía lo que no era. */}
+              {!cargando && (
+                <ConectarWhatsApp onConectado={cargar} otroNumero={conexiones.length > 0} />
+              )}
             </div>
           ) : (
             <>

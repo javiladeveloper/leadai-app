@@ -10,6 +10,7 @@ import {
   type Catalogo,
 } from "@/lib/api";
 import { precioRecargaCentavos, soles } from "@/lib/precio";
+import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 import CheckoutCulqi from "@/components/panel/CheckoutCulqi";
 import { Seccion } from "@/components/panel/Seccion";
 import { PlanRestaurante } from "@/components/panel/PlanRestaurante";
@@ -591,9 +592,18 @@ export function PlanConsumo() {
     });
   }, []);
 
-  // Lo decide el BACKEND, no el rubro ni el nombre del plan: `uso.pedidos` sale
-  // del catálogo, así que agregar un plan de restaurante no obliga a tocar acá.
-  const esRestaurante = !!uso?.pedidos;
+  // EL RUBRO SALE DE LAS CAPACIDADES, no del fetch de uso (2026-08-19).
+  //
+  // Antes era `!!uso?.pedidos`, o sea que se descubría a mitad de camino:
+  // mientras `uso` era null, `esRestaurante` daba false y a un restaurante se
+  // le pintaban "Tu saldo" y "Comprar más clientes" —con sus skeletons y todo—
+  // que desaparecían al llegar la respuesta. Dos tarjetas prometiendo
+  // contenido que nunca iba a llegar. Reportado por Jonathan.
+  //
+  // Las capacidades vienen cacheadas en localStorage, así que el primer render
+  // ya sabe el rubro y no hay nada que corregir después.
+  const caps = useCapacidadesOptimista();
+  const esRestaurante = caps.tieneCarta;
 
   return (
     // El ORDEN cuenta (2026-08-18): primero lo que el dueño vino a ver —cuánto
@@ -602,6 +612,15 @@ export function PlanConsumo() {
     <div className="space-y-5">
       {/* Solo si el plan cuenta pedidos. A un negocio de captación un contador
           de pedidos le sería ruido, y por eso el backend manda `null`. */}
+      {/* Con skeleton (2026-08-19): es lo PRIMERO de la página y era lo único
+          sin placeholder, así que aparecía de golpe y empujaba todo lo de
+          abajo. El `esRestaurante` viene de capacidades, ya cacheadas, así que
+          se sabe si va antes de tener el dato. */}
+      {esRestaurante && cargandoUso && (
+        <Seccion titulo="Pedidos de este mes" bajada="Lo que llevás vendido contra lo que incluye tu plan." tono="hondo">
+          <div className="h-24 animate-pulse rounded-tarjeta bg-arena-2/60" />
+        </Seccion>
+      )}
       {!cargandoUso && uso?.pedidos && (
         <Seccion
           titulo="Pedidos de este mes"

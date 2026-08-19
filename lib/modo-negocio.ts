@@ -146,6 +146,27 @@ export function useCapacidades(): EstadoNegocio | null {
 }
 
 /**
+ * Las capacidades, SIN el `null` intermedio.
+ *
+ * Mientras no se sabe devuelve el rubro más completo, así una pantalla que
+ * pregunta `caps.tieneEmbudo` muestra el bloque desde el primer render en vez
+ * de hacerlo aparecer de golpe medio segundo después.
+ *
+ * POR QUÉ HACE FALTA (2026-08-19): con `useCapacidades()` a secas el patrón
+ * natural es `caps?.tieneEmbudo && <Bloque/>`, y `null && X` NO RENDERIZA. O
+ * sea que el default silencioso era "ocultar todo", justo al revés de lo que
+ * queremos: el formulario arrancaba corto y CRECÍA de golpe al llegar la
+ * respuesta. Jonathan lo reportó como "carga una cosa y al ratito otra".
+ *
+ * Cuándo NO usar este: el MENÚ (`Sidebar`, `NavInferior`). Ahí sí conviene
+ * esperar y dibujar placeholders, porque mostrar trece secciones y acortarlas
+ * a cuatro es más violento que un menú que tarda un instante en aparecer.
+ */
+export function useCapacidadesOptimista(): Capacidades {
+  return useCapacidades()?.capacidades ?? TODO_ENCENDIDO.capacidades;
+}
+
+/**
  * `true` si el negocio activo toma pedidos (restaurante).
  *
  * QUEDA COMO PUENTE: su firma y su semántica de `null` son EXACTAMENTE las de

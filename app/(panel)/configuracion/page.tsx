@@ -13,7 +13,7 @@ import { PlanConsumo } from "@/components/panel/PlanConsumo";
 import { ConfigComision } from "@/components/panel/ConfigComision";
 import { MiPerfilVendedorPanel } from "@/components/panel/MiPerfilVendedor";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
-import { useCapacidades } from "@/lib/modo-negocio";
+import { useCapacidadesOptimista, type Capacidades } from "@/lib/modo-negocio";
 import { leerSesion } from "@/lib/auth";
 import type { NegocioBandeja } from "@/lib/api";
 
@@ -29,11 +29,20 @@ type Tab = "negocio" | "canales" | "plan" | "perfil";
 
 // La BAJADA cambia con la pestaña (2026-08-18): una sola frase genérica no
 // dice nada, y "Mi perfil" traía la suya en un segundo encabezado propio.
-const TABS: { id: Tab; label: string; bajada: string }[] = [
+const TABS: { id: Tab; label: string; bajada: string; requiere?: keyof Capacidades }[] = [
   { id: "negocio", label: "Tu negocio", bajada: "Lo que el bot necesita saber para responder por vos." },
   { id: "canales", label: "Canales", bajada: "Conectá tus redes para que LeadAI atienda en cada una." },
   { id: "plan", label: "Plan y consumo", bajada: "Qué incluye tu plan, cuánto llevás usado y cómo atiende el bot." },
-  { id: "perfil", label: "Mi perfil", bajada: "Así te ven los negocios que buscan vendedores." },
+  // "Mi perfil" es el CV del VENDEDOR del marketplace —foto, años de
+  // experiencia, ventas cerradas, rubros en los que sos bueno, experiencia
+  // profesional— y su propia bajada lo dice: "así te ven los negocios que
+  // buscan vendedores".
+  //
+  // Un restaurante no se ofrece como vendedor de nadie (2026-08-19, reporte de
+  // Jonathan: "tiene cosas que no vienen al caso"). De sus 16 campos le
+  // servirían cinco, y el resto —LinkedIn, portfolio, mini-CV— es ruido en la
+  // pantalla donde configura su negocio.
+  { id: "perfil", label: "Mi perfil", bajada: "Así te ven los negocios que buscan vendedores.", requiere: "calificaLeads" },
 ];
 
 function ConfiguracionInner() {
@@ -48,7 +57,10 @@ function ConfiguracionInner() {
   const [tenantCfg, setTenantCfg] = useState("");
   // Restaurante activo → la pestaña "Tu negocio" se queda con lo que su bot
   // usa de verdad; el pipeline de captación (etapas, ritmo) no se muestra.
-  const caps = useCapacidades()?.capacidades ?? null;
+  // Optimista: mientras no se sabe se muestran las secciones y después se
+  // ocultan las que no aplican. Al revés —aparecer de golpe— es el
+  // parpadeo que Jonathan reportó.
+  const caps = useCapacidadesOptimista();
 
   useEffect(() => {
     setNegocios(
@@ -115,7 +127,7 @@ function ConfiguracionInner() {
           derecho avisa que hay más (si no, "Mi perfil" simplemente no existe
           para quien no se le ocurra deslizar). */}
       <nav className="relative flex gap-1 overflow-x-auto rounded-tarjeta bg-carta p-1 ring-1 ring-linea [scrollbar-width:none] after:pointer-events-none after:sticky after:right-0 after:-ml-8 after:h-9 after:w-8 after:shrink-0 after:bg-gradient-to-l after:from-carta after:to-transparent sm:after:hidden [&::-webkit-scrollbar]:hidden">
-        {TABS.map((t) => {
+        {TABS.filter((x) => !x.requiere || caps[x.requiere]).map((t) => {
           const activa = tab === t.id;
           return (
             <button
@@ -162,13 +174,13 @@ function ConfiguracionInner() {
                   embudo, porque el estado real del paciente es su cita y no una
                   etapa que alguien arrastra. Con un solo `if` se le escondían
                   las dos. */}
-              {caps?.tieneEmbudo && <EtapasEditor />}
-              {caps?.nutreLeads && <RitmoSeguimiento />}
+              {caps.tieneEmbudo && <EtapasEditor />}
+              {caps.nutreLeads && <RitmoSeguimiento />}
               {/* El horario solo existía en la app móvil: un dueño en la
                   computadora no podía cerrar su cocina sin buscar el celular
                   (2026-08-19). Va detrás de `tieneCocina` porque un negocio de
                   captación no tiene cocina que abrir ni cerrar. */}
-              {caps?.tieneCocina && <HorarioEditor />}
+              {caps.tieneCocina && <HorarioEditor />}
             </>
           )}
 
@@ -191,7 +203,9 @@ function ConfiguracionInner() {
         </div>
       )}
 
-      {tab === "perfil" && <MiPerfilVendedorPanel />}
+      {/* El gate también acá: entrar por `?tab=perfil` a mano no puede
+              saltear lo que la pestaña esconde. */}
+          {tab === "perfil" && caps.calificaLeads && <MiPerfilVendedorPanel />}
     </div>
   );
 }

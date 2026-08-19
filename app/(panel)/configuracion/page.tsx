@@ -12,6 +12,7 @@ import { PlanConsumo } from "@/components/panel/PlanConsumo";
 import { ConfigComision } from "@/components/panel/ConfigComision";
 import { MiPerfilVendedorPanel } from "@/components/panel/MiPerfilVendedor";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
+import { useModoPedidos } from "@/lib/modo-negocio";
 import { leerSesion } from "@/lib/auth";
 import type { NegocioBandeja } from "@/lib/api";
 
@@ -44,6 +45,9 @@ function ConfiguracionInner() {
   // 2026-07-22: el recorte a captación es solo para AGRUPAR bandejas).
   const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
   const [tenantCfg, setTenantCfg] = useState("");
+  // Restaurante activo → la pestaña "Tu negocio" se queda con lo que su bot
+  // usa de verdad; el pipeline de captación (etapas, ritmo) no se muestra.
+  const esRestaurante = useModoPedidos() === true;
 
   useEffect(() => {
     setNegocios(
@@ -148,8 +152,16 @@ function ConfiguracionInner() {
           {tab === "negocio" && (
             <>
               <PlaybookEditor />
-              <EtapasEditor />
-              <RitmoSeguimiento />
+              {/* Etapas y ritmo de seguimiento son del pipeline de CAPTACIÓN:
+                  un restaurante no mueve leads por etapas ni hace seguimiento
+                  de tibios — sus pedidos avanzan solos (armando → pagado →
+                  cocina). Mostrárselos era ruido (2026-08-19). */}
+              {!esRestaurante && (
+                <>
+                  <EtapasEditor />
+                  <RitmoSeguimiento />
+                </>
+              )}
             </>
           )}
 

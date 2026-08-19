@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
 import { Seccion } from "@/components/panel/Seccion";
+import { useModoPedidos } from "@/lib/modo-negocio";
 
 // Tonos CURADOS del bot — lista canónica compartida con el backend
 // (TONOS_BOT en core/types.ts) y la app. Texto libre ya no se acepta.
@@ -42,6 +43,16 @@ export function PlaybookEditor() {
   const [perfil, setPerfil] = useState<PerfilNegocio>(PERFIL_VACIO);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [error, setError] = useState("");
+  // Un RESTAURANTE no califica leads (2026-08-19, pedido de Jonathan: "hay
+  // muchas configuraciones en ajustes que no tienen nada que ver"). Su bot
+  // toma pedidos: la maquinaria de captación —catálogo del playbook (su carta
+  // vive en /carta), preguntas clave, señales, objeciones, respuestas fijas
+  // (el camino de pedidos corta ANTES de evaluarlas, leads.ts:225 vs :291) y
+  // llamada a la acción— solo mete ruido. Lo que SÍ usa queda: nombre, tono,
+  // por qué elegirte y políticas alimentan la IA de preguntas libres, y el
+  // saludo abre el menú de pedidos (leadia a1cd566). `null` (aún no se sabe)
+  // muestra todo: mejor largo que un formulario que crece de golpe.
+  const esRestaurante = useModoPedidos() === true;
 
   useEffect(() => {
     let cancelado = false;
@@ -89,7 +100,11 @@ export function PlaybookEditor() {
     // se distinga de las secciones de abajo, que son ajustes de segundo orden.
     <Seccion
       titulo="Cómo atiende tu bot"
-      bajada="El playbook que usa la IA para responder por vos: tono, qué vendés, preguntas clave y objeciones."
+      bajada={
+        esRestaurante
+          ? "Cómo saluda y responde tu bot: tono, tu saludo y tus horarios y formas de pago. Tu carta se edita en su propia sección."
+          : "El playbook que usa la IA para responder por vos: tono, qué vendés, preguntas clave y objeciones."
+      }
       tono="hondo"
     >
       {/* El formulario en BLANCO dentro de la sección oscura: son ocho campos,
@@ -155,52 +170,64 @@ export function PlaybookEditor() {
         placeholder="Ej: 20 años de experiencia, atención el mismo día"
       />
 
-      <ListaCatalogo
-        catalogo={perfil.catalogo}
-        onChange={(catalogo) => setPerfil({ ...perfil, catalogo })}
-      />
-      <ListaSimple
-        titulo="Preguntas clave"
-        descripcion="Lo que el bot pregunta antes de avisarte que un cliente está listo para comprar"
-        placeholder="¿Para cuándo lo necesitás?"
-        valores={perfil.preguntasClave}
-        onChange={(preguntasClave) => setPerfil({ ...perfil, preguntasClave })}
-      />
-      <ListaSimple
-        titulo="Señales de que un cliente está listo para comprar"
-        descripcion="Lo que dice o pregunta un cliente que está por comprar"
-        placeholder="Ej: pregunta por precios y disponibilidad"
-        valores={perfil.senalesCaliente}
-        onChange={(senalesCaliente) => setPerfil({ ...perfil, senalesCaliente })}
-      />
-      <ListaSimple
-        titulo="Señales de que un cliente todavía no está listo"
-        descripcion="Lo que indica que todavía no está listo para comprar"
-        placeholder="Ej: solo pregunta info general, sin urgencia"
-        valores={perfil.senalesFrio}
-        onChange={(senalesFrio) => setPerfil({ ...perfil, senalesFrio })}
-      />
-      <ListaObjeciones
-        objeciones={perfil.objeciones}
-        onChange={(objeciones) => setPerfil({ ...perfil, objeciones })}
-      />
+      {!esRestaurante && (
+        <>
+          <ListaCatalogo
+            catalogo={perfil.catalogo}
+            onChange={(catalogo) => setPerfil({ ...perfil, catalogo })}
+          />
+          <ListaSimple
+            titulo="Preguntas clave"
+            descripcion="Lo que el bot pregunta antes de avisarte que un cliente está listo para comprar"
+            placeholder="¿Para cuándo lo necesitás?"
+            valores={perfil.preguntasClave}
+            onChange={(preguntasClave) => setPerfil({ ...perfil, preguntasClave })}
+          />
+          <ListaSimple
+            titulo="Señales de que un cliente está listo para comprar"
+            descripcion="Lo que dice o pregunta un cliente que está por comprar"
+            placeholder="Ej: pregunta por precios y disponibilidad"
+            valores={perfil.senalesCaliente}
+            onChange={(senalesCaliente) => setPerfil({ ...perfil, senalesCaliente })}
+          />
+          <ListaSimple
+            titulo="Señales de que un cliente todavía no está listo"
+            descripcion="Lo que indica que todavía no está listo para comprar"
+            placeholder="Ej: solo pregunta info general, sin urgencia"
+            valores={perfil.senalesFrio}
+            onChange={(senalesFrio) => setPerfil({ ...perfil, senalesFrio })}
+          />
+          <ListaObjeciones
+            objeciones={perfil.objeciones}
+            onChange={(objeciones) => setPerfil({ ...perfil, objeciones })}
+          />
+        </>
+      )}
 
       <div>
         <p className="mb-1 text-xs text-frio">
-          Es lo primero que el cliente lee cuando te escribe por primera vez.
+          {esRestaurante
+            ? "Abre el menú de pedidos: es lo primero que el cliente lee, antes de los botones y el link de tu carta."
+            : "Es lo primero que el cliente lee cuando te escribe por primera vez."}
         </p>
         <CampoArea
           label="El primer saludo del bot"
           value={perfil.mensajeBienvenida ?? ""}
           onChange={(v) => setPerfil({ ...perfil, mensajeBienvenida: v })}
-          placeholder="Ej: ¡Hola! Soy el asistente de [tu negocio] 😊 ¿En qué te puedo ayudar?"
+          placeholder={
+            esRestaurante
+              ? "Ej: ¡Bienvenido a [tu negocio]! 🍗 El mejor sabor de la zona."
+              : "Ej: ¡Hola! Soy el asistente de [tu negocio] 😊 ¿En qué te puedo ayudar?"
+          }
         />
       </div>
 
-      <ListaRespuestasFijas
-        respuestasFijas={perfil.respuestasFijas ?? []}
-        onChange={(respuestasFijas) => setPerfil({ ...perfil, respuestasFijas })}
-      />
+      {!esRestaurante && (
+        <ListaRespuestasFijas
+          respuestasFijas={perfil.respuestasFijas ?? []}
+          onChange={(respuestasFijas) => setPerfil({ ...perfil, respuestasFijas })}
+        />
+      )}
 
       <CampoArea
         label="Cómo trabajás (envíos, horarios, pagos)"
@@ -208,12 +235,14 @@ export function PlaybookEditor() {
         onChange={(v) => setPerfil({ ...perfil, politicas: v })}
         placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
       />
-      <CampoArea
-        label="Qué querés que hagan"
-        value={perfil.llamadaAccion}
-        onChange={(v) => setPerfil({ ...perfil, llamadaAccion: v })}
-        placeholder="Ej: Que agenden una llamada / que hagan el pedido"
-      />
+      {!esRestaurante && (
+        <CampoArea
+          label="Qué querés que hagan"
+          value={perfil.llamadaAccion}
+          onChange={(v) => setPerfil({ ...perfil, llamadaAccion: v })}
+          placeholder="Ej: Que agenden una llamada / que hagan el pedido"
+        />
+      )}
 
       <div className="flex items-center gap-3 pt-1">
         <button

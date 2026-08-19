@@ -31,7 +31,7 @@ import { Burbuja } from "@/components/Burbuja";
 import { ChipTemp } from "@/components/ChipTemp";
 import { IconoMic, IconoEnviar } from "@/components/Iconos";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
-import { useModoPedidos } from "@/lib/modo-negocio";
+import { useCapacidades } from "@/lib/modo-negocio";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -123,7 +123,14 @@ export default function ConversacionesPanel() {
   // suyas y no se pueden mezclar); las de la ficha siguen al lead elegido.
   // Un RESTAURANTE no tiene embudo (2026-08-19): sus contactos son gente que
   // pide comida, no leads que se califican. Lo de captación se oculta.
-  const modoPedidos = useModoPedidos();
+  // Cada bloque de abajo pregunta por la capacidad que le corresponde, no por
+  // "¿es restaurante?". Son preguntas distintas: el embudo es de quien mueve
+  // contactos por etapas, la temperatura de quien los califica. Una clínica
+  // dice que NO al embudo —el estado de su paciente es la CITA— pero SÍ a
+  // calificar, y con un solo booleano se le escondían las dos.
+  const negocio = useCapacidades();
+  const caps = negocio?.capacidades ?? null;
+  const modoPedidos = negocio === null ? null : negocio.modoPedidos;
   const [etapasBandeja, setEtapasBandeja] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
   const [etapasFicha, setEtapasFicha] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
   const [miembros, setMiembros] = useState<MiembroEquipo[]>([]);
@@ -614,15 +621,16 @@ export default function ConversacionesPanel() {
                 <span className="text-[0.78rem] tabular-nums">{n}</span>
               </button>
             ))}
-            {/* El EMBUDO no va en un restaurante: "En seguimiento",
-                "Escalados", "Ganados" y "Perdidos" son etapas de una venta que
-                se trabaja, no de un pedido de comida. */}
-            {!modoPedidos && (
+            {/* El EMBUDO es de quien mueve contactos por etapas: "En
+                seguimiento", "Escalados", "Ganados" y "Perdidos" son etapas de
+                una venta que se trabaja, no de un pedido de comida ni de una
+                cita que ya está agendada. */}
+            {caps?.tieneEmbudo && (
               <p className="px-2 pb-1 pt-3 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
                 Etapas del embudo
               </p>
             )}
-            {!modoPedidos && etapasBandeja.map((e) => (
+            {caps?.tieneEmbudo && etapasBandeja.map((e) => (
               <button
                 key={e.id}
                 onClick={() => setFiltroEtapa(filtroEtapa === e.id ? "" : e.id)}
@@ -709,7 +717,7 @@ export default function ConversacionesPanel() {
                           </span>
                         )}
                         <span className="mt-1 flex items-center gap-1.5 text-[0.7rem] font-semibold text-frio">
-                          {!modoPedidos && (
+                          {caps?.tieneEmbudo && (
                             <>
                               <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[et.color]}`} />
                               {et.nombre}
@@ -717,7 +725,7 @@ export default function ConversacionesPanel() {
                           )}
                           {negocios.length > 1 && l.negocioNombre ? (
                             <span className="truncate">
-                              {!modoPedidos && "· "}{l.negocioNombre}
+                              {caps?.tieneEmbudo && "· "}{l.negocioNombre}
                             </span>
                           ) : null}
                         </span>
@@ -746,8 +754,8 @@ export default function ConversacionesPanel() {
                       {lead.nombre ?? lead.contactoExterno}
                     </p>
                     <p className="flex items-center gap-1.5 text-[0.75rem] text-frio">
-                      {/* La ETAPA solo en captación: en pedidos el canal alcanza. */}
-                      {!modoPedidos && (
+                      {/* La ETAPA solo donde hay embudo: si no, el canal alcanza. */}
+                      {caps?.tieneEmbudo && (
                         <>
                           <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[etapaVisibleDe(lead, etapasFicha).color]}`} />
                           {etapaVisibleDe(lead, etapasFicha).nombre}
@@ -954,10 +962,10 @@ export default function ConversacionesPanel() {
               {/* Etapa del embudo (las del NEGOCIO, personalizables en
                   Configuración → Tu negocio). Mover acá sincroniza el motor.
 
-                  NO en restaurantes: quien pide comida no pasa por un embudo
-                  de venta, y el selector invitaba a mover a "Ganado"/"Perdido"
-                  a alguien que solo pidió una hamburguesa. */}
-              {!modoPedidos && (
+                  Solo donde hay embudo: quien pide comida no pasa por uno, y
+                  el selector invitaba a mover a "Ganado"/"Perdido" a alguien
+                  que solo pidió una hamburguesa. */}
+              {caps?.tieneEmbudo && (
               <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <p className="mb-1.5 text-[0.75rem] font-bold uppercase tracking-wide text-frio">
                   Etapa del embudo

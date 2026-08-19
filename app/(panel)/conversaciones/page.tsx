@@ -130,7 +130,6 @@ export default function ConversacionesPanel() {
   // calificar, y con un solo booleano se le escondían las dos.
   const negocio = useCapacidades();
   const caps = negocio?.capacidades ?? null;
-  const modoPedidos = negocio === null ? null : negocio.modoPedidos;
   const [etapasBandeja, setEtapasBandeja] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
   const [etapasFicha, setEtapasFicha] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
   const [miembros, setMiembros] = useState<MiembroEquipo[]>([]);
@@ -849,6 +848,17 @@ export default function ConversacionesPanel() {
                   campo de escribir abajo a TODO el ancho. */}
               <div className="space-y-2 border-t border-linea bg-carta px-3 py-2.5">
                 <div className="flex items-center gap-2">
+                  {/* "Asistente IA" solo donde la IA REDACTA (2026-08-19).
+                      En un restaurante el bot no conversa: manda el link y el
+                      cliente arma su pedido con botones en la carta web. El
+                      borrador sería para una charla que no va a existir, y
+                      además gasta de la misma bolsa con la que el bot lee las
+                      capturas de pago.
+
+                      "Corregir" (más abajo) SÍ queda para todos: corrige lo
+                      que el dueño escribió a mano, y eso sirve en cualquier
+                      rubro. */}
+                  {caps?.redactaRespuestas && (
                   <button
                     type="button"
                     onClick={pedirSugerencia}
@@ -858,6 +868,7 @@ export default function ConversacionesPanel() {
                   >
                     ✦ {sugiriendo ? "Pensando…" : "Asistente IA"}
                   </button>
+                  )}
                   <select
                     value={tono}
                     onChange={(e) => setTono(e.target.value as typeof tono)}
@@ -1127,11 +1138,12 @@ export default function ConversacionesPanel() {
                 )}
               </div>
 
-              {/* Cierre: venta / descartar. NO en restaurantes (2026-08-19):
-                  la venta la registra el PEDIDO, no el dueño a mano, y
-                  "descartar este lead" no tiene sentido con alguien que acaba
-                  de pedir comida. */}
-              {!modoPedidos && (
+              {/* Cierre: venta / descartar. Solo donde se cierra A MANO
+                  (2026-08-19): en pedidos la venta la registra el PEDIDO y en
+                  una clínica la CITA; pedirle al dueño que además la anote es
+                  hacerle cargar dos veces lo mismo. Y "descartar este lead" no
+                  tiene sentido con alguien que acaba de pedir comida. */}
+              {caps?.cierreManualDeVenta && (
               <div className="flex flex-col gap-2">
                 {lead.estado === "ganado" ? (
                   <div className="rounded-tarjeta bg-ok/10 p-3.5 ring-1 ring-ok/30">

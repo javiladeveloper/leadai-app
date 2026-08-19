@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { resumenPedidos, obtenerUso, type ResumenPedidos, type Uso } from "@/lib/api";
 import { obtenerNegocio, type NegocioCarta } from "@/lib/carta";
 import { leerEmpresaActiva } from "@/lib/auth";
 import { soles } from "@/lib/precio";
+import { usarNumeroAnimado } from "@/lib/usar-numero-animado";
 
 /**
  * EL INICIO DE UN RESTAURANTE (2026-08-19).
@@ -68,6 +69,11 @@ export function InicioRestaurante() {
     setTimeout(() => setCopiado(false), 2000);
   }
 
+  // ANTES del return: un hook detrás de un `return` condicional cambia el
+  // orden entre renders y React lo rechaza —"Rendered more hooks than during
+  // the previous render"—. Pasó al agregar esto (2026-08-19).
+  const vendidoHoy = usarNumeroAnimado(pedidos?.hoyCentavos ?? 0);
+
   if (cargando) {
     return (
       <div className="space-y-5">
@@ -88,8 +94,11 @@ export function InicioRestaurante() {
       <section className="rounded-tarjeta bg-superficie-honda p-5 text-arena shadow-[var(--sombra-tarjeta)] lg:p-6">
         <p className="text-[0.68rem] font-bold uppercase tracking-wide text-orbita">Hoy</p>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+          {/* LO VENDIDO SUBE, no salta (2026-08-19). Es el primer número que
+              el dueño mira al abrir, y la pantalla se refresca sola: verlo
+              contar es enterarse de que entró una venta. */}
           <p className="text-[2.6rem] font-bold leading-none tabular-nums">
-            {soles(pedidos?.hoyCentavos ?? 0)}
+            {soles(vendidoHoy)}
           </p>
           <p className="text-[0.9rem] text-arena/70">
             {pedidos?.hoyPedidos === 1
@@ -142,27 +151,14 @@ export function InicioRestaurante() {
           </p>
         ) : (
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {ETAPAS.map((e) => {
-              const n = pedidos?.[e.clave] ?? 0;
-              return (
-                <div
-                  key={e.clave}
-                  className={`rounded-tarjeta px-3 py-3 text-center ${
-                    n > 0 ? "bg-arena ring-1 ring-linea" : "bg-arena/40"
-                  }`}
-                >
-                  <p className="text-[1.1rem]" aria-hidden>{e.emoji}</p>
-                  <p
-                    className={`mt-0.5 text-[1.6rem] font-bold leading-none tabular-nums ${
-                      n > 0 ? "text-tinta" : "text-frio/50"
-                    }`}
-                  >
-                    {n}
-                  </p>
-                  <p className="mt-0.5 text-[0.75rem] text-frio">{e.nombre}</p>
-                </div>
-              );
-            })}
+            {ETAPAS.map((e) => (
+              <Contador
+                key={e.clave}
+                valor={pedidos?.[e.clave] ?? 0}
+                emoji={e.emoji}
+                nombre={e.nombre}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -172,7 +168,7 @@ export function InicioRestaurante() {
         <section className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
           <h2 className="text-[1.02rem] font-bold text-tinta">Tu carta</h2>
           <p className="mt-0.5 text-[0.84rem] text-frio">
-            Compartí este link por WhatsApp, Instagram o donde vendas.
+            Comparte este link por WhatsApp, Instagram o donde vendas.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <code className="min-w-0 flex-1 truncate rounded-lg bg-arena px-3 py-2 text-[0.82rem] text-tinta-2">
@@ -205,6 +201,49 @@ export function InicioRestaurante() {
           )}
         </section>
       )}
+    </div>
+  );
+}
+
+/**
+ * UN CONTADOR QUE AVISA CUANDO SUBE (2026-08-19).
+ *
+ * Esta pantalla se refresca sola cada 30 segundos y suele quedar abierta en la
+ * compu del mostrador. Sin movimiento, un pedido nuevo solo cambia un dígito:
+ * el dueño está atendiendo a alguien, mira de reojo y no se entera.
+ *
+ * Cuando SUBE, la tarjeta pulsa. Cuando BAJA no pasa nada —despachar un pedido
+ * es una buena noticia que el dueño ya conoce porque la provocó él—.
+ */
+function Contador({ valor, emoji, nombre }: { valor: number; emoji: string; nombre: string }) {
+  const [pulsa, setPulsa] = useState(false);
+  const previo = useRef(valor);
+
+  useEffect(() => {
+    if (valor > previo.current) {
+      setPulsa(true);
+      const t = setTimeout(() => setPulsa(false), 900);
+      previo.current = valor;
+      return () => clearTimeout(t);
+    }
+    previo.current = valor;
+  }, [valor]);
+
+  return (
+    <div
+      className={`rounded-tarjeta px-3 py-3 text-center transition-[background-color,box-shadow] duration-300 ${
+        valor > 0 ? "bg-arena ring-1 ring-linea" : "bg-arena/40"
+      } ${pulsa ? "late ring-2 ring-brasa" : ""}`}
+    >
+      <p className="text-[1.1rem]" aria-hidden>{emoji}</p>
+      <p
+        className={`mt-0.5 text-[1.6rem] font-bold leading-none tabular-nums ${
+          valor > 0 ? "text-tinta" : "text-frio/50"
+        }`}
+      >
+        {valor}
+      </p>
+      <p className="mt-0.5 text-[0.75rem] text-frio">{nombre}</p>
     </div>
   );
 }

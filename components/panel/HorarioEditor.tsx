@@ -81,7 +81,7 @@ export function HorarioEditor() {
       return;
     }
     if (!/^\d+(\.\d{1,2})?$/.test(limpio)) {
-      setError("Poné un monto como 30 o 30.00.");
+      setError("Pon un monto como 30 o 30.00.");
       setMinimoTexto(cfg.minimoDeliveryCentavos > 0 ? (cfg.minimoDeliveryCentavos / 100).toFixed(2) : "");
       return;
     }

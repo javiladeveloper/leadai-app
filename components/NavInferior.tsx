@@ -3,69 +3,23 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useModoPedidos } from "@/lib/modo-negocio";
+import { useCapacidades } from "@/lib/modo-negocio";
+import { SECCIONES } from "@/components/panel/Sidebar";
+import { seccionesDe, rapidosDe } from "@/lib/secciones";
 import { esSuperAdmin } from "@/lib/auth";
 import {
   IconoInicio, IconoConversaciones, IconoSeguimiento, IconoFlujos,
   IconoBandeja, IconoReportes, IconoConfig, IconoRayo, IconoOportunidades,
 } from "./Iconos";
 
-// Accesos rápidos en la barra (4) — lo más usado día a día. El resto vive en
-// el menú "Más" para que NADA quede inaccesible en móvil.
-const RAPIDOS = [
-  { href: "/inicio", label: "Inicio", Icono: IconoInicio },
-  { href: "/conversaciones", label: "Chats", Icono: IconoConversaciones },
-  { href: "/seguimiento", label: "Pipeline", Icono: IconoSeguimiento },
-  { href: "/leads", label: "Leads", Icono: IconoBandeja },
-];
-
 /**
- * Los cuatro accesos de un RESTAURANTE (2026-08-17).
+ * La barra de móvil usa LA MISMA lista que el Sidebar (2026-08-19).
  *
- * Pipeline y Leads son de captación: un negocio de comida no los abre nunca, y
- * en cambio su Carta —lo que toca a diario— quedaba escondida bajo "Más".
+ * Antes acá había cuatro listas propias —accesos rápidos, accesos rápidos de
+ * restaurante, qué ve un restaurante en "Más", y qué NO ve el que no lo es—
+ * duplicando lo que el Sidebar ya decía. Agregar una sección obligaba a
+ * acordarse de las dos pantallas, y ya se había desincronizado.
  */
-const RAPIDOS_PEDIDOS = [
-  { href: "/inicio", label: "Inicio", Icono: IconoInicio },
-  { href: "/conversaciones", label: "Chats", Icono: IconoConversaciones },
-  { href: "/carta", label: "Carta", Icono: IconoOportunidades },
-  { href: "/configuracion", label: "Ajustes", Icono: IconoConfig },
-];
-
-/** Las secciones que ve un restaurante en "Más" (ver Sidebar.tsx). */
-const SECCIONES_PEDIDOS = ["/inicio", "/conversaciones", "/carta", "/configuracion"];
-
-/** La Carta es SOLO de restaurantes: un negocio de ventas no tiene platos. */
-const SOLO_PEDIDOS = ["/carta"];
-
-// Todas las secciones del panel (mismas que el Sidebar de escritorio). El menú
-// "Más" las muestra completas para que en móvil se llegue a cualquier pantalla.
-const TODAS = [
-  { href: "/inicio", label: "Inicio", Icono: IconoInicio },
-  { href: "/conversaciones", label: "Conversaciones", Icono: IconoConversaciones },
-  { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones },
-  { href: "/publicar", label: "Publicar", Icono: IconoOportunidades },
-  { href: "/anuncios", label: "Anuncios", Icono: IconoRayo },
-  { href: "/campanias", label: "Campañas", Icono: IconoRayo },
-  { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
-  { href: "/carta", label: "Carta", Icono: IconoOportunidades },
-  { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
-  // "Probar bot" NO va en el menú (2026-08-17). Era andamiaje para ver cómo
-  // respondía la IA mientras se resolvía el tema del tech provider de Meta;
-  // con WhatsApp ya conectado, el dueño prueba escribiéndose a sí mismo y esa
-  // es la prueba de verdad.
-  //
-  // La pantalla y el endpoint SIGUEN VIVOS: /probar-bot responde si se entra a
-  // mano, y `evals/golden.test.ts` usa /simular-mensaje en el CI. Solo se saca
-  // del menú.
-  // { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
-  { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
-  // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona).
-  { href: "/leads", label: "Leads", Icono: IconoBandeja },
-  { href: "/reportes", label: "Reportes", Icono: IconoReportes },
-  { href: "/equipo", label: "Equipo", Icono: IconoConversaciones },
-  { href: "/configuracion", label: "Configuración", Icono: IconoConfig },
-];
 
 // Barra de navegación inferior (móvil). Antes tenía 5 destinos fijos y dejaba
 // 6 pantallas del panel inaccesibles (Seguimiento, Flujos, Probar bot,
@@ -77,11 +31,10 @@ export function NavInferior() {
   const superAdmin = esSuperAdmin();
   // Mientras no se sabe (`null`) se muestra el menú completo: acortarlo de
   // entrada y alargarlo después es el parpadeo más molesto de los dos.
-  const modoPedidos = useModoPedidos();
-  const rapidos = modoPedidos ? RAPIDOS_PEDIDOS : RAPIDOS;
-  const todas = modoPedidos
-    ? TODAS.filter((s) => SECCIONES_PEDIDOS.includes(s.href))
-    : TODAS.filter((s) => !SOLO_PEDIDOS.includes(s.href));
+  const negocio = useCapacidades();
+  const caps = negocio?.capacidades ?? null;
+  const rapidos = caps ? rapidosDe(SECCIONES, caps) : SECCIONES.filter((s) => s.rapido !== undefined).slice(0, 4);
+  const todas = caps ? seccionesDe(SECCIONES, caps) : SECCIONES;
 
   return (
     <>
@@ -133,7 +86,9 @@ export function NavInferior() {
 
       <nav className="sticky bottom-0 z-20 border-t border-linea bg-carta/95 backdrop-blur">
         <div className="mx-auto flex max-w-[460px]">
-          {rapidos.map(({ href, label, Icono }) => {
+          {/* `corto` cuando existe: en la barra angosta "Conversaciones" y
+              "Configuración" no entran — van como "Chats" y "Ajustes". */}
+          {rapidos.map(({ href, label, corto, Icono }) => {
             const activo = path.startsWith(href);
             return (
               <Link
@@ -145,7 +100,7 @@ export function NavInferior() {
                 aria-current={activo ? "page" : undefined}
               >
                 <Icono className="h-6 w-6" />
-                {label}
+                {corto ?? label}
               </Link>
             );
           })}

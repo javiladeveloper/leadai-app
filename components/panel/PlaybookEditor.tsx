@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
 import { Seccion } from "@/components/panel/Seccion";
-import { useModoPedidos } from "@/lib/modo-negocio";
+import { useCapacidades } from "@/lib/modo-negocio";
 
 // Tonos CURADOS del bot — lista canónica compartida con el backend
 // (TONOS_BOT en core/types.ts) y la app. Texto libre ya no se acepta.
@@ -52,7 +52,12 @@ export function PlaybookEditor() {
   // por qué elegirte y políticas alimentan la IA de preguntas libres, y el
   // saludo abre el menú de pedidos (leadia a1cd566). `null` (aún no se sabe)
   // muestra todo: mejor largo que un formulario que crece de golpe.
-  const esRestaurante = useModoPedidos() === true;
+  // Cada bloque de acá abajo pregunta por la capacidad que le corresponde,
+  // no por "¿es restaurante?". Son preguntas distintas: el catálogo es de
+  // quien CALIFICA, las respuestas fijas de quien REDACTA. Una clínica dice
+  // que sí a las dos; un restaurante, a ninguna.
+  const negocio = useCapacidades();
+  const caps = negocio?.capacidades ?? null;
 
   useEffect(() => {
     let cancelado = false;
@@ -101,7 +106,7 @@ export function PlaybookEditor() {
     <Seccion
       titulo="Cómo atiende tu bot"
       bajada={
-        esRestaurante
+        caps?.tieneCarta
           ? "Cómo saluda y responde tu bot: tono, tu saludo y tus horarios y formas de pago. Tu carta se edita en su propia sección."
           : "El playbook que usa la IA para responder por vos: tono, qué vendés, preguntas clave y objeciones."
       }
@@ -170,7 +175,7 @@ export function PlaybookEditor() {
         placeholder="Ej: 20 años de experiencia, atención el mismo día"
       />
 
-      {!esRestaurante && (
+      {caps?.calificaLeads && (
         <>
           <ListaCatalogo
             catalogo={perfil.catalogo}
@@ -206,7 +211,7 @@ export function PlaybookEditor() {
 
       <div>
         <p className="mb-1 text-xs text-frio">
-          {esRestaurante
+          {caps?.tieneCarta
             ? "Abre el menú de pedidos: es lo primero que el cliente lee, antes de los botones y el link de tu carta."
             : "Es lo primero que el cliente lee cuando te escribe por primera vez."}
         </p>
@@ -215,14 +220,14 @@ export function PlaybookEditor() {
           value={perfil.mensajeBienvenida ?? ""}
           onChange={(v) => setPerfil({ ...perfil, mensajeBienvenida: v })}
           placeholder={
-            esRestaurante
+            caps?.tieneCarta
               ? "Ej: ¡Bienvenido a [tu negocio]! 🍗 El mejor sabor de la zona."
               : "Ej: ¡Hola! Soy el asistente de [tu negocio] 😊 ¿En qué te puedo ayudar?"
           }
         />
       </div>
 
-      {!esRestaurante && (
+      {caps?.redactaRespuestas && (
         <ListaRespuestasFijas
           respuestasFijas={perfil.respuestasFijas ?? []}
           onChange={(respuestasFijas) => setPerfil({ ...perfil, respuestasFijas })}
@@ -235,7 +240,7 @@ export function PlaybookEditor() {
         onChange={(v) => setPerfil({ ...perfil, politicas: v })}
         placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
       />
-      {!esRestaurante && (
+      {caps?.calificaLeads && (
         <CampoArea
           label="Qué querés que hagan"
           value={perfil.llamadaAccion}

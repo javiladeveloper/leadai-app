@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { leerSesion, esSuperAdmin } from "@/lib/auth";
-import { useModoPedidos } from "@/lib/modo-negocio";
+import { useCapacidades } from "@/lib/modo-negocio";
+import { seccionesDe, type Seccion } from "@/lib/secciones";
 import { ContadorHits } from "@/components/panel/ContadorHits";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 import {
@@ -14,22 +15,35 @@ import {
 
 // Panel de NEGOCIO (dueño de un negocio). El panel de plataforma (Aprendizaje,
 // Métricas, Negocios) vive aparte en /admin, solo para super admins.
-const SECCIONES = [
-  { href: "/inicio", label: "Inicio", Icono: IconoInicio },
-  { href: "/conversaciones", label: "Conversaciones", Icono: IconoConversaciones },
-  { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones },
-  { href: "/publicar", label: "Publicar", Icono: IconoOportunidades },
-  { href: "/anuncios", label: "Anuncios", Icono: IconoRayo },
+//
+// CADA SECCIÓN DECLARA QUÉ NECESITA (2026-08-19). `requiere` es la capacidad
+// sin la cual esa sección no tiene sentido; sin `requiere`, la ve todo el
+// mundo. Antes esto eran dos listas de rutas que solo sabían de dos rubros, y
+// por eso una clínica —que no es restaurante— se llevaba Anuncios, Campañas y
+// el embudo entero, ninguno de los cuales usa.
+//
+// Ahora, agregar un rubro es una fila en la tabla del backend
+// (`core/capacidades-rubro.ts`) y este archivo no se toca.
+export const SECCIONES: Seccion[] = [
+  { href: "/inicio", label: "Inicio", Icono: IconoInicio, rapido: 0 },
+  { href: "/conversaciones", label: "Conversaciones", corto: "Chats", Icono: IconoConversaciones, rapido: 1 },
+  { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones, requiere: "calificaLeads" },
+  { href: "/publicar", label: "Publicar", Icono: IconoOportunidades, requiere: "calificaLeads" },
+  { href: "/anuncios", label: "Anuncios", Icono: IconoRayo, requiere: "calificaLeads" },
   // Campañas HSM (2026-08-17): envíos masivos de plantillas de WhatsApp a la
   // base de leads. Los envíos NO consumen cuota de clientes; el peaje de Meta
   // va directo al método de pago del negocio en su WABA.
-  { href: "/campanias", label: "Campañas", Icono: IconoRayo },
-  { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento },
+  { href: "/campanias", label: "Campañas", Icono: IconoRayo, requiere: "nutreLeads" },
+  { href: "/seguimiento", label: "Seguimiento", corto: "Pipeline", Icono: IconoSeguimiento, requiere: "tieneEmbudo", rapido: 2 },
   // La carta del restaurante: lo que ve el cliente en /c/<tenantId> y lo que
   // el bot lee para tomar pedidos. Se editaba en la app móvil hasta que se
   // movió acá (2026-08-17): 40 platos con el pulgar no los carga nadie.
-  { href: "/carta", label: "Carta", Icono: IconoOportunidades },
-  { href: "/flujos", label: "Flujos", Icono: IconoFlujos },
+  //
+  // Comparte prioridad con Seguimiento a propósito: ningún negocio tiene las
+  // dos, así que el tercer acceso rápido es el embudo o la carta según quién
+  // sea. Antes esto exigía una segunda lista escrita a mano.
+  { href: "/carta", label: "Carta", Icono: IconoOportunidades, requiere: "tieneCarta", rapido: 2 },
+  { href: "/flujos", label: "Flujos", Icono: IconoFlujos, requiere: "redactaRespuestas" },
   // "Probar bot" NO va en el menú (2026-08-17). Era andamiaje para ver cómo
   // respondía la IA mientras se resolvía el tema del tech provider de Meta;
   // con WhatsApp ya conectado, el dueño prueba escribiéndose a sí mismo y esa
@@ -39,38 +53,21 @@ const SECCIONES = [
   // mano, y `evals/golden.test.ts` usa /simular-mensaje en el CI. Solo se saca
   // del menú.
   // { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
-  { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades },
+  { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades, requiere: "tieneEmbudo" },
   // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona,
   // no de un negocio; decisión 2026-07-22).
-  { href: "/leads", label: "Leads", Icono: IconoBandeja },
-  { href: "/reportes", label: "Reportes", Icono: IconoReportes },
-  { href: "/equipo", label: "Equipo", Icono: IconoConversaciones },
-  { href: "/configuracion", label: "Configuración", Icono: IconoConfig },
+  { href: "/leads", label: "Leads", Icono: IconoBandeja, requiere: "calificaLeads", rapido: 3 },
+  // Reportes y Equipo son de CAPTACIÓN (2026-08-19). Un restaurante ve lo que
+  // vendió hoy en su Inicio —InicioRestaurante— y casi siempre lo maneja una
+  // sola persona; en la migración a capacidades se le colaron las dos porque
+  // no declaraban nada, y hasta ese momento nunca las había visto.
+  { href: "/reportes", label: "Reportes", Icono: IconoReportes, requiere: "calificaLeads" },
+  { href: "/equipo", label: "Equipo", Icono: IconoConversaciones, requiere: "calificaLeads" },
+  // Ajustes entra a la barra de móvil solo si sobra lugar: en captación los
+  // cuatro puestos ya se llenan con Pipeline y Leads.
+  { href: "/configuracion", label: "Configuración", corto: "Ajustes", Icono: IconoConfig, rapido: 4 },
 ];
 
-/**
- * LO QUE VE UN RESTAURANTE (2026-08-17).
- *
- * Un negocio de comida no capta leads: no hace anuncios, no arma flujos, no
- * tiene un embudo de oportunidades. Mostrarle catorce secciones de las que usa
- * cuatro no es "más funciones", es un menú donde no encuentra su carta.
- *
- * Las demás se OCULTAN, no se muestran con candado: no hay un plan que ofrecer
- * todavía, y un candado que no lleva a ningún lado es peor que la ausencia.
- */
-const SECCIONES_PEDIDOS = ["/inicio", "/conversaciones", "/carta", "/configuracion"];
-
-/**
- * Y AL REVÉS: la Carta es SOLO de restaurantes (2026-08-17).
- *
- * Un negocio de ventas —los planes de captación, que son los que más pagan— no
- * tiene platos ni precios de cocina. Verlo en su menú no le suma una función:
- * le suma una sección que abre algo que no le sirve.
- *
- * Va aparte de la lista de arriba porque son dos preguntas distintas: aquella
- * dice qué ve un restaurante, esta dice qué NO ve el que no lo es.
- */
-const SOLO_PEDIDOS = ["/carta"];
 
 const CLAVE_SIDEBAR = "leadai.sidebar"; // '1' expandido | '0' colapsado
 
@@ -88,13 +85,8 @@ export function Sidebar() {
   //
   // Ahora se dibujan placeholders. En la práctica casi no se ven: el modo
   // queda guardado en localStorage y el F5 pinta el menú correcto de una.
-  const modoPedidos = useModoPedidos();
-  const secciones =
-    modoPedidos === null
-      ? []
-      : modoPedidos
-        ? SECCIONES.filter((s) => SECCIONES_PEDIDOS.includes(s.href))
-        : SECCIONES.filter((s) => !SOLO_PEDIDOS.includes(s.href));
+  const negocio = useCapacidades();
+  const secciones = negocio === null ? [] : seccionesDe(SECCIONES, negocio.capacidades);
   const nombre = sesion?.usuario?.nombre ?? sesion?.usuario?.email ?? "Mi cuenta";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "?";
 
@@ -145,10 +137,10 @@ export function Sidebar() {
           </button>
         </div>
       )}
-      {/* Alta manual de lead. NO en restaurantes (2026-08-17): sus clientes
+      {/* Alta manual de contacto. NO en restaurantes (2026-08-17): sus clientes
           entran por WhatsApp y nadie carga uno a mano — el botón ocupaba el
           lugar más visible del menú sin servir para nada. */}
-      {modoPedidos === false && (
+      {negocio?.capacidades.altaManualDeLead && (
         <div className="px-3 pb-3">
           <Link
             href="/leads?nuevo=1"
@@ -167,7 +159,7 @@ export function Sidebar() {
             captación y después acortarlo era peor — el dueño de un restaurante
             veía secciones que no le corresponden. Cuatro filas porque es el
             menú más corto: crecer no molesta, encoger sí. */}
-        {modoPedidos === null &&
+        {negocio === null &&
           [0, 1, 2, 3].map((i) => (
             <div key={i} className="flex items-center gap-3 px-3 py-2.5">
               <span className="h-5 w-5 shrink-0 animate-pulse rounded bg-arena/10" />

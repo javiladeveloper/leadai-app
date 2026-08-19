@@ -12,7 +12,7 @@ import { PlanConsumo } from "@/components/panel/PlanConsumo";
 import { ConfigComision } from "@/components/panel/ConfigComision";
 import { MiPerfilVendedorPanel } from "@/components/panel/MiPerfilVendedor";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
-import { useModoPedidos } from "@/lib/modo-negocio";
+import { useCapacidades } from "@/lib/modo-negocio";
 import { leerSesion } from "@/lib/auth";
 import type { NegocioBandeja } from "@/lib/api";
 
@@ -47,7 +47,7 @@ function ConfiguracionInner() {
   const [tenantCfg, setTenantCfg] = useState("");
   // Restaurante activo → la pestaña "Tu negocio" se queda con lo que su bot
   // usa de verdad; el pipeline de captación (etapas, ritmo) no se muestra.
-  const esRestaurante = useModoPedidos() === true;
+  const caps = useCapacidades()?.capacidades ?? null;
 
   useEffect(() => {
     setNegocios(
@@ -152,16 +152,17 @@ function ConfiguracionInner() {
           {tab === "negocio" && (
             <>
               <PlaybookEditor />
-              {/* Etapas y ritmo de seguimiento son del pipeline de CAPTACIÓN:
-                  un restaurante no mueve leads por etapas ni hace seguimiento
-                  de tibios — sus pedidos avanzan solos (armando → pagado →
-                  cocina). Mostrárselos era ruido (2026-08-19). */}
-              {!esRestaurante && (
-                <>
-                  <EtapasEditor />
-                  <RitmoSeguimiento />
-                </>
-              )}
+              {/* Un restaurante no mueve contactos por etapas ni hace
+                  seguimiento de tibios — sus pedidos avanzan solos (armando →
+                  pagado → cocina). Mostrárselos era ruido (2026-08-19).
+
+                  Se preguntan POR SEPARADO (2026-08-19) porque no son la misma
+                  cosa: una clínica NUTRE —recordatorios de cita— pero no tiene
+                  embudo, porque el estado real del paciente es su cita y no una
+                  etapa que alguien arrastra. Con un solo `if` se le escondían
+                  las dos. */}
+              {caps?.tieneEmbudo && <EtapasEditor />}
+              {caps?.nutreLeads && <RitmoSeguimiento />}
             </>
           )}
 

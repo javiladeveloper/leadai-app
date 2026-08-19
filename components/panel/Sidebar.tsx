@@ -81,13 +81,20 @@ export function Sidebar() {
   const path = usePathname();
   const sesion = leerSesion();
   const superAdmin = esSuperAdmin();
-  // `null` mientras no se sabe: se muestra el menú completo hasta tener la
-  // respuesta. Al revés (asumir restaurante) el menú aparecería corto y se
-  // alargaría de golpe, que es el parpadeo más molesto de los dos.
+  // `null` = todavía no se sabe. NO se adivina (2026-08-19): antes se mostraba
+  // el menú completo mientras llegaba la respuesta, así que al recargar el
+  // restaurante veía las trece secciones de captación —Anuncios, Campañas,
+  // Flujos, Leads…— y un segundo después el menú se acortaba de golpe.
+  //
+  // Ahora se dibujan placeholders. En la práctica casi no se ven: el modo
+  // queda guardado en localStorage y el F5 pinta el menú correcto de una.
   const modoPedidos = useModoPedidos();
-  const secciones = modoPedidos
-    ? SECCIONES.filter((s) => SECCIONES_PEDIDOS.includes(s.href))
-    : SECCIONES.filter((s) => !SOLO_PEDIDOS.includes(s.href));
+  const secciones =
+    modoPedidos === null
+      ? []
+      : modoPedidos
+        ? SECCIONES.filter((s) => SECCIONES_PEDIDOS.includes(s.href))
+        : SECCIONES.filter((s) => !SOLO_PEDIDOS.includes(s.href));
   const nombre = sesion?.usuario?.nombre ?? sesion?.usuario?.email ?? "Mi cuenta";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "?";
 
@@ -141,7 +148,7 @@ export function Sidebar() {
       {/* Alta manual de lead. NO en restaurantes (2026-08-17): sus clientes
           entran por WhatsApp y nadie carga uno a mano — el botón ocupaba el
           lugar más visible del menú sin servir para nada. */}
-      {!modoPedidos && (
+      {modoPedidos === false && (
         <div className="px-3 pb-3">
           <Link
             href="/leads?nuevo=1"
@@ -156,6 +163,18 @@ export function Sidebar() {
         </div>
       )}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 [scrollbar-width:none]">
+        {/* Mientras no se sabe qué menú va, filas en gris: dibujar el menú de
+            captación y después acortarlo era peor — el dueño de un restaurante
+            veía secciones que no le corresponden. Cuatro filas porque es el
+            menú más corto: crecer no molesta, encoger sí. */}
+        {modoPedidos === null &&
+          [0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+              <span className="h-5 w-5 shrink-0 animate-pulse rounded bg-arena/10" />
+              {expandido && <span className="h-3 w-24 animate-pulse rounded bg-arena/10" />}
+            </div>
+          ))}
+
         {secciones.map(({ href, label, Icono }) => {
           const activo = path.startsWith(href);
           return (

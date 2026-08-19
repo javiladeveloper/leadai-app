@@ -447,6 +447,19 @@ export function resumenDescuento(
     partes.push(d.dias.map((n) => DIAS[n]).join(" y "));
   }
   if (d.horaDesde && d.horaHasta) partes.push(`${d.horaDesde}–${d.horaHasta}`);
+
+  // La TEMPORADA, si tiene. Una promo vencida que sigue en la lista sin decir
+  // que venció es la misma clase de mentira que las promos que se veían todas
+  // iguales: se lee "activa" y no está aplicando nada.
+  if (d.desde || d.hasta) {
+    const f = (s: string) => s.slice(0, 10).split("-").reverse().slice(0, 2).join("/");
+    partes.push(
+      d.desde && d.hasta ? `${f(d.desde)}–${f(d.hasta)}`
+        : d.desde ? `desde ${f(d.desde)}`
+          : `hasta ${f(d.hasta!)}`,
+    );
+  }
+
   return partes.join(" · ");
 }
 

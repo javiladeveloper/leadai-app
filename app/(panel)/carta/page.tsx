@@ -1400,6 +1400,12 @@ function HojaPromo({
   const [cats, setCats] = useState<string[]>([]);
   const [horaDesde, setHoraDesde] = useState("");
   const [horaHasta, setHoraHasta] = useState("");
+  // TEMPORADA (2026-08-19). El modelo ya tenía `desde`/`hasta` pero el
+  // formulario no los exponía, así que una promo de Fiestas Patrias solo se
+  // podía cargar por API — y quedaba encendida para siempre hasta que alguien
+  // se acordara de apagarla a mano.
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [errorCampo, setErrorCampo] = useState("");
   const foto = useFoto(null);
@@ -1437,6 +1443,13 @@ function HojaPromo({
       return;
     }
 
+    // Una temporada al revés no aplica NUNCA, y el dueño juraría que la promo
+    // está rota. Es barato avisarlo acá.
+    if (desde && hasta && desde > hasta) {
+      setErrorCampo("La fecha de inicio tiene que ser anterior a la de fin.");
+      return;
+    }
+
     setErrorCampo("");
     setGuardando(true);
     const preset = TIPOS_PROMO.find((x) => x.id === clase)!;
@@ -1447,6 +1460,8 @@ function HojaPromo({
       dias,
       horaDesde: horaDesde || null,
       horaHasta: horaHasta || null,
+      desde: desde || null,
+      hasta: hasta || null,
       // Sin categorías elegidas la promo alcanza toda la carta, que es lo que
       // el dueño ve escrito arriba del selector.
       alcance: cats.length > 0 ? "categoria" : "todo",
@@ -1593,6 +1608,26 @@ function HojaPromo({
                   {nombreDia}
                 </button>
               ))}
+            </div>
+          </Campo>
+
+          <Campo etiqueta="Temporada" ayuda="Vacío = sin fecha de fin">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="date"
+                value={desde}
+                onChange={(e) => setDesde(e.target.value)}
+                aria-label="Desde qué fecha"
+                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta"
+              />
+              <span className="text-frio">a</span>
+              <input
+                type="date"
+                value={hasta}
+                onChange={(e) => setHasta(e.target.value)}
+                aria-label="Hasta qué fecha"
+                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta"
+              />
             </div>
           </Campo>
 

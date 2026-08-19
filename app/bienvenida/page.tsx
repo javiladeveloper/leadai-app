@@ -247,6 +247,9 @@ export default function BienvenidaPanel() {
                 </select>
               </Campo>
 
+              {/* OBLIGATORIO (2026-08-19): sin este número la carta no lleva a
+                  ningún lado — el cliente arma su pedido y no tiene a dónde
+                  mandarlo. Se pedía pero se podía saltear con Continuar. */}
               <Campo
                 etiqueta="Tu WhatsApp"
                 ayuda="A dónde te llegan los pedidos de tus clientes"
@@ -266,9 +269,20 @@ export default function BienvenidaPanel() {
               </Campo>
             </div>
 
+            {/* El aviso aparece solo si empezó a escribir y va corto: en
+                blanco todavía no se equivocó en nada. */}
+            {whatsapp.replace(/^51/, "").length > 0 &&
+              whatsapp.replace(/^51/, "").length < 9 && (
+                <p className="mt-3 text-[0.85rem] text-brasa-texto">
+                  El número va con sus 9 dígitos.
+                </p>
+              )}
+
             <button
               onClick={crearNegocio}
-              disabled={guardando || !nombre.trim()}
+              disabled={
+                guardando || !nombre.trim() || whatsapp.replace(/^51/, "").length < 9
+              }
               className={BOTON}
             >
               {guardando ? "Creando…" : "Continuar"}

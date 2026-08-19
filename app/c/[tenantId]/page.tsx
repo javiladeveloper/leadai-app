@@ -50,6 +50,13 @@ interface Carta {
     tema?: string | null;
     /** Color de acento en hex. null = el menta de LeadAI. */
     color?: string | null;
+    /** Las redes del negocio. Todas opcionales. */
+    redes?: {
+      instagram?: string | null;
+      facebook?: string | null;
+      tiktok?: string | null;
+      web?: string | null;
+    } | null;
   };
   categorias: { id: string; nombre: string }[];
   productos: Producto[];
@@ -312,6 +319,8 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           }}
         />
       )}
+
+      <PieRedes negocio={carta.negocio} />
 
       {carrito.length > 0 && (
         <BarraCarrito
@@ -951,5 +960,46 @@ function TarjetaCombo({ combo, onAgregar }: { combo: Combo; onAgregar: () => voi
         +
       </span>
     </button>
+  );
+}
+
+/**
+ * EL PIE DE LA CARTA (2026-08-19): las redes del negocio y su dirección.
+ *
+ * El cliente que llegó por el link no tiene cómo volver a encontrarlo: la
+ * carta es el final de la cadena. Y la dirección va acá y no arriba porque
+ * muchos cocinan desde su casa y la dejan vacía — arriba dejaba un hueco.
+ */
+function PieRedes({ negocio }: { negocio: Carta["negocio"] }) {
+  const redes = [
+    { nombre: "Instagram", url: negocio.redes?.instagram, emoji: "📷" },
+    { nombre: "Facebook", url: negocio.redes?.facebook, emoji: "👍" },
+    { nombre: "TikTok", url: negocio.redes?.tiktok, emoji: "🎵" },
+    { nombre: "Web", url: negocio.redes?.web, emoji: "🌐" },
+  ].filter((r): r is { nombre: string; url: string; emoji: string } => Boolean(r.url));
+
+  if (redes.length === 0 && !negocio.direccion) return null;
+
+  return (
+    <footer className="mt-8 border-t border-linea px-4 py-6 text-center">
+      {redes.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {redes.map((r) => (
+            <a
+              key={r.nombre}
+              href={/^https?:\/\//.test(r.url) ? r.url : `https://${r.url}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-chip bg-carta px-3.5 py-2 text-[0.82rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:text-tinta hover:ring-brasa/40"
+            >
+              <span aria-hidden>{r.emoji}</span> {r.nombre}
+            </a>
+          ))}
+        </div>
+      )}
+      {negocio.direccion && (
+        <p className="mt-3 text-[0.8rem] text-frio">📍 {negocio.direccion}</p>
+      )}
+    </footer>
   );
 }

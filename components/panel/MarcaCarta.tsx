@@ -42,6 +42,9 @@ export function MarcaCarta() {
   const [direccion, setDireccion] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [tiktok, setTiktok] = useState("");
+  const [web, setWeb] = useState("");
   const [entrega, setEntrega] = useState("");
   const [tema, setTema] = useState<"claro" | "oscuro">("claro");
   const [color, setColor] = useState("");
@@ -52,6 +55,9 @@ export function MarcaCarta() {
       setDireccion(n?.direccion ?? "");
       setWhatsapp(n?.whatsappCarta ?? "");
       setInstagram(n?.instagramUrl ?? "");
+      setFacebook(n?.facebookUrl ?? "");
+      setTiktok(n?.tiktokUrl ?? "");
+      setWeb(n?.webUrl ?? "");
       setEntrega(n?.entregaMinutos ? String(n.entregaMinutos) : "");
       setTema(n?.temaCarta === "oscuro" ? "oscuro" : "claro");
       setColor(n?.colorCarta ?? "");
@@ -95,6 +101,9 @@ export function MarcaCarta() {
       direccion: direccion.trim() || null,
       whatsappCarta: soloDigitos(whatsapp) || null,
       instagramUrl: instagram.trim() || null,
+      facebookUrl: facebook.trim() || null,
+      tiktokUrl: tiktok.trim() || null,
+      webUrl: web.trim() || null,
       entregaMinutos: entrega ? Number(entrega) : null,
       temaCarta: tema,
       // Vacío = sin color propio, vuelve al menta de LeadAI.
@@ -182,28 +191,61 @@ export function MarcaCarta() {
           </div>
         </div>
 
-        {(negocio?.logoUrl || negocio?.bannerUrl) && (
-          <div className="flex flex-wrap gap-3 text-[0.8rem]">
-            {negocio.logoUrl && (
-              <button
-                type="button"
-                onClick={() => void quitar("logo")}
-                className="font-semibold text-arena/70 underline underline-offset-2 hover:text-arena"
-              >
-                Quitar logo
-              </button>
-            )}
-            {negocio.bannerUrl && (
-              <button
-                type="button"
-                onClick={() => void quitar("banner")}
-                className="font-semibold text-arena/70 underline underline-offset-2 hover:text-arena"
-              >
-                Quitar portada
-              </button>
-            )}
-          </div>
-        )}
+        {/* CAMBIAR es la acción principal (2026-08-19): el dueño que ya subió
+            su logo quiere reemplazarlo, no borrarlo. Quitar queda como acción
+            secundaria y solo aparece si hay algo que quitar. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="cursor-pointer rounded-chip bg-arena/10 px-3.5 py-2 text-[0.82rem] font-semibold text-arena ring-1 ring-arena/15 transition hover:bg-arena/20">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) void subir("logo", f);
+              }}
+            />
+            {negocio?.logoUrl ? "Cambiar logo" : "Subir logo"}
+          </label>
+
+          <label className="cursor-pointer rounded-chip bg-arena/10 px-3.5 py-2 text-[0.82rem] font-semibold text-arena ring-1 ring-arena/15 transition hover:bg-arena/20">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) void subir("banner", f);
+              }}
+            />
+            {negocio?.bannerUrl ? "Cambiar portada" : "Subir portada"}
+          </label>
+
+          {(negocio?.logoUrl || negocio?.bannerUrl) && (
+            <span className="flex flex-wrap gap-3 text-[0.78rem]">
+              {negocio.logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => void quitar("logo")}
+                  className="text-arena/50 underline underline-offset-2 transition hover:text-arena/80"
+                >
+                  Quitar logo
+                </button>
+              )}
+              {negocio.bannerUrl && (
+                <button
+                  type="button"
+                  onClick={() => void quitar("banner")}
+                  className="text-arena/50 underline underline-offset-2 transition hover:text-arena/80"
+                >
+                  Quitar portada
+                </button>
+              )}
+            </span>
+          )}
+        </div>
 
         {/* EL TEMA (2026-08-19). Dos opciones probadas y no un editor de
             colores libre: dejar elegir cada color termina en cartas
@@ -264,30 +306,12 @@ export function MarcaCarta() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Campo etiqueta="Dirección" ayuda="La ve el cliente en la carta">
-            <input
-              value={direccion}
-              onChange={(e) => setDireccion(e.target.value)}
-              placeholder="Av. Bolognesi 456, Tacna"
-              className={ENTRADA}
-            />
-          </Campo>
-
           <Campo etiqueta="WhatsApp de pedidos" ayuda="Con código de país">
             <input
               value={whatsapp}
               onChange={(e) => setWhatsapp(soloDigitos(e.target.value))}
               inputMode="numeric"
               placeholder="51987654321"
-              className={ENTRADA}
-            />
-          </Campo>
-
-          <Campo etiqueta="Instagram" ayuda="Opcional">
-            <input
-              value={instagram}
-              onChange={(e) => setInstagram(e.target.value)}
-              placeholder="https://instagram.com/tunegocio"
               className={ENTRADA}
             />
           </Campo>
@@ -301,6 +325,45 @@ export function MarcaCarta() {
               className={ENTRADA}
             />
           </Campo>
+
+          {/* La dirección es OPCIONAL a propósito (2026-08-19): muchos negocios
+              de delivery cocinan desde su casa y no quieren publicarla. */}
+          <Campo etiqueta="Dirección" ayuda="Opcional — si solo hacés delivery, dejala vacía">
+            <input
+              value={direccion}
+              onChange={(e) => setDireccion(e.target.value)}
+              placeholder="Av. Bolognesi 456, Tacna"
+              className={ENTRADA}
+            />
+          </Campo>
+        </div>
+
+        {/* LAS REDES (2026-08-19). Son los links por los que su cliente lo
+            encontró, y la carta es donde termina esa cadena. Todas opcionales:
+            un negocio chico tiene una o dos, no las cuatro. */}
+        <div>
+          <p className="text-[0.82rem] font-semibold text-arena">Tus redes</p>
+          <p className="text-[0.75rem] text-arena/50">
+            Aparecen al pie de tu carta. Poné las que uses.
+          </p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {([
+              ["Instagram", instagram, setInstagram, "instagram.com/tunegocio"],
+              ["Facebook", facebook, setFacebook, "facebook.com/tunegocio"],
+              ["TikTok", tiktok, setTiktok, "tiktok.com/@tunegocio"],
+              ["Sitio web", web, setWeb, "tunegocio.com"],
+            ] as const).map(([nombre, valor, set, ejemplo]) => (
+              <label key={nombre} className="block">
+                <span className="text-[0.78rem] text-arena/70">{nombre}</span>
+                <input
+                  value={valor}
+                  onChange={(e) => set(e.target.value)}
+                  placeholder={ejemplo}
+                  className={`${ENTRADA} mt-1`}
+                />
+              </label>
+            ))}
+          </div>
         </div>
 
         {/* El WhatsApp es el único campo que rompe algo si está mal: sin él, el

@@ -94,6 +94,17 @@ export interface DescuentoCarta {
   hasta: string | null;
   activo: boolean;
   fotoUrl: string | null;
+  /** VARIAS categorías o productos a la vez. Vacío = manda `alcanceId`. */
+  alcanceIds?: string[];
+  /**
+   * PROMOS POR CANTIDAD. 0 = promo de siempre (% o monto sobre el subtotal);
+   * 2 = "la segunda"; 3 = "3x2". Nunca 1: eso le descuenta a la primera.
+   */
+  minUnidades?: number;
+  /** Cuántas unidades del grupo reciben el beneficio. */
+  unidadesEnPromo?: number;
+  /** ¿Se repite cada N unidades? Default sí. */
+  repetible?: boolean;
 }
 
 export interface Carta {
@@ -352,6 +363,17 @@ export interface DescuentoEntrada {
   desde?: string | null;
   hasta?: string | null;
   activo?: boolean;
+  /** VARIAS categorías o productos a la vez. Vacío = manda `alcanceId`. */
+  alcanceIds?: string[];
+  /**
+   * PROMOS POR CANTIDAD. 0 = promo de siempre (% o monto sobre el subtotal);
+   * 2 = "la segunda"; 3 = "3x2". Nunca 1: eso le descuenta a la primera.
+   */
+  minUnidades?: number;
+  /** Cuántas unidades del grupo reciben el beneficio. */
+  unidadesEnPromo?: number;
+  /** ¿Se repite cada N unidades? Default sí. */
+  repetible?: boolean;
 }
 
 export function crearDescuento(datos: DescuentoEntrada, tenant?: string) {
@@ -373,13 +395,43 @@ export function eliminarDescuento(id: string, tenant?: string) {
 export const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 /**
- * "10% · Mar y Jue · 18:00–22:00" — la línea que resume un descuento.
+ * "50% · desde la 2ª · en Rolls · Mar y Jue" — la línea que resume una promo.
  *
  * Sin esto el dueño ve "10%" cuatro veces en la lista y no distingue cuál es
- * cuál.
+ * cuál. Y hasta el 2026-08-19 tampoco distinguía lo que de verdad importaba:
+ * "2ª tabla a mitad de precio" y "50% a todo, siempre" se veían IDÉNTICAS
+ * —ambas "50%"—, así que mirando el panel era imposible notar que una estaba
+ * mal cargada. Con la carta de Shiro pasó justo eso.
  */
-export function resumenDescuento(d: DescuentoCarta): string {
+export function resumenDescuento(
+  d: DescuentoCarta,
+  /** Para nombrar las secciones en vez de mostrar ids. */
+  categorias: { id: string; nombre: string }[] = [],
+): string {
   const partes: string[] = [d.tipo === "porcentaje" ? `${d.valor}%` : precioTexto(d.valor)];
+
+  // Cuántas unidades hacen falta.
+  const min = d.minUnidades ?? 0;
+  if (min >= 2) partes.push(min === 2 ? "desde la 2ª" : `llevando ${min}`);
+
+  // Sobre qué aplica. Una promo de makis que alcanza toda la carta le descuenta
+  // a las entradas; que se lea de un vistazo es la diferencia entre notarlo hoy
+  // o cuando el dueño revisa sus números a fin de mes.
+  const ids = d.alcanceIds?.length ? d.alcanceIds : d.alcanceId ? [d.alcanceId] : [];
+  if (ids.length === 0) {
+    partes.push("toda la carta");
+  } else {
+    const nombres = ids
+      .map((id) => categorias.find((c) => c.id === id)?.nombre)
+      .filter((n): n is string => Boolean(n));
+    partes.push(
+      nombres.length === 0
+        ? `${ids.length} sección(es)`
+        : nombres.length <= 2
+          ? `en ${nombres.join(" y ")}`
+          : `en ${nombres.length} secciones`,
+    );
+  }
 
   if (d.dias.length > 0 && d.dias.length < 7) {
     partes.push(d.dias.map((n) => DIAS[n]).join(" y "));

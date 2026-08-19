@@ -1268,7 +1268,7 @@ function Promos({
         <div key={d.id} className="flex items-center gap-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-tinta">{d.nombre}</p>
-            <p className="text-[0.8rem] text-frio">{resumenDescuento(d)}</p>
+            <p className="text-[0.8rem] text-frio">{resumenDescuento(d, carta.categorias)}</p>
           </div>
           <span
             className={`rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
@@ -1286,18 +1286,66 @@ function Promos({
         </div>
       ))}
 
-      {abriendo && <HojaPromo cerrar={() => setAbriendo(false)} recargar={recargar} />}
+      {abriendo && (
+        <HojaPromo cerrar={() => setAbriendo(false)} recargar={recargar} categorias={carta.categorias} />
+      )}
     </div>
   );
 }
 
+/**
+ * LOS TIPOS DE PROMO, en el idioma del dueño (2026-08-19).
+ *
+ * El modelo guarda `minUnidades`/`unidadesEnPromo`, que es lo correcto para
+ * calcular pero no lo que alguien piensa cuando arma una promo. Nadie dice
+ * "mínimo 3 unidades, 1 en promo": dice "3x2".
+ *
+ * Esto importó de verdad: el formulario NO tenía estas opciones, así que las
+ * promos de Shiro se cargaron por script con `alcance: 'todo'` y sin mínimo, y
+ * a un pedido de 1 langostino + 1 roll le descontó la mitad del carrito.
+ */
+const TIPOS_PROMO = [
+  {
+    id: "simple",
+    label: "Descuento directo",
+    ayuda: "Un % o un monto sobre lo que pida",
+    minUnidades: 0, unidadesEnPromo: 1,
+  },
+  {
+    id: "segunda",
+    label: "2ª a mitad de precio",
+    ayuda: "Llevando 2, la más barata sale al 50%",
+    minUnidades: 2, unidadesEnPromo: 1, tipo: "porcentaje" as const, valor: 50,
+  },
+  {
+    id: "3x2",
+    label: "3x2",
+    ayuda: "Llevando 3, la más barata sale gratis",
+    minUnidades: 3, unidadesEnPromo: 1, tipo: "porcentaje" as const, valor: 100,
+  },
+  {
+    id: "4x3",
+    label: "4x3",
+    ayuda: "Llevando 4, la más barata sale gratis",
+    minUnidades: 4, unidadesEnPromo: 1, tipo: "porcentaje" as const, valor: 100,
+  },
+] as const;
+
 function HojaPromo({
-  cerrar, recargar,
-}: { cerrar: () => void; recargar: () => Promise<void> }) {
+  cerrar, recargar, categorias,
+}: {
+  cerrar: () => void;
+  recargar: () => Promise<void>;
+  categorias: { id: string; nombre: string }[];
+}) {
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState<"porcentaje" | "monto">("porcentaje");
   const [valor, setValor] = useState("");
   const [dias, setDias] = useState<number[]>([]);
+  const [clase, setClase] = useState<string>("simple");
+  // Vacío = toda la carta. Con categorías elegidas, la promo solo cuenta esas
+  // —el bug era justamente que alcanzaba a todo—.
+  const [cats, setCats] = useState<string[]>([]);
   const [horaDesde, setHoraDesde] = useState("");
   const [horaHasta, setHoraHasta] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -1306,6 +1354,15 @@ function HojaPromo({
 
   async function guardar() {
     if (!nombre.trim()) { setErrorCampo("Ponele un nombre a la promo."); return; }
+
+    // Una promo por cantidad sobre TODA la carta mezcla peras con manzanas:
+    // "3x2" contando entradas y postres juntos no es lo que nadie quiso decir,
+    // y es la forma exacta en que se rompió la carta de Shiro.
+    const claseElegida = TIPOS_PROMO.find((x) => x.id === clase)!;
+    if (claseElegida.minUnidades >= 2 && cats.length === 0) {
+      setErrorCampo("Elegí a qué secciones aplica: una promo por cantidad no puede contar toda la carta.");
+      return;
+    }
 
     // El porcentaje va entero (20 = 20%); el monto va en céntimos.
     let n: number | null;
@@ -1330,6 +1387,7 @@ function HojaPromo({
 
     setErrorCampo("");
     setGuardando(true);
+    const preset = TIPOS_PROMO.find((x) => x.id === clase)!;
     const r = await crearDescuento({
       nombre: nombre.trim(),
       tipo,
@@ -1337,6 +1395,13 @@ function HojaPromo({
       dias,
       horaDesde: horaDesde || null,
       horaHasta: horaHasta || null,
+      // Sin categorías elegidas la promo alcanza toda la carta, que es lo que
+      // el dueño ve escrito arriba del selector.
+      alcance: cats.length > 0 ? "categoria" : "todo",
+      alcanceIds: cats,
+      minUnidades: preset.minUnidades,
+      unidadesEnPromo: preset.unidadesEnPromo,
+      repetible: true,
     });
 
     if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
@@ -1376,6 +1441,67 @@ function HojaPromo({
               autoFocus
               className="w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio"
             />
+          </Campo>
+
+          {/* QUÉ CLASE DE PROMO. Va antes que el descuento porque elegirla
+              define el resto: un "3x2" ya sabe que es 100% sobre una unidad. */}
+          <Campo etiqueta="Tipo de promo">
+            <div className="grid grid-cols-2 gap-2">
+              {TIPOS_PROMO.map((tp) => (
+                <button
+                  key={tp.id}
+                  onClick={() => {
+                    setClase(tp.id);
+                    // Los presets traen su propio descuento: "3x2" es 100% de
+                    // una unidad, y pedirle al dueño que lo deduzca es pedirle
+                    // que haga la cuenta que el sistema ya sabe.
+                    if ("tipo" in tp) { setTipo(tp.tipo); setValor(String(tp.valor)); }
+                  }}
+                  className={`rounded-tarjeta px-3 py-2.5 text-left transition ring-1 ${
+                    clase === tp.id
+                      ? "bg-brasa-suave ring-brasa"
+                      : "bg-arena/40 ring-linea hover:bg-arena"
+                  }`}
+                >
+                  <p className="text-[0.88rem] font-bold text-tinta">{tp.label}</p>
+                  <p className="mt-0.5 text-[0.75rem] leading-snug text-frio">{tp.ayuda}</p>
+                </button>
+              ))}
+            </div>
+          </Campo>
+
+          {/* SOBRE QUÉ APLICA. Es el campo que faltaba y por el que una promo
+              de makis le descontó a unos langostinos: sin esto, `alcance`
+              quedaba en 'todo' y la promo alcanzaba el carrito entero. */}
+          <Campo
+            etiqueta="¿Sobre qué aplica?"
+            ayuda={cats.length === 0 ? "Ninguna elegida = toda la carta" : `${cats.length} sección(es)`}
+          >
+            {categorias.length === 0 ? (
+              <p className="text-[0.85rem] text-frio">
+                Todavía no tenés secciones en tu carta: la promo va a aplicar a todo.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {categorias.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() =>
+                      setCats((prev) =>
+                        prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id],
+                      )
+                    }
+                    className={`rounded-chip px-3 py-1.5 text-[0.8rem] font-semibold transition ${
+                      cats.includes(c.id)
+                        ? "bg-brasa text-sobre-brasa"
+                        : "bg-arena text-tinta-2 hover:bg-arena-2"
+                    }`}
+                  >
+                    {c.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
           </Campo>
 
           <Campo etiqueta="Descuento">

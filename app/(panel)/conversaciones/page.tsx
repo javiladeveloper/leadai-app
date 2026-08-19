@@ -707,11 +707,11 @@ export default function ConversacionesPanel() {
                             {haceTexto(minutosDesde(l.actualizadoEn))}
                           </span>
                         </span>
-                        {/* El resumen de la IA solo en captación: en pedidos no
-                            se genera nunca y la fila decía "Sin resumen
+                        {/* El resumen solo donde la IA lo genera: en pedidos
+                            no se genera nunca y la fila decía "Sin resumen
                             todavía" para siempre — una línea de ruido en cada
                             conversación. Ahí simplemente no se muestra. */}
-                        {!modoPedidos && (
+                        {caps?.redactaResumenes && (
                           <span className="mt-0.5 block truncate text-[0.78rem] text-tinta-2">
                             {l.resumenIA ?? "Sin resumen todavía"}
                           </span>
@@ -1064,10 +1064,11 @@ export default function ConversacionesPanel() {
                 </div>
               </div>
 
-              {/* Contexto IA. NO en pedidos (2026-08-19): ahí las respuestas
-                  son determinísticas y nunca se genera un resumen, así que el
-                  bloque mostraba "todavía no hay resumen" para siempre. */}
-              {!modoPedidos && (
+              {/* Contexto IA, solo donde se REDACTA (2026-08-19): en pedidos
+                  las respuestas son determinísticas y nunca se genera un
+                  resumen, así que el bloque mostraba "todavía no hay resumen"
+                  para siempre. */}
+              {caps?.redactaResumenes && (
               <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-tibio">
                   Lo que la IA entendió

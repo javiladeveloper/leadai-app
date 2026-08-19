@@ -31,6 +31,7 @@ import { Burbuja } from "@/components/Burbuja";
 import { ChipTemp } from "@/components/ChipTemp";
 import { IconoMic, IconoEnviar } from "@/components/Iconos";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
+import { useModoPedidos } from "@/lib/modo-negocio";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -120,6 +121,9 @@ export default function ConversacionesPanel() {
   // Etapas del negocio: las de la bandeja siguen al filtro de negocio (en
   // "Todos" del modo global se usan las default — cada negocio tiene las
   // suyas y no se pueden mezclar); las de la ficha siguen al lead elegido.
+  // Un RESTAURANTE no tiene embudo (2026-08-19): sus contactos son gente que
+  // pide comida, no leads que se califican. Lo de captación se oculta.
+  const modoPedidos = useModoPedidos();
   const [etapasBandeja, setEtapasBandeja] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
   const [etapasFicha, setEtapasFicha] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
   const [miembros, setMiembros] = useState<MiembroEquipo[]>([]);
@@ -610,10 +614,15 @@ export default function ConversacionesPanel() {
                 <span className="text-[0.78rem] tabular-nums">{n}</span>
               </button>
             ))}
-            <p className="px-2 pb-1 pt-3 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
-              Etapas del embudo
-            </p>
-            {etapasBandeja.map((e) => (
+            {/* El EMBUDO no va en un restaurante: "En seguimiento",
+                "Escalados", "Ganados" y "Perdidos" son etapas de una venta que
+                se trabaja, no de un pedido de comida. */}
+            {!modoPedidos && (
+              <p className="px-2 pb-1 pt-3 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+                Etapas del embudo
+              </p>
+            )}
+            {!modoPedidos && etapasBandeja.map((e) => (
               <button
                 key={e.id}
                 onClick={() => setFiltroEtapa(filtroEtapa === e.id ? "" : e.id)}
@@ -690,14 +699,26 @@ export default function ConversacionesPanel() {
                             {haceTexto(minutosDesde(l.actualizadoEn))}
                           </span>
                         </span>
-                        <span className="mt-0.5 block truncate text-[0.78rem] text-tinta-2">
-                          {l.resumenIA ?? "Sin resumen todavía"}
-                        </span>
+                        {/* El resumen de la IA solo en captación: en pedidos no
+                            se genera nunca y la fila decía "Sin resumen
+                            todavía" para siempre — una línea de ruido en cada
+                            conversación. Ahí simplemente no se muestra. */}
+                        {!modoPedidos && (
+                          <span className="mt-0.5 block truncate text-[0.78rem] text-tinta-2">
+                            {l.resumenIA ?? "Sin resumen todavía"}
+                          </span>
+                        )}
                         <span className="mt-1 flex items-center gap-1.5 text-[0.7rem] font-semibold text-frio">
-                          <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[et.color]}`} />
-                          {et.nombre}
+                          {!modoPedidos && (
+                            <>
+                              <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[et.color]}`} />
+                              {et.nombre}
+                            </>
+                          )}
                           {negocios.length > 1 && l.negocioNombre ? (
-                            <span className="truncate">· {l.negocioNombre}</span>
+                            <span className="truncate">
+                              {!modoPedidos && "· "}{l.negocioNombre}
+                            </span>
                           ) : null}
                         </span>
                       </span>
@@ -725,12 +746,20 @@ export default function ConversacionesPanel() {
                       {lead.nombre ?? lead.contactoExterno}
                     </p>
                     <p className="flex items-center gap-1.5 text-[0.75rem] text-frio">
-                      <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[etapaVisibleDe(lead, etapasFicha).color]}`} />
-                      {etapaVisibleDe(lead, etapasFicha).nombre}
-                      <span>· {NOMBRE_CANAL[lead.canalOrigen] ?? lead.canalOrigen}</span>
+                      {/* La ETAPA solo en captación: en pedidos el canal alcanza. */}
+                      {!modoPedidos && (
+                        <>
+                          <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[etapaVisibleDe(lead, etapasFicha).color]}`} />
+                          {etapaVisibleDe(lead, etapasFicha).nombre}
+                          <span aria-hidden>·</span>
+                        </>
+                      )}
+                      <span>{NOMBRE_CANAL[lead.canalOrigen] ?? lead.canalOrigen}</span>
                     </p>
                   </div>
-                  <ChipTemp t={lead.nivelInteres} />
+                  {/* La TEMPERATURA es de captación: un cliente que pide
+                      comida no está "frío" ni "caliente", está pidiendo. */}
+                  {!modoPedidos && <ChipTemp t={lead.nivelInteres} />}
                 </div>
                 <button
                   onClick={alternarBot}
@@ -902,7 +931,9 @@ export default function ConversacionesPanel() {
                   <h2 className="text-[1.05rem] font-bold text-tinta">
                     {lead.nombre ?? lead.contactoExterno}
                   </h2>
-                  <ChipTemp t={lead.nivelInteres} />
+                  {/* La TEMPERATURA es de captación: un cliente que pide
+                      comida no está "frío" ni "caliente", está pidiendo. */}
+                  {!modoPedidos && <ChipTemp t={lead.nivelInteres} />}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <p className="text-[0.82rem] text-frio">{lead.contactoExterno}</p>
@@ -921,7 +952,12 @@ export default function ConversacionesPanel() {
               </div>
 
               {/* Etapa del embudo (las del NEGOCIO, personalizables en
-                  Configuración → Tu negocio). Mover acá sincroniza el motor. */}
+                  Configuración → Tu negocio). Mover acá sincroniza el motor.
+
+                  NO en restaurantes: quien pide comida no pasa por un embudo
+                  de venta, y el selector invitaba a mover a "Ganado"/"Perdido"
+                  a alguien que solo pidió una hamburguesa. */}
+              {!modoPedidos && (
               <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <p className="mb-1.5 text-[0.75rem] font-bold uppercase tracking-wide text-frio">
                   Etapa del embudo
@@ -939,6 +975,7 @@ export default function ConversacionesPanel() {
                   ))}
                 </select>
               </div>
+              )}
 
               {/* Asignación (Buzón: Míos / Sin asignar) — con nombres reales */}
               <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
@@ -1015,7 +1052,10 @@ export default function ConversacionesPanel() {
                 </div>
               </div>
 
-              {/* Contexto IA */}
+              {/* Contexto IA. NO en pedidos (2026-08-19): ahí las respuestas
+                  son determinísticas y nunca se genera un resumen, así que el
+                  bloque mostraba "todavía no hay resumen" para siempre. */}
+              {!modoPedidos && (
               <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
                 <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-tibio">
                   Lo que la IA entendió
@@ -1027,6 +1067,7 @@ export default function ConversacionesPanel() {
                   Actualizado {haceTexto(minutosDesde(lead.actualizadoEn))}
                 </p>
               </div>
+              )}
 
               {/* Nota privada de la vendedora */}
               <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
@@ -1073,7 +1114,11 @@ export default function ConversacionesPanel() {
                 )}
               </div>
 
-              {/* Cierre: venta / descartar */}
+              {/* Cierre: venta / descartar. NO en restaurantes (2026-08-19):
+                  la venta la registra el PEDIDO, no el dueño a mano, y
+                  "descartar este lead" no tiene sentido con alguien que acaba
+                  de pedir comida. */}
+              {!modoPedidos && (
               <div className="flex flex-col gap-2">
                 {lead.estado === "ganado" ? (
                   <div className="rounded-tarjeta bg-ok/10 p-3.5 ring-1 ring-ok/30">
@@ -1153,6 +1198,7 @@ export default function ConversacionesPanel() {
                   )
                 )}
               </div>
+              )}
             </>
           ) : (
             <p className="text-frio">Sin conversación seleccionada.</p>

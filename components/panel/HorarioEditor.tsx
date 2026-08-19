@@ -25,12 +25,20 @@ export function HorarioEditor() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [guardado, setGuardado] = useState(false);
+  /**
+   * El mínimo se escribe como texto y se guarda al SALIR del campo, no en cada
+   * tecla: guardando por tecla, escribir "30" mandaría primero un mínimo de
+   * S/3 —y si el cliente pide en ese segundo, se le rechaza por una regla que
+   * el dueño no terminó de escribir.
+   */
+  const [minimoTexto, setMinimoTexto] = useState("");
 
   useEffect(() => {
     let vivo = true;
     void obtenerHorario().then((r) => {
       if (!vivo) return;
       setCfg(r);
+      setMinimoTexto(r && r.minimoDeliveryCentavos > 0 ? (r.minimoDeliveryCentavos / 100).toFixed(2) : "");
       setCargando(false);
     });
     return () => { vivo = false; };
@@ -61,6 +69,25 @@ export function HorarioEditor() {
     }
     setGuardado(true);
     setTimeout(() => setGuardado(false), 1800);
+  }
+
+  async function guardarMinimo() {
+    if (!cfg) return;
+    const limpio = minimoTexto.trim().replace(",", ".");
+    // Vacío = sin mínimo. Es lo que el dueño espera al borrar el campo, y
+    // tratarlo como "no cambió" dejaría el mínimo viejo puesto para siempre.
+    if (limpio === "") {
+      if (cfg.minimoDeliveryCentavos !== 0) await aplicar({ minimoDeliveryCentavos: 0 });
+      return;
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(limpio)) {
+      setError("Poné un monto como 30 o 30.00.");
+      setMinimoTexto(cfg.minimoDeliveryCentavos > 0 ? (cfg.minimoDeliveryCentavos / 100).toFixed(2) : "");
+      return;
+    }
+    const centavos = Math.round(parseFloat(limpio) * 100);
+    if (centavos === cfg.minimoDeliveryCentavos) return;
+    await aplicar({ minimoDeliveryCentavos: centavos });
   }
 
   if (cargando) {
@@ -174,6 +201,33 @@ export function HorarioEditor() {
               )}
             </div>
           )}
+        </div>
+
+        {/* PEDIDO MÍNIMO. Va con el horario porque son las dos reglas de
+            "cuándo y cómo tomo pedidos", y un dueño las piensa juntas. */}
+        <div>
+          <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+            Pedido mínimo para delivery
+          </p>
+          <p className="mt-0.5 text-[0.84rem] text-frio">
+            Mandar un motorizado por un pedido chico da pérdida. El cliente lo ve
+            mientras arma su pedido, no al final. Quien pasa a recoger no tiene mínimo.
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-frio">S/</span>
+            <input
+              value={minimoTexto}
+              onChange={(e) => setMinimoTexto(e.target.value)}
+              onBlur={guardarMinimo}
+              inputMode="decimal"
+              placeholder="0.00"
+              aria-label="Pedido mínimo para delivery"
+              className="w-28 rounded-lg border border-linea bg-arena/40 px-3 py-2 tabular-nums text-tinta placeholder:text-frio"
+            />
+            <span className="text-[0.84rem] text-frio">
+              {cfg.minimoDeliveryCentavos > 0 ? "" : "0 = sin mínimo"}
+            </span>
+          </div>
         </div>
 
         <div className="min-h-[1.2rem] text-[0.84rem]">

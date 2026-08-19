@@ -15,6 +15,12 @@ export interface ConfigHorario {
   horaCierra: number | null;
   /** Días que cierra: 0 = domingo, igual que `Date.getDay()`. */
   diasCerrado: number[];
+  /**
+   * Pedido mínimo para DELIVERY, en céntimos. 0 = sin mínimo.
+   *
+   * Solo delivery: quien pasa a recoger no le cuesta un viaje al local.
+   */
+  minimoDeliveryCentavos: number;
 }
 
 /** Los días como los ve el dueño, en el orden de la semana peruana. */
@@ -39,6 +45,7 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       // `?? []`: un backend viejo no manda el campo, y sin esto el editor
       // pintaría "cerrado todos los días" sobre un negocio que abre siempre.
       diasCerrado: r.config.diasCerrado ?? [],
+      minimoDeliveryCentavos: r.config.minimoDeliveryCentavos ?? 0,
     };
   } catch {
     return null;

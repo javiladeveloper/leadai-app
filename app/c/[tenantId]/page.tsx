@@ -42,6 +42,8 @@ interface Combo {
 interface Carta {
   negocio: {
     nombre: string; abierto: boolean; horaAbre: number | null; horaCierra: number | null;
+    /** Pedido mínimo para delivery, en céntimos. 0 = sin mínimo. */
+    minimoDeliveryCentavos?: number;
     logoUrl: string | null; bannerUrl: string | null;
     direccion: string | null; entregaMinutos: number | null;
     /** A dónde llega el pedido. null = el negocio no conectó WhatsApp. */
@@ -324,6 +326,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
 
       {carrito.length > 0 && (
         <BarraCarrito
+          minimo={carta.negocio.minimoDeliveryCentavos ?? 0}
           carrito={carrito}
           total={total}
           abierto={carta.negocio.abierto}
@@ -787,11 +790,13 @@ function HojaOpciones({
 }
 
 function BarraCarrito({
-  carrito, total, abierto, modalidad, onModalidad, enviando, error, onQuitar, onEnviar,
+  carrito, total, abierto, modalidad, onModalidad, enviando, error, onQuitar, onEnviar, minimo,
 }: {
   carrito: LineaCarrito[];
   total: number;
   abierto: boolean;
+  /** Pedido mínimo para delivery, en céntimos. 0 = sin mínimo. */
+  minimo: number;
   modalidad: "delivery" | "recojo";
   onModalidad: (m: "delivery" | "recojo") => void;
   enviando: boolean;
@@ -799,6 +804,11 @@ function BarraCarrito({
   onQuitar: (i: number) => void;
   onEnviar: () => void;
 }) {
+  // Cuánto falta para el mínimo. Solo en DELIVERY: quien pasa a recoger no
+  // le cuesta un viaje al local, así que no hay mínimo que exigirle.
+  const faltaParaElMinimo =
+    modalidad === "delivery" && minimo > 0 ? Math.max(0, minimo - total) : 0;
+
   const [abiertoDetalle, setAbiertoDetalle] = useState(false);
   const unidades = carrito.reduce((s, l) => s + l.cantidad, 0);
 
@@ -870,16 +880,29 @@ function BarraCarrito({
         ))}
       </div>
 
+      {/* CUÁNTO FALTA PARA EL MÍNIMO (2026-08-19). Se dice MIENTRAS arma, no
+          al enviar: enterarse al final de que su pedido no alcanza se siente
+          un cambio de reglas, y a esa altura mucha gente cierra la pestaña.
+          Y se dice cuánto falta, no solo que no alcanza: "te faltan S/8" es
+          accionable, "pedido mínimo S/30" lo manda a hacer la cuenta. */}
+      {faltaParaElMinimo > 0 && (
+        <p className="mb-2 rounded-tarjeta bg-calor-suave px-3 py-2 text-center text-[0.85rem] font-semibold text-calor-hondo">
+          Te faltan {soles(faltaParaElMinimo)} para el mínimo de delivery
+        </p>
+      )}
+
       <button
         onClick={onEnviar}
-        disabled={!abierto || enviando}
+        disabled={!abierto || enviando || faltaParaElMinimo > 0}
         className={`w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-40 ${late ? "late" : ""}`}
       >
         {!abierto
           ? "Cerrado por ahora"
-          : enviando
-            ? "Enviando…"
-            : `Enviar mi pedido · ${soles(total)}`}
+          : faltaParaElMinimo > 0
+            ? `Mínimo ${soles(minimo)} para delivery`
+            : enviando
+              ? "Enviando…"
+              : `Enviar mi pedido · ${soles(total)}`}
       </button>
     </div>
   );

@@ -11,6 +11,7 @@ import {
   obtenerLead,
   accionLead,
   actualizarLead,
+  reiniciarLead,
   calcularComision,
   obtenerEtapas,
   obtenerEquipo,
@@ -153,6 +154,7 @@ export default function ConversacionesPanel() {
   const [togglingBot, setTogglingBot] = useState(false);
   const [notaEdit, setNotaEdit] = useState<string | null>(null); // null = no editando
   const [descartarConfirm, setDescartarConfirm] = useState(false);
+  const [reiniciarConfirm, setReiniciarConfirm] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dictado = useDictado((fragmento) =>
@@ -366,6 +368,23 @@ export default function ConversacionesPanel() {
       setAccionError(r.error ?? "No se pudo cambiar el chatbot.");
     }
     setTogglingBot(false);
+  }
+
+  // Reiniciar el chat (2026-08-20): dejar al lead como si escribiera por
+  // primera vez — para probar el bot con el propio número. Borra la
+  // conversación y cancela los pedidos vivos; las ventas cerradas quedan.
+  async function reiniciarChat() {
+    if (!lead || enviando) return;
+    setEnviando(true);
+    setAccionError(null);
+    const r = await reiniciarLead(lead.id, tenantSel);
+    if (r.ok) {
+      setReiniciarConfirm(false);
+      await Promise.all([cargarLead(lead.id, tenantSel), cargarLista()]);
+    } else {
+      setAccionError(r.error ?? "No se pudo reiniciar el chat.");
+    }
+    setEnviando(false);
   }
 
   // Mover a una etapa PERSONALIZADA del negocio (el backend sincroniza el
@@ -1223,6 +1242,42 @@ export default function ConversacionesPanel() {
                   )
                 )}
               </div>
+              )}
+
+              {/* REINICIAR EL CHAT (2026-08-20, pedido de Jonathan): probar el
+                  bot con el propio número como si fuera la primera vez. Borra
+                  la conversación y cancela los pedidos vivos; las ventas
+                  cerradas quedan (reportes). Doble toque para confirmar,
+                  igual que "descartar": es destructivo. */}
+              {reiniciarConfirm ? (
+                <div className="rounded-tarjeta bg-carta p-3.5 ring-1 ring-alerta/40">
+                  <p className="mb-2 text-[0.82rem] text-tinta-2">
+                    Se borra esta conversación y se cancelan sus pedidos sin pagar.
+                    El cliente vuelve a empezar de cero. ¿Seguro?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={reiniciarChat}
+                      disabled={enviando}
+                      className="flex-1 rounded-chip bg-calor py-2 text-[0.82rem] font-bold text-carta active:scale-[0.99] disabled:opacity-60"
+                    >
+                      Sí, reiniciar
+                    </button>
+                    <button
+                      onClick={() => setReiniciarConfirm(false)}
+                      className="flex-1 rounded-chip bg-arena-2 py-2 text-[0.82rem] font-bold text-tinta-2 active:scale-[0.99]"
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setReiniciarConfirm(true)}
+                  className="rounded-chip py-2 text-[0.82rem] font-bold text-frio transition hover:text-alerta"
+                >
+                  🔄 Reiniciar chat (probar como cliente nuevo)
+                </button>
               )}
             </>
           ) : (

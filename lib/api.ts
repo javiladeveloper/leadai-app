@@ -212,6 +212,23 @@ export interface Lead {
   actualizadoEn: string;
 }
 
+/**
+ * Reinicia la conversación de un lead (2026-08-20): borra los mensajes,
+ * cancela los pedidos vivos y lo deja como si escribiera por primera vez.
+ * Para PROBAR el bot con el propio número. Backend: POST /leads/:id/reiniciar.
+ */
+export async function reiniciarLead(
+  id: string,
+  tenant?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/leads/${id}/reiniciar`, { method: "POST", tenant });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo reiniciar" };
+  }
+}
+
 // Edita datos manuales del lead: nombre y/o nota privada. Backend: PATCH /leads/:id.
 export async function actualizarLead(
   id: string,

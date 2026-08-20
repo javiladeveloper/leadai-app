@@ -14,7 +14,7 @@ import {
 import { leerSesion } from "@/lib/auth";
 import { soles } from "@/lib/precio";
 import { Seccion } from "@/components/panel/Seccion";
-import { useCheckoutCulqi } from "@/components/panel/useCheckoutCulqi";
+import { useCheckoutCulqi, CONTENEDOR_CULQI } from "@/components/panel/useCheckoutCulqi";
 
 /**
  * CONTRATAR Y PAGAR EL PLAN (2026-08-18).
@@ -89,6 +89,17 @@ export function PlanRestaurante() {
     },
   });
 
+  // Si el dueño cierra el formulario de Culqi sin pagar, o la tarjeta se
+  // rechaza, el contenedor tiene que desaparecer: dejarlo montado con un
+  // "cancelado" abajo se lee como que el pago sigue en curso.
+  //
+  // VA ACÁ ARRIBA, antes de los `return` de carga/error: un hook detrás de un
+  // return condicional se saltea en esos renders y React aborta la página
+  // entera con "Rendered more hooks than during the previous render".
+  useEffect(() => {
+    if (checkout.estado === "cancelado" || checkout.estado === "error") setElegido(null);
+  }, [checkout.estado]);
+
   if (cargando) {
     return (
       <div className="space-y-5">
@@ -116,10 +127,14 @@ export function PlanRestaurante() {
     setElegido(plan.id);
     const monto =
       periodicidad === "anual" && plan.anual ? plan.anual.precioCentavos : plan.precioCentavos;
-    checkout.abrir({
-      montoCentavos: monto,
-      descripcion: `Plan ${NOMBRE[plan.id] ?? plan.id} ${periodicidad === "anual" ? "anual" : "mensual"}`,
-    });
+    // `requestAnimationFrame`: el div del formulario se monta con el cambio de
+    // estado de arriba, y Culqi necesita encontrarlo YA en el DOM.
+    requestAnimationFrame(() =>
+      checkout.abrir({
+        montoCentavos: monto,
+        descripcion: `Plan ${NOMBRE[plan.id] ?? plan.id} ${periodicidad === "anual" ? "anual" : "mensual"}`,
+      }),
+    );
   }
 
   async function darDeBaja() {
@@ -176,9 +191,32 @@ export function PlanRestaurante() {
             ))}
           </div>
 
+          {/* EL FORMULARIO DE TARJETA, EMBEBIDO (2026-08-20). Antes se abría
+              un popup encima de la pantalla; ahora Culqi lo monta acá dentro,
+              debajo del plan elegido. Solo aparece cuando hay un cobro en
+              curso: montarlo siempre llenaría la pantalla de campos de tarjeta
+              antes de que el dueño elija plan. */}
+          {elegido && checkout.estado !== "ok" && (
+            <div className="surge space-y-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+              <p className="text-[0.85rem] font-semibold text-tinta">
+                {elegido ? `Plan ${NOMBRE[elegido] ?? elegido}` : "Completa tu pago"}
+              </p>
+              <div id={CONTENEDOR_CULQI} className="min-h-[26rem] rounded-tarjeta" />
+              {checkout.estado !== "procesando" && (
+                <button
+                  type="button"
+                  onClick={() => { checkout.cerrar(); setElegido(null); }}
+                  className="w-full rounded-full px-5 py-2.5 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
+          )}
+
           {!datos.llavePublica && (
             <p className="rounded-tarjeta bg-calor-suave px-4 py-3 text-[0.85rem] text-calor-hondo">
-              Los pagos todavía no están habilitados en tu cuenta. Escribinos y lo activamos.
+              Los pagos todavía no están habilitados en tu cuenta. Escríbenos y lo activamos.
             </p>
           )}
 
@@ -190,7 +228,7 @@ export function PlanRestaurante() {
           )}
           {checkout.estado === "cancelado" && (
             <p className={`text-sm ${!activa ? "text-arena/70" : "text-frio"}`}>
-              Pago cancelado. Podés intentarlo de nuevo cuando quieras.
+              Pago cancelado. Puedes intentarlo de nuevo cuando quieras.
             </p>
           )}
         </div>

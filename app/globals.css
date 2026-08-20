@@ -411,3 +411,16 @@ button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
     transition-duration: 0.001ms !important;
   }
 }
+
+/* EL FORMULARIO DE CULQI, SIN SCROLL PROPIO (2026-08-20).
+   Custom Checkout embebido monta un iframe de 150px de alto fijo, así que el
+   formulario queda scrolleando dentro de una ventanita: "Card number" cortado
+   y el botón de pagar escondido. En el paso donde alguien entrega su tarjeta,
+   pedirle que scrollee a ciegas es la forma más rápida de que abandone.
+   El alto se fuerza desde afuera; el ancho se lleva todo el contenedor. */
+#culqi-embebido iframe {
+  height: 26rem !important;
+  min-height: 26rem;
+  width: 100%;
+  border: 0;
+}

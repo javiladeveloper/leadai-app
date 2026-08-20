@@ -31,6 +31,7 @@ import {
 import { CampoFoto, useFoto } from "@/components/panel/CampoFoto";
 import { SkeletonLista } from "@/components/Skeletons";
 import { MarcaCarta } from "@/components/panel/MarcaCarta";
+import { Seccion } from "@/components/panel/Seccion";
 
 type Pestana = "platos" | "extras" | "combos" | "promos" | "marca";
 
@@ -173,6 +174,194 @@ function EnlaceCarta({ url }: { url: string }) {
 
 // ── Platos ────────────────────────────────────────────────────────────
 
+/**
+ * EL RETARDO DE CADA FILA (2026-08-20).
+ *
+ * Las filas entran ESCALONADAS, no todas juntas. Un bloque entero apareciendo
+ * de golpe se lee como un parpadeo; una atrás de otra se lee como una lista que
+ * se está sirviendo, y el ojo alcanza a ver cuántas son.
+ *
+ * Se corta en la fila 8: más allá el retardo acumulado haría esperar a alguien
+ * que solo quiere editar el precio del plato 20.
+ */
+function retardo(i: number): React.CSSProperties {
+  return { animationDelay: `${Math.min(i, 8) * 40}ms` };
+}
+
+/**
+ * El botón principal de cada pestaña. Era el MISMO markup repetido cuatro
+ * veces con diferencias mínimas entre copias — cambiar el estilo obligaba a
+ * acordarse de las cuatro.
+ */
+function BotonNuevo({
+  children, onClick, disabled,
+}: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="shrink-0 rounded-tarjeta bg-orbita px-5 py-2.5 font-semibold text-sobre-orbita shadow-[0_2px_10px_rgba(0,0,0,0.10)] transition hover:bg-orbita-hondo hover:shadow-[0_4px_16px_rgba(0,0,0,0.16)] active:scale-[0.98] disabled:opacity-50 disabled:shadow-none"
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Las acciones de una fila (Agotar, Eliminar…).
+ *
+ * ANTES ERAN TEXTO SUELTO (2026-08-20): "Agotar" y "Eliminar" tenían el mismo
+ * peso que el nombre del plato, así que cada fila terminaba en un renglón de
+ * palabras sin jerarquía y no se veía qué era clickeable. Ahora son chips: se
+ * leen como controles, y lo destructivo solo se pone rojo al apuntarlo.
+ */
+function AccionFila({
+  children, onClick, peligro = false, hondo = false,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  peligro?: boolean;
+  /** Va sobre el verde hondo, no sobre una tarjeta blanca. */
+  hondo?: boolean;
+}) {
+  // SOBRE EL VERDE HONDO los grises `frio`/`tinta-2` no llegan a contraste
+  // legible: ahí el texto es arena, como la bajada de `Seccion`.
+  const colores = hondo
+    ? "text-arena/60 hover:bg-arena/10 hover:text-arena"
+    : peligro
+      ? "text-frio hover:bg-alerta/10 hover:text-alerta"
+      : "text-tinta-2 hover:bg-arena hover:text-tinta";
+
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 rounded-chip px-2.5 py-1 text-[0.78rem] font-semibold transition active:scale-[0.97] ${colores}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * LAS CLASES DE UN INPUT DE HOJA (2026-08-20).
+ *
+ * Estaban escritas a mano en cada campo de las cuatro hojas —unas veinte
+ * copias— con diferencias que nadie eligió: algunos tenían `focus`, otros no.
+ * El foco importa: sin un borde que responda, en un formulario largo no se ve
+ * dónde está parado el cursor.
+ */
+const CAMPO_HOJA =
+  "w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25";
+
+/**
+ * EL MARCO DE UNA HOJA (2026-08-20).
+ *
+ * Las cuatro hojas repetían el mismo armazón con un `<h2>` suelto arriba y los
+ * botones al final del scroll. Dos problemas reales:
+ *
+ *  - En una hoja larga (un plato con extras) el botón "Guardar" quedaba abajo
+ *    de todo: había que scrollear hasta el fondo para guardar, y en el celular
+ *    ni se veía que existía.
+ *  - El título se iba con el scroll, así que a media hoja no se sabía si se
+ *    estaba editando un plato o creando uno nuevo.
+ *
+ * Ahora el encabezado y el pie quedan FIJOS y solo el medio scrollea.
+ */
+function Hoja({
+  titulo, bajada, cerrar, children, pie,
+}: {
+  titulo: string;
+  bajada?: string;
+  cerrar: () => void;
+  children: React.ReactNode;
+  pie: React.ReactNode;
+}) {
+  return (
+    <div
+      className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
+      onClick={cerrar}
+    >
+      <div
+        className="sube flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-carta shadow-xl sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+      >
+        <div className="flex items-start gap-3 border-b border-linea px-6 pb-3 pt-5">
+          <span className="mt-1 h-5 w-1 shrink-0 rounded-full bg-orbita" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[1.15rem] font-bold leading-tight text-tinta">{titulo}</h2>
+            {bajada && <p className="mt-0.5 text-[0.82rem] leading-snug text-frio">{bajada}</p>}
+          </div>
+          {/* La ✕ (2026-08-20): se cerraba tocando afuera o con "Cancelar" abajo
+              de todo. En el celular, con el teclado abierto, no había ninguna
+              de las dos a mano. */}
+          <button
+            onClick={cerrar}
+            aria-label="Cerrar"
+            className="-mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-frio transition hover:bg-arena hover:text-tinta active:scale-95"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="scroll-fino min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
+
+        <div className="flex gap-2 border-t border-linea bg-carta px-6 py-4">{pie}</div>
+      </div>
+    </div>
+  );
+}
+
+/** Los dos botones del pie de una hoja: cancelar y la acción real. */
+function PieHoja({
+  cerrar, guardar, guardando, puedeGuardar, etiqueta = "Guardar",
+}: {
+  cerrar: () => void;
+  guardar: () => void;
+  guardando: boolean;
+  puedeGuardar: boolean;
+  etiqueta?: string;
+}) {
+  return (
+    <>
+      <button
+        onClick={cerrar}
+        className="flex-1 rounded-tarjeta px-4 py-2.5 font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena active:scale-[0.98]"
+      >
+        Cancelar
+      </button>
+      <button
+        onClick={guardar}
+        disabled={guardando || !puedeGuardar}
+        className="flex-[1.4] rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita shadow-[0_2px_10px_rgba(0,0,0,0.10)] transition hover:bg-orbita-hondo hover:shadow-[0_4px_16px_rgba(0,0,0,0.16)] active:scale-[0.98] disabled:opacity-50 disabled:shadow-none"
+      >
+        {guardando ? "Guardando…" : etiqueta}
+      </button>
+    </>
+  );
+}
+
+/**
+ * El vacío de una pestaña. Con ícono grande y una sola frase de por qué
+ * conviene llenarlo: una pantalla en blanco no dice qué hacer.
+ */
+function Vacio({
+  icono, titulo, texto,
+}: { icono: string; titulo: string; texto: string }) {
+  // TARJETA BLANCA A PROPÓSITO: va dentro de una `Seccion` honda, así que si
+  // heredara los colores del contenedor quedaría tinta oscura sobre verde
+  // oscuro — ilegible. Blanca destaca sobre el fondo y se lee sola.
+  return (
+    <div className="surge rounded-tarjeta bg-carta p-8 text-center ring-1 ring-linea">
+      <p className="text-[2rem] leading-none" aria-hidden>{icono}</p>
+      <p className="mt-2 text-[1.05rem] font-bold text-tinta">{titulo}</p>
+      <p className="mx-auto mt-1 max-w-sm text-[0.9rem] leading-snug text-frio">{texto}</p>
+    </div>
+  );
+}
+
 function Platos({
   carta, recargar, avisar,
 }: { carta: Carta; recargar: () => Promise<void>; avisar: (s: string) => void }) {
@@ -205,124 +394,168 @@ function Platos({
     await recargar();
   }
 
+  const total = carta.productos.length;
+  const agotados = carta.productos.filter((p) => !p.disponible).length;
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <NuevaSeccion recargar={recargar} avisar={avisar} />
-        <button
-          onClick={() => { setEditando(null); setAbriendo(true); }}
-          className="rounded-tarjeta bg-orbita px-5 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo active:scale-[0.99]"
-        >
+    <Seccion
+      titulo="Tus platos"
+      bajada={
+        total === 0
+          ? "Lo que tus clientes van a poder pedir."
+          : `${total} ${total === 1 ? "plato" : "platos"} en ${carta.categorias.length} ${
+              carta.categorias.length === 1 ? "sección" : "secciones"
+            }${agotados > 0 ? ` · ${agotados} agotado${agotados === 1 ? "" : "s"}` : ""}`
+      }
+      tono="hondo"
+      accion={
+        <BotonNuevo onClick={() => { setEditando(null); setAbriendo(true); }}>
           + Nuevo plato
-        </button>
-      </div>
+        </BotonNuevo>
+      }
+    >
+      <div className="space-y-5">
+        <NuevaSeccion recargar={recargar} avisar={avisar} />
 
-      {carta.productos.length === 0 && carta.categorias.length === 0 && (
-        <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
-          <p className="text-[1.05rem] font-bold text-tinta">Tu carta está vacía</p>
-          <p className="mt-1 text-[0.9rem] text-frio">
-            Cargá tu primer plato para que tus clientes puedan pedirlo.
-          </p>
-        </div>
-      )}
+        {carta.productos.length === 0 && carta.categorias.length === 0 && (
+          <Vacio
+            icono="🍽️"
+            titulo="Tu carta está vacía"
+            texto="Carga tu primer plato para que tus clientes puedan pedirlo."
+          />
+        )}
 
-      {porSeccion.map(({ categoria, platos }) => (
-        <section key={categoria?.id ?? "sueltos"} className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="h-4 w-1 rounded-full bg-orbita" aria-hidden />
-            <h2 className="text-[0.78rem] font-bold uppercase tracking-wide text-tinta-2">
-              {categoria?.nombre ?? "Sin sección"}
-            </h2>
-            {categoria && (
-              <button
-                onClick={async () => {
-                  // Los platos NO se van con la sección: quedan sueltos. Borrar
-                  // "Entradas" no puede llevarse ocho platos por delante.
-                  if (!confirm(`¿Borrar la sección "${categoria.nombre}"? Los platos quedan sin sección.`)) return;
-                  const r = await eliminarCategoria(categoria.id);
-                  if (!r.ok) avisar(r.error ?? "No se pudo borrar");
-                  await recargar();
-                }}
-                className="text-[0.75rem] font-semibold text-frio hover:text-alerta"
-              >
-                borrar
-              </button>
-            )}
-          </div>
-
-          {platos.length === 0 && (
-            <p className="px-1 text-[0.85rem] text-frio">Sin platos todavía.</p>
-          )}
-
-          {platos.map((p) => (
-            <div
-              key={p.id}
-              className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-carta p-4 ring-1 ring-linea ${
-                p.disponible ? "" : "opacity-60"
-              }`}
-            >
-              {p.fotoUrl && (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={p.fotoUrl}
-                  alt=""
-                  className="h-12 w-12 shrink-0 rounded-lg object-cover ring-2 ring-orbita/35"
-                />
+        {porSeccion.map(({ categoria, platos }, iSeccion) => (
+          <section
+            key={categoria?.id ?? "sueltos"}
+            className="surge space-y-2"
+            style={retardo(iSeccion)}
+          >
+            {/* EL ENCABEZADO DE SECCIÓN, CON PESO (2026-08-20): antes era una
+                línea gris del mismo tamaño que todo lo demás, así que las
+                secciones no se veían y la pestaña parecía una sola lista larga.
+                Ahora lleva el conteo al costado y una línea que cierra el
+                bloque, para que se vea dónde termina cada sección. */}
+            {/* SOBRE EL VERDE HONDO, TEXTO ARENA (2026-08-20): el encabezado
+                iba en `text-tinta` —tinta oscura sobre fondo oscuro— y el
+                nombre de la sección directamente NO SE VEÍA. Todo lo que va
+                fuera de las tarjetas blancas toma los colores de la superficie
+                honda, igual que la bajada de `Seccion`. */}
+            <div className="flex items-center gap-2 border-b border-arena/15 pb-1.5">
+              <span className="h-4 w-1 shrink-0 rounded-full bg-orbita" aria-hidden />
+              <h3 className="text-[0.78rem] font-bold uppercase tracking-wide text-arena">
+                {categoria?.nombre ?? "Sin sección"}
+              </h3>
+              <span className="rounded-chip bg-arena/15 px-2 py-0.5 text-[0.7rem] font-bold tabular-nums text-arena/80">
+                {platos.length}
+              </span>
+              {categoria && (
+                <div className="ml-auto">
+                  <AccionFila
+                    hondo
+                    onClick={async () => {
+                      // Los platos NO se van con la sección: quedan sueltos.
+                      // Borrar "Entradas" no puede llevarse ocho por delante.
+                      if (!confirm(`¿Borrar la sección "${categoria.nombre}"? Los platos quedan sin sección.`)) return;
+                      const r = await eliminarCategoria(categoria.id);
+                      if (!r.ok) avisar(r.error ?? "No se pudo borrar");
+                      await recargar();
+                    }}
+                  >
+                    Borrar sección
+                  </AccionFila>
+                </div>
               )}
-              <button
-                onClick={() => { setEditando(p); setAbriendo(true); }}
-                className="min-w-[9rem] flex-1 text-left"
-              >
-                <p className="font-semibold text-tinta hover:text-brasa-texto">{p.nombre}</p>
-                {p.descripcion && (
-                  /* En la lista va en UNA línea a propósito: son muchas filas y
-                     la altura tiene que ser pareja para barrerlas de un
-                     vistazo. Los renglones de la descripción se unen con "·"
-                     en vez de perderse pegados uno contra otro. El detalle
-                     completo se ve al abrir el plato y en la carta pública. */
-                  <p className="truncate text-[0.8rem] text-frio">
-                    {p.descripcion.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join(" · ")}
-                  </p>
-                )}
-                {p.grupos.length > 0 && (
-                  <p className="text-[0.75rem] text-frio">
-                    {p.grupos.length} {p.grupos.length === 1 ? "grupo de extras" : "grupos de extras"}
-                  </p>
-                )}
-              </button>
-              <span className="font-bold tabular-nums text-calor">{precioTexto(p.precioCentavos)}</span>
-              {!p.disponible && (
-                <span className="rounded-chip bg-arena px-2.5 py-1 text-[0.72rem] font-bold text-frio">
-                  Agotado
-                </span>
-              )}
-              <button
-                onClick={() => agotar(p)}
-                className="text-sm font-semibold text-tinta-2 hover:text-tinta"
-              >
-                {p.disponible ? "Agotar" : "Reponer"}
-              </button>
-              <button
-                onClick={() => borrar(p)}
-                className="text-sm font-semibold text-frio hover:text-alerta"
-              >
-                Eliminar
-              </button>
             </div>
-          ))}
-        </section>
-      ))}
 
-      {abriendo && (
-        <HojaPlato
-          carta={carta}
-          plato={editando}
-          cerrar={() => setAbriendo(false)}
-          recargar={recargar}
-          avisar={avisar}
-        />
-      )}
-    </div>
+            {platos.length === 0 && (
+              <p className="px-1 py-2 text-[0.85rem] text-arena/50">Sin platos todavía.</p>
+            )}
+
+            {platos.map((p, i) => (
+              <div
+                key={p.id}
+                style={retardo(i)}
+                /* AGOTADO SE VE DE COSTADO (2026-08-20): antes era solo
+                   `opacity-60`, que de un vistazo se confunde con una fila
+                   normal. La barra gris a la izquierda se ve barriendo la lista
+                   sin leer una palabra. */
+                className={`fila-entra tarjeta-viva group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition ${
+                  p.disponible
+                    ? "hover:ring-orbita/40"
+                    : "border-l-4 border-frio/40 opacity-70"
+                }`}
+              >
+                {p.fotoUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={p.fotoUrl}
+                    alt=""
+                    className="h-12 w-12 shrink-0 rounded-lg object-cover ring-2 ring-orbita/35 transition group-hover:ring-orbita/70"
+                  />
+                ) : (
+                  /* UN HUECO CON FORMA (2026-08-20): sin foto la fila arrancaba
+                     pegada al borde y las filas con y sin foto no alineaban
+                     entre sí. Además el marco vacío se lee como "acá falta la
+                     foto", que es información útil para el dueño. */
+                  <span
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-arena-2 text-[1.1rem] opacity-45 ring-1 ring-linea"
+                    aria-hidden
+                  >
+                    🍽️
+                  </span>
+                )}
+                <button
+                  onClick={() => { setEditando(p); setAbriendo(true); }}
+                  className="min-w-[9rem] flex-1 text-left"
+                >
+                  <p className="font-semibold text-tinta transition group-hover:text-brasa-texto">
+                    {p.nombre}
+                  </p>
+                  {p.descripcion && (
+                    /* En la lista va en UNA línea a propósito: son muchas filas
+                       y la altura tiene que ser pareja para barrerlas de un
+                       vistazo. Los renglones se unen con "·" en vez de perderse
+                       pegados uno contra otro. El detalle completo se ve al
+                       abrir el plato y en la carta pública. */
+                    <p className="truncate text-[0.8rem] text-frio">
+                      {p.descripcion.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  {p.grupos.length > 0 && (
+                    <p className="text-[0.75rem] text-frio">
+                      + {p.grupos.length} {p.grupos.length === 1 ? "grupo de extras" : "grupos de extras"}
+                    </p>
+                  )}
+                </button>
+                <span className="font-bold tabular-nums text-calor">{precioTexto(p.precioCentavos)}</span>
+                {!p.disponible && (
+                  <span className="rounded-chip bg-arena px-2.5 py-1 text-[0.72rem] font-bold text-frio">
+                    Agotado
+                  </span>
+                )}
+                <AccionFila onClick={() => agotar(p)}>
+                  {p.disponible ? "Agotar" : "Reponer"}
+                </AccionFila>
+                <AccionFila peligro onClick={() => borrar(p)}>
+                  Eliminar
+                </AccionFila>
+              </div>
+            ))}
+          </section>
+        ))}
+
+        {abriendo && (
+          <HojaPlato
+            carta={carta}
+            plato={editando}
+            cerrar={() => setAbriendo(false)}
+            recargar={recargar}
+            avisar={avisar}
+          />
+        )}
+      </div>
+    </Seccion>
   );
 }
 
@@ -342,23 +575,36 @@ function NuevaSeccion({
     await recargar();
   }
 
+  // VA SOBRE EL VERDE HONDO (2026-08-20): el botón "Agregar" era
+  // `text-brasa-texto` —pensado para tarjeta blanca— y sobre el fondo oscuro
+  // apenas se distinguía.
+  //
+  // SIN CAJA ALREDEDOR (segunda pasada): meter los dos controles en un recuadro
+  // `bg-arena/5` le daba al bloque el peso de una tarjeta y el conjunto se leía
+  // APAGADO, como si estuviera deshabilitado. Van sueltos sobre el fondo, y el
+  // botón solo aparece cuando hay algo escrito — hasta entonces no hay ninguna
+  // acción que ofrecer.
+  const listo = nombre.trim().length > 0;
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <input
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") crear(); }}
         placeholder="Nueva sección (Entradas, Bebidas…)"
         aria-label="Nombre de la nueva sección"
-        className="w-56 rounded-lg border border-linea bg-carta px-3 py-2 text-[0.88rem] text-tinta placeholder:text-frio"
+        className="min-w-0 flex-1 rounded-lg border border-arena/25 bg-transparent px-3 py-2 text-[0.88rem] text-arena transition placeholder:text-arena/45 focus:border-orbita focus:bg-arena/10 focus:outline-none focus:ring-2 focus:ring-orbita/30 sm:w-64 sm:flex-none"
       />
-      <button
-        onClick={crear}
-        disabled={guardando || !nombre.trim()}
-        className="rounded-lg px-3 py-2 text-[0.85rem] font-semibold text-brasa-texto hover:bg-brasa-suave disabled:opacity-50"
-      >
-        Agregar
-      </button>
+      {listo && (
+        <button
+          onClick={crear}
+          disabled={guardando}
+          className="fila-entra shrink-0 rounded-lg bg-orbita px-3.5 py-2 text-[0.85rem] font-semibold text-sobre-orbita transition hover:bg-orbita-hondo active:scale-[0.98] disabled:opacity-50"
+        >
+          {guardando ? "Creando…" : "Agregar sección"}
+        </button>
+      )}
     </div>
   );
 }
@@ -398,13 +644,13 @@ function HojaPlato({
   const puedeGuardar = nombre.trim().length > 0 && centavos !== null;
 
   async function guardar() {
-    if (!nombre.trim()) { setErrorCampo("Ponele un nombre al plato."); return; }
+    if (!nombre.trim()) { setErrorCampo("Ponle un nombre al plato."); return; }
     if (centavos === null) { setErrorCampo("El precio tiene que ser un número, como 19.90."); return; }
     if (precioAntes.trim()) {
       const antes = aCentavos(precioAntes);
       if (antes === null) { setErrorCampo("El precio anterior tiene que ser un número."); return; }
       if (antes <= centavos) {
-        setErrorCampo("El precio anterior tiene que ser MAYOR al que cobrás — si no, no hay descuento que mostrar.");
+        setErrorCampo("El precio anterior tiene que ser MAYOR al que cobras — si no, no hay descuento que mostrar.");
         return;
       }
     }
@@ -459,28 +705,29 @@ function HojaPlato({
   }
 
   return (
-    <div
-      className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 p-0 sm:items-center sm:p-6"
-      onClick={cerrar}
+    <Hoja
+      titulo={plato ? "Editar plato" : "Nuevo plato"}
+      bajada={plato ? plato.nombre : "Lo que el cliente ve y pide en tu carta."}
+      cerrar={cerrar}
+      pie={
+        <PieHoja
+          cerrar={cerrar}
+          guardar={guardar}
+          guardando={guardando}
+          puedeGuardar={puedeGuardar}
+        />
+      }
     >
-      <div
-        className="sube scroll-fino max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-[1.25rem] font-bold text-tinta">
-          {plato ? "Editar plato" : "Nuevo plato"}
-        </h2>
-
-        <div className="mt-4 space-y-4">
-          <Campo etiqueta="Nombre">
-            <input
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder="Lomo saltado"
-              autoFocus
-              className="w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio"
-            />
-          </Campo>
+      <div className="space-y-4">
+        <Campo etiqueta="Nombre">
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Lomo saltado"
+            autoFocus
+            className={CAMPO_HOJA}
+          />
+        </Campo>
 
           {/* La foto va ARRIBA de todo: es lo primero que ve el cliente en la
               carta, y ponerla al final la convierte en algo opcional que nadie
@@ -541,10 +788,10 @@ function HojaPlato({
                     onChange={(e) => setPrecio(e.target.value)}
                     inputMode="decimal"
                     placeholder="19.90"
-                    className="w-28 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio"
+                    className="w-28 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
                   />
                 </div>
-                <p className="mt-1 text-[0.72rem] text-frio">Lo que cobrás</p>
+                <p className="mt-1 text-[0.72rem] text-frio">Lo que cobras</p>
               </div>
 
               {/* El precio ANTES (2026-08-17). Un tachado al lado con el % de
@@ -560,7 +807,7 @@ function HojaPlato({
                     inputMode="decimal"
                     placeholder="—"
                     aria-label="Precio anterior, para mostrarlo tachado"
-                    className="w-28 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio"
+                    className="w-28 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
                   />
                 </div>
                 <p className="mt-1 text-[0.72rem] text-frio">Antes (opcional)</p>
@@ -583,7 +830,7 @@ function HojaPlato({
               })()}
             </div>
             <p className="mt-2 text-[0.78rem] text-frio">
-              Poné un precio anterior y tu plato se muestra con el descuento tachado. Vende más.
+              Pon un precio anterior y tu plato se muestra con el descuento tachado. Vende más.
             </p>
           </Campo>
 
@@ -597,7 +844,7 @@ function HojaPlato({
               onChange={(e) => setDescripcion(e.target.value)}
               rows={4}
               placeholder={"Pan artesanal\nLechuga\nCremas de la casa"}
-              className="w-full resize-y rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-[0.9rem] text-tinta placeholder:text-frio"
+              className="w-full resize-y rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-[0.9rem] text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
             />
           </Campo>
 
@@ -606,7 +853,7 @@ function HojaPlato({
           {carta.categorias.length === 0 ? (
             <Campo etiqueta="Sección">
               <p className="rounded-lg bg-arena/50 px-3 py-2.5 text-[0.85rem] text-frio">
-                Todavía no tenés secciones. Creá una (Entradas, Bebidas…) desde la
+                Todavía no tienes secciones. Crea una (Entradas, Bebidas…) desde la
                 lista de platos y después podés mover este plato ahí.
               </p>
             </Campo>
@@ -615,7 +862,7 @@ function HojaPlato({
               <select
                 value={categoriaId}
                 onChange={(e) => setCategoriaId(e.target.value)}
-                className="w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta"
+                className="w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
               >
                 <option value="">Sin sección</option>
                 {carta.categorias.map((c) => (
@@ -651,27 +898,12 @@ function HojaPlato({
           )}
 
           {errorCampo && (
-            <p className="text-[0.85rem] font-semibold text-alerta">{errorCampo}</p>
+            <p className="fila-entra rounded-lg bg-alerta/10 px-3 py-2 text-[0.85rem] font-semibold text-alerta">
+              {errorCampo}
+            </p>
           )}
-        </div>
-
-        <div className="mt-6 flex gap-2">
-          <button
-            onClick={cerrar}
-            className="flex-1 rounded-tarjeta px-4 py-2.5 font-semibold text-tinta-2 ring-1 ring-linea hover:bg-arena"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={guardar}
-            disabled={guardando || !puedeGuardar}
-            className="flex-1 rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
-          >
-            {guardando ? "Guardando…" : "Guardar"}
-          </button>
-        </div>
       </div>
-    </div>
+    </Hoja>
   );
 }
 
@@ -701,84 +933,99 @@ function Extras({
     await recargar();
   }
 
+  const total = carta.grupos.length;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="max-w-md text-[0.88rem] text-frio">
-          Un grupo junta opciones que van con un plato: cremas, tamaño, término de la carne.
-          Después lo asignás a los platos que lo llevan.
-        </p>
-        <button
-          onClick={() => setAbriendo(true)}
-          className="shrink-0 rounded-tarjeta bg-orbita px-5 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo"
-        >
-          + Nuevo grupo
-        </button>
-      </div>
+    <Seccion
+      titulo="Extras y opciones"
+      bajada={
+        total === 0
+          ? "Cremas, tamaño, término de la carne: lo que el cliente elige junto al plato."
+          : `${total} ${total === 1 ? "grupo" : "grupos"} · después los asignas a los platos que los llevan`
+      }
+      tono="hondo"
+      accion={<BotonNuevo onClick={() => setAbriendo(true)}>+ Nuevo grupo</BotonNuevo>}
+    >
+      <div className="space-y-3">
+        {carta.grupos.length === 0 && (
+          <Vacio
+            icono="🧂"
+            titulo="Todavía no tienes extras"
+            texto="Crea un grupo si tus platos llevan agregados con costo: una crema, una porción extra, el tamaño."
+          />
+        )}
 
-      {carta.grupos.length === 0 && (
-        <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
-          <p className="text-[1.05rem] font-bold text-tinta">Todavía no tenés extras</p>
-          <p className="mt-1 text-[0.9rem] text-frio">
-            Creá un grupo si tus platos llevan agregados con costo.
-          </p>
-        </div>
-      )}
-
-      {carta.grupos.map((g) => {
-        const usanEste = carta.productos.filter((p) => p.grupos.some((x) => x.grupoId === g.id)).length;
-        return (
-          <div key={g.id} className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-semibold text-tinta">{g.nombre}</p>
-                <p className="text-[0.78rem] text-frio">
-                  {reglaDelGrupo(g)}
-                  {usanEste > 0 && ` · en ${usanEste} ${usanEste === 1 ? "plato" : "platos"}`}
-                </p>
-              </div>
-              <button
-                onClick={() => borrar(g)}
-                className="shrink-0 text-sm font-semibold text-frio hover:text-alerta"
-              >
-                Eliminar
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {g.opciones.map((o) => (
-                <span
-                  key={o.id}
-                  className="rounded-chip bg-arena px-2.5 py-1 text-[0.78rem] text-tinta-2"
-                >
-                  {o.nombre}
-                  {o.precioCentavos > 0 && (
-                    <span className="ml-1 font-semibold tabular-nums text-brasa-texto">
-                      +{precioTexto(o.precioCentavos)}
+        {carta.grupos.map((g, i) => {
+          const usanEste = carta.productos.filter((p) => p.grupos.some((x) => x.grupoId === g.id)).length;
+          const obligatorio = g.minSelec >= 1;
+          return (
+            <div
+              key={g.id}
+              style={retardo(i)}
+              className="fila-entra tarjeta-viva rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-orbita/40"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-tinta">{g.nombre}</p>
+                    {/* OBLIGATORIO vs OPCIONAL, EN COLOR (2026-08-20): la
+                        diferencia estaba enterrada en una frase gris, y es lo
+                        que decide si el cliente puede saltearse el paso. */}
+                    <span
+                      className={`rounded-chip px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-wide ${
+                        obligatorio ? "bg-orbita/15 text-orbita-hondo" : "bg-arena text-frio"
+                      }`}
+                    >
+                      {obligatorio ? "Obligatorio" : "Opcional"}
                     </span>
-                  )}
-                </span>
-              ))}
+                  </div>
+                  <p className="text-[0.78rem] text-frio">
+                    {reglaDelGrupo(g)}
+                    {usanEste > 0
+                      ? ` · en ${usanEste} ${usanEste === 1 ? "plato" : "platos"}`
+                      : " · todavía sin asignar"}
+                  </p>
+                </div>
+                <AccionFila peligro onClick={() => borrar(g)}>
+                  Eliminar
+                </AccionFila>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5 border-t border-linea pt-3">
+                {g.opciones.map((o) => (
+                  <span
+                    key={o.id}
+                    className="rounded-chip bg-arena px-2.5 py-1 text-[0.78rem] text-tinta-2 transition hover:bg-arena-2"
+                  >
+                    {o.nombre}
+                    {o.precioCentavos > 0 && (
+                      <span className="ml-1 font-semibold tabular-nums text-brasa-texto">
+                        +{precioTexto(o.precioCentavos)}
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
 
-      {abriendo && (
-        <HojaGrupo cerrar={() => setAbriendo(false)} recargar={recargar} />
-      )}
-    </div>
+        {abriendo && (
+          <HojaGrupo cerrar={() => setAbriendo(false)} recargar={recargar} />
+        )}
+      </div>
+    </Seccion>
   );
 }
 
 /**
- * "Elegí 1" / "Hasta 3, opcional" — la regla del grupo en palabras.
+ * "Elige 1" / "Hasta 3, opcional" — la regla del grupo en palabras.
  *
  * `min`/`max` en crudo no le dice nada al dueño; esto sí le dice qué va a
  * pasarle al cliente cuando pida.
  */
 function reglaDelGrupo(g: GrupoOpciones): string {
-  if (g.minSelec >= 1 && g.maxSelec === 1) return "Elegí 1 — obligatorio";
-  if (g.minSelec >= 1) return `Elegí entre ${g.minSelec} y ${g.maxSelec ?? "las que quieras"}`;
+  if (g.minSelec >= 1 && g.maxSelec === 1) return "Elige 1 — obligatorio";
+  if (g.minSelec >= 1) return `Elige entre ${g.minSelec} y ${g.maxSelec ?? "las que quieras"}`;
   if (g.maxSelec === 1) return "Hasta 1, opcional";
   return g.maxSelec ? `Hasta ${g.maxSelec}, opcional` : "Las que quiera, opcional";
 }
@@ -803,8 +1050,8 @@ function HojaGrupo({
   const llenas = opciones.filter((o) => o.nombre.trim());
 
   async function guardar() {
-    if (!nombre.trim()) { setErrorCampo("Ponele un nombre al grupo."); return; }
-    if (llenas.length === 0) { setErrorCampo("Agregá al menos una opción."); return; }
+    if (!nombre.trim()) { setErrorCampo("Ponle un nombre al grupo."); return; }
+    if (llenas.length === 0) { setErrorCampo("Agrega al menos una opción."); return; }
 
     const mal = llenas.find((o) => o.precio.trim() && aCentavos(o.precio) === null);
     if (mal) { setErrorCampo(`El precio de "${mal.nombre}" no es válido.`); return; }
@@ -838,24 +1085,27 @@ function HojaGrupo({
   }
 
   return (
-    <div
-      className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 backdrop-blur-[2px] sm:items-center sm:p-6"
-      onClick={cerrar}
+    <Hoja
+      titulo="Nuevo grupo de extras"
+      bajada="Las opciones que el cliente elige junto al plato."
+      cerrar={cerrar}
+      pie={
+        <PieHoja
+          cerrar={cerrar}
+          guardar={guardar}
+          guardando={guardando}
+          puedeGuardar
+        />
+      }
     >
-      <div
-        className="sube scroll-fino max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-[1.25rem] font-bold text-tinta">Nuevo grupo de extras</h2>
-
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4">
           <Campo etiqueta="Nombre del grupo" ayuda="Cremas, Tamaño, Término…">
             <input
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Cremas"
               autoFocus
-              className="w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio"
+              className={CAMPO_HOJA}
             />
           </Campo>
 
@@ -919,7 +1169,7 @@ function HojaGrupo({
                     }
                     placeholder="Queso"
                     aria-label={`Nombre de la opción ${i + 1}`}
-                    className="min-w-0 flex-1 rounded-lg border border-linea bg-arena/40 px-3 py-2 text-[0.9rem] text-tinta placeholder:text-frio"
+                    className="min-w-0 flex-1 rounded-lg border border-linea bg-arena/40 px-3 py-2 text-[0.9rem] text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
                   />
                   <span className="text-[0.85rem] font-semibold text-frio">+S/</span>
                   <input
@@ -952,26 +1202,13 @@ function HojaGrupo({
             </div>
           </Campo>
 
-          {errorCampo && <p className="text-[0.85rem] font-semibold text-alerta">{errorCampo}</p>}
+          {errorCampo && (
+            <p className="fila-entra rounded-lg bg-alerta/10 px-3 py-2 text-[0.85rem] font-semibold text-alerta">
+              {errorCampo}
+            </p>
+          )}
         </div>
-
-        <div className="mt-6 flex gap-2">
-          <button
-            onClick={cerrar}
-            className="flex-1 rounded-tarjeta px-4 py-2.5 font-semibold text-tinta-2 ring-1 ring-linea hover:bg-arena"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={guardar}
-            disabled={guardando}
-            className="flex-1 rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
-          >
-            {guardando ? "Guardando…" : "Guardar"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Hoja>
   );
 }
 
@@ -1005,78 +1242,101 @@ function Combos({
     }, 0);
   }
 
+  const total = carta.combos.length;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="max-w-md text-[0.88rem] text-frio">
-          Juntá dos o tres platos a un precio especial. El cliente los ve como
-          una sola cosa que puede pedir.
-        </p>
-        <button
+    <Seccion
+      titulo="Combos"
+      bajada={
+        total === 0
+          ? "Dos o tres platos a un precio especial. El cliente los pide como una sola cosa."
+          : `${total} ${total === 1 ? "combo armado" : "combos armados"} con platos de tu carta`
+      }
+      tono="hondo"
+      accion={
+        <BotonNuevo
           onClick={() => setAbriendo(true)}
           disabled={carta.productos.length === 0}
-          className="shrink-0 rounded-tarjeta bg-orbita px-5 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-50"
         >
           + Nuevo combo
-        </button>
-      </div>
+        </BotonNuevo>
+      }
+    >
+      <div className="space-y-3">
+        {carta.productos.length === 0 && (
+          <Vacio
+            icono="🍔"
+            titulo="Primero carga tus platos"
+            texto="Un combo se arma con platos de tu carta, así que empieza por ahí."
+          />
+        )}
 
-      {carta.productos.length === 0 && (
-        <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
-          <p className="text-[1.05rem] font-bold text-tinta">Primero cargá tus platos</p>
-          <p className="mt-1 text-[0.9rem] text-frio">
-            Un combo se arma con platos de tu carta.
-          </p>
-        </div>
-      )}
+        {carta.productos.length > 0 && carta.combos.length === 0 && (
+          <Vacio
+            icono="🥤"
+            titulo="Todavía no tienes combos"
+            texto="Una hamburguesa con papas y gaseosa a precio de combo vende más que las tres cosas por separado."
+          />
+        )}
 
-      {carta.productos.length > 0 && carta.combos.length === 0 && (
-        <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
-          <p className="text-[1.05rem] font-bold text-tinta">Todavía no tenés combos</p>
-          <p className="mt-1 text-[0.9rem] text-frio">
-            Una hamburguesa con papas y gaseosa a precio de combo vende más que
-            las tres cosas por separado.
-          </p>
-        </div>
-      )}
-
-      {carta.combos.map((c) => {
-        const suelto = sueltos(c);
-        const ahorro = suelto - c.precioCentavos;
-        return (
-          <div key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
-            {c.fotoUrl && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={c.fotoUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover ring-2 ring-orbita/35" />
-            )}
-            <div className="min-w-[9rem] flex-1">
-              <p className="font-semibold text-tinta">{c.nombre}</p>
-              <p className="text-[0.8rem] text-frio">
-                {c.productos.map((x) => {
-                  const p = carta.productos.find((y) => y.id === x.productoId);
-                  return p ? `${x.cantidad > 1 ? `${x.cantidad}x ` : ""}${p.nombre}` : null;
-                }).filter(Boolean).join(" + ")}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="font-bold tabular-nums text-calor">{precioTexto(c.precioCentavos)}</p>
-              {/* El ahorro es el argumento de venta: sin esto ni el dueño sabe
-                  si su combo conviene, ni el cliente por qué pedirlo. */}
-              {ahorro > 0 && (
-                <p className="text-[0.75rem] text-frio line-through">{precioTexto(suelto)}</p>
+        {carta.combos.map((c, i) => {
+          const suelto = sueltos(c);
+          const ahorro = suelto - c.precioCentavos;
+          return (
+            <div
+              key={c.id}
+              style={retardo(i)}
+              className="fila-entra tarjeta-viva group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-orbita/40"
+            >
+              {c.fotoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={c.fotoUrl}
+                  alt=""
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover ring-2 ring-orbita/35 transition group-hover:ring-orbita/70"
+                />
+              ) : (
+                <span
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-arena-2 text-[1.1rem] opacity-45 ring-1 ring-linea"
+                  aria-hidden
+                >
+                  🍔
+                </span>
               )}
+              <div className="min-w-[9rem] flex-1">
+                <p className="font-semibold text-tinta">{c.nombre}</p>
+                <p className="text-[0.8rem] text-frio">
+                  {c.productos.map((x) => {
+                    const p = carta.productos.find((y) => y.id === x.productoId);
+                    return p ? `${x.cantidad > 1 ? `${x.cantidad}x ` : ""}${p.nombre}` : null;
+                  }).filter(Boolean).join(" + ")}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="font-bold tabular-nums text-calor">{precioTexto(c.precioCentavos)}</p>
+                {/* El ahorro es el argumento de venta: sin esto ni el dueño sabe
+                    si su combo conviene, ni el cliente por qué pedirlo. En
+                    verde y con el monto, no solo el precio tachado: "ahorra
+                    S/8" se entiende de un vistazo, un número cruzado no. */}
+                {ahorro > 0 && (
+                  <p className="text-[0.75rem] text-frio">
+                    <span className="line-through">{precioTexto(suelto)}</span>{" "}
+                    <span className="font-bold text-ok">ahorra {precioTexto(ahorro)}</span>
+                  </p>
+                )}
+              </div>
+              <AccionFila peligro onClick={() => borrar(c)}>
+                Eliminar
+              </AccionFila>
             </div>
-            <button onClick={() => borrar(c)} className="text-sm font-semibold text-frio hover:text-alerta">
-              Eliminar
-            </button>
-          </div>
-        );
-      })}
+          );
+        })}
 
-      {abriendo && (
-        <HojaCombo carta={carta} cerrar={() => setAbriendo(false)} recargar={recargar} avisar={avisar} />
-      )}
-    </div>
+        {abriendo && (
+          <HojaCombo carta={carta} cerrar={() => setAbriendo(false)} recargar={recargar} avisar={avisar} />
+        )}
+      </div>
+    </Seccion>
   );
 }
 
@@ -1129,8 +1389,13 @@ function HojaCombo({
       : [...prev, { productoId: id, cantidad: 1 }]);
   }
 
+  // Las MISMAS tres condiciones que valida `guardar`. El botón se apaga hasta
+  // que se cumplen; los mensajes de abajo siguen ahí para decir cuál falta, que
+  // es lo que un botón gris no explica solo.
+  const puedeGuardar = nombre.trim().length > 0 && elegidos.length >= 2 && centavos !== null;
+
   async function guardar() {
-    if (!nombre.trim()) { setErrorCampo("Ponele un nombre al combo."); return; }
+    if (!nombre.trim()) { setErrorCampo("Ponle un nombre al combo."); return; }
     if (elegidos.length < 2) { setErrorCampo("Un combo lleva al menos dos platos."); return; }
     if (centavos === null) { setErrorCampo("El precio tiene que ser un número, como 39.90."); return; }
 
@@ -1154,14 +1419,20 @@ function HojaCombo({
   }
 
   return (
-    <div className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 backdrop-blur-[2px] sm:items-center sm:p-6" onClick={cerrar}>
-      <div
-        className="sube scroll-fino max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-[1.25rem] font-bold text-tinta">Nuevo combo</h2>
-
-        <div className="mt-4 space-y-4">
+    <Hoja
+      titulo="Nuevo combo"
+      bajada="Varios platos que el cliente pide como uno solo."
+      cerrar={cerrar}
+      pie={
+        <PieHoja
+          cerrar={cerrar}
+          guardar={guardar}
+          guardando={guardando}
+          puedeGuardar={puedeGuardar}
+        />
+      }
+    >
+        <div className="space-y-4">
           <CampoFoto foto={foto} alFallar={setErrorCampo} />
 
           <Campo etiqueta="Nombre" ayuda="Combo familiar, Dúo clásico…">
@@ -1170,13 +1441,13 @@ function HojaCombo({
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Combo familiar"
               autoFocus
-              className="w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio"
+              className={CAMPO_HOJA}
             />
           </Campo>
 
           <Campo
             etiqueta="Qué lleva"
-            ayuda={elegidos.length > 0 ? `${elegidos.length} elegido(s)` : "Elegí dos o más platos"}
+            ayuda={elegidos.length > 0 ? `${elegidos.length} elegido(s)` : "Elige dos o más platos"}
           >
             {/* BUSCADOR (2026-08-19). Con 48 platos, encontrar "California"
                 era scrollear a ciegas una lista corrida. */}
@@ -1185,7 +1456,7 @@ function HojaCombo({
               onChange={(e) => setBusca(e.target.value)}
               placeholder="🔍 Buscar un plato…"
               aria-label="Buscar un plato"
-              className="mb-2 w-full rounded-lg border border-linea bg-arena/40 px-3 py-2 text-[0.9rem] text-tinta placeholder:text-frio"
+              className="mb-2 w-full rounded-lg border border-linea bg-arena/40 px-3 py-2 text-[0.9rem] text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
             />
             <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg bg-arena/40 p-2">
               {gruposCombo.length === 0 && (
@@ -1236,7 +1507,7 @@ function HojaCombo({
             </div>
           </Campo>
 
-          <Campo etiqueta="Precio del combo" ayuda="Lo que cobrás por todo junto">
+          <Campo etiqueta="Precio del combo" ayuda="Lo que cobras por todo junto">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-frio">S/</span>
               <input
@@ -1244,7 +1515,7 @@ function HojaCombo({
                 onChange={(e) => setPrecio(e.target.value)}
                 inputMode="decimal"
                 placeholder="39.90"
-                className="w-32 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio"
+                className="w-32 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
               />
               {/* Sin esto el dueño arma combos que no ahorran nada —o que le
                   dan pérdida— y se entera cuando ya están publicados. */}
@@ -1259,23 +1530,13 @@ function HojaCombo({
             </div>
           </Campo>
 
-          {errorCampo && <p className="text-[0.85rem] font-semibold text-alerta">{errorCampo}</p>}
+          {errorCampo && (
+            <p className="fila-entra rounded-lg bg-alerta/10 px-3 py-2 text-[0.85rem] font-semibold text-alerta">
+              {errorCampo}
+            </p>
+          )}
         </div>
-
-        <div className="mt-6 flex gap-2">
-          <button onClick={cerrar} className="flex-1 rounded-tarjeta px-4 py-2.5 font-semibold text-tinta-2 ring-1 ring-linea hover:bg-arena">
-            Cancelar
-          </button>
-          <button
-            onClick={guardar}
-            disabled={guardando}
-            className="flex-1 rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
-          >
-            {guardando ? "Guardando…" : "Guardar"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Hoja>
   );
 }
 
@@ -1299,57 +1560,69 @@ function Promos({
     await recargar();
   }
 
+  const activas = carta.descuentos.filter((d) => d.activo).length;
+  const total = carta.descuentos.length;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="max-w-md text-[0.88rem] text-frio">
-          Descuentos por día u hora. Se aplican solos cuando el cliente pide dentro de la ventana.
-        </p>
-        <button
-          onClick={() => setAbriendo(true)}
-          className="shrink-0 rounded-tarjeta bg-orbita px-5 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo"
-        >
-          + Nueva promo
-        </button>
-      </div>
+    <Seccion
+      titulo="Promos"
+      bajada={
+        total === 0
+          ? "Descuentos por día u hora. Se aplican solos cuando el cliente pide dentro de la ventana."
+          : `${activas} ${activas === 1 ? "activa" : "activas"} de ${total} · se aplican solas dentro de su ventana`
+      }
+      tono="hondo"
+      accion={<BotonNuevo onClick={() => setAbriendo(true)}>+ Nueva promo</BotonNuevo>}
+    >
+      <div className="space-y-3">
+        {carta.descuentos.length === 0 && (
+          <Vacio
+            icono="🏷️"
+            titulo="Sin promos todavía"
+            texto="Crea una para los días flojos: 20% los martes, por ejemplo."
+          />
+        )}
 
-      {carta.descuentos.length === 0 && (
-        <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
-          <p className="text-[1.05rem] font-bold text-tinta">Sin promos activas</p>
-          <p className="mt-1 text-[0.9rem] text-frio">
-            Creá una para los días flojos: 20% los martes, por ejemplo.
-          </p>
-        </div>
-      )}
-
-      {/* Cada promo ENTRA: sin esto, crear o borrar una solo hace que la lista
-          sea distinta y no se ve cuál cambió. */}
-      {carta.descuentos.map((d) => (
-        <div key={d.id} className="fila-entra tarjeta-viva flex items-center gap-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-tinta">{d.nombre}</p>
-            <p className="text-[0.8rem] text-frio">{resumenDescuento(d, carta.categorias)}</p>
-          </div>
-          <span
-            className={`rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
-              d.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
+        {/* Cada promo ENTRA: sin esto, crear o borrar una solo hace que la lista
+            sea distinta y no se ve cuál cambió. */}
+        {carta.descuentos.map((d, i) => (
+          <div
+            key={d.id}
+            style={retardo(i)}
+            /* LA PROMO APAGADA SE VE APAGADA (2026-08-20): activa y apagada se
+               diferenciaban solo por un chip chico al costado. Ahora la activa
+               lleva un borde verde a la izquierda y la apagada se atenúa: cuál
+               está corriendo se ve de un vistazo, que es la única pregunta que
+               alguien le hace a esta lista. */
+            className={`fila-entra tarjeta-viva flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition ${
+              d.activo ? "border-l-4 border-ok" : "opacity-70"
             }`}
           >
-            {d.activo ? "Activa" : "Apagada"}
-          </span>
-          <button onClick={() => alternar(d)} className="text-sm font-semibold text-tinta-2 hover:text-tinta">
-            {d.activo ? "Apagar" : "Activar"}
-          </button>
-          <button onClick={() => borrar(d)} className="text-sm font-semibold text-frio hover:text-alerta">
-            Eliminar
-          </button>
-        </div>
-      ))}
+            <div className="min-w-[9rem] flex-1">
+              <p className="font-semibold text-tinta">{d.nombre}</p>
+              <p className="text-[0.8rem] text-frio">{resumenDescuento(d, carta.categorias)}</p>
+            </div>
+            <span
+              className={`shrink-0 rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
+                d.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
+              }`}
+            >
+              {d.activo ? "Activa" : "Apagada"}
+            </span>
+            <AccionFila onClick={() => alternar(d)}>
+              {d.activo ? "Apagar" : "Activar"}
+            </AccionFila>
+            <AccionFila peligro onClick={() => borrar(d)}>
+              Eliminar
+            </AccionFila>
+          </div>
+        ))}
 
-      {abriendo && (
-        <HojaPromo cerrar={() => setAbriendo(false)} recargar={recargar} categorias={carta.categorias} />
-      )}
-    </div>
+        {abriendo && (
+          <HojaPromo cerrar={() => setAbriendo(false)} recargar={recargar} categorias={carta.categorias} />
+        )}
+      </div>
+    </Seccion>
   );
 }
 
@@ -1422,14 +1695,14 @@ function HojaPromo({
   const foto = useFoto(null);
 
   async function guardar() {
-    if (!nombre.trim()) { setErrorCampo("Ponele un nombre a la promo."); return; }
+    if (!nombre.trim()) { setErrorCampo("Ponle un nombre a la promo."); return; }
 
     // Una promo por cantidad sobre TODA la carta mezcla peras con manzanas:
     // "3x2" contando entradas y postres juntos no es lo que nadie quiso decir,
     // y es la forma exacta en que se rompió la carta de Shiro.
     const claseElegida = TIPOS_PROMO.find((x) => x.id === clase)!;
     if (claseElegida.minUnidades >= 2 && cats.length === 0) {
-      setErrorCampo("Elegí a qué secciones aplica: una promo por cantidad no puede contar toda la carta.");
+      setErrorCampo("Elige a qué secciones aplica: una promo por cantidad no puede contar toda la carta.");
       return;
     }
 
@@ -1443,14 +1716,14 @@ function HojaPromo({
       n = aCentavos(valor);
     }
     if (n === null || n <= 0) {
-      setErrorCampo(tipo === "porcentaje" ? "Poné un porcentaje, como 20." : "Poné un monto, como 5.00.");
+      setErrorCampo(tipo === "porcentaje" ? "Pon un porcentaje, como 20." : "Pon un monto, como 5.00.");
       return;
     }
 
     // Una sola hora sin la otra deja una ventana a medias: el backend la
     // ignoraría y el dueño juraría que la promo está rota.
     if ((horaDesde && !horaHasta) || (!horaDesde && horaHasta)) {
-      setErrorCampo("Poné las dos horas, o ninguna.");
+      setErrorCampo("Pon las dos horas, o ninguna.");
       return;
     }
 
@@ -1494,17 +1767,21 @@ function HojaPromo({
   }
 
   return (
-    <div
-      className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 backdrop-blur-[2px] sm:items-center sm:p-6"
-      onClick={cerrar}
+    <Hoja
+      titulo="Nueva promo"
+      bajada="Se aplica sola cuando el cliente pide dentro de la ventana."
+      cerrar={cerrar}
+      pie={
+        <PieHoja
+          cerrar={cerrar}
+          guardar={guardar}
+          guardando={guardando}
+          puedeGuardar
+          etiqueta="Crear promo"
+        />
+      }
     >
-      <div
-        className="sube scroll-fino max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-carta p-6 shadow-xl sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-[1.25rem] font-bold text-tinta">Nueva promo</h2>
-
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4">
           <CampoFoto
             foto={foto}
             alFallar={setErrorCampo}
@@ -1518,7 +1795,7 @@ function HojaPromo({
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Martes de promo"
               autoFocus
-              className="w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio"
+              className={CAMPO_HOJA}
             />
           </Campo>
 
@@ -1590,7 +1867,7 @@ function HojaPromo({
           >
             {categorias.length === 0 ? (
               <p className="text-[0.85rem] text-frio">
-                Todavía no tenés secciones en tu carta: la promo va a aplicar a todo.
+                Todavía no tienes secciones en tu carta: la promo va a aplicar a todo.
               </p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
@@ -1620,7 +1897,7 @@ function HojaPromo({
               <select
                 value={tipo}
                 onChange={(e) => { setTipo(e.target.value as "porcentaje" | "monto"); setValor(""); }}
-                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta"
+                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
               >
                 <option value="porcentaje">Porcentaje</option>
                 <option value="monto">Monto fijo</option>
@@ -1631,7 +1908,7 @@ function HojaPromo({
                 inputMode="decimal"
                 placeholder={tipo === "porcentaje" ? "20" : "5.00"}
                 aria-label="Valor del descuento"
-                className="w-24 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio"
+                className="w-24 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
               />
               <span className="font-semibold text-frio">{tipo === "porcentaje" ? "%" : "soles"}</span>
             </div>
@@ -1662,7 +1939,7 @@ function HojaPromo({
                 value={desde}
                 onChange={(e) => setDesde(e.target.value)}
                 aria-label="Desde qué fecha"
-                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta"
+                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
               />
               <span className="text-frio">a</span>
               <input
@@ -1670,7 +1947,7 @@ function HojaPromo({
                 value={hasta}
                 onChange={(e) => setHasta(e.target.value)}
                 aria-label="Hasta qué fecha"
-                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta"
+                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
               />
             </div>
           </Campo>
@@ -1682,7 +1959,7 @@ function HojaPromo({
                 value={horaDesde}
                 onChange={(e) => setHoraDesde(e.target.value)}
                 aria-label="Desde qué hora"
-                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta"
+                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
               />
               <span className="text-frio">a</span>
               <input
@@ -1690,30 +1967,17 @@ function HojaPromo({
                 value={horaHasta}
                 onChange={(e) => setHoraHasta(e.target.value)}
                 aria-label="Hasta qué hora"
-                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta"
+                className="rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
               />
             </div>
           </Campo>
 
-          {errorCampo && <p className="text-[0.85rem] font-semibold text-alerta">{errorCampo}</p>}
+          {errorCampo && (
+            <p className="fila-entra rounded-lg bg-alerta/10 px-3 py-2 text-[0.85rem] font-semibold text-alerta">
+              {errorCampo}
+            </p>
+          )}
         </div>
-
-        <div className="mt-6 flex gap-2">
-          <button
-            onClick={cerrar}
-            className="flex-1 rounded-tarjeta px-4 py-2.5 font-semibold text-tinta-2 ring-1 ring-linea hover:bg-arena"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={guardar}
-            disabled={guardando}
-            className="flex-1 rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
-          >
-            {guardando ? "Guardando…" : "Guardar"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Hoja>
   );
 }

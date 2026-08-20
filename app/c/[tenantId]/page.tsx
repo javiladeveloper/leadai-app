@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { volarAlCarrito } from "@/lib/vuelo-carrito";
 import { usarNumeroAnimado } from "@/lib/usar-numero-animado";
+import { IconoWhatsApp, IconoInstagram, IconoMessenger, IconoTikTok } from "@/components/Iconos";
 import { use } from "react";
 
 /**
@@ -651,6 +652,14 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
             {negocio.abierto ? "● Abierto" : "● Cerrado"}
             {!negocio.abierto && negocio.horaAbre != null && ` · abre ${negocio.horaAbre}:00`}
           </span>
+
+          {/* LAS REDES, ARRIBA (2026-08-20). Ya estaban en el pie, pero ahí
+              las ve solo quien scrollea hasta el final — y el que llegó por un
+              link reenviado quiere saber AHORA si el negocio es real. Un
+              Instagram con fotos y seguidores es la prueba de existencia más
+              rápida que hay. Los íconos van a la derecha del nombre, como
+              hace ola.click: reconocibles sin leer una palabra. */}
+          <RedesCabecera negocio={negocio} />
         </div>
 
         <div className="mt-2 space-y-1 text-[0.85rem] text-tinta-2">
@@ -703,6 +712,45 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
  * promos hoy" ocupa la mejor parte de la pantalla para no decir nada.
  */
 function BarraPromos({ promos }: { promos: Promo[] }) {
+  const pista = useRef<HTMLDivElement>(null);
+
+  /**
+   * ARRASTRAR LA BARRA (2026-08-20, reporte de Jonathan: "no puedo mover las
+   * promos en la vista de celular").
+   *
+   * Es el MISMO problema que ya tuvo la barra de secciones, y se resuelve
+   * igual. Con dos promos la tercera queda fuera de pantalla y no habia forma
+   * de llegar a ella: la barra de scroll esta oculta a proposito y no habia
+   * handler de arrastre.
+   *
+   * Pointer Events cubre mouse, lapiz y trackpad con un solo camino. En tactil
+   * se deja pasar al navegador, que ya resuelve el desplazamiento nativo — y
+   * ademas evita pelear con el scroll vertical de la pagina.
+   */
+  const arrastre = useRef<{ x: number; scroll: number } | null>(null);
+
+  const alBajar = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch") return; // el dedo ya funciona solo
+    const el = pista.current;
+    if (!el) return;
+    arrastre.current = { x: e.clientX, scroll: el.scrollLeft };
+  };
+
+  const alMover = (e: React.PointerEvent<HTMLDivElement>) => {
+    const inicio = arrastre.current;
+    const el = pista.current;
+    if (!inicio || !el) return;
+    // Sin `preventDefault` el navegador intenta arrastrar las tarjetas como si
+    // fueran imagenes y aparece el cursor de "prohibido".
+    e.preventDefault();
+    el.scrollLeft = inicio.scroll - (e.clientX - inicio.x);
+  };
+
+  const alSoltar = () => { arrastre.current = null; };
+
+  // El `return` va DESPUES de los hooks: uno detras de un return condicional
+  // se saltea en ese render y React aborta con "Rendered more hooks than
+  // during the previous render".
   if (promos.length === 0) return null;
 
   const varias = promos.length > 1;
@@ -722,7 +770,12 @@ function BarraPromos({ promos }: { promos: Promo[] }) {
       )}
       <div className="relative">
         <div
-          className="scroll-fino flex gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          ref={pista}
+          onPointerDown={alBajar}
+          onPointerMove={alMover}
+          onPointerUp={alSoltar}
+          onPointerLeave={alSoltar}
+          className="scroll-fino flex touch-pan-x gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {promos.map((p, i) => (
             <div
@@ -1764,6 +1817,61 @@ function TarjetaCombo({ combo, onAgregar }: { combo: Combo; onAgregar: () => voi
         +
       </span>
     </button>
+  );
+}
+
+/**
+ * LAS REDES EN LA CABECERA (2026-08-20).
+ *
+ * Los mismos links que el pie, pero arriba y como iconos. Dos razones:
+ *
+ *  - El que llega por un link REENVIADO no sabe si el negocio existe. Un
+ *    Instagram con fotos y seguidores lo resuelve en un toque; el pie solo lo
+ *    ve quien scrollea 40 platos hasta el final.
+ *  - Como icono ocupan lo que una palabra y se reconocen sin leer.
+ *
+ * El WhatsApp va PRIMERO cuando existe: es el canal por el que de verdad pide,
+ * y tenerlo a mano evita que se vaya a buscar el numero a Google.
+ *
+ * Si el negocio no cargo ninguna red no se dibuja nada: un hueco con recuadros
+ * vacios se ve peor que no tener la seccion.
+ */
+function RedesCabecera({ negocio }: { negocio: Carta["negocio"] }) {
+  const redes = [
+    negocio.whatsapp
+      ? { k: "wa", label: "WhatsApp", url: `https://wa.me/${negocio.whatsapp}`, Icono: IconoWhatsApp }
+      : null,
+    negocio.redes?.instagram
+      ? { k: "ig", label: "Instagram", url: negocio.redes.instagram, Icono: IconoInstagram }
+      : null,
+    negocio.redes?.facebook
+      ? { k: "fb", label: "Facebook", url: negocio.redes.facebook, Icono: IconoMessenger }
+      : null,
+    negocio.redes?.tiktok
+      ? { k: "tt", label: "TikTok", url: negocio.redes.tiktok, Icono: IconoTikTok }
+      : null,
+  ].filter((r): r is NonNullable<typeof r> => r !== null);
+
+  if (redes.length === 0) return null;
+
+  return (
+    // `sm:ml-auto`: al borde derecho en pantalla ancha, como en la referencia;
+    // en movil caen bajo el nombre en vez de apretarlo contra el chip.
+    <div className="flex gap-1.5 sm:ml-auto">
+      {redes.map(({ k, label, url, Icono }) => (
+        <a
+          key={k}
+          href={/^https?:\/\//.test(url) ? url : `https://${url}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={label}
+          title={label}
+          className="grid h-9 w-9 place-items-center rounded-lg text-tinta-2 ring-1 ring-linea transition hover:bg-arena hover:text-tinta active:scale-95"
+        >
+          <Icono className="h-[1.05rem] w-[1.05rem]" />
+        </a>
+      ))}
+    </div>
   );
 }
 

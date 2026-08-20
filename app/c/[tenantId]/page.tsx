@@ -101,6 +101,17 @@ interface Cotizacion {
 const soles = (centavos: number) => `S/${(centavos / 100).toFixed(2)}`;
 
 /**
+ * Sin tildes, para buscar. Nadie escribe "acevichado" con tilde cuando busca
+ * rápido, y un buscador que no encuentra por eso estorba en vez de ayudar.
+ *
+ * Definido acá y no importado de `lib/carta`: esta página es la única del
+ * panel SIN sesión, y no debe arrastrar el cliente de la API del dueño.
+ */
+function sinTildes(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+/**
  * Qué dice el botón cuando falta elegir algo obligatorio.
  *
  * El dueño escribe el nombre de sus grupos como quiere: "Tamaño", "Elige tu
@@ -822,6 +833,16 @@ function HojaOpciones({
 }) {
   const [elegidas, setElegidas] = useState<Opcion[]>([]);
   const [cantidad, setCantidad] = useState(1);
+  /**
+   * BUSCADOR POR GRUPO (2026-08-20). En Shiro, "Elige tu roll" tiene 39
+   * opciones: una lista corrida de 39 filas es un muro que nadie lee, y el
+   * cliente que ya sabe cuál quiere igual tiene que scrollear todo.
+   *
+   * Solo aparece a partir de 8 opciones. Con menos, el buscador ocupa más de
+   * lo que ahorra — y con tres salsas, buscar es más trabajo que mirar.
+   */
+  const [busca, setBusca] = useState<Record<string, string>>({});
+  const MIN_PARA_BUSCADOR = 8;
 
   const alternar = (grupo: Grupo, op: Opcion) => {
     setElegidas((prev) => {
@@ -897,8 +918,30 @@ function HojaOpciones({
                     )}
                   </div>
 
+                  {g.opciones.length >= MIN_PARA_BUSCADOR && (
+                    <input
+                      value={busca[g.id] ?? ""}
+                      onChange={(e) => setBusca((b) => ({ ...b, [g.id]: e.target.value }))}
+                      placeholder={`🔍 Buscar entre ${g.opciones.length}…`}
+                      aria-label={`Buscar en ${g.nombre}`}
+                      className="mb-2 w-full rounded-lg bg-arena/60 px-3 py-2 text-[0.9rem] text-tinta ring-1 ring-linea placeholder:text-frio focus:ring-brasa/50"
+                    />
+                  )}
+
                   <div className="space-y-1.5">
-                    {g.opciones.map((o) => {
+                    {(() => {
+                      const q = sinTildes((busca[g.id] ?? "").trim().toLowerCase());
+                      const visibles = q
+                        ? g.opciones.filter((o) => sinTildes(o.nombre.toLowerCase()).includes(q))
+                        : g.opciones;
+                      if (visibles.length === 0) {
+                        return (
+                          <p className="px-1 py-3 text-center text-[0.85rem] text-frio">
+                            Nada coincide con «{busca[g.id]}».
+                          </p>
+                        );
+                      }
+                      return visibles.map((o) => {
                       const marcada = elegidas.some((e) => e.id === o.id);
                       // Un grupo lleno bloquea lo NO elegido, pero deja
                       // destildar: si no, el cliente queda atrapado con una
@@ -957,7 +1000,8 @@ function HojaOpciones({
                           )}
                         </button>
                       );
-                    })}
+                      });
+                    })()}
                   </div>
                 </div>
               );

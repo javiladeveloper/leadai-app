@@ -17,6 +17,8 @@ export interface PedidoCocina {
   totalCentavos: number;
   creadoEn: string;
   direccion: string | null;
+  /** "Casa del fondo", "portón verde": lo que el pin no dice (2026-08-20). */
+  referencia?: string | null;
   notas: string | null;
   items: { nombre: string; cantidad: number; precioCentavos?: number; subtotalCentavos?: number }[] | null;
   etaMinutos: number | null;

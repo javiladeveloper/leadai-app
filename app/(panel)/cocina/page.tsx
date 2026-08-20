@@ -181,6 +181,13 @@ function TarjetaPedido({
       {pedido.direccion && (
         <p className="mt-1.5 line-clamp-2 text-[0.78rem] text-frio">📍 {pedido.direccion}</p>
       )}
+      {/* La REFERENCIA del cliente (2026-08-20): "casa del fondo", "portón
+          verde". Se muestra aparte y no pegada a la dirección para que se lea
+          como lo que es — una indicación de quien vive ahí, no parte del
+          domicilio. */}
+      {pedido.referencia && (
+        <p className="mt-0.5 line-clamp-2 text-[0.78rem] text-tinta-2">💬 {pedido.referencia}</p>
+      )}
       {pedido.notas && (
         <p className="mt-1 rounded bg-arena px-2 py-1 text-[0.78rem] text-tinta-2">{pedido.notas}</p>
       )}

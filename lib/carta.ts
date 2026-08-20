@@ -409,6 +409,20 @@ export function sinTildes(s: string): string {
 export const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 /**
+ * LA "SECCIÓN" DE LOS COMBOS (2026-08-20).
+ *
+ * Un combo no vive en ninguna categoría de la carta, así que ninguna promo por
+ * categoría podía alcanzarlo: "3 combos x 2" era imposible de armar. El motor
+ * de precios los mete al carrito con este id reservado (ver `CATEGORIA_COMBOS`
+ * en `precios-carrito.ts` del backend), de modo que el selector de secciones
+ * puede ofrecerlos como una opción más.
+ *
+ * Los ids reales son cuid() y nunca empiezan con `__`: no puede chocar con una
+ * sección del dueño.
+ */
+export const CATEGORIA_COMBOS = "__combos";
+
+/**
  * "50% · desde la 2ª · en Rolls · Mar y Jue" — la línea que resume una promo.
  *
  * Sin esto el dueño ve "10%" cuatro veces en la lista y no distingue cuál es

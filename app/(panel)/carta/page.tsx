@@ -26,6 +26,7 @@ import {
   crearDescuento, actualizarDescuento, eliminarDescuento,
   subirFotoProducto, quitarFotoProducto, subirFoto, leerFoto,
   aCentavos, precioTexto, porcentajeDescuento, resumenDescuento, sinTildes, DIAS,
+  CATEGORIA_COMBOS,
   type Carta, type ProductoCarta, type GrupoOpciones, type ComboCarta, type DescuentoCarta,
 } from "@/lib/carta";
 import { CampoFoto, useFoto } from "@/components/panel/CampoFoto";
@@ -1685,7 +1686,14 @@ function Promos({
           >
             <div className="min-w-[9rem] flex-1">
               <p className="font-semibold text-tinta">{d.nombre}</p>
-              <p className="text-[0.8rem] text-frio">{resumenDescuento(d, carta.categorias)}</p>
+              {/* Se le pasa "Combos" como una sección más: si no, una promo
+                  que apunta a combos mostraría el id crudo `__combos`. */}
+              <p className="text-[0.8rem] text-frio">
+                {resumenDescuento(d, [
+                  ...carta.categorias,
+                  { id: CATEGORIA_COMBOS, nombre: "Combos" },
+                ])}
+              </p>
             </div>
             <span
               className={`shrink-0 rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
@@ -1712,7 +1720,16 @@ function Promos({
             promo={editando}
             cerrar={() => { setAbriendo(false); setEditando(null); }}
             recargar={recargar}
-            categorias={carta.categorias}
+            /* LOS COMBOS SON UNA "SECCIÓN" MÁS (2026-08-20): no viven en
+               ninguna categoría de la carta, así que ninguna promo podía
+               apuntarles y "3 combos x 2" no se podía armar. El id reservado
+               `__combos` lo entiende el motor de precios; acá es una opción
+               más del selector. Solo se ofrece si hay combos cargados. */
+            categorias={
+              carta.combos.length > 0
+                ? [...carta.categorias, { id: CATEGORIA_COMBOS, nombre: "Combos" }]
+                : carta.categorias
+            }
           />
         )}
       </div>

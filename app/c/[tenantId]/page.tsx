@@ -74,6 +74,29 @@ interface Carta {
   combos: Combo[];
   /** Ids de lo más vendido del último mes. Vacío mientras no haya ventas. */
   masPedidos?: string[];
+  /**
+   * Las promos que están corriendo AHORA (2026-08-20).
+   *
+   * Antes el descuento aparecía recién al cotizar el carrito, o sea después de
+   * que el cliente ya había elegido: la promo no cambiaba lo que pedía, solo
+   * le hacía una rebaja sobre lo que ya iba a llevar. "Hoy la 2ª tabla va a
+   * mitad de precio" es justamente lo que hace que pida dos.
+   *
+   * Opcional: una carta servida por un backend viejo no lo manda y la página
+   * simplemente no muestra la barra.
+   */
+  promos?: Promo[];
+}
+
+interface Promo {
+  id: string;
+  /** Lo que el dueño le puso: "3x2 en tablas". */
+  nombre: string;
+  /** La regla en una línea: "Llevando 3 pagas 2". */
+  detalle: string;
+  /** Hasta qué hora corre hoy. null = todo el día. */
+  hastaHoy: string | null;
+  fotoUrl: string | null;
 }
 
 /**
@@ -461,6 +484,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       }}
     >
       <Cabecera negocio={carta.negocio} />
+      <BarraPromos promos={carta.promos ?? []} />
       <BarraSecciones
         secciones={[
           ...(destacados.length > 0 ? [{ id: "destacados", nombre: "Lo más pedido" }] : []),
@@ -662,6 +686,56 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
  * cliente se cansa. Se queda fija porque su valor es justamente estar ahí
  * cuando ya bajaste.
  */
+/**
+ * LAS PROMOS DEL DÍA, arriba de todo (2026-08-20).
+ *
+ * Antes el descuento aparecía recién al cotizar el carrito: el cliente ya había
+ * elegido, así que la promo no vendía nada — solo le rebajaba lo que ya iba a
+ * llevar. "Hoy la 2ª tabla va a mitad de precio" es justamente lo que hace que
+ * pida dos en vez de una, y eso tiene que llegar ANTES.
+ *
+ * Va entre la cabecera y las secciones, que es donde el ojo cae al abrir el
+ * link. Se desliza como la barra de secciones: con dos o tres promos no entran
+ * de una en un teléfono, y la de más a la derecha no puede quedar escondida sin
+ * ninguna señal.
+ *
+ * Si no hay promos corriendo no se dibuja NADA: una franja vacía que dice "sin
+ * promos hoy" ocupa la mejor parte de la pantalla para no decir nada.
+ */
+function BarraPromos({ promos }: { promos: Promo[] }) {
+  if (promos.length === 0) return null;
+
+  return (
+    <div
+      className="scroll-fino flex gap-2 overflow-x-auto px-4 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      aria-label="Promociones de hoy"
+    >
+      {promos.map((p, i) => (
+        <div
+          key={p.id}
+          // Entran escalonadas: con dos o tres, verlas llegar una atrás de otra
+          // las hace notar. Aparecer todas juntas se lee como parte del fondo.
+          style={{ animationDelay: `${i * 70}ms` }}
+          className="entra flex min-w-[15rem] shrink-0 items-center gap-2.5 rounded-tarjeta bg-calor/10 p-3 ring-1 ring-calor/25"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-calor/15 text-[1.05rem]" aria-hidden>
+            🎉
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[0.88rem] font-bold leading-tight text-tinta">{p.nombre}</p>
+            <p className="truncate text-[0.78rem] leading-snug text-calor">
+              {p.detalle}
+              {/* La hora solo si la promo se corta hoy: un "hasta las 20:00"
+                  es lo que hace que pida ahora y no más tarde. */}
+              {p.hastaHoy && <span className="text-tinta-2"> · hasta {p.hastaHoy}</span>}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BarraSecciones({ secciones }: { secciones: { id: string; nombre: string }[] }) {
   const pista = useRef<HTMLDivElement>(null);
   /**

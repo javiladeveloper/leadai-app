@@ -21,7 +21,7 @@ import { haySesion, leerEmpresaActiva } from "@/lib/auth";
 import {
   obtenerCarta, crearCategoria, eliminarCategoria,
   crearProducto, actualizarProducto, marcarDisponible, eliminarProducto,
-  crearGrupo, eliminarGrupo,
+  crearGrupo, actualizarGrupo, eliminarGrupo,
   crearCombo, eliminarCombo,
   crearDescuento, actualizarDescuento, eliminarDescuento,
   subirFotoProducto, quitarFotoProducto, subirFoto, leerFoto,
@@ -926,9 +926,18 @@ function Extras({
   carta, recargar, avisar,
 }: { carta: Carta; recargar: () => Promise<void>; avisar: (s: string) => void }) {
   const [abriendo, setAbriendo] = useState(false);
+  const [editando, setEditando] = useState<GrupoOpciones | null>(null);
 
   async function borrar(g: GrupoOpciones) {
-    if (!confirm(`¿Borrar el grupo "${g.nombre}"?`)) return;
+    const usanEste = carta.productos.filter((p) => p.grupos.some((x) => x.grupoId === g.id)).length;
+    // SE AVISA A CUÁNTOS PLATOS AFECTA (2026-08-20): borrar un grupo lo
+    // desengancha de todos los platos que lo usaban, y "Salsa extra" está en
+    // 39. Volver a tildarlos uno por uno es media hora de trabajo que nadie
+    // eligió al tocar "Eliminar".
+    const aviso = usanEste > 0
+      ? `¿Borrar el grupo "${g.nombre}"?\n\nLo usan ${usanEste} ${usanEste === 1 ? "plato" : "platos"} y van a quedar sin él.`
+      : `¿Borrar el grupo "${g.nombre}"?`;
+    if (!confirm(aviso)) return;
     const r = await eliminarGrupo(g.id);
     if (!r.ok) avisar(r.error ?? "No se pudo borrar");
     await recargar();
@@ -945,7 +954,11 @@ function Extras({
           : `${total} ${total === 1 ? "grupo" : "grupos"} · después los asignas a los platos que los llevan`
       }
       tono="hondo"
-      accion={<BotonNuevo onClick={() => setAbriendo(true)}>+ Nuevo grupo</BotonNuevo>}
+      accion={
+        <BotonNuevo onClick={() => { setEditando(null); setAbriendo(true); }}>
+          + Nuevo grupo
+        </BotonNuevo>
+      }
     >
       <div className="space-y-3">
         {carta.grupos.length === 0 && (
@@ -993,9 +1006,14 @@ function Extras({
                       : " · todavía sin asignar"}
                   </p>
                 </div>
-                <AccionFila peligro onClick={() => borrar(g)}>
-                  Eliminar
-                </AccionFila>
+                <div className="flex shrink-0 items-center gap-1">
+                  <AccionFila onClick={() => { setEditando(g); setAbriendo(true); }}>
+                    Editar
+                  </AccionFila>
+                  <AccionFila peligro onClick={() => borrar(g)}>
+                    Eliminar
+                  </AccionFila>
+                </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5 border-t border-linea pt-3">
                 {g.opciones.map((o) => (
@@ -1017,7 +1035,14 @@ function Extras({
         })}
 
         {abriendo && (
-          <HojaGrupo cerrar={() => setAbriendo(false)} recargar={recargar} />
+          <HojaGrupo
+            /* `key`: sin esto React reusa la hoja anterior y sus `useState`
+               iniciales —el grupo viejo— quedan pegados al abrir otro. */
+            key={editando?.id ?? "nuevo"}
+            grupo={editando}
+            cerrar={() => { setAbriendo(false); setEditando(null); }}
+            recargar={recargar}
+          />
         )}
       </div>
     </Seccion>
@@ -1038,18 +1063,36 @@ function reglaDelGrupo(g: GrupoOpciones): string {
 }
 
 function HojaGrupo({
-  cerrar, recargar,
-}: { cerrar: () => void; recargar: () => Promise<void> }) {
-  const [nombre, setNombre] = useState("");
+  grupo, cerrar, recargar,
+}: {
+  /** El grupo a editar. `null` = uno nuevo. */
+  grupo?: GrupoOpciones | null;
+  cerrar: () => void;
+  recargar: () => Promise<void>;
+}) {
+  // EDITAR UN GRUPO (2026-08-20): se podía crear y borrar, pero no corregir.
+  // Cambiarle el precio a un extra, arreglar un nombre mal escrito o sumar una
+  // opción obligaba a borrar el grupo entero y cargarlo de nuevo — y al
+  // borrarlo se desengancha de todos los platos que lo usaban ("Salsa extra"
+  // está en 39), así que había que volver a tildarlo plato por plato.
+  const [nombre, setNombre] = useState(grupo?.nombre ?? "");
   // Obligatorio = "hay que elegir uno". Es la distinción que el dueño entiende;
   // min/max son el detalle que se deriva de acá.
-  const [obligatorio, setObligatorio] = useState(false);
-  const [unaSola, setUnaSola] = useState(true);
+  const [obligatorio, setObligatorio] = useState((grupo?.minSelec ?? 0) >= 1);
+  const [unaSola, setUnaSola] = useState(grupo ? grupo.maxSelec === 1 : true);
   // Cada opción puede llevar foto: "¿qué es chimichurri?" se responde con una
   // imagen, no con el nombre. Viaja como data URL y sube DESPUÉS de crear el
   // grupo, que es cuando existen los ids de las opciones.
   const [opciones, setOpciones] = useState<{ nombre: string; precio: string; foto: string | null }[]>(
-    [{ nombre: "", precio: "", foto: null }],
+    grupo?.opciones?.length
+      ? grupo.opciones.map((o) => ({
+          nombre: o.nombre,
+          // El precio 0 se muestra VACÍO, no "0.00": es lo que la ayuda del
+          // campo pide escribir cuando la opción no cuesta nada.
+          precio: o.precioCentavos ? (o.precioCentavos / 100).toFixed(2) : "",
+          foto: o.fotoUrl ?? null,
+        }))
+      : [{ nombre: "", precio: "", foto: null }],
   );
   const [guardando, setGuardando] = useState(false);
   const [errorCampo, setErrorCampo] = useState("");
@@ -1065,7 +1108,7 @@ function HojaGrupo({
 
     setErrorCampo("");
     setGuardando(true);
-    const r = await crearGrupo({
+    const datos = {
       nombre: nombre.trim(),
       minSelec: obligatorio ? 1 : 0,
       maxSelec: unaSola ? 1 : null,
@@ -1073,7 +1116,21 @@ function HojaGrupo({
         nombre: o.nombre.trim(),
         precioCentavos: o.precio.trim() ? aCentavos(o.precio)! : 0,
       })),
-    });
+    };
+
+    if (grupo) {
+      // El PATCH REEMPLAZA las opciones enteras, así que las que ya estaban
+      // vuelven con id nuevo. Por eso las fotos se resuben abajo igual que en
+      // un alta: mantener el id viejo pediría un diff que el backend no toma.
+      const r = await actualizarGrupo(grupo.id, datos);
+      if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+      setGuardando(false);
+      await recargar();
+      cerrar();
+      return;
+    }
+
+    const r = await crearGrupo(datos);
 
     if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
 
@@ -1093,8 +1150,8 @@ function HojaGrupo({
 
   return (
     <Hoja
-      titulo="Nuevo grupo de extras"
-      bajada="Las opciones que el cliente elige junto al plato."
+      titulo={grupo ? "Editar grupo de extras" : "Nuevo grupo de extras"}
+      bajada={grupo ? grupo.nombre : "Las opciones que el cliente elige junto al plato."}
       cerrar={cerrar}
       pie={
         <PieHoja
@@ -1569,6 +1626,7 @@ function Promos({
   carta, recargar, avisar,
 }: { carta: Carta; recargar: () => Promise<void>; avisar: (s: string) => void }) {
   const [abriendo, setAbriendo] = useState(false);
+  const [editando, setEditando] = useState<DescuentoCarta | null>(null);
 
   async function alternar(d: DescuentoCarta) {
     const r = await actualizarDescuento(d.id, { activo: !d.activo });
@@ -1595,7 +1653,11 @@ function Promos({
           : `${activas} ${activas === 1 ? "activa" : "activas"} de ${total} · se aplican solas dentro de su ventana`
       }
       tono="hondo"
-      accion={<BotonNuevo onClick={() => setAbriendo(true)}>+ Nueva promo</BotonNuevo>}
+      accion={
+        <BotonNuevo onClick={() => { setEditando(null); setAbriendo(true); }}>
+          + Nueva promo
+        </BotonNuevo>
+      }
     >
       <div className="space-y-3">
         {carta.descuentos.length === 0 && (
@@ -1635,6 +1697,9 @@ function Promos({
             <AccionFila onClick={() => alternar(d)}>
               {d.activo ? "Apagar" : "Activar"}
             </AccionFila>
+            <AccionFila onClick={() => { setEditando(d); setAbriendo(true); }}>
+              Editar
+            </AccionFila>
             <AccionFila peligro onClick={() => borrar(d)}>
               Eliminar
             </AccionFila>
@@ -1642,7 +1707,13 @@ function Promos({
         ))}
 
         {abriendo && (
-          <HojaPromo cerrar={() => setAbriendo(false)} recargar={recargar} categorias={carta.categorias} />
+          <HojaPromo
+            key={editando?.id ?? "nueva"}
+            promo={editando}
+            cerrar={() => { setAbriendo(false); setEditando(null); }}
+            recargar={recargar}
+            categorias={carta.categorias}
+          />
         )}
       </div>
     </Seccion>
@@ -1687,35 +1758,69 @@ const TIPOS_PROMO = [
   },
 ] as const;
 
+/**
+ * De la promo guardada de vuelta al tipo que muestra el formulario.
+ *
+ * `minUnidades` es lo que distingue un 3x2 de un "2ª a mitad": el modelo
+ * guarda el número, el dueño piensa en el nombre. Sin esto, editar una promo
+ * la mostraría siempre como "Descuento directo" y guardarla la convertiría en
+ * eso — perdiendo el 3x2 sin que nadie lo pida.
+ */
+function claseDePromo(d: DescuentoCarta): string {
+  const min = d.minUnidades ?? 0;
+  if (min >= 2) {
+    const encontrado = TIPOS_PROMO.find(
+      (t) => t.minUnidades === min && ("valor" in t ? t.valor === d.valor : true),
+    );
+    if (encontrado) return encontrado.id;
+  }
+  return "simple";
+}
+
 function HojaPromo({
-  cerrar, recargar, categorias,
+  promo, cerrar, recargar, categorias,
 }: {
+  /** La promo a editar. `null` = una nueva. */
+  promo?: DescuentoCarta | null;
   cerrar: () => void;
   recargar: () => Promise<void>;
   categorias: { id: string; nombre: string }[];
 }) {
-  const [nombre, setNombre] = useState("");
-  const [tipo, setTipo] = useState<"porcentaje" | "monto">("porcentaje");
-  const [valor, setValor] = useState("");
-  const [dias, setDias] = useState<number[]>([]);
-  const [clase, setClase] = useState<string>("simple");
+  // EDITAR UNA PROMO (2026-08-20): solo se podía crear, apagar y borrar.
+  // Corregir un 20% que debía ser 15, o sumarle un día, obligaba a borrarla y
+  // cargarla entera de nuevo.
+  const [nombre, setNombre] = useState(promo?.nombre ?? "");
+  const [tipo, setTipo] = useState<"porcentaje" | "monto">(promo?.tipo ?? "porcentaje");
+  const [valor, setValor] = useState(
+    promo ? (promo.tipo === "porcentaje" ? String(promo.valor) : (promo.valor / 100).toFixed(2)) : "",
+  );
+  const [dias, setDias] = useState<number[]>(promo?.dias ?? []);
+  const [clase, setClase] = useState<string>(promo ? claseDePromo(promo) : "simple");
   // ¿Se suma a otras promos de cantidad? Default NO: entra la mejor para el
   // cliente. Ver el comentario de `acumulable` en el backend.
-  const [acumulable, setAcumulable] = useState(false);
+  const [acumulable, setAcumulable] = useState(promo?.acumulable ?? false);
   // Vacío = toda la carta. Con categorías elegidas, la promo solo cuenta esas
   // —el bug era justamente que alcanzaba a todo—.
-  const [cats, setCats] = useState<string[]>([]);
-  const [horaDesde, setHoraDesde] = useState("");
-  const [horaHasta, setHoraHasta] = useState("");
+  const [cats, setCats] = useState<string[]>(
+    // `alcanceIds` es la lista nueva; `alcanceId` el campo viejo de una sola.
+    // Las promos ya cargadas pueden tener cualquiera de los dos.
+    promo?.alcanceIds?.length
+      ? promo.alcanceIds
+      : promo?.alcance === "categoria" && promo.alcanceId
+        ? [promo.alcanceId]
+        : [],
+  );
+  const [horaDesde, setHoraDesde] = useState(promo?.horaDesde ?? "");
+  const [horaHasta, setHoraHasta] = useState(promo?.horaHasta ?? "");
   // TEMPORADA (2026-08-19). El modelo ya tenía `desde`/`hasta` pero el
   // formulario no los exponía, así que una promo de Fiestas Patrias solo se
   // podía cargar por API — y quedaba encendida para siempre hasta que alguien
   // se acordara de apagarla a mano.
-  const [desde, setDesde] = useState("");
-  const [hasta, setHasta] = useState("");
+  const [desde, setDesde] = useState(promo?.desde?.slice(0, 10) ?? "");
+  const [hasta, setHasta] = useState(promo?.hasta?.slice(0, 10) ?? "");
   const [guardando, setGuardando] = useState(false);
   const [errorCampo, setErrorCampo] = useState("");
-  const foto = useFoto(null);
+  const foto = useFoto(promo?.fotoUrl ?? null);
 
   async function guardar() {
     if (!nombre.trim()) { setErrorCampo("Ponle un nombre a la promo."); return; }
@@ -1760,7 +1865,7 @@ function HojaPromo({
     setErrorCampo("");
     setGuardando(true);
     const preset = TIPOS_PROMO.find((x) => x.id === clase)!;
-    const r = await crearDescuento({
+    const datos = {
       nombre: nombre.trim(),
       tipo,
       valor: n,
@@ -1771,18 +1876,37 @@ function HojaPromo({
       hasta: hasta || null,
       // Sin categorías elegidas la promo alcanza toda la carta, que es lo que
       // el dueño ve escrito arriba del selector.
-      alcance: cats.length > 0 ? "categoria" : "todo",
+      alcance: (cats.length > 0 ? "categoria" : "todo") as "categoria" | "todo",
       alcanceIds: cats,
       minUnidades: preset.minUnidades,
       unidadesEnPromo: preset.unidadesEnPromo,
       repetible: true,
       acumulable,
-    });
+    };
 
-    if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+    // Al editar NO se manda `activo`: se prende y se apaga desde la lista, y
+    // pisarlo acá apagaría una promo viva por entrar a corregirle el nombre.
+    let id: string | undefined;
+    let error: string | undefined;
+    if (promo) {
+      const r = await actualizarDescuento(promo.id, datos);
+      if (r.ok) id = promo.id;
+      else error = r.error;
+    } else {
+      const r = await crearDescuento(datos);
+      if (r.ok) id = r.dato?.id;
+      else error = r.error;
+    }
 
-    // El banner va después: la promo no tiene id hasta que el backend la crea.
-    if (r.dato?.id) await foto.guardar("descuentos", r.dato.id);
+    if (error || !id) {
+      setGuardando(false);
+      setErrorCampo(error ?? "No se pudo guardar");
+      return;
+    }
+
+    // El banner va después: una promo nueva no tiene id hasta que el backend
+    // la crea.
+    await foto.guardar("descuentos", id);
 
     setGuardando(false);
     await recargar();
@@ -1791,8 +1915,8 @@ function HojaPromo({
 
   return (
     <Hoja
-      titulo="Nueva promo"
-      bajada="Se aplica sola cuando el cliente pide dentro de la ventana."
+      titulo={promo ? "Editar promo" : "Nueva promo"}
+      bajada={promo ? promo.nombre : "Se aplica sola cuando el cliente pide dentro de la ventana."}
       cerrar={cerrar}
       pie={
         <PieHoja
@@ -1800,7 +1924,7 @@ function HojaPromo({
           guardar={guardar}
           guardando={guardando}
           puedeGuardar
-          etiqueta="Crear promo"
+          etiqueta={promo ? "Guardar cambios" : "Crear promo"}
         />
       }
     >

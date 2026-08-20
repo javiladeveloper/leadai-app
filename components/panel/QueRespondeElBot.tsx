@@ -36,6 +36,8 @@ interface Mensaje {
   entrada?: string;
   /** El texto REAL que manda el bot. */
   texto: string;
+  /** Una aclaración corta debajo del chat, cuando el texto solo no alcanza. */
+  nota?: string;
   /** Todavía no existe: se muestra apagado y no se promete como activo. */
   pronto?: boolean;
 }
@@ -51,22 +53,32 @@ const GRUPOS: { grupo: string; bajada: string; mensajes: Mensaje[] }[] = [
         cuando: "Alguien saluda o pide la carta",
         entrada: "Hola, buenas",
         texto:
-          "¡Buenísimo! 😋\n\nAcá está nuestra carta, con fotos y precios:\nlink de tu carta\n\nElige tranquilo y confirma: tu pedido llega solito a este chat 👍",
+          "¡Buenísimo! 😋\n\nAcá está nuestra carta, con fotos y precios:\nlink de tu carta\n\nElegí tranquilo y confirmá: tu pedido llega solito a este chat 👍\n_También podés escribirme lo que querés y te lo tomo por acá._",
       },
       {
         id: "promos",
         titulo: "Le cuentas las promos de hoy",
-        cuando: "Junto con la carta, si hay alguna corriendo",
-        entrada: "¿Tienen alguna promo?",
+        cuando: "Va pegado al mensaje de la carta, si hay alguna corriendo",
+        // SIN `entrada`: no es una respuesta a "¿tienen promo?". El bot las
+        // adjunta al mandar la carta, que es cuando sirven — antes de que
+        // elija, no después.
         texto:
           "🎉 *Hoy tenemos:*\n• *3x2 en tablas* — Llevando 3 pagas 2\n• *Happy hour* — 15% de descuento _(hasta las 20:00)_",
+        nota: "Solo las que están vigentes hoy, a esta hora.",
       },
       {
         id: "cerrado",
         titulo: "Avisas que está cerrado",
         cuando: "Te escriben fuera de tu horario",
         entrada: "¿Están abiertos?",
-        texto: "¡Hola! 👋 Hoy abrimos a las 17:00. Escríbeme a esa hora y te tomo el pedido 🙌",
+        texto: "¡Gracias por escribir! 🙏 Por ahora la cocina está cerrada. Atendemos desde las 17:00 🙌",
+      },
+      {
+        id: "diaCerrado",
+        titulo: "Avisas que hoy no abres",
+        cuando: "Te escriben un día que marcaste cerrado",
+        entrada: "Buenas, ¿tienen delivery?",
+        texto: "¡Gracias por escribir! 🙏 Hoy no atendemos. Volvemos el martes 🙌",
       },
       {
         id: "demanda",
@@ -103,10 +115,17 @@ const GRUPOS: { grupo: string; bajada: string; mensajes: Mensaje[] }[] = [
       },
       {
         id: "duda",
-        titulo: "Le respondes una duda",
-        cuando: "Pregunta algo de la carta o de su pedido",
+        titulo: "Le contestas una pregunta",
+        cuando: "Pregunta algo que no es parte del pedido",
         entrada: "¿El acevichado lleva palta?",
-        texto: "Sí, el Acevichado lleva palta y langostinos fritos al panko 🙌 ¿Te lo agrego?",
+        // El texto REAL de `RESPUESTA_PREGUNTA_SIN_IA`. No se dibuja una
+        // respuesta inventada tipo "sí, lleva palta y langostinos": eso lo
+        // haría la IA conversacional, que HOY está apagada para todos los
+        // planes de restaurante (`PLANES_CON_CONVERSACION` solo tiene los de
+        // captación). Prometerlo acá sería vender algo que el bot no hace.
+        texto:
+          "¡Buena pregunta! 🙌 Déjame confirmarlo con el equipo y te digo. Mientras, si quieres seguir con tu pedido, dime nomás 😊",
+        nota: "Y a ti te llega un aviso con la pregunta, para que la contestes.",
       },
     ],
   },
@@ -131,7 +150,8 @@ const GRUPOS: { grupo: string; bajada: string; mensajes: Mensaje[] }[] = [
         titulo: "Salió el reparto",
         cuando: "El motorizado acepta el pedido",
         texto:
-          "¡Tu pedido va en camino! 🛵 Lo lleva *Carlos*.\nSíguelo acá: link del mapa",
+          "¡Tu pedido va en camino! 🛵 Lo lleva *Carlos*. Llega en ~20 min.\n\n📍 Síguelo en vivo acá:\nlink del mapa",
+        nota: "El mapa en vivo solo va si lo lleva un motorizado con GPS.",
       },
       {
         id: "entregado",
@@ -156,7 +176,8 @@ const GRUPOS: { grupo: string; bajada: string; mensajes: Mensaje[] }[] = [
         titulo: "Lo invitas a volver",
         cuando: "Pasaron los días que elegiste desde su último pedido",
         texto:
-          "¡Hola! 👋 Hace rato no te vemos por SHIRO 😄\nHoy tenemos 3x2 en tablas.\n¿Te preparo algo?",
+          "¡Hola! 👋 Hace rato que no pides por acá — *SHIRO* te extraña 😄\n\n¿Se te antoja algo? Escríbeme *hola* y te muestro la carta 😋",
+        nota: "Eliges cada cuántos días se manda, en Ajustes.",
       },
       {
         id: "resena",
@@ -302,6 +323,12 @@ function Burbuja({ mensaje, orden }: { mensaje: Mensaje; orden: number }) {
           {conFormatoWhatsApp(mensaje.texto)}
         </p>
       </div>
+
+      {/* La letra chica del mensaje: cuándo NO sale, o qué le llega al dueño.
+          Va fuera del chat porque no es algo que el cliente vea. */}
+      {mensaje.nota && (
+        <p className="mt-1.5 text-[0.7rem] leading-snug text-frio">{mensaje.nota}</p>
+      )}
     </article>
   );
 }

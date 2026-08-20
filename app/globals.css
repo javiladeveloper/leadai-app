@@ -348,6 +348,28 @@ button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
   .tarjeta-viva:hover { transform: translateY(-2px); }
 }
 
+/* AVANZAR Y VOLVER (2026-08-20). La carta y la confirmación son PASOS del
+   mismo camino, no páginas distintas: la confirmación entra desde la derecha
+   —como pasar de hoja— y al volver la carta entra desde la izquierda.
+
+   Sin esto el cambio es un corte seco y se siente "me mandó a otro sitio",
+   justo en el paso donde el cliente decide si paga. La dirección es la que
+   comunica: adelante y atrás no pueden verse igual.
+
+   El desplazamiento es CHICO (16px) a propósito: uno grande marea en un
+   teléfono y hace lento un paso que se repite en cada pedido. */
+@keyframes paso-adelante {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: none; }
+}
+.paso-adelante { animation: paso-adelante 260ms var(--curva-entrada) backwards; }
+
+@keyframes paso-atras {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: none; }
+}
+.paso-atras { animation: paso-atras 260ms var(--curva-entrada) backwards; }
+
 /* LO URGENTE RESPIRA. Un borde fijo se vuelve invisible: el dueño mira la
    cocina durante todo el turno y a los veinte minutos ya no lo registra.
    1.6s por ciclo — más rápido parece una alarma y estresa una cocina que ya

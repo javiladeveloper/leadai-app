@@ -139,6 +139,10 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   // delivery/recojo; con esto el pedido vuelve al chat con todo resuelto.
   const [modalidad, setModalidad] = useState<"delivery" | "recojo">("delivery");
   const [codigo, setCodigo] = useState<string | null>(null);
+  // Se acaba de volver de la confirmación: la carta entra desde la izquierda,
+  // que es la dirección de "atrás". Sin distinguirlo, ir y volver se verían
+  // igual y el movimiento no comunicaría nada.
+  const [volviendo, setVolviendo] = useState(false);
   // La COTIZACIÓN del backend (2026-08-20): el paso de confirmación. Cuando
   // está seteada, la pantalla muestra el pedido con el TOTAL REAL —promos
   // incluidas— antes de mandarlo. Sin este paso, el cliente veía un total en
@@ -208,6 +212,23 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     }]);
   };
   const quitar = (i: number) => setCarrito((c) => c.filter((_, idx) => idx !== i));
+
+  /**
+   * Sumar o restar una unidad desde el carrito (2026-08-20).
+   *
+   * Antes, para pedir dos había que volver a buscar el plato en la carta —y
+   * con 48 platos eso es scrollear de nuevo—. Para pedir uno menos, la única
+   * salida era "Quitar" y empezar otra vez.
+   *
+   * Llegar a 0 SACA la línea: un "0× California" en la lista no significa
+   * nada, y obligar a tocar "Quitar" después de bajar a cero es un paso de más.
+   */
+  const cambiarCantidad = (i: number, delta: number) =>
+    setCarrito((c) =>
+      c
+        .map((l, idx) => (idx === i ? { ...l, cantidad: l.cantidad + delta } : l))
+        .filter((l) => l.cantidad > 0),
+    );
 
   // El body que viaja al backend: solo QUÉ eligió (ids y cantidades). Los
   // precios los pone el backend desde su base. Los COMBOS van por su propio
@@ -304,36 +325,6 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     );
   }
 
-  // Pedido que ya viajó DIRECTO al chat: la página solo despide.
-  if (enChat) return <PedidoEnChat whatsapp={carta.negocio.whatsapp} />;
-
-  // Pedido enviado por la puerta clásica (link sin ref): código + botón.
-  if (codigo) return <PedidoListo codigo={codigo} total={total} whatsapp={carta.negocio.whatsapp} />;
-
-  // El paso de CONFIRMACIÓN: el pedido como lo calculó el backend, con las
-  // promos visibles y el total real, antes de mandarlo.
-  if (cotizacion) {
-    return (
-      <ConfirmarPedido
-        cotizacion={cotizacion}
-        modalidad={modalidad}
-        enviando={enviando}
-        error={error}
-        onVolver={() => { setCotizacion(null); setError(null); }}
-        onConfirmar={enviarPedido}
-      />
-    );
-  }
-
-  const porCategoria = carta.categorias
-    .map((c) => ({ ...c, productos: carta.productos.filter((p) => p.categoriaId === c.id) }))
-    .filter((c) => c.productos.length > 0);
-  const sueltos = carta.productos.filter((p) => !p.categoriaId);
-  // Los ids del ranking, resueltos a productos y en su orden de venta.
-  const destacados = (carta.masPedidos ?? [])
-    .map((id) => carta.productos.find((p) => p.id === id))
-    .filter((p): p is Producto => p != null);
-
   // EL TEMA DEL NEGOCIO (2026-08-19).
   //
   // Se pisan las VARIABLES de color sobre el contenedor en vez de tocar las
@@ -361,9 +352,46 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     ...(acento ? { "--color-brasa": acento, "--color-brasa-texto": acento } : {}),
   } as React.CSSProperties;
 
+  // Pedido que ya viajó DIRECTO al chat: la página solo despide.
+  if (enChat) return <PedidoEnChat whatsapp={carta.negocio.whatsapp} estiloTema={estiloTema} />;
+
+  // Pedido enviado por la puerta clásica (link sin ref): código + botón.
+  if (codigo) return <PedidoListo codigo={codigo} total={total} whatsapp={carta.negocio.whatsapp} estiloTema={estiloTema} />;
+
+  // El paso de CONFIRMACIÓN: el pedido como lo calculó el backend, con las
+  // promos visibles y el total real, antes de mandarlo.
+  if (cotizacion) {
+    return (
+      <ConfirmarPedido
+        cotizacion={cotizacion}
+        negocio={carta.negocio}
+        estiloTema={estiloTema}
+        modalidad={modalidad}
+        enviando={enviando}
+        error={error}
+        onVolver={() => { setCotizacion(null); setError(null); setVolviendo(true); }}
+        onConfirmar={enviarPedido}
+      />
+    );
+  }
+
+  const porCategoria = carta.categorias
+    .map((c) => ({ ...c, productos: carta.productos.filter((p) => p.categoriaId === c.id) }))
+    .filter((c) => c.productos.length > 0);
+  const sueltos = carta.productos.filter((p) => !p.categoriaId);
+  // Los ids del ranking, resueltos a productos y en su orden de venta.
+  const destacados = (carta.masPedidos ?? [])
+    .map((id) => carta.productos.find((p) => p.id === id))
+    .filter((p): p is Producto => p != null);
+
+
+
   return (
     <main
-      className="mx-auto min-h-dvh max-w-[900px] bg-arena pb-32"
+      // `key` con el paso: sin él React reusa el nodo y la animación no vuelve
+      // a correr, así que volver de la confirmación sería un corte seco.
+      key={volviendo ? "carta-vuelta" : "carta"}
+      className={`mx-auto min-h-dvh max-w-[900px] bg-arena pb-32 ${volviendo ? "paso-atras" : ""}`}
       style={estiloTema}
       // `capture`: se registra ANTES de que React procese el click, así el
       // elemento todavía está donde el cliente lo tocó.
@@ -483,6 +511,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           enviando={enviando}
           error={error}
           onQuitar={quitar}
+          onCantidad={cambiarCantidad}
           onEnviar={cotizarPedido}
         />
       )}
@@ -943,7 +972,7 @@ function HojaOpciones({
 }
 
 function BarraCarrito({
-  carrito, total, abierto, modalidad, onModalidad, enviando, error, onQuitar, onEnviar, minimo,
+  carrito, total, abierto, modalidad, onModalidad, enviando, error, onQuitar, onCantidad, onEnviar, minimo,
   refCarrito,
 }: {
   carrito: LineaCarrito[];
@@ -958,6 +987,8 @@ function BarraCarrito({
   enviando: boolean;
   error: string | null;
   onQuitar: (i: number) => void;
+  /** Sumar o restar una unidad. Llegar a 0 saca la línea. */
+  onCantidad: (i: number, delta: number) => void;
   onEnviar: () => void;
 }) {
   // Cuánto falta para el mínimo. Solo en DELIVERY: quien pasa a recoger no
@@ -965,7 +996,14 @@ function BarraCarrito({
   const faltaParaElMinimo =
     modalidad === "delivery" && minimo > 0 ? Math.max(0, minimo - total) : 0;
 
-  const [abiertoDetalle, setAbiertoDetalle] = useState(false);
+  // ABIERTO DE ENTRADA (2026-08-20). Estaba colapsado detrás de "ver detalle",
+  // así que el cliente tenía que descubrir ese botón para saber qué llevaba y
+  // para poder sacar algo. Quien no lo descubría llegaba al pago sin haber
+  // revisado su pedido — y ahí es donde se arrepiente y abandona.
+  //
+  // Se puede cerrar: con ocho platos la lista tapa la carta, y el que ya sabe
+  // lo que quiere prefiere seguir mirando.
+  const [abiertoDetalle, setAbiertoDetalle] = useState(true);
   const unidades = carrito.reduce((s, l) => s + l.cantidad, 0);
   // El total SUBE en vez de saltar: el ojo lee "creció" en vez de "otro
   // número", y es el dato que decide si sigue agregando o toca enviar.
@@ -989,23 +1027,47 @@ function BarraCarrito({
               abierto solo hace que la lista sea más larga, y no se ve qué se
               sumó. */}
           {carrito.map((l, i) => (
-            <div key={i} className="fila-entra flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[0.95rem] text-tinta">
-                  {l.cantidad}× {l.producto.nombre}
-                </p>
+            <div key={i} className="fila-entra flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.95rem] leading-snug text-tinta">{l.producto.nombre}</p>
                 {l.opciones.length > 0 && (
-                  <p className="text-[0.8rem] text-tinta-2">
+                  <p className="text-[0.8rem] leading-snug text-tinta-2">
                     {l.opciones.map((o) => o.nombre).join(", ")}
                   </p>
                 )}
               </div>
-              <button
-                onClick={() => onQuitar(i)}
-                className="shrink-0 text-[0.85rem] font-semibold text-calor"
-              >
-                Quitar
-              </button>
+
+              {/* − CANTIDAD + (2026-08-20). Antes, para pedir dos había que
+                  volver a buscar el plato entre 48; para pedir uno menos, la
+                  única salida era "Quitar" y empezar de nuevo.
+
+                  En 0 la línea se va sola: obligar a tocar "Quitar" después de
+                  bajar a cero es un paso de más, y un "0×" no significa nada. */}
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  onClick={() => (l.cantidad === 1 ? onQuitar(i) : onCantidad(i, -1))}
+                  aria-label={l.cantidad === 1 ? `Quitar ${l.producto.nombre}` : `Uno menos de ${l.producto.nombre}`}
+                  className="grid size-8 place-items-center rounded-full text-[1.05rem] font-bold text-tinta-2 ring-1 ring-linea transition active:scale-95"
+                >
+                  {/* Con una sola unidad el botón BORRA: bajar a cero y quitar
+                      son la misma intención, y el tacho lo dice sin ambigüedad. */}
+                  {l.cantidad === 1 ? "🗑" : "−"}
+                </button>
+                <span className="w-6 text-center text-[0.95rem] font-bold tabular-nums text-tinta">
+                  {l.cantidad}
+                </span>
+                <button
+                  onClick={() => onCantidad(i, 1)}
+                  aria-label={`Uno más de ${l.producto.nombre}`}
+                  className="grid size-8 place-items-center rounded-full text-[1.05rem] font-bold text-tinta-2 ring-1 ring-linea transition active:scale-95"
+                >
+                  +
+                </button>
+              </div>
+
+              <span className="w-[4.5rem] shrink-0 text-right text-[0.9rem] font-semibold tabular-nums text-tinta">
+                {soles((l.producto.precioCentavos + l.opciones.reduce((s, o) => s + o.precioCentavos, 0)) * l.cantidad)}
+              </span>
             </div>
           ))}
         </div>
@@ -1013,11 +1075,17 @@ function BarraCarrito({
 
       {error && <p className="mb-2 text-[0.85rem] font-semibold text-alerta">{error}</p>}
 
+      {/* El toggle cambia de sentido según el estado: con el carrito abierto
+          "ver detalle" no dice nada —ya lo estás viendo—. */}
       <button
         onClick={() => setAbiertoDetalle((v) => !v)}
-        className="mb-2 w-full text-left text-[0.85rem] text-tinta-2"
+        className="mb-2 flex w-full items-center gap-1.5 text-left text-[0.85rem] text-tinta-2"
       >
-        {unidades} {unidades === 1 ? "producto" : "productos"} · {abiertoDetalle ? "ocultar" : "ver detalle"}
+        <span className={`inline-block transition-transform duration-200 ${abiertoDetalle ? "rotate-90" : ""}`} aria-hidden>
+          ›
+        </span>
+        {unidades} {unidades === 1 ? "producto" : "productos"} ·{" "}
+        {abiertoDetalle ? "ocultar" : "ver mi pedido"}
       </button>
 
       {/* La modalidad se decide acá, con el pedido ya armado — el chat no la
@@ -1080,9 +1148,12 @@ function BarraCarrito({
  * y una sorpresa en el precio, aunque sea a favor, huele a error.
  */
 function ConfirmarPedido({
-  cotizacion, modalidad, enviando, error, onVolver, onConfirmar,
+  cotizacion, negocio, estiloTema, modalidad, enviando, error, onVolver, onConfirmar,
 }: {
   cotizacion: Cotizacion;
+  /** La marca del negocio: sin esto la confirmación parece otro sitio. */
+  negocio: Carta["negocio"];
+  estiloTema: React.CSSProperties;
   modalidad: "delivery" | "recojo";
   enviando: boolean;
   error: string | null;
@@ -1091,7 +1162,33 @@ function ConfirmarPedido({
 }) {
   const hayDescuento = cotizacion.descuentos.length > 0;
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col bg-arena p-5">
+    // EL MISMO TEMA QUE LA CARTA (2026-08-20). Sin `estiloTema` esta pantalla
+    // se pintaba con los colores por defecto: un formulario blanco genérico
+    // justo en el paso donde el cliente decide si paga. Un nikkei negro y
+    // naranja se volvía otro sitio, y eso da desconfianza en el peor momento.
+    <main
+      className="paso-adelante mx-auto flex min-h-dvh max-w-[560px] flex-col bg-arena"
+      style={estiloTema}
+    >
+      {/* La cabecera del negocio, compacta: logo y nombre. No es decoración —
+          es lo que dice "seguís en el mismo lugar donde armaste tu pedido". */}
+      <header className="flex items-center gap-3 border-b border-linea bg-carta px-5 py-3">
+        {negocio.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={negocio.logoUrl}
+            alt=""
+            className="size-10 shrink-0 rounded-xl object-cover ring-1 ring-linea"
+          />
+        ) : (
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brasa/15 text-[1.1rem]" aria-hidden>
+            🍽️
+          </span>
+        )}
+        <p className="min-w-0 flex-1 truncate font-bold text-tinta">{negocio.nombre}</p>
+      </header>
+
+      <div className="flex flex-1 flex-col p-5">
       <button onClick={onVolver} className="mb-4 self-start text-[0.9rem] font-semibold text-tinta-2">
         ← Volver a la carta
       </button>
@@ -1149,6 +1246,7 @@ function ConfirmarPedido({
           {enviando ? "Enviando…" : `Confirmar pedido · ${soles(cotizacion.totalCentavos)}`}
         </button>
       </div>
+      </div>
     </main>
   );
 }
@@ -1162,7 +1260,7 @@ function ConfirmarPedido({
  * sola; si el navegador no la deja (una pestaña que no abrió un script no se
  * puede cerrar), queda esta despedida con el camino de vuelta.
  */
-function PedidoEnChat({ whatsapp }: { whatsapp: string | null }) {
+function PedidoEnChat({ whatsapp, estiloTema }: { whatsapp: string | null; estiloTema: React.CSSProperties }) {
   useEffect(() => {
     // En el navegador embebido de WhatsApp esto cierra y devuelve al chat.
     // En un navegador normal falla en silencio y queda la pantalla.
@@ -1170,7 +1268,9 @@ function PedidoEnChat({ whatsapp }: { whatsapp: string | null }) {
     return () => clearTimeout(t);
   }, []);
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center">
+    // Con el tema del negocio: son 1.2s, pero un flash blanco sobre una
+    // carta oscura se ve como un error del sistema.
+    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center" style={estiloTema}>
       <div className="text-[3rem]">✅</div>
       <h1 className="text-[1.5rem] font-bold text-tinta">¡Pedido enviado!</h1>
       <p className="text-tinta-2">
@@ -1195,9 +1295,9 @@ function PedidoEnChat({ whatsapp }: { whatsapp: string | null }) {
  * abre (WhatsApp sin instalar, navegador raro), el cliente puede escribirlo a
  * mano y el pedido no se pierde.
  */
-function PedidoListo({ codigo, total, whatsapp }: { codigo: string; total: number; whatsapp: string | null }) {
+function PedidoListo({ codigo, total, whatsapp, estiloTema }: { codigo: string; total: number; whatsapp: string | null; estiloTema: React.CSSProperties }) {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center">
+    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center" style={estiloTema}>
       <div className="text-[3rem]">🧾</div>
       <h1 className="text-[1.5rem] font-bold text-tinta">Tu pedido está listo</h1>
 

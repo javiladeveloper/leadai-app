@@ -177,12 +177,47 @@ export function useCheckoutCulqi(opciones: {
             cuotealo: false,
           },
         },
+        // EL FORMULARIO SE VISTE COMO EL PANEL (2026-08-20). Con el
+        // `theme: "default"` a secas se veía pegado: banner negro, tipografía
+        // ajena, esquinas duras y el monto repetido. Custom Checkout permite
+        // pasarle `variables` y `rules`, así que hereda nuestros tokens.
         appearance: {
           theme: "default",
-          // Sin logo de Culqi: el dueño le está pagando a LeadAI, y una marca
-          // ajena en el paso del cobro confunde sobre a quién le paga.
+          // Nada de Culqi ni de banner: el dueño le está pagando a LeadAI, y
+          // una marca ajena en el paso del cobro confunde sobre a quién le
+          // paga. El monto y el plan ya los mostramos NOSOTROS arriba del
+          // formulario, así que repetirlos adentro es ruido.
           hiddenCulqiLogo: true,
-          buttonCardPayText: "Pagar ahora",
+          hiddenBanner: true,
+          hiddenToolBarAmount: true,
+          // SIN el monto adentro: Culqi le agrega el importe al final del
+          // texto, así que "Pagar S/101.00" salía como "Pagar S/101.00 S/
+          // 101.00". El monto lo pone él; nosotros solo el verbo.
+          buttonCardPayText: "Pagar",
+          variables: {
+            fontFamily: "inherit",
+            borderRadius: "12px",
+            colorBackground: "#ffffff",
+            colorPrimary: "#0fb68b",
+            colorPrimaryText: "#ffffff",
+            colorText: "#0e1614",
+            colorTextSecondary: "#3d4a45",
+            colorTextPlaceholder: "#586661",
+          },
+          rules: {
+            ".Culqi-Main-Container": { padding: "0", boxShadow: "none" },
+            ".Culqi-Input": {
+              borderRadius: "12px",
+              borderColor: "#dbe5e0",
+              fontSize: "0.95rem",
+            },
+            ".Culqi-Label": { color: "#3d4a45", fontWeight: "600" },
+            ".Culqi-Button": {
+              borderRadius: "9999px",
+              fontWeight: "700",
+              backgroundColor: "#0fb68b",
+            },
+          },
         },
       });
 

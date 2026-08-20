@@ -55,6 +55,8 @@ export function PlanRestaurante() {
   const [cargando, setCargando] = useState(true);
   const [periodicidad, setPeriodicidad] = useState<Periodicidad>("mensual");
   const [elegido, setElegido] = useState<string | null>(null);
+  // Segundo paso del checkout: ya confirmó qué compra y toca la tarjeta.
+  const [pagando, setPagando] = useState(false);
   const [pagos, setPagos] = useState<PagoSuscripcion[]>([]);
   const [verPagos, setVerPagos] = useState(false);
   const [dandoBaja, setDandoBaja] = useState(false);
@@ -97,7 +99,10 @@ export function PlanRestaurante() {
   // return condicional se saltea en esos renders y React aborta la página
   // entera con "Rendered more hooks than during the previous render".
   useEffect(() => {
-    if (checkout.estado === "cancelado" || checkout.estado === "error") setElegido(null);
+    if (checkout.estado === "cancelado" || checkout.estado === "error") {
+      setElegido(null);
+      setPagando(false);
+    }
   }, [checkout.estado]);
 
   if (cargando) {
@@ -123,16 +128,32 @@ export function PlanRestaurante() {
   // Se guarda el objeto y no un booleano para que TypeScript lo estreche.
   const anualDelPrimero = datos.disponibles[0]?.anual;
 
+  /** El plan que el dueño eligió, para el resumen de compra. */
+  const planElegido = datos.disponibles.find((p) => p.id === elegido) ?? null;
+  const montoElegido = planElegido
+    ? periodicidad === "anual" && planElegido.anual
+      ? planElegido.anual.precioCentavos
+      : planElegido.precioCentavos
+    : 0;
+
+  // PASO 1 — elegir. Solo marca el plan y muestra el resumen; NO abre el
+  // formulario de tarjeta todavía.
   function contratar(plan: PlanDisponible) {
+    checkout.cerrar();
+    setPagando(false);
     setElegido(plan.id);
-    const monto =
-      periodicidad === "anual" && plan.anual ? plan.anual.precioCentavos : plan.precioCentavos;
-    // `requestAnimationFrame`: el div del formulario se monta con el cambio de
-    // estado de arriba, y Culqi necesita encontrarlo YA en el DOM.
+  }
+
+  // PASO 2 — confirmar. Recién acá se monta la tarjeta.
+  function confirmarCompra() {
+    if (!planElegido) return;
+    setPagando(true);
+    // `requestAnimationFrame`: el div del formulario se revela con el cambio
+    // de estado de arriba, y Culqi necesita encontrarlo YA en el DOM.
     requestAnimationFrame(() =>
       checkout.abrir({
-        montoCentavos: monto,
-        descripcion: `Plan ${NOMBRE[plan.id] ?? plan.id} ${periodicidad === "anual" ? "anual" : "mensual"}`,
+        montoCentavos: montoElegido,
+        descripcion: `Plan ${NOMBRE[planElegido.id] ?? planElegido.id} ${periodicidad === "anual" ? "anual" : "mensual"}`,
       }),
     );
   }
@@ -191,26 +212,75 @@ export function PlanRestaurante() {
             ))}
           </div>
 
-          {/* EL FORMULARIO DE TARJETA, EMBEBIDO (2026-08-20). Antes se abría
-              un popup encima de la pantalla; ahora Culqi lo monta acá dentro,
-              debajo del plan elegido. Solo aparece cuando hay un cobro en
-              curso: montarlo siempre llenaría la pantalla de campos de tarjeta
-              antes de que el dueño elija plan. */}
-          {elegido && checkout.estado !== "ok" && (
-            <div className="surge space-y-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
-              <p className="text-[0.85rem] font-semibold text-tinta">
-                {elegido ? `Plan ${NOMBRE[elegido] ?? elegido}` : "Completa tu pago"}
-              </p>
-              <div id={CONTENEDOR_CULQI} className="min-h-[26rem] rounded-tarjeta" />
-              {checkout.estado !== "procesando" && (
-                <button
-                  type="button"
-                  onClick={() => { checkout.cerrar(); setElegido(null); }}
-                  className="w-full rounded-full px-5 py-2.5 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
-                >
-                  Cancelar
-                </button>
-              )}
+          {/* EL PAGO, EN DOS PASOS (2026-08-20). Antes el formulario de Culqi
+              aparecía de una al tocar "Elegir": campos de tarjeta a la cara,
+              sin decir qué plan se estaba comprando ni cuánto se iba a cobrar.
+
+              Ahora primero se confirma QUÉ se compra —plan, periodicidad y
+              total, como el "Resumen de pago" de cualquier checkout— y recién
+              al confirmar se despliega la tarjeta. Es un toque más, y compra
+              la certeza de saber qué se está pagando. */}
+          {elegido && planElegido && checkout.estado !== "ok" && (
+            <div className="surge overflow-hidden rounded-tarjeta bg-carta ring-1 ring-linea">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-linea px-5 py-4">
+                <div className="min-w-0">
+                  <p className="text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+                    Tu compra
+                  </p>
+                  <p className="text-[1.05rem] font-bold leading-tight text-tinta">
+                    Plan {NOMBRE[elegido] ?? elegido}
+                  </p>
+                  <p className="text-[0.82rem] text-frio">
+                    {periodicidad === "anual" ? "Pago anual" : "Pago mensual"}
+                    {" · "}
+                    {planElegido.pedidosMes === 0
+                      ? "pedidos ilimitados"
+                      : `${planElegido.pedidosMes.toLocaleString("es-PE")} pedidos al mes`}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[1.4rem] font-bold leading-none tabular-nums text-tinta">
+                    {soles(montoElegido)}
+                  </p>
+                  <p className="text-[0.75rem] text-frio">
+                    {periodicidad === "anual" ? "al año" : "al mes"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 px-5 py-4">
+                {/* El formulario de Culqi solo cuando confirma. `hidden` y no
+                    desmontar: Culqi ya lo montó adentro y quitarlo del DOM lo
+                    dejaría huérfano. */}
+                <div className={pagando ? "" : "hidden"}>
+                  <div id={CONTENEDOR_CULQI} className="min-h-[24rem] rounded-tarjeta" />
+                </div>
+
+                {!pagando && (
+                  <button
+                    type="button"
+                    onClick={confirmarCompra}
+                    className="w-full rounded-full bg-brasa px-5 py-3 text-sm font-bold text-sobre-brasa shadow-[0_2px_10px_rgba(0,0,0,0.10)] transition hover:bg-brasa-hondo active:scale-[0.99]"
+                  >
+                    Continuar al pago
+                  </button>
+                )}
+
+                {checkout.estado !== "procesando" && (
+                  <button
+                    type="button"
+                    onClick={() => { checkout.cerrar(); setElegido(null); setPagando(false); }}
+                    className="w-full rounded-full px-5 py-2.5 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
+                  >
+                    Cancelar
+                  </button>
+                )}
+
+                <p className="flex items-center justify-center gap-1.5 text-[0.72rem] text-frio">
+                  <span aria-hidden>🔒</span>
+                  Pago seguro con Culqi. Cambias o cancelas cuando quieras.
+                </p>
+              </div>
             </div>
           )}
 

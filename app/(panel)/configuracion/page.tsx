@@ -9,6 +9,7 @@ import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { HorarioEditor } from "@/components/panel/HorarioEditor";
 import { PagosEditor } from "@/components/panel/PagosEditor";
 import { PanelCanales } from "@/components/panel/PanelCanales";
+import { QueRespondeElBot } from "@/components/panel/QueRespondeElBot";
 import { Seccion } from "@/components/panel/Seccion";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
 import { ConfigComision } from "@/components/panel/ConfigComision";
@@ -193,13 +194,33 @@ function ConfiguracionInner() {
           )}
 
           {tab === "canales" && (
-            <Seccion
-              titulo="Por dónde te escriben"
-              bajada="Conectá tus redes para que LeadAI atienda por vos en cada una."
-              tono="hondo"
-            >
-              <PanelCanales />
-            </Seccion>
+            <>
+              <Seccion
+                titulo="Por dónde te escriben"
+                bajada="Conecta tus redes para que LeadAI atienda por ti en cada una."
+                tono="hondo"
+              >
+                <PanelCanales />
+              </Seccion>
+
+              {/* DEBAJO DE LA VINCULACIÓN (2026-08-20, pedido de Jonathan
+                  mirando la pantalla de ola.click): quien acaba de conectar su
+                  WhatsApp no sabe qué va a pasar después. Sin esto, o desconfía
+                  y contesta a mano —perdiendo lo que paga— o descubre los
+                  mensajes de a uno por el reclamo de un cliente.
+
+                  Solo para quien tiene carta: los mensajes que lista son los
+                  del bot de PEDIDOS. */}
+              {caps.tieneCarta && (
+                <Seccion
+                  titulo="Qué responde tu bot"
+                  bajada="Todo esto lo contesta solo, con los datos de tu negocio."
+                  tono="hondo"
+                >
+                  <QueRespondeElBot />
+                </Seccion>
+              )}
+            </>
           )}
 
           {tab === "plan" && (

@@ -705,34 +705,63 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
 function BarraPromos({ promos }: { promos: Promo[] }) {
   if (promos.length === 0) return null;
 
+  const varias = promos.length > 1;
+
   return (
-    <div
-      className="scroll-fino flex gap-2 overflow-x-auto px-4 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      aria-label="Promociones de hoy"
-    >
-      {promos.map((p, i) => (
+    /* AIRE Y SEÑAL DE QUE HAY MÁS (2026-08-20). Con dos promos la barra iba
+       apretada contra la de secciones y no se veía como un bloque propio.
+       Y pensando en un negocio con cinco: sin degradado a la derecha, la
+       tercera queda cortada sin ninguna pista de que se puede deslizar —el
+       mismo problema que ya tuvo la barra de secciones—. */
+    <section className="pb-4 pt-4" aria-label="Promociones de hoy">
+      {/* Un encabezado chico: sin él, dos tarjetas naranjas sueltas se leen
+          como un banner de publicidad y el ojo las saltea. Diciendo "Hoy" se
+          entiende que es de este negocio y que caduca. */}
+      {varias && (
+        <p className="eyebrow mb-2 px-4">Promos de hoy</p>
+      )}
+      <div className="relative">
         <div
-          key={p.id}
-          // Entran escalonadas: con dos o tres, verlas llegar una atrás de otra
-          // las hace notar. Aparecer todas juntas se lee como parte del fondo.
-          style={{ animationDelay: `${i * 70}ms` }}
-          className="entra flex min-w-[15rem] shrink-0 items-center gap-2.5 rounded-tarjeta bg-calor/10 p-3 ring-1 ring-calor/25"
+          className="scroll-fino flex gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-calor/15 text-[1.05rem]" aria-hidden>
-            🎉
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[0.88rem] font-bold leading-tight text-tinta">{p.nombre}</p>
-            <p className="truncate text-[0.78rem] leading-snug text-calor">
-              {p.detalle}
-              {/* La hora solo si la promo se corta hoy: un "hasta las 20:00"
-                  es lo que hace que pida ahora y no más tarde. */}
-              {p.hastaHoy && <span className="text-tinta-2"> · hasta {p.hastaHoy}</span>}
-            </p>
-          </div>
+          {promos.map((p, i) => (
+            <div
+              key={p.id}
+              // Entran escalonadas: con dos o tres, verlas llegar una atrás de
+              // otra las hace notar. Todas juntas se leen como parte del fondo.
+              style={{ animationDelay: `${i * 70}ms` }}
+              className="entra flex min-w-[16.5rem] shrink-0 items-center gap-3 rounded-tarjeta bg-calor/10 px-4 py-3.5 ring-1 ring-calor/25"
+            >
+              <span
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-calor/15 text-[1.15rem]"
+                aria-hidden
+              >
+                🎉
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-[0.9rem] font-bold leading-tight text-tinta">{p.nombre}</p>
+                <p className="mt-0.5 truncate text-[0.8rem] leading-snug text-calor">
+                  {p.detalle}
+                  {/* La hora solo si la promo se corta hoy: un "hasta las 20:00"
+                      es lo que hace que pida ahora y no más tarde. */}
+                  {p.hastaHoy && <span className="text-tinta-2"> · hasta {p.hastaHoy}</span>}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+
+        {/* El degradado solo cuando hay varias: con una sola no hay nada más
+            allá y una sombra al costado sería mentira. `pointer-events-none`
+            para no comerse el arrastre. */}
+        {varias && (
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-arena to-transparent"
+            aria-hidden
+          />
+        )}
+      </div>
+    </section>
   );
 }
 

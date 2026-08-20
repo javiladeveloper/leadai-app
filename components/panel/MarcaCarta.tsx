@@ -62,6 +62,15 @@ function soloDigitos(v: string): string {
 
 export function MarcaCarta() {
   const [negocio, setNegocio] = useState<NegocioCarta | null>(null);
+  // El link corto de la carta (2026-08-20).
+  const [slug, setSlug] = useState("");
+  // El dominio para la vista previa del link. Se saca del navegador y no
+  // de una constante para que en local diga `localhost:4010` y no mienta.
+  // `typeof window`: este componente también se renderiza en el servidor.
+  const sitio =
+    typeof window === "undefined"
+      ? "app.leadai-pe.com"
+      : window.location.host;
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [subiendo, setSubiendo] = useState<"logo" | "banner" | null>(null);
@@ -95,6 +104,7 @@ export function MarcaCarta() {
       setEntrega(n?.entregaMinutos ? String(n.entregaMinutos) : "");
       setTema(n?.temaCarta === "oscuro" ? "oscuro" : "claro");
       setColor(n?.colorCarta ?? "");
+      setSlug(n?.slug ?? "");
       setCargando(false);
     });
   }, []);
@@ -130,7 +140,11 @@ export function MarcaCarta() {
     setGuardando(true);
     setError("");
     setOk(false);
+    const limpio = slug.trim().toLowerCase();
     const r = await guardarNegocio({
+      // Solo si CAMBIÓ: mandarlo siempre obliga al backend a consultar
+      // "¿ya está tomado?" en cada guardado de la marca, para nada.
+      ...(limpio && limpio !== (negocio?.slug ?? '') ? { slug: limpio } : {}),
       // `null` y no cadena vacía: es como el backend borra un campo.
       direccion: direccion.trim() || null,
       // Se guardan juntos, como los espera el backend.
@@ -320,6 +334,35 @@ export function MarcaCarta() {
           <p className="text-[0.82rem] font-semibold text-arena sm:col-span-2">
             Datos de contacto
           </p>
+
+          {/* EL LINK CORTO (2026-08-20). Va PRIMERO en los datos de contacto
+              porque es lo que el dueño comparte: el que pega en su Instagram,
+              el que dicta por teléfono. Antes la carta se compartía como
+              `/c/cmswnwcxr0004od01hb06ukhi` y no había forma de cambiarlo. */}
+          <div className="sm:col-span-2">
+            <Campo etiqueta="El link de tu carta" ayuda="Lo que compartes con tus clientes">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {/* El dominio fijo al lado: sin esto el dueño no entiende que
+                    escribe solo la última parte, y termina pegando una URL
+                    entera adentro del campo. */}
+                <span className="shrink-0 text-[0.85rem] text-arena/50">
+                  {sitio}/c/
+                </span>
+                <input
+                  value={slug}
+                  onChange={(e) =>
+                    // Se normaliza MIENTRAS escribe: mayúsculas y espacios no
+                    // son válidos y es mejor que no lleguen a existir a
+                    // rechazarlos recién al guardar.
+                    setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 32))
+                  }
+                  placeholder="mi-negocio"
+                  aria-label="Link corto de tu carta"
+                  className={`${ENTRADA} min-w-0 flex-1 sm:w-48 sm:flex-none`}
+                />
+              </div>
+            </Campo>
+          </div>
           {/* El PAÍS al costado (2026-08-19): antes había que saber que el
               número va con el código pegado adelante y sin "+". Escribirlo mal
               es un pedido que no llega.

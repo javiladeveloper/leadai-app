@@ -487,6 +487,12 @@ export function resumenDescuento(
 
 export interface NegocioCarta {
   nombre: string;
+  /**
+   * El link corto de la carta: `/c/shiro` en vez de `/c/cmswn...`
+   * (2026-08-20). `null` en negocios que todavía no tienen — ahí el link se
+   * arma con el id, que la ruta pública sigue aceptando.
+   */
+  slug?: string | null;
   logoUrl: string | null;
   bannerUrl: string | null;
   direccion: string | null;
@@ -516,7 +522,7 @@ export async function obtenerNegocio(tenant?: string): Promise<NegocioCarta | nu
 export function guardarNegocio(
   datos: Partial<Pick<NegocioCarta,
     "direccion" | "instagramUrl" | "entregaMinutos" | "whatsappCarta" | "temaCarta" | "colorCarta"
-    | "facebookUrl" | "tiktokUrl" | "webUrl">>,
+    | "facebookUrl" | "tiktokUrl" | "webUrl" | "slug">>,
   tenant?: string,
 ) {
   return escribir("/carta/negocio", "PATCH", datos, tenant);

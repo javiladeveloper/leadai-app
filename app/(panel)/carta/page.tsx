@@ -27,7 +27,9 @@ import {
   subirFotoProducto, quitarFotoProducto, subirFoto, leerFoto,
   aCentavos, precioTexto, porcentajeDescuento, resumenDescuento, sinTildes, DIAS,
   CATEGORIA_COMBOS,
+  obtenerNegocio,
   type Carta, type ProductoCarta, type GrupoOpciones, type ComboCarta, type DescuentoCarta,
+  type NegocioCarta,
 } from "@/lib/carta";
 import { CampoFoto, useFoto } from "@/components/panel/CampoFoto";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -56,8 +58,19 @@ export default function CartaPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (listo) cargar(); }, [listo]);
 
+  // Solo para el LINK: el resto de la marca la edita `MarcaCarta` por su lado.
+  const [negocio, setNegocio] = useState<NegocioCarta | null>(null);
+  useEffect(() => {
+    if (listo) void obtenerNegocio().then(setNegocio);
+  }, [listo]);
+
   const tenant = leerEmpresaActiva();
-  const enlacePublico = tenant ? `${window.location.origin}/c/${tenant}` : null;
+  // EL LINK CORTO (2026-08-20): `/c/shiro` en vez de `/c/cmswn...`. El id
+  // sigue siendo el fallback —la ruta pública acepta los dos— para el negocio
+  // que todavía no tiene slug y para el instante antes de que cargue.
+  const enlacePublico = tenant
+    ? `${window.location.origin}/c/${negocio?.slug || tenant}`
+    : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-5 py-6 lg:px-8">

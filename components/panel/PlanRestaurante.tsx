@@ -124,6 +124,14 @@ export function PlanRestaurante() {
 
   const s = datos.suscripcion;
   const activa = s && s.estado !== "cancelada";
+  // EL PLAN VIGENTE, venga de donde venga (2026-08-20). `suscripcion` solo
+  // existe cuando alguien pagó por Culqi; los planes que se venden hablando
+  // viven en `Tenant.plan` y llegan como `planActual`. Sin esto, SHIRO —que
+  // tiene plan `arranque` asignado a mano— veía los tres planes sin ninguno
+  // marcado y no sabía cuál tenía contratado.
+  const planVigente = datos.planActual ?? (activa ? s?.plan : null) ?? null;
+  const tienePlan = Boolean(planVigente);
+  const planDelVigente = datos.disponibles.find((p) => p.id === planVigente) ?? null;
   // El pago anual es opcional en la respuesta: un backend viejo no lo trae.
   // Se guarda el objeto y no un booleano para que TypeScript lo estreche.
   const anualDelPrimero = datos.disponibles[0]?.anual;
@@ -176,14 +184,49 @@ export function PlanRestaurante() {
       {/* El plan ACTUAL primero: es lo que el dueño vino a ver. */}
       {activa && s && <PlanActual s={s} />}
 
+      {/* PLAN SIN SUSCRIPCIÓN (2026-08-20): el que se vendió hablando y se
+          asignó a mano. No tiene precio cobrado, ni fecha de renovación, ni
+          tarjeta — o sea que `PlanActual` no aplica—, pero el dueño igual
+          tiene que ver que SÍ tiene un plan activo. Antes entraba y la
+          pantalla se veía como si no tuviera ninguno. */}
+      {!activa && tienePlan && planDelVigente && (
+        <Seccion titulo="Tu plan" bajada="Lo que tienes contratado hoy." tono="hondo">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[0.68rem] font-bold uppercase tracking-wide text-orbita">
+                Plan activo
+              </p>
+              <p className="text-[1.6rem] font-bold leading-tight text-arena">
+                {NOMBRE[planVigente!] ?? planVigente}
+              </p>
+              <p className="text-[0.82rem] text-arena/70">
+                {planDelVigente.pedidosMes === 0
+                  ? "Pedidos ilimitados"
+                  : `${planDelVigente.pedidosMes.toLocaleString("es-PE")} pedidos al mes`}
+              </p>
+            </div>
+            <p className="text-[1.1rem] font-bold tabular-nums text-arena">
+              {soles(planDelVigente.precioCentavos)}
+              <span className="ml-1 text-[0.8rem] font-semibold text-arena/60">/mes</span>
+            </p>
+          </div>
+          {/* Sin tarjeta detrás no hay renovación automática: decirlo evita
+              que el dueño espere un cobro que no va a pasar, o que busque un
+              "cancelar" que no existe. */}
+          <p className="mt-3 text-[0.8rem] text-arena/60">
+            Lo activamos desde nuestro lado. Si quieres cambiarlo, elige otro plan abajo.
+          </p>
+        </Seccion>
+      )}
+
       <Seccion
-        titulo={activa ? "Cambiar de plan" : "Elegí tu plan"}
+        titulo={tienePlan ? "Cambiar de plan" : "Elige tu plan"}
         bajada={
-          activa
-            ? "Podés subir o bajar cuando quieras. El cambio se cobra desde hoy."
-            : "Pagás por los pedidos del mes. Si te pasás, seguís vendiendo igual."
+          tienePlan
+            ? "Puedes subir o bajar cuando quieras. El cambio se cobra desde hoy."
+            : "Pagas por los pedidos del mes. Si te pasas, sigues vendiendo igual."
         }
-        tono={activa ? "claro" : "hondo"}
+        tono={tienePlan ? "claro" : "hondo"}
       >
         <div className="space-y-4">
           {/* Durante un deploy el backend viejo todavía no manda `anual`: sin
@@ -194,7 +237,7 @@ export function PlanRestaurante() {
               valor={periodicidad}
               onCambio={setPeriodicidad}
               mesesGratis={anualDelPrimero.mesesGratis}
-              sobreOscuro={!activa}
+              sobreOscuro={!tienePlan}
             />
           )}
 
@@ -204,10 +247,16 @@ export function PlanRestaurante() {
                 key={p.id}
                 plan={p}
                 periodicidad={periodicidad}
-                esElActual={s?.plan === p.id && s?.periodicidad === periodicidad && activa === true}
+                esElActual={
+                  planVigente === p.id &&
+                  // Con suscripción la periodicidad importa: mensual y anual
+                  // son dos compras distintas del mismo plan. Sin ella no hay
+                  // periodicidad guardada, así que alcanza con el plan.
+                  (s && activa ? s.periodicidad === periodicidad : true)
+                }
                 deshabilitado={checkout.estado === "abriendo" || checkout.estado === "procesando"}
                 onElegir={() => contratar(p)}
-                sobreOscuro={!activa}
+                sobreOscuro={!tienePlan}
               />
             ))}
           </div>

@@ -661,6 +661,17 @@ export interface EstadoSuscripcion {
 
 export interface RespuestaSuscripcion {
   suscripcion: EstadoSuscripcion | null;
+  /**
+   * El plan vigente, venga de una suscripción con tarjeta o asignado a mano
+   * (2026-08-20). `suscripcion` solo existe cuando alguien pagó por Culqi; los
+   * planes que vendemos hablando viven en `Tenant.plan`, y sin este campo el
+   * panel mostraba los tres planes sin marcar ninguno.
+   *
+   * Opcional: un backend viejo no lo manda y ahí se cae a `suscripcion.plan`.
+   */
+  planActual?: string | null;
+  /** ¿Se cobra solo con tarjeta? Con `false` no hay renovación que cancelar. */
+  cobroAutomatico?: boolean;
   disponibles: PlanDisponible[];
   /** Sin esto el panel no puede tokenizar y no hay pago posible. */
   llavePublica: string | null;

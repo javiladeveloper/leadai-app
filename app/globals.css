@@ -352,23 +352,44 @@ button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
    mismo camino, no páginas distintas: la confirmación entra desde la derecha
    —como pasar de hoja— y al volver la carta entra desde la izquierda.
 
-   Sin esto el cambio es un corte seco y se siente "me mandó a otro sitio",
-   justo en el paso donde el cliente decide si paga. La dirección es la que
-   comunica: adelante y atrás no pueden verse igual.
+   LO QUE FALTABA (Jonathan: "no se nota, que sea más fluido"): solo entraba la
+   pantalla nueva. La vieja desaparecía DE GOLPE, así que el ojo veía un corte
+   y después algo apareciendo — no un reemplazo. Ahora una sale mientras la
+   otra entra, y ese solape es lo que se lee como continuidad.
 
-   El desplazamiento es CHICO (16px) a propósito: uno grande marea en un
-   teléfono y hace lento un paso que se repite en cada pedido. */
-@keyframes paso-adelante {
-  from { opacity: 0; transform: translateX(16px); }
+   Los números: 40px de recorrido en vez de 16 —con 16 el movimiento existe
+   pero no se percibe— y 340ms de entrada con 180ms de espera, para que la que
+   llega no se pise con la que se va. La salida dura 200ms: irse tiene que
+   costar menos que llegar, o el paso entero se siente lento. */
+@keyframes paso-adelante-entra {
+  from { opacity: 0; transform: translateX(40px); }
   to   { opacity: 1; transform: none; }
 }
-.paso-adelante { animation: paso-adelante 260ms var(--curva-entrada) backwards; }
-
-@keyframes paso-atras {
-  from { opacity: 0; transform: translateX(-16px); }
+@keyframes paso-adelante-sale {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateX(-40px); }
+}
+@keyframes paso-atras-entra {
+  from { opacity: 0; transform: translateX(-40px); }
   to   { opacity: 1; transform: none; }
 }
-.paso-atras { animation: paso-atras 260ms var(--curva-entrada) backwards; }
+@keyframes paso-atras-sale {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateX(40px); }
+}
+
+/* LA QUE ENTRA arranca APENAS MONTA, sin retraso propio: la espera ya la hace
+   el `setTimeout` de la página, que cambia de pantalla recién cuando la
+   anterior terminó de salir. Poner el retraso también acá sumaba los dos y
+   dejaba ~180ms de pantalla vacía en el medio — que es exactamente lo que
+   rompe la sensación de continuidad. */
+.paso-adelante { animation: paso-adelante-entra 340ms var(--curva-entrada) backwards; }
+.paso-atras    { animation: paso-atras-entra    340ms var(--curva-entrada) backwards; }
+
+/* LA QUE SALE, más rápida: irse tiene que costar menos que llegar, o todo el
+   paso se siente lento. `forwards` la deja desvanecida hasta que se desmonta. */
+.sale-adelante { animation: paso-adelante-sale 200ms var(--curva-salida) forwards; }
+.sale-atras    { animation: paso-atras-sale    200ms var(--curva-salida) forwards; }
 
 /* LO URGENTE RESPIRA. Un borde fijo se vuelve invisible: el dueño mira la
    cocina durante todo el turno y a los veinte minutos ya no lo registra.

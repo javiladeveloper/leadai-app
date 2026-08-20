@@ -142,7 +142,21 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   // Se acaba de volver de la confirmación: la carta entra desde la izquierda,
   // que es la dirección de "atrás". Sin distinguirlo, ir y volver se verían
   // igual y el movimiento no comunicaría nada.
+  /**
+   * HACIA DÓNDE SE ESTÁ MOVIENDO (2026-08-20).
+   *
+   * `null` = quieto. `"adelante"` = la carta se está yendo a la izquierda
+   * porque viene la confirmación; `"atras"` = al revés.
+   *
+   * Existe para que la pantalla que se VA se vea irse. Antes solo entraba la
+   * nueva y la vieja desaparecía de golpe: el ojo leía un corte, no un
+   * reemplazo, y por eso "no se notaba" la transición.
+   */
+  const [saliendo, setSaliendo] = useState<"adelante" | "atras" | null>(null);
   const [volviendo, setVolviendo] = useState(false);
+
+  /** Cuánto dura la salida. Debe coincidir con `.sale-*` en globals.css. */
+  const MS_SALIDA = 200;
   // La COTIZACIÓN del backend (2026-08-20): el paso de confirmación. Cuando
   // está seteada, la pantalla muestra el pedido con el TOTAL REAL —promos
   // incluidas— antes de mandarlo. Sin este paso, el cliente veía un total en
@@ -255,7 +269,15 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
    * promo del backend "aparecía sola" recién en el chat.
    */
   async function cotizarPedido() {
+    // LA SALIDA ARRANCA YA, no cuando contesta el backend (2026-08-20).
+    //
+    // Antes se animaba recién con la respuesta, así que entre el toque y el
+    // movimiento había una llamada de red: se sentía demorado y "no se
+    // notaba" la transición. Ahora la carta empieza a irse mientras el
+    // servidor calcula, y las dos cosas terminan casi juntas.
+    setSaliendo("adelante");
     if (carrito.length === 0 || enviando) return;
+    const t0 = Date.now();
     setEnviando(true);
     setError(null);
     try {
@@ -266,11 +288,23 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       });
       const data = await res.json();
       if (!res.ok) {
+        // Se cancela la salida: la carta quedaría desvanecida mostrando un
+        // error, que es la peor combinación posible.
+        setSaliendo(null);
         setError(data.error ?? "No pudimos revisar tu pedido");
         return;
       }
-      setCotizacion(data);
+      // Lo que FALTE de la salida. Si el backend tardó más que la animación
+      // —lo normal—, el cambio es inmediato: hacerlo esperar de nuevo sería
+      // sumar demora sobre demora.
+      const falta = Math.max(0, MS_SALIDA - (Date.now() - t0));
+      setTimeout(() => {
+        setCotizacion(data);
+        setSaliendo(null);
+        setVolviendo(false);
+      }, falta);
     } catch {
+      setSaliendo(null);
       setError("No pudimos conectar. Revisa tu internet.");
     } finally {
       setEnviando(false);
@@ -369,7 +403,16 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
         modalidad={modalidad}
         enviando={enviando}
         error={error}
-        onVolver={() => { setCotizacion(null); setError(null); setVolviendo(true); }}
+        onVolver={() => {
+          setSaliendo("atras");
+          setError(null);
+          setTimeout(() => {
+            setCotizacion(null);
+            setVolviendo(true);
+            setSaliendo(null);
+          }, MS_SALIDA);
+        }}
+        saliendo={saliendo === "atras"}
         onConfirmar={enviarPedido}
       />
     );
@@ -391,7 +434,9 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       // `key` con el paso: sin él React reusa el nodo y la animación no vuelve
       // a correr, así que volver de la confirmación sería un corte seco.
       key={volviendo ? "carta-vuelta" : "carta"}
-      className={`mx-auto min-h-dvh max-w-[900px] bg-arena pb-32 ${volviendo ? "paso-atras" : ""}`}
+      className={`mx-auto min-h-dvh max-w-[900px] bg-arena pb-32 ${
+        saliendo === "adelante" ? "sale-adelante" : volviendo ? "paso-atras" : ""
+      }`}
       style={estiloTema}
       // `capture`: se registra ANTES de que React procese el click, así el
       // elemento todavía está donde el cliente lo tocó.
@@ -1148,11 +1193,13 @@ function BarraCarrito({
  * y una sorpresa en el precio, aunque sea a favor, huele a error.
  */
 function ConfirmarPedido({
-  cotizacion, negocio, estiloTema, modalidad, enviando, error, onVolver, onConfirmar,
+  cotizacion, negocio, estiloTema, modalidad, enviando, error, onVolver, onConfirmar, saliendo,
 }: {
   cotizacion: Cotizacion;
   /** La marca del negocio: sin esto la confirmación parece otro sitio. */
   negocio: Carta["negocio"];
+  /** `true` mientras se está yendo, para que se vea salir. */
+  saliendo: boolean;
   estiloTema: React.CSSProperties;
   modalidad: "delivery" | "recojo";
   enviando: boolean;
@@ -1167,7 +1214,9 @@ function ConfirmarPedido({
     // justo en el paso donde el cliente decide si paga. Un nikkei negro y
     // naranja se volvía otro sitio, y eso da desconfianza en el peor momento.
     <main
-      className="paso-adelante mx-auto flex min-h-dvh max-w-[560px] flex-col bg-arena"
+      className={`mx-auto flex min-h-dvh max-w-[560px] flex-col bg-arena ${
+        saliendo ? "sale-atras" : "paso-adelante"
+      }`}
       style={estiloTema}
     >
       {/* La cabecera del negocio, compacta: logo y nombre. No es decoración —
@@ -1261,20 +1310,44 @@ function ConfirmarPedido({
  * puede cerrar), queda esta despedida con el camino de vuelta.
  */
 function PedidoEnChat({ whatsapp, estiloTema }: { whatsapp: string | null; estiloTema: React.CSSProperties }) {
+  // ¿Se pudo cerrar sola? Mientras no se sepa, no se muestra nada: enseñarle
+  // "¡Pedido enviado!" a alguien que en 300ms va a estar de vuelta en WhatsApp
+  // es un parpadeo, y el mensaje del bot ya le dice lo mismo mejor.
+  const [sigueAbierta, setSigueAbierta] = useState(false);
+
   useEffect(() => {
-    // En el navegador embebido de WhatsApp esto cierra y devuelve al chat.
-    // En un navegador normal falla en silencio y queda la pantalla.
-    const t = setTimeout(() => window.close(), 1200);
-    return () => clearTimeout(t);
+    // SE CIERRA YA (2026-08-20). Esperaba 1.2s mostrando una pantalla que el
+    // cliente no necesita: el bot ya le está escribiendo el resumen al chat,
+    // y esta página solo se interpone entre él y ese mensaje.
+    //
+    // El intento es inmediato; los 300ms son solo para no cortar el frame de
+    // la animación de entrada a mitad de camino.
+    const cerrar = setTimeout(() => window.close(), 300);
+
+    // `window.close()` SOLO funciona si la ventana la abrió un script. En el
+    // navegador embebido de WhatsApp funciona; en Chrome normal —alguien que
+    // pegó el link— falla en silencio y la página se queda.
+    //
+    // Por eso se comprueba: si a los 900ms seguimos vivos, no cerró, y ahí sí
+    // se muestra la salida manual. Sin esto, ese cliente se quedaría mirando
+    // una pantalla en blanco sin saber qué hacer.
+    const revisar = setTimeout(() => setSigueAbierta(true), 900);
+    return () => { clearTimeout(cerrar); clearTimeout(revisar); };
   }, []);
+
+  // Todavía intentando cerrar: nada en pantalla, solo el fondo del negocio.
+  if (!sigueAbierta) {
+    return <main className="min-h-dvh bg-arena" style={estiloTema} />;
+  }
   return (
-    // Con el tema del negocio: son 1.2s, pero un flash blanco sobre una
-    // carta oscura se ve como un error del sistema.
-    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center" style={estiloTema}>
+    // Solo para quien NO se pudo cerrar (alguien que pegó el link en Chrome).
+    // Con el tema del negocio: un flash blanco sobre una carta oscura se ve
+    // como un error del sistema.
+    <main className="aparece mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center" style={estiloTema}>
       <div className="text-[3rem]">✅</div>
       <h1 className="text-[1.5rem] font-bold text-tinta">¡Pedido enviado!</h1>
       <p className="text-tinta-2">
-        Ya te lo confirmamos por WhatsApp. Sigue la conversación ahí 🙌
+        Te escribimos por WhatsApp con el detalle. Vuelve al chat para seguir 🙌
       </p>
       {whatsapp && (
         <a

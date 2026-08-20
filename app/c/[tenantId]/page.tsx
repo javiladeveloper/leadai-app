@@ -12,9 +12,11 @@ import { use } from "react";
  * restaurante, no un usuario nuestro. Llega acá desde un link que le mandó el
  * bot por WhatsApp.
  *
- * El circuito: arma el carrito → toca "Enviar mi pedido" → se abre WhatsApp
- * con un código → el bot lo resuelve y sigue el flujo normal (confirmar,
- * cobrar, cocina, moto).
+ * El circuito (2026-08-20): arma el carrito → "Ver mi pedido" muestra la
+ * COTIZACIÓN del backend (promos y total real) → confirma → si el link traía
+ * el ref del bot, el pedido aparece DIRECTO en su chat; si no (link frío),
+ * queda la card con el código de siempre. El bot sigue el flujo normal
+ * (cobrar, cocina, moto).
  *
  * DISEÑO MOBILE PRIMERO: se abre desde un link de WhatsApp, en un teléfono, y
  * casi siempre con una mano. Por eso los controles son grandes y el carrito
@@ -83,6 +85,19 @@ interface LineaCarrito {
   combo?: boolean;
 }
 
+/**
+ * El pedido COMO LO CALCULÓ EL BACKEND (2026-08-20): líneas con el precio
+ * real, promos aplicadas y el total que se va a cobrar. Es lo que pinta el
+ * paso de confirmación — el total del navegador es solo para mostrar mientras
+ * se arma.
+ */
+interface Cotizacion {
+  lineas: { nombre: string; cantidad: number; unitarioCentavos: number; subtotalCentavos: number; opciones: string[] }[];
+  descuentos: { nombre: string; montoCentavos: number }[];
+  subtotalCentavos: number;
+  totalCentavos: number;
+}
+
 const soles = (centavos: number) => `S/${(centavos / 100).toFixed(2)}`;
 
 /**
@@ -124,6 +139,20 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   // delivery/recojo; con esto el pedido vuelve al chat con todo resuelto.
   const [modalidad, setModalidad] = useState<"delivery" | "recojo">("delivery");
   const [codigo, setCodigo] = useState<string | null>(null);
+  // La COTIZACIÓN del backend (2026-08-20): el paso de confirmación. Cuando
+  // está seteada, la pantalla muestra el pedido con el TOTAL REAL —promos
+  // incluidas— antes de mandarlo. Sin este paso, el cliente veía un total en
+  // la web y OTRO en WhatsApp (la promo "aparecía sola" en el chat).
+  const [cotizacion, setCotizacion] = useState<Cotizacion | null>(null);
+  // Pedido que viajó DIRECTO al chat (link con ref del bot): la web ya no
+  // tiene nada que pedirle al cliente — solo decirle que siga en WhatsApp.
+  const [enChat, setEnChat] = useState(false);
+  // El ref FIRMADO del lead, si el link lo trajo (lo pone el bot al mandarlo).
+  // Se guarda una vez: la URL no cambia mientras se navega la carta.
+  const [refLead, setRefLead] = useState<string | null>(null);
+  useEffect(() => {
+    setRefLead(new URLSearchParams(window.location.search).get("ref"));
+  }, []);
 
   useEffect(() => {
     fetch(`${API_URL}/c/${tenantId}`)
@@ -180,6 +209,54 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   };
   const quitar = (i: number) => setCarrito((c) => c.filter((_, idx) => idx !== i));
 
+  // El body que viaja al backend: solo QUÉ eligió (ids y cantidades). Los
+  // precios los pone el backend desde su base. Los COMBOS van por su propio
+  // campo: se cobran a su precio, no a la suma de sus platos.
+  function bodyDelPedido() {
+    return {
+      items: carrito.filter((l) => !l.combo).map((l) => ({
+        productoId: l.producto.id,
+        cantidad: l.cantidad,
+        opcionIds: l.opciones.map((o) => o.id),
+      })),
+      combos: carrito.filter((l) => l.combo).map((l) => ({
+        comboId: l.producto.id,
+        cantidad: l.cantidad,
+      })),
+      modalidad,
+    };
+  }
+
+  /**
+   * PASO 1 — COTIZAR (2026-08-20). "Enviar mi pedido" ya no manda nada: pide
+   * el total real al backend y abre la pantalla de confirmación. Es donde el
+   * cliente ve las promos ANTES de comprometerse — del test de Jonathan: la
+   * promo del backend "aparecía sola" recién en el chat.
+   */
+  async function cotizarPedido() {
+    if (carrito.length === 0 || enviando) return;
+    setEnviando(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/c/${tenantId}/cotizar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyDelPedido()),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "No pudimos revisar tu pedido");
+        return;
+      }
+      setCotizacion(data);
+    } catch {
+      setError("No pudimos conectar. Revisa tu internet.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  /** PASO 2 — CONFIRMAR: recién acá el pedido viaja de verdad. */
   async function enviarPedido() {
     if (carrito.length === 0 || enviando) return;
     setEnviando(true);
@@ -189,24 +266,19 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // Solo QUÉ eligió: ids y cantidades. Los precios los pone el
-          // backend desde su base. Los COMBOS van por su propio campo: se
-          // cobran a su precio, no a la suma de sus platos.
-          items: carrito.filter((l) => !l.combo).map((l) => ({
-            productoId: l.producto.id,
-            cantidad: l.cantidad,
-            opcionIds: l.opciones.map((o) => o.id),
-          })),
-          combos: carrito.filter((l) => l.combo).map((l) => ({
-            comboId: l.producto.id,
-            cantidad: l.cantidad,
-          })),
-          modalidad,
+          ...bodyDelPedido(),
+          // Con ref (el link lo mandó el bot) el pedido aparece DIRECTO en el
+          // chat del cliente: nada de card para compartir ni código a mano.
+          ...(refLead ? { ref: refLead } : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "No pudimos enviar tu pedido");
+        return;
+      }
+      if (data.directo) {
+        setEnChat(true);
         return;
       }
       setCodigo(data.codigo);
@@ -232,8 +304,26 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     );
   }
 
-  // Pedido enviado: se le muestra el código y el botón para volver al chat.
+  // Pedido que ya viajó DIRECTO al chat: la página solo despide.
+  if (enChat) return <PedidoEnChat whatsapp={carta.negocio.whatsapp} />;
+
+  // Pedido enviado por la puerta clásica (link sin ref): código + botón.
   if (codigo) return <PedidoListo codigo={codigo} total={total} whatsapp={carta.negocio.whatsapp} />;
+
+  // El paso de CONFIRMACIÓN: el pedido como lo calculó el backend, con las
+  // promos visibles y el total real, antes de mandarlo.
+  if (cotizacion) {
+    return (
+      <ConfirmarPedido
+        cotizacion={cotizacion}
+        modalidad={modalidad}
+        enviando={enviando}
+        error={error}
+        onVolver={() => { setCotizacion(null); setError(null); }}
+        onConfirmar={enviarPedido}
+      />
+    );
+  }
 
   const porCategoria = carta.categorias
     .map((c) => ({ ...c, productos: carta.productos.filter((p) => p.categoriaId === c.id) }))
@@ -393,7 +483,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           enviando={enviando}
           error={error}
           onQuitar={quitar}
-          onEnviar={enviarPedido}
+          onEnviar={cotizarPedido}
         />
       )}
     </main>
@@ -973,10 +1063,128 @@ function BarraCarrito({
           : faltaParaElMinimo > 0
             ? `Mínimo ${soles(minimo)} para delivery`
             : enviando
-              ? "Enviando…"
-              : `Enviar mi pedido · ${soles(totalVisible)}`}
+              ? "Revisando…"
+              : `Ver mi pedido · ${soles(totalVisible)}`}
       </button>
     </div>
+  );
+}
+
+/**
+ * EL PASO DE CONFIRMACIÓN (2026-08-20, del test de Jonathan: "no me apareció
+ * el pedido para confirmar la compra").
+ *
+ * Lo que se muestra acá es la COTIZACIÓN DEL BACKEND, no la suma del
+ * navegador: promos aplicadas y el total real que se va a cobrar. Es el
+ * momento en que la promo se VE — antes "aparecía sola" recién en WhatsApp,
+ * y una sorpresa en el precio, aunque sea a favor, huele a error.
+ */
+function ConfirmarPedido({
+  cotizacion, modalidad, enviando, error, onVolver, onConfirmar,
+}: {
+  cotizacion: Cotizacion;
+  modalidad: "delivery" | "recojo";
+  enviando: boolean;
+  error: string | null;
+  onVolver: () => void;
+  onConfirmar: () => void;
+}) {
+  const hayDescuento = cotizacion.descuentos.length > 0;
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col bg-arena p-5">
+      <button onClick={onVolver} className="mb-4 self-start text-[0.9rem] font-semibold text-tinta-2">
+        ← Volver a la carta
+      </button>
+
+      <h1 className="mb-1 text-[1.35rem] font-bold text-tinta">Tu pedido</h1>
+      <p className="mb-4 text-[0.9rem] text-tinta-2">
+        {modalidad === "delivery" ? "🛵 Delivery" : "🥡 Para llevar"} · revísalo antes de enviarlo
+      </p>
+
+      <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+        <div className="space-y-3">
+          {cotizacion.lineas.map((l, i) => (
+            <div key={i} className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[0.95rem] text-tinta">{l.cantidad}× {l.nombre}</p>
+                {l.opciones.length > 0 && (
+                  <p className="text-[0.8rem] text-tinta-2">{l.opciones.join(", ")}</p>
+                )}
+              </div>
+              <p className="shrink-0 text-[0.95rem] text-tinta">{soles(l.subtotalCentavos)}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 space-y-1 border-t border-linea pt-3">
+          {/* Las promos, VISIBLES y restando: es la línea que mata la
+              sorpresa. Solo se pintan si hay — sin promo no hay subtotal
+              que explicar. */}
+          {hayDescuento && (
+            <>
+              <div className="flex justify-between text-[0.9rem] text-tinta-2">
+                <span>Subtotal</span><span>{soles(cotizacion.subtotalCentavos)}</span>
+              </div>
+              {cotizacion.descuentos.map((d, i) => (
+                <div key={i} className="flex justify-between text-[0.9rem] font-semibold text-brasa-texto">
+                  <span>🎉 {d.nombre}</span><span>−{soles(d.montoCentavos)}</span>
+                </div>
+              ))}
+            </>
+          )}
+          <div className="flex justify-between pt-1 text-[1.1rem] font-bold text-tinta">
+            <span>Total</span><span>{soles(cotizacion.totalCentavos)}</span>
+          </div>
+        </div>
+      </div>
+
+      {error && <p className="mt-3 text-[0.85rem] font-semibold text-alerta">{error}</p>}
+
+      <div className="mt-auto pt-5">
+        <button
+          onClick={onConfirmar}
+          disabled={enviando}
+          className="w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-40"
+        >
+          {enviando ? "Enviando…" : `Confirmar pedido · ${soles(cotizacion.totalCentavos)}`}
+        </button>
+      </div>
+    </main>
+  );
+}
+
+/**
+ * EL PEDIDO YA ESTÁ EN EL CHAT (2026-08-20).
+ *
+ * El link traía el ref del bot, así que al confirmar el resumen viajó DIRECTO
+ * al WhatsApp del cliente — nada de card para compartir ni código a mano
+ * ("le dije al otro agente que no quiero eso"). La página intenta cerrarse
+ * sola; si el navegador no la deja (una pestaña que no abrió un script no se
+ * puede cerrar), queda esta despedida con el camino de vuelta.
+ */
+function PedidoEnChat({ whatsapp }: { whatsapp: string | null }) {
+  useEffect(() => {
+    // En el navegador embebido de WhatsApp esto cierra y devuelve al chat.
+    // En un navegador normal falla en silencio y queda la pantalla.
+    const t = setTimeout(() => window.close(), 1200);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center">
+      <div className="text-[3rem]">✅</div>
+      <h1 className="text-[1.5rem] font-bold text-tinta">¡Pedido enviado!</h1>
+      <p className="text-tinta-2">
+        Ya te lo confirmamos por WhatsApp. Sigue la conversación ahí 🙌
+      </p>
+      {whatsapp && (
+        <a
+          href={`https://wa.me/${whatsapp}`}
+          className="mt-1 w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa"
+        >
+          Volver al chat
+        </a>
+      )}
+    </main>
   );
 }
 

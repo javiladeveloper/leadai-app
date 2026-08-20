@@ -77,7 +77,13 @@ export default function CartaPanel() {
         </div>
       )}
 
-      <nav className="flex gap-1 rounded-tarjeta bg-carta p-1 ring-1 ring-linea">
+      {/* SIN `flex-1` Y CON SCROLL (2026-08-19): con cinco pestañas repartiéndose
+          a partes iguales el ancho de un teléfono, a cada una le tocaban ~68px y
+          "Tu marca" —la más larga— salía cortada, ilegible. Ahora cada pestaña
+          ocupa lo que su texto necesita y la barra se arrastra con el dedo, como
+          la de secciones de la carta pública. En pantalla ancha sobra espacio y
+          se ve igual que antes. */}
+      <nav className="flex gap-1 overflow-x-auto rounded-tarjeta bg-carta p-1 ring-1 ring-linea [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {([
           ["platos", "Platos"],
           ["extras", "Extras"],
@@ -90,7 +96,7 @@ export default function CartaPanel() {
           <button
             key={id}
             onClick={() => setPestana(id)}
-            className={`flex-1 rounded-lg px-3 py-2 text-[0.9rem] font-semibold transition ${
+            className={`shrink-0 grow whitespace-nowrap rounded-lg px-3.5 py-2 text-[0.9rem] font-semibold transition ${
               pestana === id ? "bg-brasa text-sobre-brasa" : "text-tinta-2 hover:bg-arena"
             }`}
           >

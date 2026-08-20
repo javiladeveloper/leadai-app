@@ -163,7 +163,12 @@ export function MarcaCarta() {
       bajada="Tu logo, tu portada y los datos que ve el cliente al abrir el link."
       tono="hondo"
     >
-      <div className="space-y-4">
+      {/* SEPARADO EN GRUPOS (2026-08-19): eran ocho bloques a la misma
+          distancia uno de otro, así que la pantalla se leía como una lista
+          larga sin principio ni fin. Ahora la imagen, el color y los datos de
+          contacto se agrupan y se separan con una línea: se ve dónde termina
+          un tema y empieza el otro. */}
+      <div className="space-y-5">
         {/* La vista previa ES la cabecera de la carta pública: el dueño ve
             cómo queda, no dos recuadros sueltos. */}
         <div className="overflow-hidden rounded-tarjeta bg-carta">
@@ -251,9 +256,12 @@ export function MarcaCarta() {
         {/* EL TEMA (2026-08-19). Dos opciones probadas y no un editor de
             colores libre: dejar elegir cada color termina en cartas
             ilegibles, y quien las arma no mide contraste. */}
-        <div>
+        <div className="border-t border-arena/10 pt-5">
           <p className="text-[0.82rem] font-semibold text-arena">Color de tu carta</p>
-          <div className="mt-2 grid grid-cols-2 gap-2.5">
+          {/* APILADAS en móvil (2026-08-20): a 390px cada tarjeta quedaba en
+              143px y "Acevichado · S/27.00" —que es toda la gracia, ver cómo
+              se ve un plato— no entraba. Una debajo de otra se ven enteras. */}
+          <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
             {([
               { id: "claro", nombre: "Claro", fondo: "#f6faf8", texto: "#0e1614" },
               { id: "oscuro", nombre: "Oscuro", fondo: "#14100e", texto: "#f7f3f0" },
@@ -283,12 +291,14 @@ export function MarcaCarta() {
             ))}
           </div>
 
-          <label className="mt-3 flex items-center gap-3">
+          <label className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-arena/5 p-3 ring-1 ring-arena/10">
+            {/* Más alto y ancho: el input de color nativo es diminuto y en un
+                teléfono es lo más difícil de acertar con el dedo. */}
             <input
               type="color"
               value={color || "#0fb68b"}
               onChange={(e) => setColor(e.target.value)}
-              className="h-9 w-14 cursor-pointer rounded-lg border border-arena/20 bg-transparent"
+              className="h-11 w-16 shrink-0 cursor-pointer rounded-lg border border-arena/20 bg-transparent"
               aria-label="Color de precios y botones"
             />
             <span className="text-[0.8rem] text-arena/70">
@@ -306,7 +316,10 @@ export function MarcaCarta() {
           </label>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 border-t border-arena/10 pt-5 sm:grid-cols-2">
+          <p className="text-[0.82rem] font-semibold text-arena sm:col-span-2">
+            Datos de contacto
+          </p>
           {/* El PAÍS al costado (2026-08-19): antes había que saber que el
               número va con el código pegado adelante y sin "+". Escribirlo mal
               es un pedido que no llega.
@@ -314,7 +327,10 @@ export function MarcaCarta() {
               Es el MISMO número que atiende el bot: si hay WhatsApp conectado,
               la carta usa ese y este queda de respaldo. */}
           <Campo etiqueta="WhatsApp de pedidos" ayuda="A donde te llegan">
-            <div className="flex gap-2">
+            {/* En MÓVIL el número va abajo, a ancho completo: con el país al
+                lado quedaba en 175px, y un número de nueve dígitos ahí se lee
+                cortado. */}
+            <div className="flex flex-wrap gap-2">
               <select
                 value={codigoPais}
                 onChange={(e) => setCodigoPais(e.target.value)}
@@ -335,7 +351,7 @@ export function MarcaCarta() {
                 onChange={(e) => setWhatsapp(soloDigitos(e.target.value))}
                 inputMode="numeric"
                 placeholder="987654321"
-                className={`${ENTRADA} min-w-0 flex-1`}
+                className={`${ENTRADA} min-w-0 basis-full sm:basis-auto sm:flex-1`}
               />
             </div>
           </Campo>
@@ -374,7 +390,7 @@ export function MarcaCarta() {
         {/* LAS REDES (2026-08-19). Son los links por los que su cliente lo
             encontró, y la carta es donde termina esa cadena. Todas opcionales:
             un negocio chico tiene una o dos, no las cuatro. */}
-        <div>
+        <div className="border-t border-arena/10 pt-5">
           <p className="text-[0.82rem] font-semibold text-arena">Tus redes</p>
           <p className="text-[0.75rem] text-arena/50">
             Aparecen al pie de tu carta. Pon las que uses.
@@ -441,8 +457,17 @@ function Campo({
 }) {
   return (
     <label className="block">
-      <span className="text-[0.82rem] font-semibold text-arena">{etiqueta}</span>
-      {ayuda && <span className="ml-2 text-[0.75rem] text-arena/50">{ayuda}</span>}
+      {/* LA AYUDA, EN SU PROPIA LÍNEA EN MÓVIL (2026-08-19): iba pegada al
+          costado con `ml-2`, así que en un teléfono se partía a mitad de frase
+          ("...déjala / vacía") y esa línea suelta se leía como un error de
+          maquetación. En pantalla ancha vuelve al costado, que es donde ocupa
+          menos y se lee de corrido. */}
+      <span className="block sm:inline text-[0.82rem] font-semibold text-arena">{etiqueta}</span>
+      {ayuda && (
+        <span className="block sm:ml-2 sm:inline text-[0.75rem] leading-snug text-arena/50">
+          {ayuda}
+        </span>
+      )}
       <div className="mt-1.5">{children}</div>
     </label>
   );
@@ -474,21 +499,26 @@ function FilaImagen({
         <img
           src={url}
           alt=""
-          className={`h-12 shrink-0 rounded-lg object-cover ${ancha ? "w-20" : "w-12"}`}
+          className={`h-12 shrink-0 rounded-lg object-cover ${ancha ? "w-16" : "w-12"}`}
         />
       ) : (
         <span
           className={`grid h-12 shrink-0 place-items-center rounded-lg bg-arena/10 text-[0.7rem] text-arena/40 ${
-            ancha ? "w-20" : "w-12"
+            ancha ? "w-16" : "w-12"
           }`}
         >
           sin
         </span>
       )}
 
-      <span className="min-w-0 flex-1 text-[0.85rem] font-semibold text-arena">{etiqueta}</span>
+      {/* `truncate` + `shrink` en la etiqueta y `shrink-0` en el botón
+          (2026-08-20): "Cambiar portada" es más largo que "Cambiar logo" y en
+          un teléfono no entraba — el texto "Portada" quedaba ENCIMA del botón,
+          ilegible. Ahora se recorta la etiqueta, que es lo prescindible: el
+          botón dice de qué se trata igual. */}
+      <span className="min-w-0 flex-1 truncate text-[0.85rem] font-semibold text-arena">{etiqueta}</span>
 
-      <label className="cursor-pointer rounded-chip bg-arena/10 px-3.5 py-2 text-[0.8rem] font-semibold text-arena ring-1 ring-arena/15 transition hover:bg-arena/20">
+      <label className="shrink-0 cursor-pointer whitespace-nowrap rounded-chip bg-arena/10 px-3.5 py-2 text-[0.8rem] font-semibold text-arena ring-1 ring-arena/15 transition hover:bg-arena/20">
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"
@@ -499,7 +529,15 @@ function FilaImagen({
             if (f) onElegir(f);
           }}
         />
-        {subiendo ? "Subiendo…" : url ? `Cambiar ${etiqueta.toLowerCase()}` : `Insertar ${etiqueta.toLowerCase()}`}
+        {/* Solo "Cambiar"/"Agregar" en móvil: la miniatura de al lado y la
+            etiqueta ya dicen QUÉ imagen es, repetirlo no agrega nada y es lo
+            que hacía desbordar la fila. */}
+        {subiendo ? "Subiendo…" : (
+          <>
+            {url ? "Cambiar" : "Agregar"}
+            <span className="hidden sm:inline"> {etiqueta.toLowerCase()}</span>
+          </>
+        )}
       </label>
 
       {/* La ✕ solo si hay algo que quitar. Va al lado de SU imagen, no en una

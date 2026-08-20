@@ -235,20 +235,40 @@ export function HorarioEditor() {
 
         {/* RESERVAS. Local físico vs solo delivery: controla si la pestaña
             Reservas existe en la app y si el bot las toma. */}
-        <label className="flex cursor-pointer items-start justify-between gap-4 rounded-tarjeta bg-arena/50 p-4">
-          <span className="min-w-0">
-            <span className="block font-bold text-tinta">Acepto reservas de mesa</span>
-            <span className="mt-0.5 block text-[0.84rem] text-frio">
-              Apágalo si atiendes solo por delivery.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            checked={cfg.aceptaReservas}
-            onChange={(e) => aplicar({ aceptaReservas: e.target.checked })}
-            className="mt-1 size-5 shrink-0 accent-[var(--color-brasa)]"
+        {/* PRIMERO EL LOCAL, DESPUÉS LAS RESERVAS (2026-08-20, Jonathan: "si no
+            tengo local físico esa opción está de más").
+
+            Antes había UNA sola pregunta, "Acepto reservas de mesa", que un
+            dark kitchen tenía que descubrir y apagar. Está al revés: la
+            pregunta de fondo es si hay local, y solo si lo hay tiene sentido
+            hablar de reservas. Un restaurante con mesas, además, puede no
+            querer tomarlas por WhatsApp — son dos decisiones distintas y
+            antes compartían un campo. */}
+        <div className="space-y-2">
+          <Interruptor
+            titulo="Tengo local físico"
+            ayuda="Apágalo si atiendes solo por delivery, sin mesas para tus clientes."
+            activo={cfg.tieneLocal}
+            onCambiar={(v) =>
+              // Sin local no hay reservas posibles: se apagan juntas para que
+              // no quede un "acepto reservas" encendido que el bot ignora.
+              aplicar(v ? { tieneLocal: true } : { tieneLocal: false, aceptaReservas: false })
+            }
           />
-        </label>
+
+          {/* Anidada: margen y línea a la izquierda para que se lea "dentro
+              de" la respuesta anterior, no como otra pregunta del mismo nivel. */}
+          {cfg.tieneLocal && (
+            <div className="surge ml-3 border-l-2 border-linea pl-3">
+              <Interruptor
+                titulo="Acepto reservas de mesa"
+                ayuda="El bot le ofrece reservar mesa a quien te escribe."
+                activo={cfg.aceptaReservas}
+                onCambiar={(v) => aplicar({ aceptaReservas: v })}
+              />
+            </div>
+          )}
+        </div>
 
         {/* PEDIDO MÍNIMO. Va con el horario porque son las dos reglas de
             "cuándo y cómo tomo pedidos", y un dueño las piensa juntas. */}
@@ -345,3 +365,54 @@ function SelectorHora({
 }
 
 export default HorarioEditor;
+
+/**
+ * UN INTERRUPTOR QUE SE VE (2026-08-20).
+ *
+ * Los checkbox nativos de esta pantalla se veían "transparentes" sobre el
+ * fondo claro (reporte de Jonathan): `accent-color` solo pinta el relleno
+ * cuando están MARCADOS, así que un checkbox apagado quedaba como un cuadrito
+ * casi invisible y no se leía como un control.
+ *
+ * Este es un switch dibujado: se ve encendido o apagado de un vistazo, sin
+ * depender de cómo el sistema operativo pinte los controles nativos.
+ */
+function Interruptor({
+  titulo, ayuda, activo, onCambiar,
+}: {
+  titulo: string;
+  ayuda: string;
+  activo: boolean;
+  onCambiar: (valor: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start justify-between gap-4 rounded-tarjeta bg-arena/50 p-4 transition hover:bg-arena/70">
+      <span className="min-w-0">
+        <span className="block font-bold text-tinta">{titulo}</span>
+        <span className="mt-0.5 block text-[0.84rem] leading-snug text-frio">{ayuda}</span>
+      </span>
+      {/* El input real queda accesible (teclado, lectores) pero invisible: lo
+          que se ve es el riel de abajo. */}
+      <span className="relative mt-0.5 inline-flex shrink-0">
+        <input
+          type="checkbox"
+          checked={activo}
+          onChange={(e) => onCambiar(e.target.checked)}
+          className="peer sr-only"
+        />
+        <span
+          aria-hidden
+          className={`h-6 w-11 rounded-full transition peer-focus-visible:ring-2 peer-focus-visible:ring-brasa/40 ${
+            activo ? "bg-brasa" : "bg-arena-2 ring-1 ring-linea"
+          }`}
+        />
+        <span
+          aria-hidden
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-carta shadow-sm transition-all ${
+            activo ? "left-[1.375rem]" : "left-0.5"
+          }`}
+        />
+      </span>
+    </label>
+  );
+}

@@ -45,6 +45,8 @@ export interface ConfigHorario {
   minutosPorPedido: number;
   /** ¿Toma reservas de mesa? Local físico vs solo delivery. */
   aceptaReservas: boolean;
+  /** ¿Tiene local físico? Sin local no hay mesas que reservar (2026-08-20). */
+  tieneLocal: boolean;
 }
 
 /** Los días como los ve el dueño, en el orden de la semana peruana. */
@@ -79,6 +81,7 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       capacidadSimultanea: r.config.capacidadSimultanea ?? 3,
       minutosPorPedido: r.config.minutosPorPedido ?? 20,
       aceptaReservas: r.config.aceptaReservas ?? true,
+      tieneLocal: r.config.tieneLocal ?? true,
     };
   } catch {
     return null;

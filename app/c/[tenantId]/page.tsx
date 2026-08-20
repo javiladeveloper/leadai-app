@@ -25,7 +25,11 @@ import { use } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
-interface Opcion { id: string; nombre: string; precioCentavos: number; fotoUrl: string | null }
+interface Opcion {
+  id: string; nombre: string; precioCentavos: number; fotoUrl: string | null;
+  /** La sección de la carta a la que pertenece. `null` = un extra suelto. */
+  seccion?: string | null;
+}
 interface Grupo {
   id: string; nombre: string; minSelec: number; maxSelec: number | null; opciones: Opcion[];
 }
@@ -833,6 +837,20 @@ function HojaOpciones({
 }) {
   const [elegidas, setElegidas] = useState<Opcion[]>([]);
   const [cantidad, setCantidad] = useState(1);
+
+  /**
+   * EL FONDO NO SE MUEVE mientras la hoja está abierta (2026-08-20).
+   *
+   * Sin esto, al llegar al final de la lista de opciones el scroll seguía en
+   * la CARTA de atrás: el cliente movía el dedo dentro del selector y lo que
+   * se desplazaba era la página. Y su barra de scroll —la gris de Windows,
+   * ancha— quedaba encima de la hoja.
+   */
+  useEffect(() => {
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previo; };
+  }, []);
   /**
    * BUSCADOR POR GRUPO (2026-08-20). En Shiro, "Elige tu roll" tiene 39
    * opciones: una lista corrida de 39 filas es un muro que nadie lee, y el
@@ -864,7 +882,10 @@ function HojaOpciones({
   const extras = elegidas.reduce((s, o) => s + o.precioCentavos, 0);
 
   return (
-    <div className="aparece fixed inset-0 z-20 flex items-end bg-tinta/50" onClick={onCancelar}>
+    // z-50, no z-20 (2026-08-20): la barra de secciones es `sticky top-0 z-20`,
+    // o sea el MISMO nivel, así que se veía por encima de la hoja — el cliente
+    // veía "Entradas · Rolls frescos…" flotando sobre el selector abierto.
+    <div className="aparece fixed inset-0 z-50 flex items-end bg-tinta/50" onClick={onCancelar}>
       <div
         className="sube flex max-h-[88dvh] w-full flex-col rounded-t-[1.5rem] bg-carta"
         onClick={(e) => e.stopPropagation()}
@@ -941,7 +962,22 @@ function HojaOpciones({
                           </p>
                         );
                       }
-                      return visibles.map((o) => {
+                      // POR SECCIÓN (2026-08-20). Con 39 rolls seguidos el
+                      // cliente no distingue un frito de uno con tartar: la
+                      // carta los tiene separados y el selector también debe.
+                      //
+                      // Solo si hay MÁS DE UNA sección: con todas las opciones
+                      // en la misma, un único título es una línea de ruido.
+                      const secciones: { nombre: string | null; ops: Opcion[] }[] = [];
+                      for (const o of visibles) {
+                        const s = o.seccion ?? null;
+                        const ultima = secciones.at(-1);
+                        if (ultima && ultima.nombre === s) ultima.ops.push(o);
+                        else secciones.push({ nombre: s, ops: [o] });
+                      }
+                      const agrupar = secciones.filter((s) => s.nombre).length > 1;
+
+                      const pintarOpcion = (o: Opcion) => {
                       const marcada = elegidas.some((e) => e.id === o.id);
                       // Un grupo lleno bloquea lo NO elegido, pero deja
                       // destildar: si no, el cliente queda atrapado con una
@@ -1000,7 +1036,21 @@ function HojaOpciones({
                           )}
                         </button>
                       );
-                      });
+                      };
+
+                      if (!agrupar) return visibles.map(pintarOpcion);
+                      return secciones.map((s, k) => (
+                        <div key={`${s.nombre ?? "sueltas"}-${k}`} className="space-y-1.5">
+                          {s.nombre && (
+                            // Pegajoso: con la lista larga, al scrollear sigue
+                            // diciendo en qué sección estás parado.
+                            <p className="sticky top-0 z-10 bg-carta/95 py-1 text-[0.72rem] font-bold uppercase tracking-wide text-frio backdrop-blur">
+                              {s.nombre}
+                            </p>
+                          )}
+                          {s.ops.map(pintarOpcion)}
+                        </div>
+                      ));
                     })()}
                   </div>
                 </div>

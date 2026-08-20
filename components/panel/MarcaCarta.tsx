@@ -370,10 +370,17 @@ export function MarcaCarta() {
               Es el MISMO número que atiende el bot: si hay WhatsApp conectado,
               la carta usa ese y este queda de respaldo. */}
           <Campo etiqueta="WhatsApp de pedidos" ayuda="A donde te llegan">
-            {/* En MÓVIL el número va abajo, a ancho completo: con el país al
-                lado quedaba en 175px, y un número de nueve dígitos ahí se lee
-                cortado. */}
-            <div className="flex flex-wrap gap-2">
+            {/* EL PAÍS Y EL NÚMERO, EN UNA SOLA LÍNEA (2026-08-20). Antes el
+                número tenía `basis-full` para bajar a su propio renglón en
+                móvil, pero esta sección son DOS COLUMNAS: dentro de una
+                columna angosta el `sm:` ya no alcanza y el número saltaba
+                igual, quedando desalineado con "Tiempo de entrega" al lado.
+
+                Ahora nunca se parte: el select se encoge a lo que mide su
+                contenido y el número se lleva el resto. Con `min-w-0` el input
+                puede achicarse por debajo de su ancho natural en vez de
+                empujar al select fuera de la caja. */}
+            <div className="flex items-center gap-2">
               <select
                 value={codigoPais}
                 onChange={(e) => setCodigoPais(e.target.value)}
@@ -381,7 +388,7 @@ export function MarcaCarta() {
                 // `w-auto` para anular el `w-full` de ENTRADA: sin esto el
                 // select se estiraba y dejaba el campo del número en 30px —
                 // justo el dato sin el cual el pedido no le llega a nadie.
-                className={`${ENTRADA} !w-auto shrink-0 pr-2`}
+                className={`${ENTRADA} !w-auto shrink-0 px-2`}
               >
                 {PAISES.map((p) => (
                   <option key={p.code} value={p.code}>
@@ -394,7 +401,7 @@ export function MarcaCarta() {
                 onChange={(e) => setWhatsapp(soloDigitos(e.target.value))}
                 inputMode="numeric"
                 placeholder="987654321"
-                className={`${ENTRADA} min-w-0 basis-full sm:basis-auto sm:flex-1`}
+                className={`${ENTRADA} min-w-0 flex-1`}
               />
             </div>
           </Campo>

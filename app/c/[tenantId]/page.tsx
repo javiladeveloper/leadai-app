@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { volarAlCarrito } from "@/lib/vuelo-carrito";
 import { usarNumeroAnimado } from "@/lib/usar-numero-animado";
 import { use } from "react";
@@ -663,19 +663,138 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
  * cuando ya bajaste.
  */
 function BarraSecciones({ secciones }: { secciones: { id: string; nombre: string }[] }) {
+  const pista = useRef<HTMLDivElement>(null);
+  /**
+   * ¿QUEDA ALGO A CADA LADO? (2026-08-20).
+   *
+   * Con siete secciones entran tres y media: hay ~360px ocultos y NINGUNA
+   * señal de que se puede deslizar —la barra de scroll está oculta a
+   * propósito, porque la del sistema es gris y ancha—. En un teléfono se
+   * descubre arrastrando; con mouse, no se descubre (reporte de Jonathan:
+   * "quiero ver qué hay más allá y no puedo").
+   *
+   * El degradado dice que hay más; las flechas dan cómo llegar.
+   */
+  const [hayIzq, setHayIzq] = useState(false);
+  const [hayDer, setHayDer] = useState(false);
+
+  const revisar = useCallback(() => {
+    const el = pista.current;
+    if (!el) return;
+    setHayIzq(el.scrollLeft > 4);
+    // -4 de margen: el redondeo del navegador deja un pixel suelto al final y
+    // sin esto la flecha derecha nunca se apaga.
+    setHayDer(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    revisar();
+    window.addEventListener("resize", revisar);
+    return () => window.removeEventListener("resize", revisar);
+  }, [revisar, secciones.length]);
+
   if (secciones.length < 2) return null;
+
+  /**
+   * ARRASTRAR CON EL MOUSE (2026-08-20).
+   *
+   * En un teléfono el dedo ya la mueve: es `overflow-x: auto` y el navegador
+   * lo resuelve solo. Con MOUSE no: arrastrar no hace nada, la barra está
+   * oculta a propósito y la rueda vertical no desplaza en horizontal. El
+   * dueño en su computadora se quedaba sin ver la mitad de sus secciones
+   * (reporte de Jonathan).
+   *
+   * Se usa Pointer Events, no mousedown: cubre mouse, lápiz y trackpad con un
+   * solo camino, y no interfiere con el táctil porque ahí `pointerType` es
+   * "touch" y se deja pasar al navegador.
+   */
+  const arrastre = useRef<{ x: number; scroll: number } | null>(null);
+
+  const alBajar = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch") return; // el dedo ya funciona solo
+    const el = pista.current;
+    if (!el) return;
+    arrastre.current = { x: e.clientX, scroll: el.scrollLeft };
+  };
+
+  const alMover = (e: React.PointerEvent<HTMLDivElement>) => {
+    const inicio = arrastre.current;
+    const el = pista.current;
+    if (!inicio || !el) return;
+    // Sin `preventDefault` el navegador intenta arrastrar los enlaces como si
+    // fueran imágenes y aparece el cursor de "prohibido".
+    e.preventDefault();
+    el.scrollLeft = inicio.scroll - (e.clientX - inicio.x);
+  };
+
+  const alSoltar = () => { arrastre.current = null; };
+
+  const mover = (dir: 1 | -1) =>
+    // 70% del ancho visible: mueve lo suficiente para ver algo nuevo, pero
+    // deja una sección a la vista como referencia de dónde estabas.
+    pista.current?.scrollBy({ left: dir * pista.current.clientWidth * 0.7, behavior: "smooth" });
+
   return (
     <nav className="sticky top-0 z-20 border-b border-linea bg-carta/95 backdrop-blur">
-      <div className="flex gap-1 overflow-x-auto px-4 py-2.5 [scrollbar-width:none]">
-        {secciones.map((s) => (
-          <a
-            key={s.id}
-            href={`#sec-${s.id}`}
-            className="shrink-0 whitespace-nowrap rounded-chip px-3 py-1.5 text-[0.85rem] font-semibold text-tinta-2 transition hover:bg-arena hover:text-tinta"
+      <div className="relative">
+        {/* Los degradados: dicen "hay más" sin ocupar lugar ni pedir un toque.
+            `pointer-events-none` para que no bloqueen el arrastre del dedo. */}
+        {hayIzq && (
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-carta to-transparent" />
+        )}
+        {hayDer && (
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-carta to-transparent" />
+        )}
+
+        {/* Las flechas, solo donde hay MOUSE. `hidden sm:grid` estaba mal: se
+            apoyaba en el ancho, y justo en 400-640px —donde la barra más
+            desborda— quedaban ocultas. Un teléfono ancho tiene dedo, no
+            puntero, así que la pregunta correcta es `hover:hover`. */}
+        {hayIzq && (
+          <button
+            onClick={() => mover(-1)}
+            aria-label="Ver secciones anteriores"
+            className="absolute left-0.5 top-1/2 z-20 hidden -translate-y-1/2 place-items-center rounded-full bg-carta/90 px-1.5 py-1 text-tinta-2 shadow-sm ring-1 ring-linea transition hover:bg-arena [@media(hover:hover)]:grid"
           >
-            {s.nombre}
-          </a>
-        ))}
+            ‹
+          </button>
+        )}
+        {hayDer && (
+          <button
+            onClick={() => mover(1)}
+            aria-label="Ver más secciones"
+            className="absolute right-0.5 top-1/2 z-20 hidden -translate-y-1/2 place-items-center rounded-full bg-carta/90 px-1.5 py-1 text-tinta-2 shadow-sm ring-1 ring-linea transition hover:bg-arena [@media(hover:hover)]:grid"
+          >
+            ›
+          </button>
+        )}
+
+        <div
+          ref={pista}
+          onScroll={revisar}
+          onPointerDown={alBajar}
+          onPointerMove={alMover}
+          onPointerUp={alSoltar}
+          onPointerLeave={alSoltar}
+          // La RUEDA del mouse también desplaza: en una barra horizontal es lo
+          // primero que alguien intenta, y sin esto no pasa nada.
+          onWheel={(e) => {
+            const el = pista.current;
+            if (!el || e.deltaY === 0) return;
+            el.scrollLeft += e.deltaY;
+          }}
+          className="flex cursor-grab gap-1 overflow-x-auto px-4 py-2.5 select-none active:cursor-grabbing [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {secciones.map((s) => (
+            <a
+              key={s.id}
+              href={`#sec-${s.id}`}
+              className="shrink-0 whitespace-nowrap rounded-chip px-3 py-1.5 text-[0.85rem] font-semibold text-tinta-2 transition hover:bg-arena hover:text-tinta"
+            >
+              {s.nombre}
+            </a>
+          ))}
+        </div>
       </div>
     </nav>
   );

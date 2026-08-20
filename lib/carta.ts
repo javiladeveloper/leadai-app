@@ -105,6 +105,8 @@ export interface DescuentoCarta {
   unidadesEnPromo?: number;
   /** ¿Se repite cada N unidades? Default sí. */
   repetible?: boolean;
+  /** ¿Se suma a otras promos de cantidad? Default `false`: entra la mejor. */
+  acumulable?: boolean;
 }
 
 export interface Carta {
@@ -374,6 +376,8 @@ export interface DescuentoEntrada {
   unidadesEnPromo?: number;
   /** ¿Se repite cada N unidades? Default sí. */
   repetible?: boolean;
+  /** ¿Se suma a otras promos de cantidad? Default `false`: entra la mejor. */
+  acumulable?: boolean;
 }
 
 export function crearDescuento(datos: DescuentoEntrada, tenant?: string) {

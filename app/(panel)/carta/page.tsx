@@ -1397,6 +1397,9 @@ function HojaPromo({
   const [valor, setValor] = useState("");
   const [dias, setDias] = useState<number[]>([]);
   const [clase, setClase] = useState<string>("simple");
+  // ¿Se suma a otras promos de cantidad? Default NO: entra la mejor para el
+  // cliente. Ver el comentario de `acumulable` en el backend.
+  const [acumulable, setAcumulable] = useState(false);
   // Vacío = toda la carta. Con categorías elegidas, la promo solo cuenta esas
   // —el bug era justamente que alcanzaba a todo—.
   const [cats, setCats] = useState<string[]>([]);
@@ -1471,6 +1474,7 @@ function HojaPromo({
       minUnidades: preset.minUnidades,
       unidadesEnPromo: preset.unidadesEnPromo,
       repetible: true,
+      acumulable,
     });
 
     if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
@@ -1538,6 +1542,38 @@ function HojaPromo({
               ))}
             </div>
           </Campo>
+
+          {/* ¿SE SUMA A OTRAS? Solo para promos de cantidad: dos descuentos de
+              plata siempre se suman, no hay nada que preguntar.
+
+              Salió de Shiro (2026-08-20): tenía "3x2" y "4x3" el mismo jueves
+              sobre las mismas tablas, y sumadas cuatro tablas costaban lo
+              mismo que tres —el negocio regalaba dos— cuando su carta promete
+              una. */}
+          {clase !== "simple" && (
+            <Campo
+              etiqueta="Si coincide con otra promo"
+              ayuda="Cuando dos promos de cantidad caen el mismo día"
+            >
+              <div className="grid gap-2">
+                {[
+                  { v: false, t: "Se aplica la mejor", d: "El cliente recibe la que más le conviene. Es lo que espera al leer dos ofertas juntas." },
+                  { v: true, t: "Se suman", d: "Las dos se descuentan. Ojo: con 3x2 y 4x3 juntas, cuatro salen al precio de dos." },
+                ].map((o) => (
+                  <button
+                    key={String(o.v)}
+                    onClick={() => setAcumulable(o.v)}
+                    className={`rounded-tarjeta px-3 py-2.5 text-left ring-1 transition ${
+                      acumulable === o.v ? "bg-brasa-suave ring-brasa" : "bg-arena/40 ring-linea hover:bg-arena"
+                    }`}
+                  >
+                    <p className="text-[0.88rem] font-bold text-tinta">{o.t}</p>
+                    <p className="mt-0.5 text-[0.75rem] leading-snug text-frio">{o.d}</p>
+                  </button>
+                ))}
+              </div>
+            </Campo>
+          )}
 
           {/* SOBRE QUÉ APLICA. Es el campo que faltaba y por el que una promo
               de makis le descontó a unos langostinos: sin esto, `alcance`

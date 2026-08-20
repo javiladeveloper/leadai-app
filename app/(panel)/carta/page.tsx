@@ -476,14 +476,15 @@ function Platos({
               <div
                 key={p.id}
                 style={retardo(i)}
-                /* AGOTADO SE VE DE COSTADO (2026-08-20): antes era solo
-                   `opacity-60`, que de un vistazo se confunde con una fila
-                   normal. La barra gris a la izquierda se ve barriendo la lista
-                   sin leer una palabra. */
-                className={`fila-entra tarjeta-viva group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition ${
+                /* LA BARRA DE ESTADO A LA IZQUIERDA (2026-08-20): verde el que
+                   se está vendiendo, gris el agotado. Antes el agotado era solo
+                   `opacity-60` —que de un vistazo se confunde con una fila
+                   normal— y el disponible no tenía nada. Con la barra, cuáles
+                   están en venta se barre sin leer una palabra. */
+                className={`fila-entra tarjeta-viva group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta border-l-4 bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition ${
                   p.disponible
-                    ? "hover:ring-orbita/40"
-                    : "border-l-4 border-frio/40 opacity-70"
+                    ? "border-ok hover:ring-orbita/40"
+                    : "border-frio/40 opacity-70"
                 }`}
               >
                 {p.fotoUrl ? (
@@ -962,7 +963,13 @@ function Extras({
             <div
               key={g.id}
               style={retardo(i)}
-              className="fila-entra tarjeta-viva rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-orbita/40"
+              /* La barra dice si el grupo FRENA el pedido: naranja el
+                 obligatorio —el cliente no puede seguir sin elegir— y gris el
+                 opcional, que solo suma. Es la misma lectura de costado que en
+                 platos y promos. */
+              className={`fila-entra tarjeta-viva rounded-tarjeta border-l-4 bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-orbita/40 ${
+                obligatorio ? "border-orbita" : "border-linea"
+              }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -1286,7 +1293,13 @@ function Combos({
             <div
               key={c.id}
               style={retardo(i)}
-              className="fila-entra tarjeta-viva group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-orbita/40"
+              /* La barra avisa si el combo CONVIENE: verde cuando cuesta menos
+                 que los platos sueltos, naranja cuando no —ahí el combo no le
+                 ahorra nada al cliente y no hay razón para pedirlo, que es un
+                 error de carga fácil de cometer y difícil de ver. */
+              className={`fila-entra tarjeta-viva group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tarjeta border-l-4 bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-orbita/40 ${
+                ahorro > 0 ? "border-ok" : "border-calor"
+              }`}
             >
               {c.fotoUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -1322,6 +1335,16 @@ function Combos({
                   <p className="text-[0.75rem] text-frio">
                     <span className="line-through">{precioTexto(suelto)}</span>{" "}
                     <span className="font-bold text-ok">ahorra {precioTexto(ahorro)}</span>
+                  </p>
+                )}
+                {/* SI NO AHORRA, SE DICE (2026-08-20): un combo que cuesta lo
+                    mismo —o más— que sus platos sueltos no tiene por qué
+                    pedirse, y el dueño no tenía cómo notarlo: veía su precio y
+                    listo. La barra naranja del costado lo marca, esta línea
+                    explica por qué está marcado. */}
+                {ahorro <= 0 && suelto > 0 && (
+                  <p className="text-[0.75rem] font-semibold text-calor">
+                    {ahorro === 0 ? "igual que por separado" : `${precioTexto(-ahorro)} más caro`}
                   </p>
                 )}
               </div>

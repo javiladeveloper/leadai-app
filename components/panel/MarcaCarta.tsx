@@ -319,7 +319,10 @@ export function MarcaCarta() {
                 value={codigoPais}
                 onChange={(e) => setCodigoPais(e.target.value)}
                 aria-label="País"
-                className={`${ENTRADA} w-28 shrink-0`}
+                // `w-auto` para anular el `w-full` de ENTRADA: sin esto el
+                // select se estiraba y dejaba el campo del número en 30px —
+                // justo el dato sin el cual el pedido no le llega a nadie.
+                className={`${ENTRADA} !w-auto shrink-0 pr-2`}
               >
                 {PAISES.map((p) => (
                   <option key={p.code} value={p.code}>
@@ -332,31 +335,40 @@ export function MarcaCarta() {
                 onChange={(e) => setWhatsapp(soloDigitos(e.target.value))}
                 inputMode="numeric"
                 placeholder="987654321"
-                className={ENTRADA}
+                className={`${ENTRADA} min-w-0 flex-1`}
               />
             </div>
           </Campo>
 
-          <Campo etiqueta="Tiempo de entrega" ayuda="En minutos">
-            <input
-              value={entrega}
-              onChange={(e) => setEntrega(e.target.value.replace(/\D/g, "").slice(0, 3))}
-              inputMode="numeric"
-              placeholder="30"
-              className={ENTRADA}
-            />
+          {/* El ancho SIGUE AL DATO (2026-08-20): son dos dígitos, y un campo
+              de 600px para escribir "25" se lee como un input roto —parecía
+              tener un recuadro gris suelto adentro—. Los minutos van al lado,
+              donde el ojo los espera. */}
+          <Campo etiqueta="Tiempo de entrega" ayuda="Cuánto tardas en entregar">
+            <div className="flex items-center gap-2">
+              <input
+                value={entrega}
+                onChange={(e) => setEntrega(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                inputMode="numeric"
+                placeholder="30"
+                className={`${ENTRADA} !w-20 text-center tabular-nums`}
+              />
+              <span className="text-[0.9rem] text-arena/60">minutos</span>
+            </div>
           </Campo>
 
           {/* La dirección es OPCIONAL a propósito (2026-08-19): muchos negocios
               de delivery cocinan desde su casa y no quieren publicarla. */}
-          <Campo etiqueta="Dirección" ayuda="Opcional — si solo hacés delivery, dejala vacía">
-            <input
-              value={direccion}
-              onChange={(e) => setDireccion(e.target.value)}
-              placeholder="Av. Bolognesi 456, Tacna"
-              className={ENTRADA}
-            />
-          </Campo>
+          <div className="sm:col-span-2">
+            <Campo etiqueta="Dirección" ayuda="Opcional — si solo haces delivery, déjala vacía">
+              <input
+                value={direccion}
+                onChange={(e) => setDireccion(e.target.value)}
+                placeholder="Av. Bolognesi 456, Tacna"
+                className={ENTRADA}
+              />
+            </Campo>
+          </div>
         </div>
 
         {/* LAS REDES (2026-08-19). Son los links por los que su cliente lo
@@ -365,7 +377,7 @@ export function MarcaCarta() {
         <div>
           <p className="text-[0.82rem] font-semibold text-arena">Tus redes</p>
           <p className="text-[0.75rem] text-arena/50">
-            Aparecen al pie de tu carta. Poné las que uses.
+            Aparecen al pie de tu carta. Pon las que uses.
           </p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {([
@@ -395,17 +407,20 @@ export function MarcaCarta() {
           </p>
         )}
 
-        <div className="flex flex-wrap items-center gap-3">
+        {/* El botón, SEPARADO por una línea y alineado a la derecha: suelto
+            abajo a la izquierda no se leía como el cierre del formulario —el
+            ojo lo buscaba donde termina el contenido—. */}
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-arena/15 pt-4">
+          {ok && <span className="confirma mr-auto text-[0.85rem] font-semibold text-brasa">Guardado ✓</span>}
+          {error && <span className="fila-entra mr-auto text-[0.85rem] font-semibold text-orbita">{error}</span>}
           <button
             type="button"
             onClick={guardar}
             disabled={guardando}
-            className="rounded-chip bg-orbita px-5 py-2.5 text-[0.88rem] font-bold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
+            className="rounded-chip bg-orbita px-6 py-2.5 text-[0.88rem] font-bold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
           >
-            {guardando ? "Guardando…" : "Guardar"}
+            {guardando ? "Guardando…" : "Guardar cambios"}
           </button>
-          {ok && <span className="text-[0.85rem] font-semibold text-brasa">Guardado ✓</span>}
-          {error && <span className="text-[0.85rem] font-semibold text-orbita">{error}</span>}
         </div>
       </div>
     </Seccion>

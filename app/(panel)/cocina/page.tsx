@@ -7,6 +7,7 @@ import {
   puedeSoltarseEn, COLUMNAS, type PedidoCocina, type ValidacionPago,
 } from "@/lib/cocina";
 import { soles } from "@/lib/precio";
+import { NuevoPedidoLocal } from "@/components/panel/NuevoPedidoLocal";
 
 /**
  * LA COCINA, EN LA COMPUTADORA (2026-08-19).
@@ -39,6 +40,7 @@ export default function CocinaPage() {
   // El que acaba de aterrizar, para la animación de confirmación. Se limpia
   // solo: si quedara pegado, la tarjeta seguiría destellando para siempre.
   const [aterrizo, setAterrizo] = useState<string | null>(null);
+  const [tomandoPedido, setTomandoPedido] = useState(false);
   // Fuerza el recálculo de los minutos sin volver a pedir al backend: la
   // espera crece sola aunque no entre ningún pedido.
   const [, setTic] = useState(0);
@@ -166,6 +168,16 @@ export default function CocinaPage() {
             texto de la izquierda crece. */}
         <div className="flex shrink-0 items-center gap-3 pt-0.5">
           {error && <p className="fila-entra text-[0.85rem] font-semibold text-alerta">{error}</p>}
+          {/* TOMAR UN PEDIDO EN EL LOCAL (2026-08-21). Entra alguien, pide una
+              hamburguesa, y hasta hoy no había dónde anotarlo: todo pedido
+              nacía de una conversación de WhatsApp. */}
+          <button
+            type="button"
+            onClick={() => setTomandoPedido(true)}
+            className="rounded-chip bg-brasa px-3 py-1.5 text-[0.82rem] font-bold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.98]"
+          >
+            + Nuevo pedido
+          </button>
           {/* Que la pantalla se actualiza sola no es obvio: sin esto, el dueño
               no sabe si está viendo algo de hace media hora. */}
           <span className="flex items-center gap-1.5 text-[0.76rem] text-frio">
@@ -277,6 +289,13 @@ export default function CocinaPage() {
       {/* El pedido se busca por ID en cada render: si el polling lo avanzó o
           lo sacó de la cocina mientras el diálogo estaba abierto, se cierra
           solo en vez de mostrar algo que ya no existe. */}
+      {tomandoPedido && (
+        <NuevoPedidoLocal
+          onCerrar={() => setTomandoPedido(false)}
+          onCreado={() => { setTomandoPedido(false); void traer(); }}
+        />
+      )}
+
       {viendoPago && (() => {
         const p = pedidos.find((x) => x.id === viendoPago);
         return p ? <DialogoPago pedido={p} onCerrar={() => setViendoPago(null)} /> : null;
@@ -367,10 +386,21 @@ function TarjetaPedido({
         <span className="min-w-0 truncate text-[0.75rem] font-bold uppercase tracking-wide text-frio">
           {apretada ? (
             <>
-              <span aria-hidden>{pedido.modalidad === "delivery" ? "🛵" : "🥡"}</span>
-              <span className="sr-only">
-                {pedido.modalidad === "delivery" ? "Delivery" : "Recojo"}
+              <span aria-hidden>
+                {pedido.modalidad === "local" ? "🍽️" : pedido.modalidad === "delivery" ? "🛵" : "🥡"}
               </span>
+              <span className="sr-only">
+                {pedido.modalidad === "local"
+                  ? pedido.mesa ? `Mesa ${pedido.mesa}` : "Mostrador"
+                  : pedido.modalidad === "delivery" ? "Delivery" : "Recojo"}
+              </span>
+              {/* Apretada: la mesa se mantiene visible, es lo que distingue
+                  un pedido de otro en una columna llena de mesas. */}
+              {pedido.modalidad === "local" && pedido.mesa && (
+                <span className="ml-1 normal-case tracking-normal text-tinta-2">
+                  {pedido.mesa}
+                </span>
+              )}
               {pedido.items?.[0] && (
                 <span className="ml-1 normal-case tracking-normal text-tinta">
                   <b className="tabular-nums">{pedido.items[0].cantidad}×</b>{" "}
@@ -381,6 +411,10 @@ function TarjetaPedido({
                 </span>
               )}
             </>
+          ) : pedido.modalidad === "local" ? (
+            // La MESA en vez de la modalidad: al cocinero le dice a dónde va
+            // el plato, que es lo que necesita saber.
+            pedido.mesa ? `🍽️ Mesa ${pedido.mesa}` : "🍽️ Mostrador"
           ) : pedido.modalidad === "delivery" ? (
             "🛵 Delivery"
           ) : (

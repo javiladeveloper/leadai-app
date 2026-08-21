@@ -50,6 +50,10 @@ export interface PedidoCocina {
   notas: string | null;
   items: { nombre: string; cantidad: number; precioCentavos?: number; subtotalCentavos?: number }[] | null;
   etaMinutos: number | null;
+  /** En qué mesa se sirve. Null = mostrador, delivery o recojo (2026-08-21). */
+  mesa?: string | null;
+  /** Quién lo anotó, cuando lo tomó una persona en el local. */
+  tomadoPor?: string | null;
   /** La última validación de pago. El backend manda solo una. */
   validaciones?: ValidacionPago[];
   /** pendiente | por_confirmar | validado | rechazado */
@@ -108,6 +112,11 @@ export function siguientePaso(p: PedidoCocina): { estado: string; etiqueta: stri
     case "preparando":
       return { estado: "listo", etiqueta: "Marcar listo" };
     case "listo":
+      // UNA MESA NO SALE A NINGÚN LADO (2026-08-21). Un pedido de local va de
+      // "Listo" directo a servido, igual que uno de recojo: nunca pasa por
+      // "En camino". Por eso la columna existe para todos pero solo los
+      // delivery caen en ella.
+      if (p.modalidad === "local") return { estado: "entregado", etiqueta: "Servido ✓" };
       return p.modalidad === "delivery"
         ? { estado: "en_camino", etiqueta: "Ya salió 🛵" }
         : { estado: "entregado", etiqueta: "Entregado ✓" };
@@ -208,5 +217,55 @@ export async function avanzarPedido(id: string, estado: string): Promise<{ ok: b
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo actualizar" };
+  }
+}
+
+/**
+ * UN PEDIDO TOMADO EN EL LOCAL (2026-08-21).
+ *
+ * En WhatsApp el cliente escribe y el bot anota. Acá la relación está
+ * invertida: el cliente dicta y alguien anota — en el mostrador o en la mesa.
+ *
+ * Se mandan ids y cantidades, nunca precios: cuánto cuesta cada cosa lo decide
+ * el servidor contra la carta. Un ítem libre (algo que no está en la carta) sí
+ * lleva su precio, porque no hay contra qué compararlo.
+ */
+export interface ItemNuevoPedido {
+  productoId?: string;
+  nombre?: string;
+  precioCentavos?: number;
+  cantidad: number;
+  nota?: string;
+}
+
+export interface SalaConfigurada {
+  sala: string;
+  mesas: string[];
+}
+
+export async function crearPedidoLocal(datos: {
+  modalidad: "local" | "recojo";
+  items: ItemNuevoPedido[];
+  mesa?: string | null;
+  tomadoPor?: string | null;
+  cliente?: string | null;
+  notas?: string | null;
+}): Promise<{ ok: boolean; pedidoId?: string; error?: string }> {
+  try {
+    const r = await api<{ pedidoId: string }>("/pedidos/local", { method: "POST", body: datos });
+    return { ok: true, pedidoId: r.pedidoId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el pedido" };
+  }
+}
+
+/** Las salas y mesas que el dueño configuró. Vacío = solo mostrador. */
+export async function obtenerSalas(): Promise<SalaConfigurada[]> {
+  try {
+    const r = await api<{ config: { salas?: SalaConfigurada[] } | null }>("/pedidos-config");
+    return r.config?.salas ?? [];
+  } catch {
+    // Sin mesas se puede tomar igual: es un pedido de mostrador.
+    return [];
   }
 }

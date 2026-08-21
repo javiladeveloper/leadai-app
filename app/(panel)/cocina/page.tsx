@@ -319,13 +319,27 @@ function TarjetaPedido({
         {/* El TIEMPO en grande: es el dato que decide a qué se atiende primero,
             y el que se lee desde lejos. Pasada la hora se escribe "11 h 47" —
             "707′" obliga a dividir mentalmente. */}
-        <span
-          className={`text-[0.95rem] font-bold tabular-nums ${
-            urgente ? "text-calor-hondo" : nivel === "atencion" ? "text-tibio" : "text-tinta-2"
-          }`}
-          title={`Entró hace ${minutos} minutos`}
-        >
-          {esperaLegible(minutos)}
+        <span className="flex shrink-0 items-baseline gap-1">
+          {/* EL PIN: la única señal de que hay dirección detrás. Va acá, al
+              lado del tiempo, porque en el pie le robaba ancho al botón y lo
+              desbordaba. Se apaga cuando el detalle ya está abierto. */}
+          {(pedido.direccion || pedido.referencia) && (
+            <span
+              aria-hidden
+              className="text-[0.7rem] text-frio/50 transition-opacity group-hover:opacity-0 group-focus-within:opacity-0"
+              title="Pasá el mouse para ver la dirección"
+            >
+              📍
+            </span>
+          )}
+          <span
+            className={`text-[0.95rem] font-bold tabular-nums ${
+              urgente ? "text-calor-hondo" : nivel === "atencion" ? "text-tibio" : "text-tinta-2"
+            }`}
+            title={`Entró hace ${minutos} minutos`}
+          >
+            {esperaLegible(minutos)}
+          </span>
         </span>
       </div>
 
@@ -350,34 +364,45 @@ function TarjetaPedido({
         </ul>
       )}
 
-      {/* DIRECCIÓN, REFERENCIA Y NOTAS van juntas: son el "detalle" que la
-          tarjeta apretada guarda y devuelve al pasar el mouse o enfocarla.
-          Se envuelven en un solo contenedor para que abran como un bloque y
-          no escalonadas una por una. */}
-      {(pedido.direccion || pedido.referencia || pedido.notas) && (
-        <div
-          className={
-            apretada
-              ? "max-h-0 overflow-hidden opacity-0 transition-all group-hover:max-h-40 group-hover:opacity-100 group-focus-within:max-h-40 group-focus-within:opacity-100"
-              : ""
-          }
-        >
-          {pedido.direccion && (
-            <p className="mt-1.5 line-clamp-2 text-[0.78rem] text-frio">📍 {pedido.direccion}</p>
-          )}
-          {/* La REFERENCIA del cliente (2026-08-20): "casa del fondo", "portón
-              verde". Se muestra aparte y no pegada a la dirección para que se
-              lea como lo que es — una indicación de quien vive ahí, no parte
-              del domicilio. */}
-          {pedido.referencia && (
-            <p className="mt-0.5 line-clamp-2 text-[0.78rem] text-tinta-2">💬 {pedido.referencia}</p>
-          )}
-          {pedido.notas && (
-            <p className="mt-1 rounded bg-arena px-2 py-1 text-[0.78rem] text-tinta-2">
-              {pedido.notas}
-            </p>
-          )}
-        </div>
+      {/* LAS NOTAS NUNCA SE ESCONDEN. "Sin cebolla", "poca sal" es información
+          de COCINA: si el cocinero tiene que pasar el mouse para enterarse, el
+          plato sale mal. Van antes que la dirección por la misma razón. */}
+      {pedido.notas && (
+        <p className="mt-1 rounded bg-arena px-2 py-1 text-[0.78rem] text-tinta-2">
+          {pedido.notas}
+        </p>
+      )}
+
+      {/* LA DIRECCIÓN SE PIDE, NO SE MUESTRA (2026-08-21, idea de Jonathan).
+          Antes ocupaba dos renglones fijos en TODAS las tarjetas, y en una
+          cocina no se usa para nada: nadie cocina mirando la calle. La necesita
+          quien reparte, y en un momento distinto.
+          
+          Ahora se despliega al pasar el mouse o al enfocar la tarjeta con el
+          teclado, igual que en las compactas — la diferencia es que ahora vale
+          también para las de arriba. La tarjeta completa gana ~35px y el ojo
+          se queda con lo que importa acá: qué plato y hace cuánto. */}
+      {(pedido.direccion || pedido.referencia) && (
+        <>
+          {/* LA PISTA de que hay algo escondido, en su forma más chica: el
+              pin solo. Sin ninguna señal la dirección no existe para quien no
+              sabe que tiene que pasar el mouse, pero escribir "Dirección y
+              referencia" gastaba casi el mismo renglón que la dirección misma
+              — cambiaba una línea útil por una inútil. El pin cabe al lado del
+              precio, así que no cuesta ni una línea. */}
+          <div className="max-h-0 overflow-hidden opacity-0 transition-all group-hover:max-h-40 group-hover:opacity-100 group-focus-within:max-h-40 group-focus-within:opacity-100">
+            {pedido.direccion && (
+              <p className="mt-1.5 line-clamp-2 text-[0.78rem] text-frio">📍 {pedido.direccion}</p>
+            )}
+            {/* La REFERENCIA del cliente (2026-08-20): "casa del fondo",
+                "portón verde". Se muestra aparte y no pegada a la dirección
+                para que se lea como lo que es — una indicación de quien vive
+                ahí, no parte del domicilio. */}
+            {pedido.referencia && (
+              <p className="mt-0.5 line-clamp-2 text-[0.78rem] text-tinta-2">💬 {pedido.referencia}</p>
+            )}
+          </div>
+        </>
       )}
 
       <div className={`flex items-center justify-between gap-2 ${apretada ? "mt-1.5" : "mt-2.5"}`}>

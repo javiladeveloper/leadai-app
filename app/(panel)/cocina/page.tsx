@@ -483,26 +483,48 @@ function TarjetaPedido({
  * chico se falla.
  */
 function ChipPago({ validacion, onVer }: { validacion: ValidacionPago; onVer: () => void }) {
-  const ok = validacion.resultado === "validado";
+  const estado = validacion.resultado;
   const revisado = validacion.revisionOk === true;
+
+  // TRES ESTADOS, NO DOS (2026-08-21, observación de Jonathan: "cuando el
+  // agente dice NO coinciden los montos... esto no debería pasar").
+  //
+  // Tenía razón: un rechazo por monto NUNCA llega a Cocina — el bot le pide
+  // al cliente la captura correcta y el pedido se queda en `esperando_pago`.
+  // Lo que sí llega acá es `pendiente`: el plan Arranque no tiene IA
+  // validando, así que la captura entra y espera a que una persona la mire.
+  //
+  // `rechazado` se contempla igual, pero como el caso raro que es: una
+  // confirmación revertida a mano, o un pedido que cambió después de validar.
+  const tono =
+    estado === "validado"
+      ? "bg-brasa-suave text-brasa-texto hover:bg-brasa-suave/70"
+      : estado === "pendiente"
+        ? "bg-tibio-suave text-tibio hover:bg-tibio-suave/70"
+        : "bg-calor-suave text-calor-hondo hover:bg-calor-suave/70";
+  const icono = estado === "validado" ? "💳" : estado === "pendiente" ? "👀" : "⚠️";
 
   return (
     <button
       type="button"
       onClick={onVer}
-      className={`mt-1.5 flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[0.75rem] transition ${
-        ok
-          ? "bg-brasa-suave text-brasa-texto hover:bg-brasa-suave/70"
-          : "bg-calor-suave text-calor-hondo hover:bg-calor-suave/70"
-      }`}
+      className={`mt-1.5 flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[0.75rem] transition ${tono}`}
     >
-      <span aria-hidden>{ok ? "💳" : "⚠️"}</span>
+      <span aria-hidden>{icono}</span>
       <span className="min-w-0 flex-1 truncate font-semibold">
-        {validacion.metodo ? validacion.metodo.toUpperCase() : "Pago"}
-        {validacion.nroOperacion && (
-          <span className="ml-1 font-normal tabular-nums opacity-80">
-            N.° {validacion.nroOperacion}
-          </span>
+        {estado === "pendiente" ? (
+          // Sin IA no hay número leído: lo que importa es que hay algo que
+          // mirar, no un dato que nadie extrajo.
+          "Revisá el pago"
+        ) : (
+          <>
+            {validacion.metodo ? validacion.metodo.toUpperCase() : "Pago"}
+            {validacion.nroOperacion && (
+              <span className="ml-1 font-normal tabular-nums opacity-80">
+                N.° {validacion.nroOperacion}
+              </span>
+            )}
+          </>
         )}
       </span>
       {/* El tilde solo aparece cuando lo confirmó una PERSONA. El visto de la
@@ -529,7 +551,6 @@ function DialogoPago({
 }: { pedido: PedidoCocina; onCerrar: () => void }) {
   const v = validacionDe(pedido);
   if (!v) return null;
-  const ok = v.resultado === "validado";
 
   return (
     <div
@@ -563,12 +584,18 @@ function DialogoPago({
         {/* El veredicto arriba de todo: es lo primero que el dueño necesita. */}
         <p
           className={`mt-3 rounded px-3 py-2 text-[0.85rem] font-semibold ${
-            ok ? "bg-brasa-suave text-brasa-texto" : "bg-calor-suave text-calor-hondo"
+            v.resultado === "validado"
+              ? "bg-brasa-suave text-brasa-texto"
+              : v.resultado === "pendiente"
+                ? "bg-tibio-suave text-tibio"
+                : "bg-calor-suave text-calor-hondo"
           }`}
         >
-          {ok
+          {v.resultado === "validado"
             ? "El monto, el número y la fecha coinciden."
-            : motivoLegible(v.motivo)}
+            : v.resultado === "pendiente"
+              ? "Nadie revisó este pago todavía. Cotejalo con tu app."
+              : motivoLegible(v.motivo)}
         </p>
 
         {/* LOS DATOS PRIMERO, LA IMAGEN DESPUÉS.

@@ -114,30 +114,32 @@ export default function CocinaPage() {
           pedidos hay encima— tiene que leerse desde el otro lado del mostrador.
           Y si alguno se está pasando de tiempo, eso va acá arriba: es la única
           zona que el dueño mira siempre. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <h1 className="flex items-baseline gap-2 text-[1.3rem] font-bold leading-tight text-tinta">
-            Cocina
-            {enCurso > 0 && (
-              <span className="rounded-chip bg-brasa-suave px-2 py-0.5 text-[0.8rem] tabular-nums text-brasa-texto">
-                {enCurso}
-              </span>
-            )}
-          </h1>
-          <p className="text-[0.84rem] text-frio">
+          {/* El eyebrow del panel (Carta, Inicio y el resto lo usan), pero acá
+              dice algo que CAMBIA: cuántos pedidos hay encima. En una pantalla
+              que se mira todo el turno, esa línea es más útil que repetir una
+              categoría fija. */}
+          <p className="eyebrow">
             {enCurso === 0
-              ? "No hay pedidos en curso. Cuando entre uno, aparece acá."
+              ? "Sin pedidos"
+              : enCurso === 1
+                ? "1 pedido en curso"
+                : `${enCurso} pedidos en curso`}
+          </p>
+          <h1 className="mt-1 text-[1.8rem] font-bold leading-none text-tinta">Cocina</h1>
+          <p className="mt-1.5 text-[0.92rem] text-frio">
+            {enCurso === 0
+              ? "Cuando entre un pedido, aparece acá."
               : demorados > 0
-                ? `${demorados} de ${enCurso} ${demorados === 1 ? "lleva" : "llevan"} más de 25 min.`
-                : enCurso === 1
-                  ? "1 pedido en curso, al día."
-                  : `${enCurso} pedidos en curso, al día.`}
+                ? `${demorados} ${demorados === 1 ? "pedido lleva" : "pedidos llevan"} más de 25 minutos esperando.`
+                : "Todo saliendo a tiempo."}
           </p>
         </div>
 
         {/* `shrink-0`: sin esto "En vivo" se corta contra el borde cuando el
             texto de la izquierda crece. */}
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3 pt-0.5">
           {error && <p className="fila-entra text-[0.85rem] font-semibold text-alerta">{error}</p>}
           {/* Que la pantalla se actualiza sola no es obvio: sin esto, el dueño
               no sabe si está viendo algo de hace media hora. */}

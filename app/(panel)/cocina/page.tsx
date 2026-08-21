@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listarPedidos, avanzarPedido, siguientePaso, minutosDesde, esUrgente,
-  esRecienLlegado, nivelEspera, esperaLegible,
-  COLUMNAS, type PedidoCocina,
+  esRecienLlegado, nivelEspera, esperaLegible, validacionDe, motivoLegible,
+  COLUMNAS, type PedidoCocina, type ValidacionPago,
 } from "@/lib/cocina";
 import { soles } from "@/lib/precio";
 
@@ -28,6 +28,10 @@ export default function CocinaPage() {
   const [pedidos, setPedidos] = useState<PedidoCocina[] | null>(null);
   const [avanzando, setAvanzando] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // Qué comprobante se está mirando. Guarda el ID y no el pedido entero: así
+  // el diálogo sigue el dato fresco de cada refresco en vez de congelar una
+  // copia vieja mientras está abierto.
+  const [viendoPago, setViendoPago] = useState<string | null>(null);
   // Fuerza el recálculo de los minutos sin volver a pedir al backend: la
   // espera crece sola aunque no entre ningún pedido.
   const [, setTic] = useState(0);
@@ -37,6 +41,15 @@ export default function CocinaPage() {
     const r = await listarPedidos();
     if (vivo.current) setPedidos(r);
   }, []);
+
+  // Escape cierra el comprobante. Sin esto el diálogo atrapa a quien navega
+  // con teclado: entra con Tab y no tiene cómo salir.
+  useEffect(() => {
+    if (!viendoPago) return;
+    const alTecla = (e: KeyboardEvent) => { if (e.key === "Escape") setViendoPago(null); };
+    window.addEventListener("keydown", alTecla);
+    return () => window.removeEventListener("keydown", alTecla);
+  }, [viendoPago]);
 
   useEffect(() => {
     vivo.current = true;
@@ -220,6 +233,7 @@ export default function CocinaPage() {
                       compacta={i >= COMPLETAS_ARRIBA}
                       avanzando={avanzando === p.id}
                       onAvanzar={() => avanzar(p)}
+                      onVerPago={() => setViendoPago(p.id)}
                     />
                   ))}
                 </div>
@@ -228,6 +242,14 @@ export default function CocinaPage() {
           );
         })}
       </div>
+
+      {/* El pedido se busca por ID en cada render: si el polling lo avanzó o
+          lo sacó de la cocina mientras el diálogo estaba abierto, se cierra
+          solo en vez de mostrar algo que ya no existe. */}
+      {viendoPago && (() => {
+        const p = pedidos.find((x) => x.id === viendoPago);
+        return p ? <DialogoPago pedido={p} onCerrar={() => setViendoPago(null)} /> : null;
+      })()}
     </div>
   );
 }
@@ -249,13 +271,15 @@ export default function CocinaPage() {
 const COMPLETAS_ARRIBA = 2;
 
 function TarjetaPedido({
-  pedido, compacta, avanzando, onAvanzar,
+  pedido, compacta, avanzando, onAvanzar, onVerPago,
 }: {
   pedido: PedidoCocina;
   compacta: boolean;
   avanzando: boolean;
   onAvanzar: () => void;
+  onVerPago?: (p: PedidoCocina) => void;
 }) {
+  const validacion = validacionDe(pedido);
   const paso = siguientePaso(pedido);
   const minutos = minutosDesde(pedido.creadoEn);
   const nivel = nivelEspera(pedido);
@@ -373,6 +397,17 @@ function TarjetaPedido({
         </p>
       )}
 
+      {/* EL COMPROBANTE, A UN CLIC (2026-08-21).
+
+          Confirmar "preparando" YA valida el pago (ver `avanzarEstado` en el
+          backend), pero hasta hoy el dueño daba ese visto A CIEGAS: la captura
+          se leía y se descartaba. Este chip dice qué se cobró y con qué, y al
+          tocarlo se abre la imagen.
+
+          Un chip y no una miniatura: la imagen sumaría ~60px por tarjeta y con
+          seis pedidos eso es media pantalla. */}
+      {validacion && <ChipPago validacion={validacion} onVer={() => onVerPago?.(pedido)} />}
+
       {/* LA DIRECCIÓN SE PIDE, NO SE MUESTRA (2026-08-21, idea de Jonathan).
           Antes ocupaba dos renglones fijos en TODAS las tarjetas, y en una
           cocina no se usa para nada: nadie cocina mirando la calle. La necesita
@@ -420,11 +455,15 @@ function TarjetaPedido({
             disabled={avanzando}
             // En una cocina se toca con las manos ocupadas y a veces mojadas:
             // el botón se estira a lo que sobra en vez de quedar chiquito.
-            // `whitespace-nowrap`: sin esto "Empezar a preparar" se parte en
-            // dos líneas cuando la tarjeta se aprieta, y un botón de dos
-            // renglones se ve peor que la tarjeta grande que quisimos evitar.
-            className={`flex-1 whitespace-nowrap rounded-chip bg-brasa font-bold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-50 ${
-              apretada ? "px-2 py-1.5 text-[0.76rem]" : "px-3 py-2 text-[0.82rem]"
+            // EL BOTÓN NO ES EL PROTAGONISTA (2026-08-21, Jonathan: "creo que
+            // son muy grandes"). Antes se estiraba con `flex-1` y se comía la
+            // tarjeta, compitiendo con el plato —que es lo que la cocina lee.
+            // Ahora ocupa lo que su texto necesita y nada más.
+            //
+            // `whitespace-nowrap` se queda: sin eso "Empezar a preparar" se
+            // parte en dos renglones al angostarse la tarjeta.
+            className={`shrink-0 whitespace-nowrap rounded-chip bg-brasa font-semibold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-50 ${
+              apretada ? "px-2.5 py-1 text-[0.73rem]" : "px-3 py-1.5 text-[0.78rem]"
             }`}
           >
             {avanzando ? "…" : paso.etiqueta}
@@ -432,5 +471,165 @@ function TarjetaPedido({
         )}
       </div>
     </article>
+  );
+}
+
+/**
+ * EL CHIP DEL COMPROBANTE.
+ *
+ * Verde si el modelo validó, ámbar si algo no cuadró. El color es la lectura
+ * rápida; el número de operación es lo que el dueño coteja contra su app de
+ * Yape. Toda la fila es un botón: en una cocina se toca con prisa y un blanco
+ * chico se falla.
+ */
+function ChipPago({ validacion, onVer }: { validacion: ValidacionPago; onVer: () => void }) {
+  const ok = validacion.resultado === "validado";
+  const revisado = validacion.revisionOk === true;
+
+  return (
+    <button
+      type="button"
+      onClick={onVer}
+      className={`mt-1.5 flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[0.75rem] transition ${
+        ok
+          ? "bg-brasa-suave text-brasa-texto hover:bg-brasa-suave/70"
+          : "bg-calor-suave text-calor-hondo hover:bg-calor-suave/70"
+      }`}
+    >
+      <span aria-hidden>{ok ? "💳" : "⚠️"}</span>
+      <span className="min-w-0 flex-1 truncate font-semibold">
+        {validacion.metodo ? validacion.metodo.toUpperCase() : "Pago"}
+        {validacion.nroOperacion && (
+          <span className="ml-1 font-normal tabular-nums opacity-80">
+            N.° {validacion.nroOperacion}
+          </span>
+        )}
+      </span>
+      {/* El tilde solo aparece cuando lo confirmó una PERSONA. El visto de la
+          IA ya está dicho por el color: mezclarlos haría creer al dueño que
+          alguien miró algo que nadie miró. */}
+      {revisado && <span aria-label="Confirmado por vos">✓</span>}
+      <span aria-hidden className="opacity-50">
+        Ver
+      </span>
+    </button>
+  );
+}
+
+/**
+ * LA CAPTURA, EN GRANDE, CON LO QUE EL MODELO LEYÓ AL LADO.
+ *
+ * Es el segundo par de ojos que Jonathan pidió: la máquina propone, una
+ * persona confirma. Los datos van junto a la imagen para poder cotejarlos sin
+ * cambiar de pantalla — que es exactamente lo que el dueño hace con su app de
+ * Yape abierta en la otra mano.
+ */
+function DialogoPago({
+  pedido, onCerrar,
+}: { pedido: PedidoCocina; onCerrar: () => void }) {
+  const v = validacionDe(pedido);
+  if (!v) return null;
+  const ok = v.resultado === "validado";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/50 p-4"
+      onClick={onCerrar}
+      role="presentation"
+    >
+      <div
+        className="surge max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-tarjeta bg-carta p-5 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Comprobante de pago"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow">Comprobante</p>
+            <h2 className="mt-0.5 text-[1.15rem] font-bold text-tinta">
+              {soles(pedido.totalCentavos)}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="rounded-chip px-2 py-1 text-[0.82rem] text-frio transition hover:bg-arena"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        {/* El veredicto arriba de todo: es lo primero que el dueño necesita. */}
+        <p
+          className={`mt-3 rounded px-3 py-2 text-[0.85rem] font-semibold ${
+            ok ? "bg-brasa-suave text-brasa-texto" : "bg-calor-suave text-calor-hondo"
+          }`}
+        >
+          {ok
+            ? "El monto, el número y la fecha coinciden."
+            : motivoLegible(v.motivo)}
+        </p>
+
+        {/* LOS DATOS PRIMERO, LA IMAGEN DESPUÉS.
+            Con la captura arriba a tamaño completo, los datos leídos quedaban
+            fuera de pantalla y había que scrollear justo para ver lo que hay
+            que comparar. Un comprobante de Yape es angosto y muy alto: si se
+            le deja el ancho del diálogo, se come toda la vista. */}
+        <dl className="mt-3 space-y-1.5 text-[0.85rem]">
+          <Dato termino="Monto leído" valor={v.montoCentavos != null ? soles(v.montoCentavos) : "—"} />
+          <Dato termino="N.° de operación" valor={v.nroOperacion ?? "—"} />
+          <Dato termino="Método" valor={v.metodo ? v.metodo.toUpperCase() : "—"} />
+          <Dato
+            termino="Lo revisó"
+            valor={v.revisadoPor ? v.revisadoPor : v.decidioPor === "ia" ? "El asistente" : "—"}
+          />
+        </dl>
+
+        {v.capturaUrl ? (
+          <figure className="mt-3">
+            {/* `max-h` con la imagen centrada: entra completa en la vista y
+                sigue siendo legible. Quien necesite mirarla de cerca la abre
+                en una pestaña. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={v.capturaUrl}
+              alt="Captura del pago que envió el cliente"
+              className="mx-auto max-h-[38vh] w-auto rounded-tarjeta ring-1 ring-linea"
+            />
+            <figcaption className="mt-1.5 text-center text-[0.76rem] text-frio">
+              <a
+                href={v.capturaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-tinta"
+              >
+                Ver la captura en grande
+              </a>
+            </figcaption>
+          </figure>
+        ) : (
+          // Storage pudo estar caído cuando llegó: el registro se guardó igual,
+          // así que hay datos aunque falte la foto.
+          <p className="mt-3 rounded-tarjeta bg-arena px-3 py-6 text-center text-[0.85rem] text-frio">
+            La imagen no se pudo guardar, pero esto es lo que se leyó.
+          </p>
+        )}
+
+        <p className="mt-4 text-[0.8rem] leading-snug text-frio">
+          Cotejá el número de operación con tu app antes de empezar a preparar.
+          Al tocar <b>Empezar a preparar</b> el pago queda confirmado por vos.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Dato({ termino, valor }: { termino: string; valor: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-linea/60 pb-1">
+      <dt className="text-frio">{termino}</dt>
+      <dd className="font-semibold tabular-nums text-tinta">{valor}</dd>
+    </div>
   );
 }

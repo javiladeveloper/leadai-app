@@ -10,6 +10,34 @@
 
 import { api } from "./api";
 
+/**
+ * Lo que quedó registrado de la captura de pago (2026-08-21).
+ *
+ * `capturaUrl` puede venir null: si Storage estaba caído cuando llegó la
+ * imagen, igual se guardó lo que el modelo leyó y qué se decidió — perder el
+ * registro entero por no poder guardar una foto sería peor.
+ *
+ * Todo opcional: un backend viejo no manda `validaciones` y la Cocina tiene
+ * que seguir andando igual.
+ */
+export interface ValidacionPago {
+  id: string;
+  capturaUrl: string | null;
+  montoCentavos: number | null;
+  nroOperacion: string | null;
+  metodo: string | null;
+  /** validado | rechazado | ilegible */
+  resultado: string;
+  /** monto | receptor | fecha | sin_operacion | metodo */
+  motivo: string | null;
+  /** 'ia' o 'humano' */
+  decidioPor: string;
+  revisadoPor: string | null;
+  revisadoEn: string | null;
+  revisionOk: boolean | null;
+  creadoEn: string;
+}
+
 export interface PedidoCocina {
   id: string;
   estado: string;
@@ -22,6 +50,33 @@ export interface PedidoCocina {
   notas: string | null;
   items: { nombre: string; cantidad: number; precioCentavos?: number; subtotalCentavos?: number }[] | null;
   etaMinutos: number | null;
+  /** La última validación de pago. El backend manda solo una. */
+  validaciones?: ValidacionPago[];
+  /** pendiente | por_confirmar | validado | rechazado */
+  pago?: string | null;
+  pagoMetodo?: string | null;
+}
+
+/** La validación que decidió el estado actual del pedido, si hay alguna. */
+export function validacionDe(p: PedidoCocina): ValidacionPago | null {
+  return p.validaciones?.[0] ?? null;
+}
+
+/**
+ * Cómo se lee un motivo de rechazo, en palabras del dueño.
+ *
+ * Los códigos del backend son para el log; acá tiene que decir qué mirar en
+ * la captura. "receptor" no le dice nada a nadie a las ocho de la noche.
+ */
+export function motivoLegible(motivo: string | null): string {
+  switch (motivo) {
+    case 'monto': return 'El monto no coincide con el pedido';
+    case 'receptor': return 'El número o el nombre no son los tuyos';
+    case 'fecha': return 'La fecha no es de hoy';
+    case 'sin_operacion': return 'No se ve el número de operación';
+    case 'metodo': return 'Pagó por una billetera que no aceptás';
+    default: return 'No se pudo validar';
+  }
 }
 
 /**

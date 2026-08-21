@@ -401,6 +401,39 @@ button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
 }
 .respira { animation: respirar 1.6s ease-in-out infinite; }
 
+/* LA COLUMNA QUE TIENE TRABAJO (2026-08-21).
+   Las cuatro columnas de la cocina pesaban igual aunque tres estuvieran
+   vacías: el ojo tenía que leer los números para saber dónde mirar. Esta
+   franja superior se pinta solo donde hay pedidos, así la carga del turno se
+   ve de reojo, sin contar. */
+@keyframes cargar-columna {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.carga-columna {
+  transform-origin: left;
+  animation: cargar-columna var(--t-normal, 240ms) var(--curva-entrada, ease-out) backwards;
+}
+
+/* EL PUNTITO DE "EN VIVO". Late suave para decir que la pantalla se refresca
+   sola — sin esto el dueño no sabe si mira algo de hace media hora. */
+@keyframes latir-punto {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+.respira-punto { animation: latir-punto 2s ease-in-out infinite; }
+
+/* EL PEDIDO QUE ACABA DE ENTRAR.
+   Un pedido nuevo aparecía igual que uno de hace media hora. Este destello
+   corre UNA vez y se apaga: en una cocina, algo que parpadea para siempre se
+   vuelve parte del fondo y deja de avisar. */
+@keyframes recien-llegado {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brasa) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 10px color-mix(in oklab, var(--color-brasa) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brasa) 0%, transparent); }
+}
+.recien-llegado { animation: recien-llegado 1.4s var(--curva-entrada, ease-out) 2; }
+
 /* EL SKELETON, más lento que el default de Tailwind. Un pulso rápido parece
    un error; uno lento parece que está trabajando. */
 .animate-pulse { animation-duration: 1.6s; }

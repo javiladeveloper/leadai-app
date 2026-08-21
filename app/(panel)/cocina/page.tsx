@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listarPedidos, avanzarPedido, siguientePaso, minutosDesde, esUrgente,
+  esRecienLlegado, nivelEspera, esperaLegible,
   COLUMNAS, type PedidoCocina,
 } from "@/lib/cocina";
 import { soles } from "@/lib/precio";
@@ -78,7 +79,7 @@ export default function CocinaPage() {
 
   if (pedidos === null) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 px-5 py-6 sm:grid-cols-2 lg:px-8 xl:grid-cols-4">
         {COLUMNAS.map((c) => (
           <div key={c.estado} className="h-64 animate-pulse rounded-tarjeta bg-arena-2/60" />
         ))}
@@ -86,49 +87,135 @@ export default function CocinaPage() {
     );
   }
 
-  const enCurso = pedidos.length;
+  // SOLO LO QUE SE VE (2026-08-21). `GET /pedidos` también devuelve estados
+  // sin columna —hoy `esperando_pago`— y contarlos hacía que la cabecera
+  // dijera "2 pedidos" cuando en pantalla había uno. Un número que no cuadra
+  // con lo que se ve hace dudar de toda la pantalla.
+  //
+  // Esos pedidos van a tener su lugar cuando entre la columna de pagos por
+  // confirmar (con la captura de Yape); hasta entonces no se cuentan.
+  const visibles = pedidos.filter((p) => COLUMNAS.some((c) => c.estado === p.estado));
+  // La columna más cargada define el 100% de las franjas: así se comparan
+  // entre sí. Un ancho fijo por pedido daría barras llenas con 4 pedidos y
+  // idénticas con 40.
+  const pico = Math.max(1, ...COLUMNAS.map((c) => visibles.filter((p) => p.estado === c.estado).length));
+  const enCurso = visibles.length;
+  const demorados = visibles.filter(esUrgente).length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h1 className="text-[1.3rem] font-bold text-tinta">Cocina</h1>
-          <p className="text-[0.88rem] text-frio">
+    // El mismo respiro que el resto del panel (`px-5 py-6`, como Inicio y
+    // Carta): esta pantalla no lo tenía y quedaba pegada al techo. SIN
+    // `max-w-5xl` a propósito — las cuatro columnas necesitan todo el ancho
+    // de la compu del mostrador.
+    <div className="space-y-5 px-5 py-6 lg:px-8">
+      {/* LA CABECERA DICE CÓMO VA EL TURNO (2026-08-21).
+          Antes era un título chico y una línea de texto. En una pantalla que
+          se mira de reojo todo el servicio, el número que importa —cuántos
+          pedidos hay encima— tiene que leerse desde el otro lado del mostrador.
+          Y si alguno se está pasando de tiempo, eso va acá arriba: es la única
+          zona que el dueño mira siempre. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <h1 className="flex items-baseline gap-2 text-[1.3rem] font-bold leading-tight text-tinta">
+            Cocina
+            {enCurso > 0 && (
+              <span className="rounded-chip bg-brasa-suave px-2 py-0.5 text-[0.8rem] tabular-nums text-brasa-texto">
+                {enCurso}
+              </span>
+            )}
+          </h1>
+          <p className="text-[0.84rem] text-frio">
             {enCurso === 0
               ? "No hay pedidos en curso. Cuando entre uno, aparece acá."
-              : enCurso === 1
-                ? "1 pedido en curso."
-                : `${enCurso} pedidos en curso.`}
+              : demorados > 0
+                ? `${demorados} de ${enCurso} ${demorados === 1 ? "lleva" : "llevan"} más de 25 min.`
+                : enCurso === 1
+                  ? "1 pedido en curso, al día."
+                  : `${enCurso} pedidos en curso, al día.`}
           </p>
         </div>
-        {error && <p className="fila-entra text-[0.85rem] font-semibold text-alerta">{error}</p>}
+
+        {/* `shrink-0`: sin esto "En vivo" se corta contra el borde cuando el
+            texto de la izquierda crece. */}
+        <div className="flex shrink-0 items-center gap-3">
+          {error && <p className="fila-entra text-[0.85rem] font-semibold text-alerta">{error}</p>}
+          {/* Que la pantalla se actualiza sola no es obvio: sin esto, el dueño
+              no sabe si está viendo algo de hace media hora. */}
+          <span className="flex items-center gap-1.5 text-[0.76rem] text-frio">
+            <span className="size-1.5 rounded-full bg-brasa respira-punto" aria-hidden />
+            En vivo
+          </span>
+        </div>
       </div>
 
       {/* CUATRO COLUMNAS en pantalla grande, dos en tablet, una en el celular.
           En la compu del mostrador se ve todo el turno de un vistazo. */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* `items-start`: sin esto las cuatro columnas se estiran a la altura de
+          la más cargada, y tres columnas vacías quedan como bloques enormes. */}
+      <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {COLUMNAS.map((col) => {
-          const suyos = pedidos.filter((p) => p.estado === col.estado);
+          // LO QUE MÁS ESPERÓ, PRIMERO (2026-08-21). El backend devuelve por
+          // `creadoEn` ascendente, así que dentro de una columna cargada el
+          // pedido más viejo quedaba arriba y el nuevo abajo — bien. Pero al
+          // pasar de 4 o 5 tarjetas la columna scrollea, y lo urgente tiene
+          // que estar donde el ojo cae primero, no al fondo.
+          const suyos = visibles
+            .filter((p) => p.estado === col.estado)
+            .sort((a, b) => new Date(a.creadoEn).getTime() - new Date(b.creadoEn).getTime());
+          const vacia = suyos.length === 0;
           return (
-            <section key={col.estado} className="rounded-tarjeta bg-arena/50 p-3">
-              <p className="mb-2 flex items-center gap-1.5 px-1 text-[0.78rem] font-bold uppercase tracking-wide text-frio">
-                <span aria-hidden>{col.emoji}</span>
-                {col.titulo}
-                <span className="ml-auto tabular-nums">{suyos.length}</span>
-              </p>
-
-              <div className="space-y-2">
-                {suyos.length === 0 && (
-                  <p className="px-1 py-4 text-center text-[0.82rem] text-frio/70">Nada acá</p>
-                )}
-                {suyos.map((p) => (
-                  <TarjetaPedido
-                    key={p.id}
-                    pedido={p}
-                    avanzando={avanzando === p.id}
-                    onAvanzar={() => avanzar(p)}
+            <section
+              key={col.estado}
+              // Una columna VACÍA se apaga. Antes las cuatro pesaban igual
+              // aunque tres estuvieran sin nada, y el ojo tenía que leer los
+              // números para saber dónde estaba el trabajo.
+              className={`overflow-hidden rounded-tarjeta transition-colors ${
+                vacia ? "bg-arena/30" : "bg-arena/60"
+              }`}
+            >
+              {/* La franja de carga: se pinta solo donde hay pedidos. */}
+              <div className="h-1 bg-linea/40">
+                {!vacia && (
+                  <div
+                    className="carga-columna h-full bg-brasa"
+                    style={{ width: `${Math.round((suyos.length / pico) * 100)}%` }}
+                    aria-hidden
                   />
-                ))}
+                )}
+              </div>
+
+              <div className="p-3">
+                <p
+                  className={`mb-2 flex items-center gap-1.5 px-1 text-[0.78rem] font-bold uppercase tracking-wide ${
+                    vacia ? "text-frio/60" : "text-tinta-2"
+                  }`}
+                >
+                  <span aria-hidden>{col.emoji}</span>
+                  {col.titulo}
+                  <span
+                    className={`ml-auto rounded-chip px-1.5 tabular-nums ${
+                      vacia ? "text-frio/60" : "bg-brasa-suave text-brasa-texto"
+                    }`}
+                  >
+                    {suyos.length}
+                  </span>
+                </p>
+
+                <div className="max-h-[calc(100vh-15rem)] space-y-2 overflow-y-auto">
+                  {vacia && (
+                    <p className="px-1 py-6 text-center text-[0.8rem] text-frio/50">
+                      {col.vacia}
+                    </p>
+                  )}
+                  {suyos.map((p) => (
+                    <TarjetaPedido
+                      key={p.id}
+                      pedido={p}
+                      avanzando={avanzando === p.id}
+                      onAvanzar={() => avanzar(p)}
+                    />
+                  ))}
+                </div>
               </div>
             </section>
           );
@@ -143,28 +230,37 @@ function TarjetaPedido({
 }: { pedido: PedidoCocina; avanzando: boolean; onAvanzar: () => void }) {
   const paso = siguientePaso(pedido);
   const minutos = minutosDesde(pedido.creadoEn);
-  const urgente = esUrgente(pedido);
+  const nivel = nivelEspera(pedido);
+  const urgente = nivel === "urgente";
+  const nuevo = esRecienLlegado(pedido);
 
   return (
     <article
       className={`fila-entra rounded-tarjeta bg-carta p-3 shadow-[var(--sombra-tarjeta)] transition-shadow ${
         // El borde de lo urgente RESPIRA: uno fijo se vuelve invisible a los
-        // veinte minutos mirando la misma pantalla.
-        urgente ? "respira ring-2 ring-calor" : "ring-1 ring-linea"
-      }`}
+        // veinte minutos mirando la misma pantalla. El escalón intermedio
+        // (`atencion`) marca sin gritar: avisa que se viene, no que ya pasó.
+        urgente
+          ? "respira ring-2 ring-calor"
+          : nivel === "atencion"
+            ? "ring-1 ring-tibio"
+            : "ring-1 ring-linea"
+      } ${nuevo ? "recien-llegado" : ""}`}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
           {pedido.modalidad === "delivery" ? "🛵 Delivery" : "🥡 Recojo"}
         </span>
-        {/* Los MINUTOS en grande: es el dato que decide a qué se atiende
-            primero, y el que se lee desde lejos. */}
+        {/* El TIEMPO en grande: es el dato que decide a qué se atiende primero,
+            y el que se lee desde lejos. Pasada la hora se escribe "11 h 47" —
+            "707′" obliga a dividir mentalmente. */}
         <span
           className={`text-[0.95rem] font-bold tabular-nums ${
-            urgente ? "text-calor-hondo" : "text-tinta-2"
+            urgente ? "text-calor-hondo" : nivel === "atencion" ? "text-tibio" : "text-tinta-2"
           }`}
+          title={`Entró hace ${minutos} minutos`}
         >
-          {minutos}′
+          {esperaLegible(minutos)}
         </span>
       </div>
 
@@ -201,7 +297,9 @@ function TarjetaPedido({
             type="button"
             onClick={onAvanzar}
             disabled={avanzando}
-            className="rounded-chip bg-brasa px-3 py-1.5 text-[0.82rem] font-bold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
+            // En una cocina se toca con las manos ocupadas y a veces mojadas:
+            // el botón se estira a lo que sobra en vez de quedar chiquito.
+            className="flex-1 rounded-chip bg-brasa px-3 py-2 text-[0.82rem] font-bold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-50"
           >
             {avanzando ? "…" : paso.etiqueta}
           </button>

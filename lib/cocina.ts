@@ -118,6 +118,22 @@ export function siguientePaso(p: PedidoCocina): { estado: string; etiqueta: stri
   }
 }
 
+/**
+ * ¿Se puede soltar este pedido en esta columna? (2026-08-21)
+ *
+ * `siguientePaso` responde "a dónde va si toco el botón". Arrastrar pregunta
+ * al revés: "¿puede ir ACÁ?". Es la misma máquina de estados, pero un pedido
+ * solo avanza de a un paso: soltar `pagado` en "En camino" saltearía la
+ * cocina, y el backend lo rechazaría con un error que el dueño no entendería.
+ *
+ * Devuelve false para la columna donde YA está: no es un error, simplemente
+ * no hay nada que mover.
+ */
+export function puedeSoltarseEn(p: PedidoCocina, estadoColumna: string): boolean {
+  const paso = siguientePaso(p);
+  return paso?.estado === estadoColumna;
+}
+
 /** Cuántos minutos lleva esperando. Es el dato que decide a qué se atiende. */
 export function minutosDesde(iso: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000));

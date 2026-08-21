@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listarPedidos, avanzarPedido, siguientePaso, minutosDesde, esUrgente,
   esRecienLlegado, nivelEspera, esperaLegible, validacionDe, motivoLegible,
-  COLUMNAS, type PedidoCocina, type ValidacionPago,
+  puedeSoltarseEn, COLUMNAS, type PedidoCocina, type ValidacionPago,
 } from "@/lib/cocina";
 import { soles } from "@/lib/precio";
 
@@ -32,6 +32,13 @@ export default function CocinaPage() {
   // el diálogo sigue el dato fresco de cada refresco en vez de congelar una
   // copia vieja mientras está abierto.
   const [viendoPago, setViendoPago] = useState<string | null>(null);
+  // Qué tarjeta se está arrastrando. Guarda el ID: con él las columnas saben
+  // si pueden recibirla y se pintan en consecuencia ANTES de que el dueño
+  // llegue con el mouse — enterarse antes es mejor que soltar y que no pase.
+  const [arrastrando, setArrastrando] = useState<string | null>(null);
+  // El que acaba de aterrizar, para la animación de confirmación. Se limpia
+  // solo: si quedara pegado, la tarjeta seguiría destellando para siempre.
+  const [aterrizo, setAterrizo] = useState<string | null>(null);
   // Fuerza el recálculo de los minutos sin volver a pedir al backend: la
   // espera crece sola aunque no entre ningún pedido.
   const [, setTic] = useState(0);
@@ -77,6 +84,11 @@ export default function CocinaPage() {
         // `entregado` sale de la cocina: ya no es un pedido en curso.
         .filter((x) => x.estado !== "entregado"),
     );
+
+    // El destello de aterrizaje va acá y no en el drop: así también confirma
+    // el toque del botón. Es el mismo movimiento, se haga como se haga.
+    setAterrizo(p.id);
+    setTimeout(() => setAterrizo((a) => (a === p.id ? null : a)), 450);
 
     const r = await avanzarPedido(p.id, paso.estado);
     setAvanzando(null);
@@ -178,15 +190,31 @@ export default function CocinaPage() {
             .filter((p) => p.estado === col.estado)
             .sort((a, b) => new Date(a.creadoEn).getTime() - new Date(b.creadoEn).getTime());
           const vacia = suyos.length === 0;
+          // Mientras se arrastra, cada columna dice si puede recibir ESA
+          // tarjeta. Se calcula acá y no en el `onDragOver` para poder
+          // pintarlo de entrada, sin esperar a que el mouse llegue.
+          const enPuerta = arrastrando ? pedidos.find((x) => x.id === arrastrando) : null;
+          const enArrastre = Boolean(enPuerta);
+          const puedeRecibir = Boolean(enPuerta && puedeSoltarseEn(enPuerta, col.estado));
           return (
             <section
               key={col.estado}
+              // ARRASTRAR Y SOLTAR (2026-08-21). `onDragOver` con
+              // `preventDefault` es lo que habilita el drop en HTML nativo:
+              // sin eso el navegador rechaza todo y el cursor muestra un "no".
+              onDragOver={(e) => { if (puedeRecibir) e.preventDefault(); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const p = pedidos.find((x) => x.id === e.dataTransfer.getData("text/plain"));
+                if (p && puedeSoltarseEn(p, col.estado)) void avanzar(p);
+                setArrastrando(null);
+              }}
               // Una columna VACÍA se apaga. Antes las cuatro pesaban igual
               // aunque tres estuvieran sin nada, y el ojo tenía que leer los
               // números para saber dónde estaba el trabajo.
-              className={`overflow-hidden rounded-tarjeta transition-colors ${
+              className={`overflow-hidden rounded-tarjeta transition-all ${
                 vacia ? "bg-arena/30" : "bg-arena/60"
-              }`}
+              } ${enArrastre ? (puedeRecibir ? "recibe" : "no-recibe") : ""}`}
             >
               {/* La franja de carga: se pinta solo donde hay pedidos. */}
               <div className="h-1 bg-linea/40">
@@ -234,6 +262,9 @@ export default function CocinaPage() {
                       avanzando={avanzando === p.id}
                       onAvanzar={() => avanzar(p)}
                       onVerPago={() => setViendoPago(p.id)}
+                      arrastrando={arrastrando === p.id}
+                      aterrizo={aterrizo === p.id}
+                      onArrastrar={setArrastrando}
                     />
                   ))}
                 </div>
@@ -272,12 +303,16 @@ const COMPLETAS_ARRIBA = 2;
 
 function TarjetaPedido({
   pedido, compacta, avanzando, onAvanzar, onVerPago,
+  arrastrando, aterrizo, onArrastrar,
 }: {
   pedido: PedidoCocina;
   compacta: boolean;
   avanzando: boolean;
   onAvanzar: () => void;
   onVerPago?: (p: PedidoCocina) => void;
+  arrastrando?: boolean;
+  aterrizo?: boolean;
+  onArrastrar?: (id: string | null) => void;
 }) {
   const validacion = validacionDe(pedido);
   const paso = siguientePaso(pedido);
@@ -300,7 +335,19 @@ function TarjetaPedido({
   return (
     <article
       tabIndex={0}
+      // ARRASTRABLE solo si tiene a dónde ir. Una tarjeta de "En camino" sin
+      // paso siguiente no se levanta: dejarla arrastrar para que no pase nada
+      // es peor que no dejarla.
+      draggable={Boolean(paso)}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", pedido.id);
+        e.dataTransfer.effectAllowed = "move";
+        onArrastrar?.(pedido.id);
+      }}
+      onDragEnd={() => onArrastrar?.(null)}
       className={`group fila-entra rounded-tarjeta bg-carta shadow-[var(--sombra-tarjeta)] transition-all ${
+        paso ? "cursor-grab active:cursor-grabbing" : ""
+      } ${arrastrando ? "arrastrando" : ""} ${aterrizo ? "aterriza" : ""} ${
         apretada ? "p-2.5" : "p-3"
       } ${
         // El borde de lo urgente RESPIRA: uno fijo se vuelve invisible a los

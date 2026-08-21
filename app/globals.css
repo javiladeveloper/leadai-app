@@ -434,6 +434,41 @@ button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
 }
 .recien-llegado { animation: recien-llegado 1.4s var(--curva-entrada, ease-out) 2; }
 
+/* ARRASTRAR UNA TARJETA ENTRE COLUMNAS (2026-08-21, idea de Jonathan).
+   El botón sigue siendo el camino principal —en una cocina se toca con las
+   manos ocupadas y arrastrar exige una precisión que un toque no—, pero con
+   mouse mover la tarjeta es el gesto natural de un tablero. */
+
+/* La que se está llevando: se aligera y se inclina apenas, lo justo para que
+   se lea como "en el aire" y no como un error de render. */
+.arrastrando {
+  opacity: 0.4;
+  transform: rotate(1.5deg) scale(0.98);
+}
+
+/* La columna que puede recibirla. El punteado dice "acá cabe" sin mover nada
+   de lugar: un layout que salta mientras arrastrás hace perder el objetivo. */
+.recibe {
+  outline: 2px dashed var(--color-brasa);
+  outline-offset: -4px;
+  background: color-mix(in oklab, var(--color-brasa) 7%, transparent);
+}
+
+/* La columna donde NO puede caer (el paso no existe en la máquina de estados):
+   se apaga en vez de rechazar al soltar. Enterarse antes es mejor que
+   intentarlo y que no pase nada. */
+.no-recibe {
+  opacity: 0.45;
+}
+
+/* Al soltar, la tarjeta ATERRIZA. Confirma que el movimiento se registró —
+   sin esto el cambio es tan instantáneo que uno duda de si funcionó. */
+@keyframes aterrizar {
+  0%   { transform: scale(1.04); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-brasa) 45%, transparent); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brasa) 0%, transparent); }
+}
+.aterriza { animation: aterrizar 420ms var(--curva-entrada, ease-out); }
+
 /* EL SKELETON, más lento que el default de Tailwind. Un pulso rápido parece
    un error; uno lento parece que está trabajando. */
 .animate-pulse { animation-duration: 1.6s; }

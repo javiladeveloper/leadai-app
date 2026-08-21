@@ -39,8 +39,34 @@ export interface Seccion {
  * ausencia. Cuando SÍ haya algo que vender, eso es una feature de PLAN, que es
  * el otro eje (`featuresDe` en el backend).
  */
-export function seccionesDe(secciones: readonly Seccion[], caps: Capacidades): Seccion[] {
-  return secciones.filter((s) => !s.requiere || caps[s.requiere]);
+/**
+ * LO ÚNICO QUE UN MOZO VE EN EL MENÚ (2026-08-21).
+ *
+ * Espejo de `RUTAS_DEL_MOZO` en el backend. Están duplicadas a propósito y en
+ * ese orden de importancia: el backend es el que MANDA —bloquea con 403 aunque
+ * la UI falle—, y esta lista existe solo para no mostrarle al mozo puertas que
+ * al abrirlas le dan error.
+ *
+ * Si las dos se desincronizan, el peor caso es cosmético: una sección que se
+ * ve y no abre. Nunca al revés — el backend no depende de esto.
+ */
+const RUTAS_DEL_MOZO = ["/cocina", "/carta"] as const;
+
+/**
+ * Las secciones que este usuario puede ver.
+ *
+ * Dos filtros encadenados, y el orden importa: primero qué EXISTE en este
+ * negocio (capacidades del rubro), después qué puede tocar ESTA persona (su
+ * rol). Un mozo de restaurante ve Cocina; uno de un negocio sin cocina, no.
+ */
+export function seccionesDe(
+  secciones: readonly Seccion[],
+  caps: Capacidades,
+  rol?: string,
+): Seccion[] {
+  const porCapacidad = secciones.filter((s) => !s.requiere || caps[s.requiere]);
+  if (rol !== "mozo") return porCapacidad;
+  return porCapacidad.filter((s) => RUTAS_DEL_MOZO.some((r) => s.href === r));
 }
 
 /**
@@ -50,8 +76,12 @@ export function seccionesDe(secciones: readonly Seccion[], caps: Capacidades): S
  * un restaurante recibe Carta y Ajustes en vez de Pipeline y Leads —que no
  * abre nunca— sin necesidad de una segunda lista hecha a mano.
  */
-export function rapidosDe(secciones: readonly Seccion[], caps: Capacidades): Seccion[] {
-  return seccionesDe(secciones, caps)
+export function rapidosDe(
+  secciones: readonly Seccion[],
+  caps: Capacidades,
+  rol?: string,
+): Seccion[] {
+  return seccionesDe(secciones, caps, rol)
     .filter((s) => s.rapido !== undefined)
     .sort((a, b) => a.rapido! - b.rapido!)
     .slice(0, 4);

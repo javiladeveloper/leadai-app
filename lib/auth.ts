@@ -88,3 +88,21 @@ export function esModoGlobal(): boolean {
 export function esSuperAdmin(): boolean {
   return leerSesion()?.esSuperAdmin === true;
 }
+
+/**
+ * EL ROL DE ESTA PERSONA EN EL NEGOCIO ACTIVO (2026-08-21).
+ *
+ * Sale de la sesión guardada, no de una llamada: el menú se dibuja antes de
+ * que cualquier request responda, y esperar haría parpadear las secciones.
+ *
+ * `undefined` cuando todavía no se sabe. Quien lo use debe tratar ese caso
+ * como "sin restricción": el backend es el que manda —bloquea con 403 aunque
+ * la UI falle—, así que equivocarse acá muestra de más, nunca de menos.
+ */
+export function rolEnEmpresaActiva(): string | undefined {
+  const sesion = leerSesion();
+  if (!sesion) return undefined;
+  const activa = leerEmpresaActiva();
+  const empresa = sesion.empresas?.find((e) => e.tenantId === activa) ?? sesion.empresas?.[0];
+  return empresa?.rol;
+}

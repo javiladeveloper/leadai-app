@@ -874,7 +874,7 @@ export async function subirFotoVendedor(imagen: string): Promise<{ ok: boolean; 
 }
 
 // ── Equipo (trabajadores del negocio) ──────────────────────
-export type RolMiembro = "owner" | "admin" | "agente";
+export type RolMiembro = "owner" | "admin" | "agente" | "mozo";
 export interface MiembroEquipo { usuarioId: string; email: string; nombre: string | null; rol: RolMiembro }
 export interface InvitacionPendiente { id: string; email: string; rol: RolMiembro; token: string; creadoEn: string }
 
@@ -882,7 +882,7 @@ export async function obtenerEquipo(tenant?: string): Promise<{ miembros: Miembr
   try { return await api("/equipo", { tenant }); } catch { return { miembros: [], invitaciones: [] }; }
 }
 
-export async function invitarMiembro(email: string, rol: "admin" | "agente"): Promise<{ ok: boolean; token?: string; correoEnviado?: boolean; error?: string }> {
+export async function invitarMiembro(email: string, rol: "admin" | "agente" | "mozo"): Promise<{ ok: boolean; token?: string; correoEnviado?: boolean; error?: string }> {
   try {
     const r = await api<{ ok: boolean; token: string; correoEnviado?: boolean }>("/equipo/invitar", { method: "POST", body: { email, rol } });
     return { ok: true, token: r.token, correoEnviado: r.correoEnviado };

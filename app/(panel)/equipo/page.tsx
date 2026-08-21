@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
+import { useCapacidades } from "@/lib/modo-negocio";
 import {
   obtenerEquipo, invitarMiembro, cancelarInvitacion, quitarMiembro, obtenerMiPlan,
   type MiembroEquipo, type InvitacionPendiente,
@@ -12,7 +13,7 @@ import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
 import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 
 const ROL_LABEL: Record<string, string> = {
-  owner: "Dueño", admin: "Administrador", agente: "Vendedor",
+  owner: "Dueño", admin: "Administrador", agente: "Vendedor", mozo: "Mozo",
 };
 
 function EquipoPanel() {
@@ -22,7 +23,13 @@ function EquipoPanel() {
   const [miembros, setMiembros] = useState<MiembroEquipo[]>([]);
   const [invitaciones, setInvitaciones] = useState<InvitacionPendiente[]>([]);
   const [email, setEmail] = useState("");
-  const [rol, setRol] = useState<"admin" | "agente">("agente");
+  const [rol, setRol] = useState<"admin" | "agente" | "mozo">("agente");
+  // El rol Mozo solo aplica donde hay cocina: en un negocio de captación
+  // existe pero no significa nada. Mientras las capacidades no llegan
+  // (`null`) se oculta — mostrar de menos es preferible a ofrecer un rol que
+  // el negocio no puede usar.
+  const negocio = useCapacidades();
+  const hayCocina = negocio?.capacidades?.tieneCocina === true;
   const [invitando, setInvitando] = useState(false);
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
@@ -119,11 +126,15 @@ function EquipoPanel() {
           />
           <select
             value={rol}
-            onChange={(e) => setRol(e.target.value as "admin" | "agente")}
+            onChange={(e) => setRol(e.target.value as "admin" | "agente" | "mozo")}
             className="rounded-tarjeta border border-linea bg-arena/30 px-3 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa"
           >
             <option value="agente">Vendedor</option>
             <option value="admin">Administrador</option>
+            {/* MOZO solo donde hay cocina (2026-08-21): en un negocio de
+                captación el rol existe pero no significa nada, y una opción
+                que no aplica solo genera preguntas. */}
+            {hayCocina && <option value="mozo">Mozo</option>}
           </select>
           <button
             type="submit"

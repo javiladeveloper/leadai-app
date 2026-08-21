@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { leerSesion, esSuperAdmin } from "@/lib/auth";
+import { leerSesion, esSuperAdmin, rolEnEmpresaActiva } from "@/lib/auth";
 import { useCapacidades } from "@/lib/modo-negocio";
 import { seccionesDe, type Seccion } from "@/lib/secciones";
 import { ContadorHits } from "@/components/panel/ContadorHits";
@@ -90,7 +90,11 @@ export function Sidebar() {
   // Ahora se dibujan placeholders. En la práctica casi no se ven: el modo
   // queda guardado en localStorage y el F5 pinta el menú correcto de una.
   const negocio = useCapacidades();
-  const secciones = negocio === null ? [] : seccionesDe(SECCIONES, negocio.capacidades);
+  // El ROL filtra encima de las capacidades (2026-08-21): un mozo ve Cocina y
+  // Carta, nada más. El backend igual lo bloquea con 403 — esto existe para no
+  // mostrarle puertas que al abrirlas dan error.
+  const rol = rolEnEmpresaActiva();
+  const secciones = negocio === null ? [] : seccionesDe(SECCIONES, negocio.capacidades, rol);
   const nombre = sesion?.usuario?.nombre ?? sesion?.usuario?.email ?? "Mi cuenta";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "?";
 
@@ -209,7 +213,10 @@ export function Sidebar() {
         )}
       </nav>
       {/* Cuota del mes: solo expandido (números y barra necesitan ancho). */}
-      {expandido && <ContadorHits />}
+      {/* EL CONSUMO DEL PLAN NO ES ASUNTO DEL MOZO (2026-08-21). Cuántos
+          pedidos van del tope contratado es información de facturación: la
+          mira quien paga la cuenta, no quien lleva los platos. */}
+      {expandido && rol !== "mozo" && <ContadorHits />}
       <div className={`border-t border-white/10 py-4 text-sm ${expandido ? "px-4" : "px-2"}`}>
         <div className={`flex items-center gap-2.5 ${expandido ? "" : "justify-center"}`}>
           <span

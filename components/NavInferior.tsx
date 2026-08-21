@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCapacidades } from "@/lib/modo-negocio";
 import { SECCIONES } from "@/components/panel/Sidebar";
+import { rolEnEmpresaActiva } from "@/lib/auth";
 import { seccionesDe, rapidosDe } from "@/lib/secciones";
 import { esSuperAdmin } from "@/lib/auth";
 import {
@@ -33,8 +34,10 @@ export function NavInferior() {
   // entrada y alargarlo después es el parpadeo más molesto de los dos.
   const negocio = useCapacidades();
   const caps = negocio?.capacidades ?? null;
-  const rapidos = caps ? rapidosDe(SECCIONES, caps) : SECCIONES.filter((s) => s.rapido !== undefined).slice(0, 4);
-  const todas = caps ? seccionesDe(SECCIONES, caps) : SECCIONES;
+  // El rol filtra encima de las capacidades: un mozo no ve Inicio ni Ajustes.
+  const rol = rolEnEmpresaActiva();
+  const rapidos = caps ? rapidosDe(SECCIONES, caps, rol) : SECCIONES.filter((s) => s.rapido !== undefined).slice(0, 4);
+  const todas = caps ? seccionesDe(SECCIONES, caps, rol) : SECCIONES;
 
   return (
     <>

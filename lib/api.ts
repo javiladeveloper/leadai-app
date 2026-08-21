@@ -899,6 +899,38 @@ export async function quitarMiembro(usuarioId: string): Promise<{ ok: boolean; e
   catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo quitar" }; }
 }
 
+/**
+ * QUÉ DICE ESTA INVITACIÓN, sin necesidad de tener cuenta (2026-08-21).
+ *
+ * Quien abre el link del correo puede no estar registrado —el caso normal de
+ * un mozo—, así que esta consulta va SIN sesión. El backend devuelve lo
+ * mínimo: a qué negocio, con qué rol y para qué correo.
+ *
+ * El correo importa: la invitación SOLO la acepta ese, y descubrirlo después
+ * de crear la cuenta con otro es la peor forma de enterarse.
+ */
+export interface InvitacionAbierta {
+  negocio: string;
+  rol: RolMiembro;
+  email: string;
+}
+
+export async function mirarInvitacion(
+  token: string,
+): Promise<{ ok: true; datos: InvitacionAbierta } | { ok: false; error: string }> {
+  try {
+    const r = await api<InvitacionAbierta>(`/equipo/invitacion/${encodeURIComponent(token)}`, {
+      // Sin sesión ni empresa: es el punto de entrada de alguien que todavía
+      // no tiene cuenta, y menos aún una empresa activa.
+      conAuth: false,
+      conEmpresa: false,
+    });
+    return { ok: true, datos: r };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No pudimos leer la invitación" };
+  }
+}
+
 export async function aceptarInvitacion(token: string): Promise<{ ok: boolean; tenantId?: string; error?: string }> {
   try {
     const r = await api<{ ok: boolean; tenantId: string }>("/equipo/aceptar", { method: "POST", body: { token } });

@@ -42,6 +42,12 @@ export default function Login() {
     // Con 2+ negocios, el panel abre en la VISTA GLOBAL (decisión 2026-07-22:
     // la separación por negocio la dan los filtros; /global fija el modo
     // global solo al montar). Con un solo negocio, directo a su Inicio.
+    // UN MOZO NO PUEDE VER /inicio NI /global (2026-08-21): el backend se lo
+    // bloquea con 403 y quedaría mirando un error apenas entra. Su casa es la
+    // cocina, que es lo único que hace.
+    if (sesion?.empresas.every((e) => e.rol === "mozo") && sesion.empresas.length > 0) {
+      return "/cocina";
+    }
     if (sesion && sesion.empresas.length > 1) return "/global";
     if (sesion && sesion.empresas.length > 0) return "/inicio";
     // Super admin sin negocio → panel de plataforma (no lo forzamos a crear un

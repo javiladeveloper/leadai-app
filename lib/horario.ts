@@ -47,6 +47,13 @@ export interface ConfigHorario {
   aceptaReservas: boolean;
   /** ¿Tiene local físico? Sin local no hay mesas que reservar (2026-08-20). */
   tieneLocal: boolean;
+  /**
+   * Las mesas del local (2026-08-21): [{ sala, mesas: [] }].
+   *
+   * Vacío = solo mostrador. El pedido en local se puede tomar igual; lo que
+   * no aparece es el selector de mesa, que sin mesas cargadas solo confunde.
+   */
+  salas: { sala: string; mesas: string[] }[];
 }
 
 /** Los días como los ve el dueño, en el orden de la semana peruana. */
@@ -82,6 +89,9 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       minutosPorPedido: r.config.minutosPorPedido ?? 20,
       aceptaReservas: r.config.aceptaReservas ?? true,
       tieneLocal: r.config.tieneLocal ?? true,
+      // Un backend viejo no manda `salas`: se cae a vacío, que es "solo
+      // mostrador" — el estado correcto para quien nunca las configuró.
+      salas: r.config.salas ?? [],
     };
   } catch {
     return null;

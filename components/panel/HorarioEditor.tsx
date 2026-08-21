@@ -259,13 +259,17 @@ export function HorarioEditor() {
           {/* Anidada: margen y línea a la izquierda para que se lea "dentro
               de" la respuesta anterior, no como otra pregunta del mismo nivel. */}
           {cfg.tieneLocal && (
-            <div className="surge ml-3 border-l-2 border-linea pl-3">
+            <div className="surge ml-3 space-y-2 border-l-2 border-linea pl-3">
               <Interruptor
                 titulo="Acepto reservas de mesa"
                 ayuda="El bot le ofrece reservar mesa a quien te escribe."
                 activo={cfg.aceptaReservas}
                 onCambiar={(v) => aplicar({ aceptaReservas: v })}
               />
+              {/* LAS MESAS (2026-08-21). Van acá dentro y no en su propia
+                  sección: sin local físico no existen, y quien acaba de decir
+                  que tiene local es exactamente quien las va a cargar. */}
+              <EditorSalas salas={cfg.salas} onCambiar={(salas) => aplicar({ salas })} />
             </div>
           )}
         </div>
@@ -414,5 +418,155 @@ function Interruptor({
         />
       </span>
     </label>
+  );
+}
+
+/** Un ambiente del local con sus mesas. Espejo de `Tenant.salas`. */
+type SalaLocal = { sala: string; mesas: string[] };
+
+/**
+ * LAS MESAS DEL LOCAL (2026-08-21).
+ *
+ * El backend ya guardaba `salas`, pero no había dónde cargarlas: el selector
+ * de mesa al tomar un pedido nunca aparecía.
+ *
+ * DISEÑO: un restaurante chico tiene una sala y ocho mesas, y las carga una
+ * vez. Por eso no hay pantalla aparte ni plano del salón — se escriben los
+ * números y listo. Las salas ("Terraza", "Segundo piso") existen porque un
+ * local con dos ambientes numera desde 1 en cada uno.
+ *
+ * Las mesas son TEXTO, no números: "T1", "Barra 2" y "12" conviven sin que
+ * nadie tenga que explicar por qué.
+ */
+function EditorSalas({
+  salas, onCambiar,
+}: { salas: SalaLocal[]; onCambiar: (s: SalaLocal[]) => void }) {
+  const [nuevaMesa, setNuevaMesa] = useState<Record<number, string>>({});
+  // El nombre del ambiente se edita en local y se guarda al salir del campo:
+  // guardar en cada tecla mandaría un PATCH por letra.
+  const [nombres, setNombres] = useState<Record<number, string>>({});
+
+  function agregarSala() {
+    // La primera sala se llama "Salón" y no "Sala 1": la mayoría tiene una
+    // sola y nunca va a haber una segunda que justifique el número.
+    const nombre = salas.length === 0 ? "Salón" : `Sala ${salas.length + 1}`;
+    onCambiar([...salas, { sala: nombre, mesas: [] }]);
+  }
+
+  /** Guarda el nombre editado. Si quedó vacío, se mantiene el anterior: un
+   *  ambiente sin nombre no se puede elegir al tomar el pedido. */
+  function confirmarNombre(i: number) {
+    const escrito = (nombres[i] ?? "").trim();
+    setNombres((n) => { const c = { ...n }; delete c[i]; return c; });
+    if (!escrito || escrito === salas[i].sala) return;
+    onCambiar(salas.map((s, j) => (j === i ? { ...s, sala: escrito } : s)));
+  }
+
+  function quitarSala(i: number) {
+    onCambiar(salas.filter((_, j) => j !== i));
+  }
+
+  function agregarMesa(i: number) {
+    const valor = (nuevaMesa[i] ?? "").trim();
+    if (!valor) return;
+    // Una mesa repetida en la misma sala haría que dos pedidos distintos
+    // parezcan del mismo lugar.
+    if (salas[i].mesas.includes(valor)) {
+      setNuevaMesa((n) => ({ ...n, [i]: "" }));
+      return;
+    }
+    onCambiar(salas.map((s, j) => (j === i ? { ...s, mesas: [...s.mesas, valor] } : s)));
+    setNuevaMesa((n) => ({ ...n, [i]: "" }));
+  }
+
+  function quitarMesa(i: number, mesa: string) {
+    onCambiar(salas.map((s, j) => (j === i ? { ...s, mesas: s.mesas.filter((m) => m !== mesa) } : s)));
+  }
+
+  return (
+    <div className="rounded-tarjeta bg-arena/50 p-4">
+      <p className="font-bold text-tinta">Mis mesas</p>
+      <p className="mt-0.5 text-[0.84rem] leading-snug text-frio">
+        Para poder anotar en qué mesa come cada pedido. Si atendés solo en
+        mostrador, dejalo vacío.
+      </p>
+
+      <div className="mt-3 space-y-3">
+        {salas.map((s, i) => (
+          <div key={i} className="surge rounded-tarjeta bg-carta p-3 ring-1 ring-linea">
+            <div className="flex items-center gap-2">
+              <input
+                value={nombres[i] ?? s.sala}
+                onChange={(e) => setNombres((n) => ({ ...n, [i]: e.target.value }))}
+                onBlur={() => confirmarNombre(i)}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                placeholder="Nombre del ambiente"
+                className="min-w-0 flex-1 rounded-chip border border-linea bg-arena/30 px-2.5 py-1 text-[0.88rem] font-semibold text-tinta outline-none focus:border-brasa"
+              />
+              <button
+                type="button"
+                onClick={() => quitarSala(i)}
+                className="shrink-0 rounded-chip px-2 py-1 text-[0.78rem] text-frio transition hover:bg-alerta-suave hover:text-alerta"
+              >
+                Quitar
+              </button>
+            </div>
+
+            {/* Las mesas como chips: se ven todas de un vistazo y se quitan
+                con un toque, que es todo lo que se hace con ellas. */}
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {s.mesas.map((m) => (
+                <span
+                  key={m}
+                  className="fila-entra inline-flex items-center gap-1 rounded-chip bg-brasa-suave px-2 py-1 text-[0.8rem] font-semibold text-brasa-texto"
+                >
+                  {m}
+                  <button
+                    type="button"
+                    onClick={() => quitarMesa(i, m)}
+                    aria-label={`Quitar la mesa ${m}`}
+                    className="text-brasa-texto/60 transition hover:text-alerta"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {s.mesas.length === 0 && (
+                <span className="text-[0.8rem] text-frio/70">Sin mesas todavía</span>
+              )}
+            </div>
+
+            <div className="mt-2 flex items-center gap-1.5">
+              <input
+                value={nuevaMesa[i] ?? ""}
+                onChange={(e) => setNuevaMesa((n) => ({ ...n, [i]: e.target.value }))}
+                // Enter agrega y deja el foco: se cargan ocho mesas seguidas
+                // sin soltar el teclado.
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); agregarMesa(i); } }}
+                placeholder="N.° o nombre"
+                maxLength={20}
+                className="w-32 rounded-chip border border-linea bg-arena/30 px-2.5 py-1 text-[0.85rem] text-tinta outline-none focus:border-brasa"
+              />
+              <button
+                type="button"
+                onClick={() => agregarMesa(i)}
+                disabled={!(nuevaMesa[i] ?? "").trim()}
+                className="rounded-chip bg-arena px-2.5 py-1 text-[0.8rem] font-semibold text-tinta-2 transition hover:bg-arena-2 disabled:opacity-40"
+              >
+                Agregar
+              </button>
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={agregarSala}
+          className="w-full rounded-tarjeta border border-dashed border-linea py-2 text-[0.85rem] font-semibold text-frio transition hover:border-brasa hover:text-brasa-texto"
+        >
+          {salas.length === 0 ? "+ Cargar mis mesas" : "+ Otro ambiente"}
+        </button>
+      </div>
+    </div>
   );
 }

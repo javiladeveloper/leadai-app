@@ -209,10 +209,15 @@ export default function CocinaPage() {
                       {col.vacia}
                     </p>
                   )}
-                  {suyos.map((p) => (
+                  {suyos.map((p, i) => (
                     <TarjetaPedido
                       key={p.id}
                       pedido={p}
+                      // LAS PRIMERAS RESPIRAN, LAS DE ABAJO SE APRIETAN
+                      // (2026-08-21, pregunta de Jonathan: "¿qué pasa si tengo
+                      // 5 o 6 pedidos al mismo tiempo?"). Antes entraban 4 y el
+                      // resto quedaba fuera de vista. Ver COMPLETAS_ARRIBA.
+                      compacta={i >= COMPLETAS_ARRIBA}
                       avanzando={avanzando === p.id}
                       onAvanzar={() => avanzar(p)}
                     />
@@ -227,18 +232,53 @@ export default function CocinaPage() {
   );
 }
 
+/**
+ * Cuántas tarjetas van completas arriba de cada columna.
+ *
+ * Medido en pantalla: una completa va de 155 a 206px según cuántos datos
+ * traiga, una compacta son 97px fijos, y la columna da ~722.
+ *
+ * Con DOS completas arriba (unos 340px) sobran ~380 para cuatro compactas:
+ * seis pedidos a la vista sin scrollear, contra los cuatro de antes. Con tres
+ * completas la cuenta no cerraba —465 + 4×97 pasa de 722— y volvía a scrollear
+ * justo en el caso que esto viene a resolver.
+ *
+ * Las dos de arriba son las que más esperaron (la lista va por antigüedad), o
+ * sea las próximas a despacharse: esas conservan dirección y referencia.
+ */
+const COMPLETAS_ARRIBA = 2;
+
 function TarjetaPedido({
-  pedido, avanzando, onAvanzar,
-}: { pedido: PedidoCocina; avanzando: boolean; onAvanzar: () => void }) {
+  pedido, compacta, avanzando, onAvanzar,
+}: {
+  pedido: PedidoCocina;
+  compacta: boolean;
+  avanzando: boolean;
+  onAvanzar: () => void;
+}) {
   const paso = siguientePaso(pedido);
   const minutos = minutosDesde(pedido.creadoEn);
   const nivel = nivelEspera(pedido);
   const urgente = nivel === "urgente";
   const nuevo = esRecienLlegado(pedido);
 
+  // Una tarjeta compacta se ABRE al pasar el mouse o al enfocarla con el
+  // teclado: el detalle no se pierde, se pide. `group` deja que los hijos
+  // reaccionen a ese estado sin JS ni un `useState` por tarjeta.
+  //
+  // Lo urgente TAMBIÉN se compacta. Primero se probó exceptuarlo y salió mal:
+  // en una cocina cargada media columna pasa los 25 minutos, así que la
+  // excepción anulaba la compactación justo cuando más se necesita. La
+  // urgencia se marca con el BORDE que respira —se ve igual de lejos y no
+  // cuesta alto— y el detalle queda a un hover de distancia.
+  const apretada = compacta;
+
   return (
     <article
-      className={`fila-entra rounded-tarjeta bg-carta p-3 shadow-[var(--sombra-tarjeta)] transition-shadow ${
+      tabIndex={0}
+      className={`group fila-entra rounded-tarjeta bg-carta shadow-[var(--sombra-tarjeta)] transition-all ${
+        apretada ? "p-2.5" : "p-3"
+      } ${
         // El borde de lo urgente RESPIRA: uno fijo se vuelve invisible a los
         // veinte minutos mirando la misma pantalla. El escalón intermedio
         // (`atencion`) marca sin gritar: avisa que se viene, no que ya pasó.
@@ -250,8 +290,31 @@ function TarjetaPedido({
       } ${nuevo ? "recien-llegado" : ""}`}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
-          {pedido.modalidad === "delivery" ? "🛵 Delivery" : "🥡 Recojo"}
+        {/* Apretada: solo el emoji, y el primer ítem se sube a esta misma
+            línea. La palabra "DELIVERY" completa cuesta una línea entera y el
+            ícono ya lo dice. */}
+        <span className="min-w-0 truncate text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+          {apretada ? (
+            <>
+              <span aria-hidden>{pedido.modalidad === "delivery" ? "🛵" : "🥡"}</span>
+              <span className="sr-only">
+                {pedido.modalidad === "delivery" ? "Delivery" : "Recojo"}
+              </span>
+              {pedido.items?.[0] && (
+                <span className="ml-1 normal-case tracking-normal text-tinta">
+                  <b className="tabular-nums">{pedido.items[0].cantidad}×</b>{" "}
+                  {pedido.items[0].nombre}
+                  {pedido.items.length > 1 && (
+                    <span className="text-frio"> +{pedido.items.length - 1}</span>
+                  )}
+                </span>
+              )}
+            </>
+          ) : pedido.modalidad === "delivery" ? (
+            "🛵 Delivery"
+          ) : (
+            "🥡 Recojo"
+          )}
         </span>
         {/* El TIEMPO en grande: es el dato que decide a qué se atiende primero,
             y el que se lee desde lejos. Pasada la hora se escribe "11 h 47" —
@@ -267,8 +330,19 @@ function TarjetaPedido({
       </div>
 
       {pedido.items && pedido.items.length > 0 && (
-        <ul className="mt-1.5 space-y-0.5">
-          {pedido.items.map((it, i) => (
+        <ul
+          className={`space-y-0.5 ${
+            // Apretada: la lista completa vive escondida y se despliega al
+            // pasar el mouse o enfocar — el primer ítem ya se ve arriba.
+            apretada
+              ? "mt-0 max-h-0 overflow-hidden opacity-0 transition-all group-hover:mt-1.5 group-hover:max-h-40 group-hover:opacity-100 group-focus-within:mt-1.5 group-focus-within:max-h-40 group-focus-within:opacity-100"
+              : "mt-1.5"
+          }`}
+        >
+          {/* Apretada: se saltea el PRIMER ítem, que ya está en la cabecera.
+              Repetirlo al abrir la tarjeta lo hacía ver como si el pedido
+              tuviera dos veces el mismo plato. */}
+          {(apretada ? pedido.items.slice(1) : pedido.items).map((it, i) => (
             <li key={i} className="text-[0.88rem] leading-snug text-tinta">
               <b className="tabular-nums">{it.cantidad}×</b> {it.nombre}
             </li>
@@ -276,22 +350,42 @@ function TarjetaPedido({
         </ul>
       )}
 
-      {pedido.direccion && (
-        <p className="mt-1.5 line-clamp-2 text-[0.78rem] text-frio">📍 {pedido.direccion}</p>
-      )}
-      {/* La REFERENCIA del cliente (2026-08-20): "casa del fondo", "portón
-          verde". Se muestra aparte y no pegada a la dirección para que se lea
-          como lo que es — una indicación de quien vive ahí, no parte del
-          domicilio. */}
-      {pedido.referencia && (
-        <p className="mt-0.5 line-clamp-2 text-[0.78rem] text-tinta-2">💬 {pedido.referencia}</p>
-      )}
-      {pedido.notas && (
-        <p className="mt-1 rounded bg-arena px-2 py-1 text-[0.78rem] text-tinta-2">{pedido.notas}</p>
+      {/* DIRECCIÓN, REFERENCIA Y NOTAS van juntas: son el "detalle" que la
+          tarjeta apretada guarda y devuelve al pasar el mouse o enfocarla.
+          Se envuelven en un solo contenedor para que abran como un bloque y
+          no escalonadas una por una. */}
+      {(pedido.direccion || pedido.referencia || pedido.notas) && (
+        <div
+          className={
+            apretada
+              ? "max-h-0 overflow-hidden opacity-0 transition-all group-hover:max-h-40 group-hover:opacity-100 group-focus-within:max-h-40 group-focus-within:opacity-100"
+              : ""
+          }
+        >
+          {pedido.direccion && (
+            <p className="mt-1.5 line-clamp-2 text-[0.78rem] text-frio">📍 {pedido.direccion}</p>
+          )}
+          {/* La REFERENCIA del cliente (2026-08-20): "casa del fondo", "portón
+              verde". Se muestra aparte y no pegada a la dirección para que se
+              lea como lo que es — una indicación de quien vive ahí, no parte
+              del domicilio. */}
+          {pedido.referencia && (
+            <p className="mt-0.5 line-clamp-2 text-[0.78rem] text-tinta-2">💬 {pedido.referencia}</p>
+          )}
+          {pedido.notas && (
+            <p className="mt-1 rounded bg-arena px-2 py-1 text-[0.78rem] text-tinta-2">
+              {pedido.notas}
+            </p>
+          )}
+        </div>
       )}
 
-      <div className="mt-2.5 flex items-center justify-between gap-2">
-        <span className="text-[0.9rem] font-bold tabular-nums text-tinta">
+      <div className={`flex items-center justify-between gap-2 ${apretada ? "mt-1.5" : "mt-2.5"}`}>
+        <span
+          className={`shrink-0 font-bold tabular-nums text-tinta ${
+            apretada ? "text-[0.82rem]" : "text-[0.9rem]"
+          }`}
+        >
           {soles(pedido.totalCentavos)}
         </span>
         {paso && (
@@ -301,7 +395,12 @@ function TarjetaPedido({
             disabled={avanzando}
             // En una cocina se toca con las manos ocupadas y a veces mojadas:
             // el botón se estira a lo que sobra en vez de quedar chiquito.
-            className="flex-1 rounded-chip bg-brasa px-3 py-2 text-[0.82rem] font-bold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-50"
+            // `whitespace-nowrap`: sin esto "Empezar a preparar" se parte en
+            // dos líneas cuando la tarjeta se aprieta, y un botón de dos
+            // renglones se ve peor que la tarjeta grande que quisimos evitar.
+            className={`flex-1 whitespace-nowrap rounded-chip bg-brasa font-bold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-50 ${
+              apretada ? "px-2 py-1.5 text-[0.76rem]" : "px-3 py-2 text-[0.82rem]"
+            }`}
           >
             {avanzando ? "…" : paso.etiqueta}
           </button>

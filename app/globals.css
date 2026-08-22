@@ -475,6 +475,44 @@ button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
 }
 .aterriza { animation: aterrizar 420ms var(--curva-entrada, ease-out); }
 
+/* TODO BOTÓN CONFIRMA EL TOQUE (2026-08-22).
+   De 92 botones del panel, solo 22 tenían `active:scale`. El resto no
+   respondía: en un celular, tocar y que nada se mueva se siente como que no
+   funcionó — y la gente toca dos veces, que en un botón que cobra es peor.
+
+   Va en el CSS y no en cada `className` a propósito: setenta ediciones son
+   setenta oportunidades de olvidarse, y cada botón nuevo nacería sin
+   feedback. Acá lo hereda todo lo que sea `button`.
+
+   `:not(:disabled)` — un botón apagado que se hunde miente: dice que algo
+   pasó cuando no pasó nada. */
+button:not(:disabled):active {
+  transform: scale(0.98);
+}
+button {
+  transition: transform 90ms var(--curva-salida, ease-out),
+              background-color var(--t-rapido, 140ms) ease-out,
+              box-shadow var(--t-rapido, 140ms) ease-out;
+}
+/* Las tarjetas y filas que son botones ya traen su propio `active:scale` más
+   sutil; el genérico no debe pisarlo. */
+button[class*="active:scale"]:active {
+  transform: none;
+}
+
+/* CAMBIAR DE PANTALLA (2026-08-22).
+   Antes el contenido se cortaba y aparecía otro de golpe: el panel se sentía
+   a saltos, como si cada sección fuera una aplicación distinta. Esto es
+   deliberadamente CORTO y sutil —160ms, 6px— porque una transición que se
+   nota es una transición que estorba a la quinta vez. */
+@keyframes pantalla-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.pantalla-entra {
+  animation: pantalla-entra 160ms var(--curva-entrada, ease-out) backwards;
+}
+
 /* EL SKELETON, más lento que el default de Tailwind. Un pulso rápido parece
    un error; uno lento parece que está trabajando. */
 .animate-pulse { animation-duration: 1.6s; }
@@ -483,6 +521,13 @@ button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
+  }
+  /* El hundido del botón se va del todo (2026-08-22): con la transición en
+     0.001ms el escalado igual OCURRE, solo que de golpe — que es justo el
+     tipo de salto que molesta a quien pidió menos movimiento. El feedback
+     del toque lo sigue dando el cambio de color, que no se toca. */
+  button:not(:disabled):active {
+    transform: none !important;
   }
 }
 

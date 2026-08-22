@@ -154,7 +154,7 @@ export default function InicioPanel() {
           {resumen.calientesSinAtender > 0 && (
             <Link
               href="/leads"
-              className="flex items-center gap-4 rounded-tarjeta bg-calor px-5 py-4 text-carta shadow-[0_8px_24px_rgba(179,92,0,0.3)] transition active:scale-[0.99]"
+              className="sube flex items-center gap-4 rounded-tarjeta bg-calor px-5 py-4 text-carta shadow-[0_8px_24px_rgba(179,92,0,0.3)] transition hover:shadow-[0_10px_28px_rgba(179,92,0,0.38)] active:scale-[0.99]"
             >
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-carta/20">
                 <IconoRayo className="h-6 w-6" />
@@ -171,16 +171,20 @@ export default function InicioPanel() {
           )}
 
           {/* Métricas: etiqueta arriba, número grande abajo (estilo Stitch) */}
+          {/* Las tarjetas ENTRAN escalonadas (2026-08-22). Inicio era la
+              única pantalla del panel sin una sola animación: todo aparecía
+              de golpe, y después de venir de Carta o Cocina se sentía como
+              otra aplicación. `entra` ya reparte el delay por posición. */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+            <div className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
               <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">Leads activos</p>
               <p className="mt-2 text-[2.3rem] font-bold leading-none text-tinta">{resumen.leadsActivos}</p>
             </div>
-            <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+            <div className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
               <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">Calientes 🔥</p>
               <p className="mt-2 text-[2.3rem] font-bold leading-none text-calor">{resumen.calientesSinAtender}</p>
             </div>
-            <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+            <div className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
               <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">Ventas cerradas ✓</p>
               <p className="mt-2 text-[2.3rem] font-bold leading-none text-ok">{resumen.ventasCerradas}</p>
             </div>
@@ -194,7 +198,7 @@ export default function InicioPanel() {
                 <Link
                   key={a.href}
                   href={a.href}
-                  className="flex flex-col items-center gap-2.5 rounded-tarjeta bg-carta px-3 py-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
+                  className="entra flex flex-col items-center gap-2.5 rounded-tarjeta bg-carta px-3 py-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(51,40,31,0.10)] hover:ring-brasa/40 active:scale-[0.98]"
                 >
                   <span className="grid h-11 w-11 place-items-center rounded-xl bg-arena text-tinta">
                     <a.Icono className="h-5 w-5" />

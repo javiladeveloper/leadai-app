@@ -91,7 +91,10 @@ export function InicioRestaurante() {
   return (
     <div className="space-y-5">
       {/* LO VENDIDO HOY: es la pregunta con la que el dueño abre el panel. */}
-      <section className="rounded-tarjeta bg-superficie-honda p-5 text-arena shadow-[var(--sombra-tarjeta)] lg:p-6">
+      {/* Las secciones ENTRAN escalonadas (2026-08-22): esta pantalla es la
+          primera que el dueño ve cada día y aparecía toda de golpe. `entra`
+          reparte el delay por posición. */}
+      <section className="entra rounded-tarjeta bg-superficie-honda p-5 text-arena shadow-[var(--sombra-tarjeta)] lg:p-6">
         <p className="text-[0.68rem] font-bold uppercase tracking-wide text-orbita">Hoy</p>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
           {/* LO VENDIDO SUBE, no salta (2026-08-19). Es el primer número que
@@ -132,7 +135,7 @@ export function InicioRestaurante() {
       </section>
 
       {/* LA COCINA AHORA: lo único que exige que el dueño haga algo ya. */}
-      <section className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
+      <section className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-[1.02rem] font-bold text-tinta">En este momento</h2>
           {enCurso > 0 && (
@@ -165,7 +168,7 @@ export function InicioRestaurante() {
 
       {/* EL LINK: es el producto de todo esto. Sin compartirlo no entra nada. */}
       {enlace && (
-        <section className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
+        <section className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
           <h2 className="text-[1.02rem] font-bold text-tinta">Tu carta</h2>
           <p className="mt-0.5 text-[0.84rem] text-frio">
             Comparte este link por WhatsApp, Instagram o donde vendas.

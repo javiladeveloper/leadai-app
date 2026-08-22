@@ -123,12 +123,12 @@ function ReportesPanel() {
                 <p className="text-[0.8rem] text-carta/70">Por cobrar</p>
                 <p className="mt-1 text-[2rem] font-bold leading-none">{soles(rep.comisiones.porCobrar)}</p>
               </div>
-              <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
                 <p className="text-[0.8rem] text-frio">Tasa de cierre</p>
                 <p className="mt-1 text-[2rem] font-bold leading-none text-tinta">{Math.round(rep.cierre.tasa * 100)}%</p>
                 <p className="mt-1 text-[0.72rem] text-frio">{rep.cierre.ganados} ganados · {rep.cierre.perdidos} perdidos</p>
               </div>
-              <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
                 <p className="text-[0.8rem] text-frio">En juego</p>
                 <p className="mt-1 text-[2rem] font-bold leading-none text-tinta">{rep.cierre.enJuego}</p>
                 <p className="mt-1 text-[0.72rem] text-frio">leads sin cerrar</p>
@@ -141,7 +141,7 @@ function ReportesPanel() {
               está arriba; esto responde "por qué no gané más", que es lo que
               el dueño puede accionar hoy. */}
           {rep && rep.embudo?.length > 0 && rep.embudo[0].quedan > 0 && (
-            <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+            <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
               <div className="mb-1 flex items-baseline justify-between gap-3">
                 <p className="text-[0.85rem] font-bold uppercase tracking-wide text-frio">Dónde se te caen las ventas</p>
                 {(() => {
@@ -199,7 +199,7 @@ function ReportesPanel() {
           {/* Evolución mensual + leads por nivel */}
           {rep && (
             <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-              <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
                 <p className="mb-3 text-[0.85rem] font-bold uppercase tracking-wide text-frio">Comisiones por mes</p>
                 <div className="flex items-end justify-between gap-2" style={{ height: 140 }}>
                   {rep.evolucion.map((e) => (
@@ -216,7 +216,7 @@ function ReportesPanel() {
                   ))}
                 </div>
               </div>
-              <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
                 <p className="mb-3 text-[0.85rem] font-bold uppercase tracking-wide text-frio">Leads por nivel</p>
                 <div className="space-y-2.5">
                   {["caliente", "tibio", "frio"].map((k) => (
@@ -232,7 +232,7 @@ function ReportesPanel() {
 
           {/* De dónde vienen los leads (origen: ads, comentarios, directo) */}
           {rep && rep.leadsPorOrigen && Object.keys(rep.leadsPorOrigen).length > 0 && (
-            <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+            <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
               <p className="mb-3 text-[0.85rem] font-bold uppercase tracking-wide text-frio">De dónde vienen tus leads</p>
               <div className="space-y-2">
                 {Object.entries(rep.leadsPorOrigen)
@@ -256,7 +256,7 @@ function ReportesPanel() {
 
           {/* Resumen global: comisiones por negocio (solo si tiene varios) */}
           {mostrarGlobal && global && (
-            <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+            <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
               <div className="mb-3 flex items-baseline justify-between gap-2">
                 <p className="text-[0.85rem] font-bold uppercase tracking-wide text-frio">Tus comisiones por negocio</p>
                 <p className="text-right text-[0.8rem] text-frio">

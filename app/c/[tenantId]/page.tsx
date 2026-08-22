@@ -1704,6 +1704,17 @@ function PedidoEnChat({ whatsapp, estiloTema }: { whatsapp: string | null; estil
     return () => { clearTimeout(cerrar); clearTimeout(revisar); };
   }, []);
 
+  // Si cerrar no funcionó, DE VUELTA AL CHAT SOLO (2026-08-21, Jonathan:
+  // "cuando termino debe redireccionarme al WhatsApp donde estaba"). El wa.me
+  // sin texto abre la conversación que ya existe — el bot ya escribió ahí.
+  // La pantalla queda visible mientras navega, y el botón como último recurso
+  // si el navegador bloquea también esto.
+  useEffect(() => {
+    if (!sigueAbierta || !whatsapp) return;
+    const t = setTimeout(() => { window.location.href = `https://wa.me/${whatsapp}`; }, 700);
+    return () => clearTimeout(t);
+  }, [sigueAbierta, whatsapp]);
+
   // Todavía intentando cerrar: nada en pantalla, solo el fondo del negocio.
   if (!sigueAbierta) {
     return <main className="min-h-dvh bg-arena" style={estiloTema} />;
@@ -1716,7 +1727,7 @@ function PedidoEnChat({ whatsapp, estiloTema }: { whatsapp: string | null; estil
       <div className="text-[3rem]">✅</div>
       <h1 className="text-[1.5rem] font-bold text-tinta">¡Pedido enviado!</h1>
       <p className="text-tinta-2">
-        Te escribimos por WhatsApp con el detalle. Vuelve al chat para seguir 🙌
+        Te escribimos por WhatsApp con el detalle. Te llevamos de vuelta al chat… 🙌
       </p>
       {whatsapp && (
         <a

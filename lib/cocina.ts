@@ -211,6 +211,26 @@ export async function listarPedidos(): Promise<PedidoCocina[]> {
   }
 }
 
+/**
+ * Edita los ITEMS de un pedido — incluso ya pagado (2026-08-21). El backend
+ * resuelve la plata: si el total sube, el bot le pide la diferencia al
+ * cliente por WhatsApp; si baja, avisa el vuelto. `aviso` dice cuál fue.
+ */
+export async function editarItemsPedido(
+  id: string,
+  items: { nombre: string; cantidad: number; precioCentavos: number; nota?: string }[],
+): Promise<{ ok: boolean; error?: string; aviso?: string; diferenciaCentavos?: number }> {
+  try {
+    const r = await api<{ ok: true; aviso: string; diferenciaCentavos: number }>(
+      `/pedidos/${id}/items`,
+      { method: "PATCH", body: { items } },
+    );
+    return { ok: true, aviso: r.aviso, diferenciaCentavos: r.diferenciaCentavos };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo editar el pedido" };
+  }
+}
+
 export async function avanzarPedido(id: string, estado: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await api(`/pedidos/${id}/estado`, { method: "PATCH", body: { estado } });

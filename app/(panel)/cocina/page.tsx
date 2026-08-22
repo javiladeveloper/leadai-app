@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  listarPedidos, avanzarPedido, siguientePaso, minutosDesde, esUrgente,
+  listarPedidos, avanzarPedido, editarItemsPedido, siguientePaso, minutosDesde, esUrgente,
   esRecienLlegado, nivelEspera, esperaLegible, validacionDe, motivoLegible,
   puedeSoltarseEn, COLUMNAS, type PedidoCocina, type ValidacionPago,
 } from "@/lib/cocina";
@@ -33,6 +33,9 @@ export default function CocinaPage() {
   // el diálogo sigue el dato fresco de cada refresco en vez de congelar una
   // copia vieja mientras está abierto.
   const [viendoPago, setViendoPago] = useState<string | null>(null);
+  // Qué pedido se está EDITANDO (2026-08-21): agregar/quitar items incluso ya
+  // pagado — el backend cobra la diferencia o avisa el vuelto.
+  const [editando, setEditando] = useState<string | null>(null);
   // Qué tarjeta se está arrastrando. Guarda el ID: con él las columnas saben
   // si pueden recibirla y se pintan en consecuencia ANTES de que el dueño
   // llegue con el mouse — enterarse antes es mejor que soltar y que no pase.
@@ -277,6 +280,7 @@ export default function CocinaPage() {
                       arrastrando={arrastrando === p.id}
                       aterrizo={aterrizo === p.id}
                       onArrastrar={setArrastrando}
+                      onEditar={() => setEditando(p.id)}
                     />
                   ))}
                 </div>
@@ -300,6 +304,17 @@ export default function CocinaPage() {
         const p = pedidos.find((x) => x.id === viendoPago);
         return p ? <DialogoPago pedido={p} onCerrar={() => setViendoPago(null)} /> : null;
       })()}
+
+      {editando && (() => {
+        const p = pedidos.find((x) => x.id === editando);
+        return p ? (
+          <DialogoEditar
+            pedido={p}
+            onCerrar={() => setEditando(null)}
+            onGuardado={() => { setEditando(null); void traer(); }}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
@@ -322,7 +337,7 @@ const COMPLETAS_ARRIBA = 2;
 
 function TarjetaPedido({
   pedido, compacta, avanzando, onAvanzar, onVerPago,
-  arrastrando, aterrizo, onArrastrar,
+  arrastrando, aterrizo, onArrastrar, onEditar,
 }: {
   pedido: PedidoCocina;
   compacta: boolean;
@@ -332,6 +347,7 @@ function TarjetaPedido({
   arrastrando?: boolean;
   aterrizo?: boolean;
   onArrastrar?: (id: string | null) => void;
+  onEditar?: () => void;
 }) {
   const validacion = validacionDe(pedido);
   const paso = siguientePaso(pedido);
@@ -522,12 +538,29 @@ function TarjetaPedido({
       )}
 
       <div className={`flex items-center justify-between gap-2 ${apretada ? "mt-1.5" : "mt-2.5"}`}>
-        <span
-          className={`shrink-0 font-bold tabular-nums text-tinta ${
-            apretada ? "text-[0.82rem]" : "text-[0.9rem]"
-          }`}
-        >
-          {soles(pedido.totalCentavos)}
+        <span className="flex shrink-0 items-center gap-1">
+          <span
+            className={`font-bold tabular-nums text-tinta ${
+              apretada ? "text-[0.82rem]" : "text-[0.9rem]"
+            }`}
+          >
+            {soles(pedido.totalCentavos)}
+          </span>
+          {/* EDITAR EL PEDIDO (2026-08-21): el cliente escribió "agrégame un
+              arroz" después de pagar y el push ya te lo contó — este lápiz es
+              el botón para actuar. Solo mientras está en cocina: listo o en
+              moto ya no cambia lo cocinado. */}
+          {onEditar && (pedido.estado === "pagado" || pedido.estado === "preparando") && (
+            <button
+              type="button"
+              onClick={onEditar}
+              title="Editar el pedido (agregar o quitar items)"
+              aria-label="Editar el pedido"
+              className="rounded px-1 text-[0.8rem] text-frio/60 transition hover:bg-arena hover:text-tinta"
+            >
+              ✏️
+            </button>
+          )}
         </span>
         {paso && (
           <button
@@ -728,6 +761,168 @@ function DialogoPago({
           Cotejá el número de operación con tu app antes de empezar a preparar.
           Al tocar <b>Empezar a preparar</b> el pago queda confirmado por vos.
         </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * EDITAR UN PEDIDO YA PAGADO (2026-08-21).
+ *
+ * El caso: el cliente pagó y escribe "agrégame un arroz". El bot escala ese
+ * mensaje por push; acá el dueño lo resuelve — agrega, quita o corrige
+ * cantidades. La plata la cuadra el backend: si el total sube, el bot le pide
+ * la diferencia al cliente por WhatsApp; si baja, avisa el vuelto. El pedido
+ * nunca sale de cocina por una edición.
+ */
+function DialogoEditar({
+  pedido, onCerrar, onGuardado,
+}: { pedido: PedidoCocina; onCerrar: () => void; onGuardado: () => void }) {
+  const [items, setItems] = useState(
+    (pedido.items ?? []).map((it) => ({
+      nombre: it.nombre, cantidad: it.cantidad, precioCentavos: it.precioCentavos ?? 0,
+    })),
+  );
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevoPrecio, setNuevoPrecio] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+
+  const total = items.reduce((s, i) => s + i.cantidad * i.precioCentavos, 0);
+  const diferencia = total - pedido.totalCentavos;
+
+  const cambiarCantidad = (i: number, delta: number) =>
+    setItems((xs) => xs
+      .map((x, idx) => (idx === i ? { ...x, cantidad: x.cantidad + delta } : x))
+      .filter((x) => x.cantidad > 0));
+
+  function agregarItem() {
+    const nombre = nuevoNombre.trim();
+    const precio = Math.round(parseFloat(nuevoPrecio.replace(",", ".")) * 100);
+    if (!nombre || !Number.isFinite(precio) || precio < 0) return;
+    setItems((xs) => [...xs, { nombre, cantidad: 1, precioCentavos: precio }]);
+    setNuevoNombre("");
+    setNuevoPrecio("");
+  }
+
+  async function guardar() {
+    if (guardando || items.length === 0) return;
+    setGuardando(true);
+    setError("");
+    const r = await editarItemsPedido(pedido.id, items);
+    setGuardando(false);
+    if (!r.ok) { setError(r.error ?? "No se pudo guardar"); return; }
+    onGuardado();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/50 p-4"
+      onClick={onCerrar}
+      role="presentation"
+    >
+      <div
+        className="surge max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-tarjeta bg-carta p-5 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Editar el pedido"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow">Editar pedido</p>
+            <h2 className="mt-0.5 text-[1.15rem] font-bold text-tinta">{soles(total)}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="rounded-chip px-2 py-1 text-[0.82rem] text-frio transition hover:bg-arena"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        <ul className="mt-3 space-y-2">
+          {items.map((it, i) => (
+            <li key={i} className="flex items-center justify-between gap-2 border-b border-linea/60 pb-2">
+              <span className="min-w-0 flex-1 truncate text-[0.9rem] text-tinta">{it.nombre}</span>
+              <span className="shrink-0 text-[0.8rem] tabular-nums text-frio">{soles(it.precioCentavos)}</span>
+              <span className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => cambiarCantidad(i, -1)}
+                  aria-label={`Quitar uno de ${it.nombre}`}
+                  className="grid h-7 w-7 place-items-center rounded-chip bg-arena text-tinta-2 ring-1 ring-linea active:scale-95"
+                >
+                  −
+                </button>
+                <span className="w-6 text-center text-[0.9rem] font-bold tabular-nums text-tinta">{it.cantidad}</span>
+                <button
+                  type="button"
+                  onClick={() => cambiarCantidad(i, 1)}
+                  aria-label={`Agregar uno de ${it.nombre}`}
+                  className="grid h-7 w-7 place-items-center rounded-chip bg-arena text-tinta-2 ring-1 ring-linea active:scale-95"
+                >
+                  +
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        {/* Ítem libre: lo que el cliente pidió puede no estar en la carta
+            ("ají aparte", "porción extra"). Nombre + precio y listo. */}
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            value={nuevoNombre}
+            onChange={(e) => setNuevoNombre(e.target.value.slice(0, 80))}
+            placeholder="Agregar algo (ej. Arroz chaufa)"
+            className="min-w-0 flex-1 rounded-xl bg-arena px-3 py-2 text-[0.88rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+          />
+          <input
+            value={nuevoPrecio}
+            onChange={(e) => setNuevoPrecio(e.target.value.replace(/[^0-9.,]/g, ""))}
+            placeholder="S/"
+            inputMode="decimal"
+            className="w-20 rounded-xl bg-arena px-3 py-2 text-[0.88rem] tabular-nums text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+          />
+          <button
+            type="button"
+            onClick={agregarItem}
+            className="shrink-0 rounded-chip bg-arena px-3 py-2 text-[0.85rem] font-bold text-tinta-2 ring-1 ring-linea active:scale-95"
+          >
+            +
+          </button>
+        </div>
+
+        {/* QUÉ VA A PASAR CON LA PLATA, antes de guardar: nada de sorpresas
+            — ni para el dueño ni para el cliente. */}
+        {diferencia !== 0 && items.length > 0 && (
+          <p
+            className={`mt-3 rounded px-3 py-2 text-[0.85rem] font-semibold ${
+              diferencia > 0 ? "bg-tibio-suave text-tibio" : "bg-calor-suave text-calor-hondo"
+            }`}
+          >
+            {diferencia > 0
+              ? `El bot le pedirá ${soles(diferencia)} de diferencia al cliente por WhatsApp.`
+              : `Quedará un vuelto de ${soles(-diferencia)} a coordinar con el cliente.`}
+          </p>
+        )}
+        {items.length === 0 && (
+          <p className="mt-3 rounded bg-calor-suave px-3 py-2 text-[0.85rem] font-semibold text-calor-hondo">
+            Un pedido no puede quedar vacío. Si ya no va, cancélalo desde la tarjeta.
+          </p>
+        )}
+        {error && <p className="mt-2 text-[0.85rem] font-semibold text-alerta">{error}</p>}
+
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={guardando || items.length === 0}
+          className="mt-4 w-full rounded-tarjeta bg-brasa py-3 text-[0.95rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-50"
+        >
+          {guardando ? "Guardando…" : "Guardar cambios"}
+        </button>
       </div>
     </div>
   );

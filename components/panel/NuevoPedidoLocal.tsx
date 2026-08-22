@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { obtenerCarta, type Carta, type ProductoCarta } from "@/lib/carta";
-import { crearPedidoLocal, obtenerSalas, type ItemNuevoPedido, type SalaConfigurada } from "@/lib/cocina";
+import { obtenerCarta, type Carta, type ProductoCarta, type ComboCarta } from "@/lib/carta";
+import {
+  crearPedidoLocal, obtenerSalas, promosVigentes,
+  type ItemNuevoPedido, type SalaConfigurada,
+} from "@/lib/cocina";
 import { soles } from "@/lib/precio";
 
 /**
@@ -25,13 +28,17 @@ import { soles } from "@/lib/precio";
  */
 
 interface LineaComanda {
-  /** `productoId` para los de la carta; un id sintético para los libres. */
+  /** `productoId`/`comboId` para los de la carta; sintético para los libres. */
   clave: string;
   productoId?: string;
+  comboId?: string;
   nombre: string;
   precioCentavos: number;
   cantidad: number;
 }
+
+/** La sección reservada de combos: no es una categoría real de la carta. */
+const SECCION_COMBOS = "__combos";
 
 export function NuevoPedidoLocal({
   onCerrar, onCreado,
@@ -48,7 +55,18 @@ export function NuevoPedidoLocal({
 
   useEffect(() => {
     void obtenerCarta().then(setCarta);
-    void obtenerSalas().then(setSalas);
+    void obtenerSalas().then((s) => {
+      setSalas(s);
+      // LA PRIMERA MESA VIENE MARCADA (2026-08-22, Jonathan: "podríamos dejar
+      // salón 1 por defecto"). Un pedido de mesa SIEMPRE tiene mesa, así que
+      // arrancar sin ninguna obliga a un toque que casi nunca se quiere
+      // saltear — y si se lo saltean, el pedido entra como mostrador y el
+      // plato no sabe a dónde va.
+      //
+      // Solo con UNA sala: con dos, elegir por el mozo es adivinar entre
+      // "Salón 1" y "Terraza T1", que son mesas distintas del local.
+      if (s.length === 1 && s[0].mesas.length) setMesa(s[0].mesas[0]);
+    });
     // El foco va al buscador: quien toma el pedido ya está escuchando el plato.
     buscador.current?.focus();
   }, []);
@@ -64,18 +82,72 @@ export function NuevoPedidoLocal({
     () => (carta?.productos ?? []).filter((p) => p.disponible),
     [carta],
   );
+  const combos = useMemo(
+    () => (carta?.combos ?? []).filter((c) => c.disponible),
+    [carta],
+  );
 
-  const filtrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    if (!q) return disponibles;
-    // También por alias: "un mostro" encuentra el pollo a la brasa, igual que
-    // en el bot. El mozo escribe como habla el cliente.
-    return disponibles.filter(
-      (p) =>
-        p.nombre.toLowerCase().includes(q) ||
-        p.alias.some((a) => a.toLowerCase().includes(q)),
-    );
-  }, [disponibles, busqueda]);
+  /**
+   * LAS PROMOS QUE CORREN AHORA (2026-08-22).
+   *
+   * El mozo tiene que saberlas para venderlas: "hoy la 2ª tabla va a mitad de
+   * precio" es lo que hace que la mesa pida dos. El descuento lo aplica el
+   * servidor igual, pero enterarse DESPUÉS no vende nada.
+   */
+  const promos = useMemo(
+    () => promosVigentes(carta?.descuentos ?? []),
+    [carta],
+  );
+
+  /**
+   * LAS SECCIONES DE LA CARTA, en el orden que el dueño les dio.
+   *
+   * Antes esto era una lista plana de todos los platos: en una carta de 40
+   * ítems había que scrollear hasta encontrar el que el cliente dictó. Las
+   * secciones son las que el dueño ya definió — la misma división que ve el
+   * cliente en la carta web.
+   *
+   * Los COMBOS van primero y en su propia sección: son lo que más deja y lo
+   * que el mozo tiene que ofrecer antes que un plato suelto.
+   */
+  const secciones = useMemo(() => {
+    const cats = [...(carta?.categorias ?? [])].sort((a, b) => a.orden - b.orden);
+    const lista: { id: string; nombre: string }[] = [];
+    if (combos.length) lista.push({ id: SECCION_COMBOS, nombre: "Combos" });
+    for (const c of cats) {
+      if (disponibles.some((p) => p.categoriaId === c.id)) lista.push({ id: c.id, nombre: c.nombre });
+    }
+    // Los platos sin sección existen y hay que poder pedirlos.
+    if (disponibles.some((p) => !p.categoriaId)) lista.push({ id: "", nombre: "Otros" });
+    return lista;
+  }, [carta, combos, disponibles]);
+
+  const [seccion, setSeccion] = useState<string | null>(null);
+  const seccionActiva = seccion ?? secciones[0]?.id ?? null;
+
+  const q = busqueda.trim().toLowerCase();
+
+  /** Buscar manda sobre la sección: quien escribe ya sabe qué quiere. */
+  const combosVisibles = useMemo(() => {
+    if (q) return combos.filter((c) => c.nombre.toLowerCase().includes(q));
+    return seccionActiva === SECCION_COMBOS ? combos : [];
+  }, [combos, q, seccionActiva]);
+
+  const platosVisibles = useMemo(() => {
+    if (q) {
+      // También por alias: "un mostro" encuentra el pollo a la brasa, igual
+      // que en el bot. El mozo escribe como habla el cliente.
+      return disponibles.filter(
+        (p) =>
+          p.nombre.toLowerCase().includes(q) ||
+          p.alias.some((a) => a.toLowerCase().includes(q)),
+      );
+    }
+    if (seccionActiva === SECCION_COMBOS) return [];
+    return disponibles
+      .filter((p) => (p.categoriaId ?? "") === (seccionActiva ?? ""))
+      .sort((a, b) => a.orden - b.orden);
+  }, [disponibles, q, seccionActiva]);
 
   const agregar = useCallback((p: ProductoCarta) => {
     setLineas((ls) => {
@@ -98,6 +170,23 @@ export function NuevoPedidoLocal({
     buscador.current?.focus();
   }, []);
 
+  const agregarCombo = useCallback((c: ComboCarta) => {
+    setLineas((ls) => {
+      const i = ls.findIndex((l) => l.comboId === c.id);
+      if (i >= 0) {
+        const copia = [...ls];
+        copia[i] = { ...copia[i], cantidad: copia[i].cantidad + 1 };
+        return copia;
+      }
+      return [...ls, {
+        clave: c.id, comboId: c.id, nombre: c.nombre,
+        precioCentavos: c.precioCentavos, cantidad: 1,
+      }];
+    });
+    setBusqueda("");
+    buscador.current?.focus();
+  }, []);
+
   const cambiarCantidad = useCallback((clave: string, delta: number) => {
     setLineas((ls) =>
       ls
@@ -114,6 +203,7 @@ export function NuevoPedidoLocal({
     setError("");
     const items: ItemNuevoPedido[] = lineas.map((l) => ({
       productoId: l.productoId,
+      comboId: l.comboId,
       cantidad: l.cantidad,
     }));
     const r = await crearPedidoLocal({
@@ -129,8 +219,6 @@ export function NuevoPedidoLocal({
     onCreado();
   }
 
-  const todasLasMesas = salas.flatMap((s) => s.mesas.map((m) => ({ sala: s.sala, mesa: m })));
-
   return (
     <div
       onClick={onCerrar}
@@ -142,10 +230,13 @@ export function NuevoPedidoLocal({
         role="dialog"
         aria-modal="true"
         aria-label="Nuevo pedido"
-        className="surge flex max-h-[88vh] w-full max-w-3xl flex-col rounded-tarjeta bg-carta shadow-[0_8px_24px_rgba(51,40,31,0.2)] ring-1 ring-linea"
+        // Alto FIJO, no `max-h`: con tres platos el diálogo se encogía y la
+        // comanda quedaba flotando en un panel casi vacío. Una ventana que
+        // cambia de tamaño según la sección se siente rota.
+        className="surge flex h-[80vh] max-h-[46rem] w-full max-w-3xl flex-col rounded-tarjeta bg-carta shadow-[0_8px_24px_rgba(51,40,31,0.2)] ring-1 ring-linea"
       >
         {/* Encabezado */}
-        <div className="border-b border-linea p-5 pb-4">
+        <div className="shrink-0 border-b border-linea p-5 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="eyebrow">En el local</p>
@@ -172,27 +263,57 @@ export function NuevoPedidoLocal({
               🥡 Se lo lleva
             </Alternativa>
 
-            {modalidad === "local" && todasLasMesas.length > 0 && (
-              <select
-                value={mesa}
-                onChange={(e) => setMesa(e.target.value)}
-                className="ml-auto rounded-chip border border-linea bg-arena/40 px-3 py-1.5 text-[0.85rem] text-tinta outline-none focus:border-brasa"
-              >
-                <option value="">Mostrador</option>
-                {salas.map((s) => (
-                  <optgroup key={s.sala} label={s.sala}>
-                    {s.mesas.map((m) => (
-                      <option key={`${s.sala}-${m}`} value={m}>Mesa {m}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            )}
           </div>
+
+          {/* LAS MESAS, A LA VISTA (2026-08-22, pedido de Jonathan: "¿dónde
+              están las salas?"). Antes era un `<select>` chico: el mozo tenía
+              que abrirlo y buscar dentro, cuando la mesa es lo PRIMERO que
+              sabe —está parado en ella.
+
+              Como chips se ven todas de un vistazo y se elige de un toque, que
+              es lo que se hace mil veces por turno. Con más de una sala se
+              agrupan, porque la mesa 1 del Salón y la de la Terraza son
+              distintas. */}
+          {modalidad === "local" && salas.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {salas.map((s) => (
+                <div key={s.sala}>
+                  {salas.length > 1 && (
+                    <p className="mb-1 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+                      {s.sala}
+                    </p>
+                  )}
+                  <div className="sin-barra flex gap-1.5 overflow-x-auto">
+                    {s.mesas.map((m) => (
+                      <button
+                        key={`${s.sala}-${m}`}
+                        type="button"
+                        onClick={() => setMesa(mesa === m ? "" : m)}
+                        className={`size-9 shrink-0 rounded-chip text-[0.85rem] font-bold tabular-nums transition ${
+                          mesa === m
+                            ? "bg-brasa text-sobre-brasa"
+                            : "bg-arena text-tinta-2 hover:bg-arena-2"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {/* Sin mesa es un pedido de mostrador: se dice, en vez de dejar
+                  al mozo dudando si se olvidó de tocar algo. Tocar la mesa ya
+                  marcada la desmarca, que es cómo se pide para llevar desde
+                  la barra. */}
+              <p className="text-[0.76rem] text-frio">
+                {mesa ? `Va a la mesa ${mesa}` : "Sin mesa: va como mostrador"}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Cuerpo: carta a la izquierda, comanda a la derecha. */}
-        <div className="grid min-h-0 flex-1 gap-0 sm:grid-cols-[1fr_18rem]">
+        <div className="grid min-h-0 flex-1 gap-0 overflow-hidden rounded-b-tarjeta sm:grid-cols-[minmax(0,1fr)_18rem]">
           {/* LA CARTA */}
           <div className="flex min-h-0 flex-col border-linea sm:border-r">
             <div className="p-4 pb-2">
@@ -205,7 +326,50 @@ export function NuevoPedidoLocal({
               />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+            {/* LAS PROMOS DEL DÍA, arriba de todo. El mozo tiene que saberlas
+                para VENDERLAS: "hoy la 2ª va a mitad de precio" es lo que hace
+                que la mesa pida dos. El descuento lo aplica el servidor igual,
+                pero enterarse después no vende nada.
+
+                Si no hay ninguna no se dibuja NADA: una franja que diga "sin
+                promos hoy" ocupa lugar para no decir nada. */}
+            {promos.length > 0 && !q && (
+              <div className="sin-barra flex gap-1.5 overflow-x-auto px-4 pb-2">
+                {promos.map((pr) => (
+                  <span
+                    key={pr.id}
+                    className="shrink-0 rounded-chip bg-calor-suave px-2.5 py-1 text-[0.76rem] text-calor-hondo"
+                    title={pr.nombre}
+                  >
+                    🎉 <b>{pr.nombre}</b> · {pr.detalle}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* LAS SECCIONES de la carta, las mismas que ve el cliente. Antes
+                esto era una lista plana de 40 platos y había que scrollear
+                hasta encontrar el que el cliente dictó. */}
+            {secciones.length > 1 && !q && (
+              <div className="sin-barra flex gap-1.5 overflow-x-auto border-b border-linea px-4 pb-2.5">
+                {secciones.map((s) => (
+                  <button
+                    key={s.id || "otros"}
+                    type="button"
+                    onClick={() => setSeccion(s.id)}
+                    className={`shrink-0 rounded-chip px-3 py-1 text-[0.82rem] font-semibold transition ${
+                      seccionActiva === s.id
+                        ? "bg-brasa text-sobre-brasa"
+                        : "bg-arena text-tinta-2 hover:bg-arena-2"
+                    }`}
+                  >
+                    {s.id === SECCION_COMBOS ? `🍱 ${s.nombre}` : s.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-2">
               {carta === null && (
                 <div className="space-y-2">
                   {[0, 1, 2, 3].map((i) => (
@@ -213,13 +377,39 @@ export function NuevoPedidoLocal({
                   ))}
                 </div>
               )}
-              {carta !== null && filtrados.length === 0 && (
+              {carta !== null && !combosVisibles.length && !platosVisibles.length && (
                 <p className="px-1 py-8 text-center text-[0.85rem] text-frio">
-                  {busqueda ? "Ningún plato con ese nombre." : "Todavía no cargaste la carta."}
+                  {q ? "Nada con ese nombre." : "Todavía no cargaste la carta."}
                 </p>
               )}
+
               <div className="space-y-1.5">
-                {filtrados.map((p) => (
+                {/* Los COMBOS se ven distintos: valen menos que la suma de sus
+                    platos, y esa es la razón para ofrecerlos primero. */}
+                {combosVisibles.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => agregarCombo(c)}
+                    className="fila-entra flex w-full items-center gap-3 rounded-tarjeta bg-brasa-suave/60 px-3 py-2 text-left ring-1 ring-brasa/20 transition hover:bg-brasa-suave active:scale-[0.99]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[0.9rem] font-semibold text-tinta">
+                        🍱 {c.nombre}
+                      </span>
+                      {c.descripcion && (
+                        <span className="block truncate text-[0.76rem] text-frio">
+                          {c.descripcion}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-[0.85rem] font-bold tabular-nums text-brasa-texto">
+                      {soles(c.precioCentavos)}
+                    </span>
+                  </button>
+                ))}
+
+                {platosVisibles.map((p) => (
                   <button
                     key={p.id}
                     type="button"

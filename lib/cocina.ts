@@ -252,6 +252,8 @@ export async function avanzarPedido(id: string, estado: string): Promise<{ ok: b
  */
 export interface ItemNuevoPedido {
   productoId?: string;
+  /** Un combo se cobra a SU precio, no por la suma de sus platos. */
+  comboId?: string;
   nombre?: string;
   precioCentavos?: number;
   cantidad: number;
@@ -288,4 +290,71 @@ export async function obtenerSalas(): Promise<SalaConfigurada[]> {
     // Sin mesas se puede tomar igual: es un pedido de mostrador.
     return [];
   }
+}
+
+/**
+ * LAS PROMOS QUE CORREN AHORA (2026-08-22).
+ *
+ * Espejo de `detalleDePromo`/`promosVigentes` del backend (core/promos-visibles).
+ * Está duplicado porque `GET /carta` devuelve los descuentos CRUDOS —es la
+ * pantalla de edición, que necesita todos los campos—, mientras la carta
+ * pública recibe las promos ya traducidas.
+ *
+ * Si las frases divergieran, el mozo leería una cosa y el cliente otra sobre
+ * la MISMA promo. Al tocar una, tocar las dos.
+ */
+export interface PromoVisibleCarta {
+  id: string;
+  nombre: string;
+  detalle: string;
+}
+
+/** ¿Esta promo corre en este momento? Días y franja horaria, hora de Lima. */
+function promoCorreAhora(d: DescuentoCartaMin, ahora: Date): boolean {
+  if (!d.activo) return false;
+  // Hora de LIMA calculada a mano (UTC-5): `getHours()` daría la del navegador,
+  // y un dueño mirando desde otra zona vería promos que no corren.
+  const lima = new Date(ahora.getTime() - 5 * 3600_000);
+  const dia = lima.getUTCDay();
+  if (d.dias?.length && !d.dias.includes(dia)) return false;
+  if (d.desde && lima.toISOString().slice(0, 10) < d.desde.slice(0, 10)) return false;
+  if (d.hasta && lima.toISOString().slice(0, 10) > d.hasta.slice(0, 10)) return false;
+  if (d.horaDesde || d.horaHasta) {
+    const hhmm = lima.toISOString().slice(11, 16);
+    if (d.horaDesde && hhmm < d.horaDesde) return false;
+    if (d.horaHasta && hhmm > d.horaHasta) return false;
+  }
+  return true;
+}
+
+interface DescuentoCartaMin {
+  id: string; nombre: string; tipo: string; valor: number;
+  dias?: number[]; horaDesde?: string | null; horaHasta?: string | null;
+  desde?: string | null; hasta?: string | null; activo: boolean;
+  minUnidades?: number; unidadesEnPromo?: number;
+}
+
+/** La regla en una línea, dicha como la diría un mozo. */
+export function detalleDePromo(d: DescuentoCartaMin): string {
+  const min = d.minUnidades ?? 0;
+  const enPromo = d.unidadesEnPromo ?? 1;
+  const porcentaje = d.tipo === "porcentaje";
+  if (min >= 2) {
+    if (porcentaje && d.valor === 100) return `Llevando ${min} pagas ${min - enPromo}`;
+    if (porcentaje && d.valor === 50 && min === 2) return "La 2ª a mitad de precio";
+    if (porcentaje) return `Llevando ${min}, ${d.valor}% en ${enPromo}`;
+    return `Llevando ${min}, S/${(d.valor / 100).toFixed(2)} de descuento`;
+  }
+  return porcentaje
+    ? `${d.valor}% de descuento`
+    : `S/${(d.valor / 100).toFixed(2)} de descuento`;
+}
+
+export function promosVigentes(
+  descuentos: DescuentoCartaMin[],
+  ahora: Date = new Date(),
+): PromoVisibleCarta[] {
+  return descuentos
+    .filter((d) => promoCorreAhora(d, ahora))
+    .map((d) => ({ id: d.id, nombre: d.nombre, detalle: detalleDePromo(d) }));
 }

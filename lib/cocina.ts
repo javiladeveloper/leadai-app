@@ -281,6 +281,28 @@ export async function crearPedidoLocal(datos: {
   }
 }
 
+/**
+ * EL TOTAL REAL, CON PROMOS (2026-08-22).
+ *
+ * La pantalla sumaba los precios a mano, así que un "3x2" activo no se veía:
+ * tres rolls de S/27 mostraban S/81 aunque el servidor iba a cobrar S/54.
+ * Ahora el número sale del MISMO motor que cobra.
+ */
+export async function cotizarPedidoLocal(datos: {
+  modalidad: "local" | "recojo";
+  items: ItemNuevoPedido[];
+}): Promise<{ totalCentavos: number } | null> {
+  try {
+    return await api<{ totalCentavos: number }>("/pedidos/local/cotizar", {
+      method: "POST", body: datos,
+    });
+  } catch {
+    // Sin cotización se cae al total local: es aproximado (no aplica promos)
+    // pero es mejor que un cero o un guion mientras el mozo arma el pedido.
+    return null;
+  }
+}
+
 /** Las salas y mesas que el dueño configuró. Vacío = solo mostrador. */
 export async function obtenerSalas(): Promise<SalaConfigurada[]> {
   try {

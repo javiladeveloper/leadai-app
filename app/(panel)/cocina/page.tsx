@@ -100,6 +100,39 @@ export default function CocinaPage() {
     return () => { vivo.current = false; clearInterval(id); clearInterval(idTic); soltar(); };
   }, [traer]);
 
+  /**
+   * CANCELAR UN PEDIDO (2026-08-22, pedido de Jonathan: "falta cancelar
+   * pedido").
+   *
+   * El backend ya lo permitía (`pagado → cancelado`) pero la Cocina no lo
+   * ofrecía: un pedido tomado en la mesa equivocada, o un cliente que se va,
+   * quedaba en el tablero para siempre.
+   *
+   * PIDE CONFIRMACIÓN: es la única acción del tablero que no se puede
+   * deshacer, y está al lado de botones que se tocan mil veces por turno.
+   */
+  async function cancelar(p: PedidoCocina) {
+    if (avanzando) return;
+    const linea = p.items?.[0]?.nombre ?? "el pedido";
+    const donde = p.mesa ? `de la mesa ${p.mesa}` : "";
+    if (!window.confirm(`¿Cancelar ${linea} ${donde}? No se puede deshacer.`)) return;
+
+    setAvanzando(p.id);
+    setError("");
+    const antes = pedidos;
+    // Optimista, igual que avanzar: la tarjeta se va al instante.
+    setPedidos((ps) => (ps ?? []).filter((x) => x.id !== p.id));
+
+    const r = await avanzarPedido(p.id, "cancelado");
+    setAvanzando(null);
+    if (!r.ok) {
+      setPedidos(antes);
+      setError(r.error ?? "No se pudo cancelar");
+      return;
+    }
+    void traer();
+  }
+
   async function avanzar(p: PedidoCocina) {
     const paso = siguientePaso(p);
     if (!paso || avanzando) return;
@@ -304,6 +337,7 @@ export default function CocinaPage() {
                       avanzando={avanzando === p.id}
                       onAvanzar={() => avanzar(p)}
                       onVerPago={() => setViendoPago(p.id)}
+                      onCancelar={() => cancelar(p)}
                       arrastrando={arrastrando === p.id}
                       aterrizo={aterrizo === p.id}
                       onArrastrar={setArrastrando}
@@ -363,7 +397,7 @@ export default function CocinaPage() {
 const COMPLETAS_ARRIBA = 2;
 
 function TarjetaPedido({
-  pedido, compacta, avanzando, onAvanzar, onVerPago,
+  pedido, compacta, avanzando, onAvanzar, onVerPago, onCancelar,
   arrastrando, aterrizo, onArrastrar, onEditar,
 }: {
   pedido: PedidoCocina;
@@ -371,6 +405,8 @@ function TarjetaPedido({
   avanzando: boolean;
   onAvanzar: () => void;
   onVerPago?: (p: PedidoCocina) => void;
+  /** Cancelar el pedido. Solo se ofrece donde el backend lo permite. */
+  onCancelar?: () => void;
   arrastrando?: boolean;
   aterrizo?: boolean;
   onArrastrar?: (id: string | null) => void;
@@ -586,6 +622,26 @@ function TarjetaPedido({
               className="rounded px-1 text-[0.8rem] text-frio/60 transition hover:bg-arena hover:text-tinta"
             >
               ✏️
+            </button>
+          )}
+          {/* CANCELAR (2026-08-22, pedido de Jonathan). El backend ya lo
+              permitía y la Cocina no lo ofrecía: un pedido tomado en la mesa
+              equivocada quedaba en el tablero para siempre.
+
+              Solo mientras se puede: una vez en camino o entregado, cancelar
+              no deshace nada — el plato ya salió. Discreto y al lado del
+              lápiz, no compitiendo con el botón de avanzar: es la única
+              acción del tablero que no tiene vuelta atrás. */}
+          {onCancelar && ["pagado", "preparando", "esperando_pago"].includes(pedido.estado) && (
+            <button
+              type="button"
+              onClick={onCancelar}
+              disabled={avanzando}
+              title="Cancelar el pedido"
+              aria-label="Cancelar el pedido"
+              className="rounded px-1 text-[0.8rem] text-frio/60 transition hover:bg-alerta-suave hover:text-alerta disabled:opacity-40"
+            >
+              ✕
             </button>
           )}
         </span>

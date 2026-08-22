@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { obtenerCarta, type Carta, type ProductoCarta, type ComboCarta } from "@/lib/carta";
 import {
-  crearPedidoLocal, obtenerSalas, promosVigentes,
+  crearPedidoLocal, cotizarPedidoLocal, obtenerSalas, promosVigentes,
   type ItemNuevoPedido, type SalaConfigurada,
 } from "@/lib/cocina";
 import { soles } from "@/lib/precio";
@@ -195,7 +195,39 @@ export function NuevoPedidoLocal({
     );
   }, []);
 
-  const total = lineas.reduce((s, l) => s + l.precioCentavos * l.cantidad, 0);
+  /**
+   * EL TOTAL CON PROMOS (2026-08-22, reporte de Jonathan: "no está agarrando
+   * el descuento").
+   *
+   * `totalLocal` es la suma a secas — instantánea, para que el número no
+   * parpadee mientras se arma el pedido. `totalReal` viene del servidor con
+   * las promos aplicadas, y lo reemplaza en cuanto llega.
+   *
+   * Si el servidor no responde se muestra el local: aproximado, pero mejor
+   * que un guion mientras el mozo tiene al cliente enfrente.
+   */
+  const totalLocal = lineas.reduce((s, l) => s + l.precioCentavos * l.cantidad, 0);
+  const [totalReal, setTotalReal] = useState<number | null>(null);
+  const total = totalReal ?? totalLocal;
+
+  useEffect(() => {
+    if (!lineas.length) { setTotalReal(null); return; }
+    // Medio segundo de espera: tocar cinco platos seguidos manda UNA
+    // cotización, no cinco.
+    const id = setTimeout(async () => {
+      const r = await cotizarPedidoLocal({
+        modalidad,
+        items: lineas.map((l) => ({
+          productoId: l.productoId, comboId: l.comboId, cantidad: l.cantidad,
+        })),
+      });
+      setTotalReal(r?.totalCentavos ?? null);
+    }, 500);
+    return () => clearTimeout(id);
+  }, [lineas, modalidad]);
+
+  /** ¿La promo bajó el total? Es lo que hay que MOSTRAR, no esconder. */
+  const ahorro = totalReal !== null && totalReal < totalLocal ? totalLocal - totalReal : 0;
 
   async function confirmar() {
     if (!lineas.length || guardando) return;
@@ -351,13 +383,22 @@ export function NuevoPedidoLocal({
                 esto era una lista plana de 40 platos y había que scrollear
                 hasta encontrar el que el cliente dictó. */}
             {secciones.length > 1 && !q && (
-              <div className="sin-barra flex gap-1.5 overflow-x-auto border-b border-linea px-4 pb-2.5">
+              // ENVUELVE en vez de scrollear (2026-08-22, reporte de Jonathan:
+              // "no puedo ver más allá de Rolls fritos"). La barra scrolleaba
+              // pero sin barra visible ni arrastre, así que las secciones de
+              // la derecha eran inalcanzables — el mismo problema que ya tuvo
+              // la barra de promos en el celular.
+              //
+              // Con siete secciones entran en dos filas y se ven TODAS de un
+              // vistazo, que es lo que un mozo con prisa necesita. Scrollear
+              // horizontal es peor: obliga a descubrir que hay más.
+              <div className="flex flex-wrap gap-1.5 border-b border-linea px-4 pb-2.5">
                 {secciones.map((s) => (
                   <button
                     key={s.id || "otros"}
                     type="button"
                     onClick={() => setSeccion(s.id)}
-                    className={`shrink-0 rounded-chip px-3 py-1 text-[0.82rem] font-semibold transition ${
+                    className={`rounded-chip px-3 py-1 text-[0.82rem] font-semibold transition ${
                       seccionActiva === s.id
                         ? "bg-brasa text-sobre-brasa"
                         : "bg-arena text-tinta-2 hover:bg-arena-2"
@@ -472,6 +513,17 @@ export function NuevoPedidoLocal({
               {error && (
                 <p className="fila-entra mb-2 text-[0.8rem] font-semibold text-alerta">{error}</p>
               )}
+              {/* EL AHORRO, VISIBLE. Un total más bajo que la suma de las
+                  líneas —aunque sea a favor— huele a error si no se explica.
+                  Y es lo que el mozo le dice al cliente para que pida más. */}
+              {ahorro > 0 && (
+                <div className="fila-entra mb-1 flex items-baseline justify-between gap-2">
+                  <span className="text-[0.78rem] text-calor-hondo">🎉 Promo aplicada</span>
+                  <span className="text-[0.82rem] font-bold tabular-nums text-calor-hondo">
+                    −{soles(ahorro)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[0.82rem] text-frio">Total</span>
                 <span className="text-[1.15rem] font-bold tabular-nums text-tinta">
@@ -489,9 +541,7 @@ export function NuevoPedidoLocal({
               {/* El precio final lo calcula el servidor contra la carta: el
                   total de arriba es una cuenta local para que el mozo pueda
                   decírselo al cliente, no lo que se cobra. */}
-              <p className="mt-1.5 text-center text-[0.72rem] leading-snug text-frio/70">
-                Las promos vigentes se aplican al confirmar
-              </p>
+
             </div>
           </div>
         </div>

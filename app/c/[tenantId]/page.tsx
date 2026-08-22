@@ -220,6 +220,63 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       .catch((e) => setError(e.message));
   }, [tenantId]);
 
+  // RETOMAR EL PEDIDO DONDE LO DEJÓ (2026-08-21, Jonathan: "me debe dar la
+  // carta con el pedido donde lo dejé"). Si el link trae el ref del bot y hay
+  // un pedido vivo sin pagar, se precarga el carrito tal como quedó: el
+  // cliente agrega lo que se olvidó y al confirmar el pedido se ACTUALIZA
+  // (el backend lo reemplaza, conservando abonos y dirección).
+  const [pedidoRetomado, setPedidoRetomado] = useState(false);
+  useEffect(() => {
+    if (!carta || !refLead) return;
+    let vivo = true;
+    fetch(`${API_URL}/c/${tenantId}/carrito-actual?ref=${encodeURIComponent(refLead)}`)
+      .then(async (r) => (r.ok ? r.json() : { items: [] }))
+      .then((prev: { modalidad?: "delivery" | "recojo"; items: { productoId: string | null; nombre: string; cantidad: number; opciones: string[] }[] }) => {
+        if (!vivo || !prev.items?.length) return;
+        // Solo sobre un carrito VACÍO: si ya empezó a elegir, lo suyo manda.
+        setCarrito((actual) => {
+          if (actual.length > 0) return actual;
+          const porId = new Map(carta.productos.map((x) => [x.id, x]));
+          const porNombre = new Map(carta.productos.map((x) => [x.nombre.toLowerCase(), x]));
+          const combosPorId = new Map(carta.combos.map((k) => [k.id, k]));
+          const combosPorNombre = new Map(carta.combos.map((k) => [k.nombre.toLowerCase(), k]));
+          const opcionesPorNombre = new Map(
+            carta.grupos.flatMap((g) => g.opciones).map((o) => [o.nombre.toLowerCase(), o]),
+          );
+          const lineas: LineaCarrito[] = [];
+          for (const it of prev.items) {
+            const combo = (it.productoId && combosPorId.get(it.productoId)) ||
+              combosPorNombre.get(it.nombre.toLowerCase());
+            if (combo) {
+              lineas.push({
+                producto: { id: combo.id, nombre: combo.nombre, precioCentavos: combo.precioCentavos },
+                cantidad: it.cantidad, opciones: [], combo: true,
+              });
+              continue;
+            }
+            const prod = (it.productoId && porId.get(it.productoId)) ||
+              porNombre.get(it.nombre.toLowerCase());
+            // Lo que ya no está en la carta (agotado, renombrado) no se
+            // rearma: mejor que falte y lo vea, a cobrarle algo inexistente.
+            if (!prod) continue;
+            lineas.push({
+              producto: prod,
+              cantidad: it.cantidad,
+              opciones: it.opciones
+                .map((n) => opcionesPorNombre.get(n.toLowerCase()))
+                .filter((o): o is Opcion => o != null),
+            });
+          }
+          if (lineas.length === 0) return actual;
+          setPedidoRetomado(true);
+          return lineas;
+        });
+        if (prev.modalidad) setModalidad(prev.modalidad);
+      })
+      .catch(() => undefined); // sin precarga la carta funciona igual
+    return () => { vivo = false; };
+  }, [carta, refLead, tenantId]);
+
   // El total se calcula acá SOLO PARA MOSTRAR. El que vale es el del backend:
   // cualquiera puede editar este JavaScript desde la consola, así que el
   // servidor recalcula todo al recibir el pedido.
@@ -485,6 +542,13 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       }}
     >
       <Cabecera negocio={carta.negocio} />
+      {/* EL PEDIDO RETOMADO SE ANUNCIA (2026-08-21): el carrito apareció
+          lleno "solo" — sin esta línea parece un error o un cobro fantasma. */}
+      {pedidoRetomado && (
+        <p className="mx-4 mt-3 rounded-tarjeta bg-brasa/10 px-3 py-2 text-center text-[0.85rem] font-semibold text-brasa-texto">
+          🔄 Cargamos tu pedido tal como lo dejaste — modifícalo y confirma para actualizarlo.
+        </p>
+      )}
       <BarraPromos promos={carta.promos ?? []} />
       <BarraSecciones
         secciones={[

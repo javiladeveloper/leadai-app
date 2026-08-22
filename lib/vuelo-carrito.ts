@@ -82,26 +82,46 @@ export function volarAlCarrito(origen: HTMLElement | null, destino: HTMLElement 
 
   document.body.appendChild(bala);
 
+  // LA BALA SE BORRA SÍ O SÍ (2026-08-21, bug real de Jonathan). Antes la
+  // limpieza vivía solo en `onfinish` — y en el navegador embebido de
+  // WhatsApp ese evento a veces NO dispara (animación descartada, pestaña en
+  // pausa, soporte a medias). Cada plato tocado dejaba su copia pegada en la
+  // pantalla, y a los cinco platos el cliente ya no veía la carta.
+  //
+  // Tres redes: onfinish (camino feliz), oncancel, y un setTimeout que barre
+  // pase lo que pase. `remove()` es idempotente: llamarlo dos veces no duele.
+  const retirar = () => bala.remove();
+  const barrido = setTimeout(retirar, MS_VUELO + 500);
+
   const dx = hasta.left + hasta.width / 2 - (desde.left + desde.width / 2);
   const dy = hasta.top + hasta.height / 2 - (desde.top + desde.height / 2);
 
   // La curva es la clave: sube un poco antes de caer, como algo que se lanza.
   // Una recta se ve robótica; el arco se lee como un objeto con peso.
-  const animacion = bala.animate(
-    [
-      { transform: "translate(0, 0) scale(1)", opacity: 1 },
-      {
-        transform: `translate(${dx * 0.5}px, ${dy * 0.35 - 60}px) scale(0.7)`,
-        opacity: 0.9,
-        offset: 0.55,
-      },
-      { transform: `translate(${dx}px, ${dy}px) scale(0.18)`, opacity: 0.35 },
-    ],
-    { duration: MS_VUELO, easing: "cubic-bezier(0.4, 0, 0.6, 1)" },
-  );
+  let animacion: Animation;
+  try {
+    animacion = bala.animate(
+      [
+        { transform: "translate(0, 0) scale(1)", opacity: 1 },
+        {
+          transform: `translate(${dx * 0.5}px, ${dy * 0.35 - 60}px) scale(0.7)`,
+          opacity: 0.9,
+          offset: 0.55,
+        },
+        { transform: `translate(${dx}px, ${dy}px) scale(0.18)`, opacity: 0.35 },
+      ],
+      { duration: MS_VUELO, easing: "cubic-bezier(0.4, 0, 0.6, 1)" },
+    );
+  } catch {
+    // Si animate() revienta (WebView viejo), la copia no puede quedar viva.
+    clearTimeout(barrido);
+    retirar();
+    return;
+  }
 
+  animacion.oncancel = retirar;
   animacion.onfinish = () => {
-    bala.remove();
+    retirar();
     // El carrito ACUSA RECIBO. El vuelo dice "algo salió"; este latido dice
     // "algo llegó". Sin el segundo, la animación queda a mitad de la frase.
     destino.classList.remove("late");

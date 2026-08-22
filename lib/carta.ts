@@ -26,6 +26,8 @@ export interface ProductoCarta {
   precioCentavos: number;
   /** El precio ANTES, para mostrarlo tachado. null = sin descuento. */
   precioAntesCentavos: number | null;
+  /** Cuánto cuesta el envase, si se lo llevan. 0 = no cobra (2026-08-22). */
+  taperCentavos: number;
   disponible: boolean;
   orden: number;
   alias: string[];
@@ -49,6 +51,8 @@ export interface OpcionCarta {
  * cremas son min 0 / max 3. `maxSelec: null` = sin tope.
  */
 export interface GrupoOpciones {
+  /** Cuántas opciones van sin cargo. 0 = todas se cobran (2026-08-22). */
+  sinCargo?: number;
   id: string;
   nombre: string;
   minSelec: number;

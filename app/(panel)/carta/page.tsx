@@ -643,6 +643,12 @@ function HojaPlato({
   const [precioAntes, setPrecioAntes] = useState(
     plato?.precioAntesCentavos ? (plato.precioAntesCentavos / 100).toFixed(2) : "",
   );
+  // EL ENVASE de este plato (2026-08-22). Vacío = no cobra, que es lo que le
+  // pasa a la mayoría. Un menú y una sopa llevan tapers distintos, por eso va
+  // en el plato y no como un cargo del pedido.
+  const [taper, setTaper] = useState(
+    plato?.taperCentavos ? (plato.taperCentavos / 100).toFixed(2) : "",
+  );
   const [categoriaId, setCategoriaId] = useState(plato?.categoriaId ?? "");
   const [grupoIds, setGrupoIds] = useState<string[]>(plato?.grupos.map((g) => g.grupoId) ?? []);
   const [guardando, setGuardando] = useState(false);
@@ -682,6 +688,8 @@ function HojaPlato({
       // `null` explícito y no `undefined`: en un PATCH, `undefined` significa
       // "no toques", así que quitar el precio tachado no haría nada.
       precioAntesCentavos: precioAntes.trim() ? aCentavos(precioAntes) : null,
+      // 0 y no `null`: el backend lo valida como entero, y 0 ES "no cobra".
+      taperCentavos: taper.trim() ? (aCentavos(taper) ?? 0) : 0,
       descripcion: descripcion.trim(),
       categoriaId: categoriaId || null,
       grupoIds,
@@ -828,6 +836,28 @@ function HojaPlato({
                 <p className="mt-1 text-[0.72rem] text-frio">Antes (opcional)</p>
               </div>
 
+              {/* EL TAPER (2026-08-22, caso de Jonathan: "en algunos locales
+                  el taper tiene precio adicional cuando es para llevar").
+
+                  Va en el PLATO porque un menú y una sopa llevan envases
+                  distintos, y el precio cambia mucho entre locales. Solo se
+                  cobra en delivery y recojo — comiendo en la mesa no hay
+                  envase. Vacío = no cobra, que es el caso de la mayoría. */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-frio">S/</span>
+                  <input
+                    value={taper}
+                    onChange={(e) => setTaper(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="—"
+                    aria-label="Precio del envase para llevar"
+                    className="w-28 rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
+                  />
+                </div>
+                <p className="mt-1 text-[0.72rem] text-frio">Taper (opcional)</p>
+              </div>
+
               {/* La cuenta hecha, en vivo: sin esto el dueño pone un "antes"
                   cualquiera y se entera del descuento recién al publicarlo. */}
               {(() => {
@@ -846,6 +876,7 @@ function HojaPlato({
             </div>
             <p className="mt-2 text-[0.78rem] text-frio">
               Pon un precio anterior y tu plato se muestra con el descuento tachado. Vende más.
+              {" "}El taper se cobra solo cuando el pedido se lo llevan.
             </p>
           </Campo>
 
@@ -1094,6 +1125,11 @@ function HojaGrupo({
   // min/max son el detalle que se deriva de acá.
   const [obligatorio, setObligatorio] = useState((grupo?.minSelec ?? 0) >= 1);
   const [unaSola, setUnaSola] = useState(grupo ? grupo.maxSelec === 1 : true);
+  // CUÁNTAS VAN SIN CARGO (2026-08-22, caso de Jonathan: "1 topping es gratis
+  // y a partir del 2do se cobra"). Vacío = todas se cobran.
+  const [sinCargo, setSinCargo] = useState(
+    grupo?.sinCargo ? String(grupo.sinCargo) : "",
+  );
   // Cada opción puede llevar foto: "¿qué es chimichurri?" se responde con una
   // imagen, no con el nombre. Viaja como data URL y sube DESPUÉS de crear el
   // grupo, que es cuando existen los ids de las opciones.
@@ -1126,6 +1162,10 @@ function HojaGrupo({
       nombre: nombre.trim(),
       minSelec: obligatorio ? 1 : 0,
       maxSelec: unaSola ? 1 : null,
+      // Con "solo una" no hay gratis posible: la única que elige es la que se
+      // cobra. Se manda 0 para que un grupo que cambia a "una sola" no quede
+      // con un número que ya no aplica.
+      sinCargo: unaSola ? 0 : Math.max(0, Number(sinCargo) || 0),
       opciones: llenas.map((o) => ({
         nombre: o.nombre.trim(),
         precioCentavos: o.precio.trim() ? aCentavos(o.precio)! : 0,
@@ -1206,6 +1246,29 @@ function HojaGrupo({
               />
               Solo puede elegir <b>una</b>
             </label>
+
+            {/* LAS PRIMERAS SIN CARGO (2026-08-22). El caso del bubble tea:
+                "1 topping es gratis y del 2do se cobra".
+
+                Solo aparece si puede elegir VARIAS: con una sola opción no
+                hay gratis posible, y el campo sería una pregunta sin sentido.
+
+                Se regalan las MÁS CARAS — cobrarle la cara al cliente y
+                regalarle la barata se siente como una trampa. */}
+            {!unaSola && (
+              <label className="surge flex cursor-pointer items-center gap-2 text-[0.9rem] text-tinta-2">
+                Las primeras
+                <input
+                  value={sinCargo}
+                  onChange={(e) => setSinCargo(e.target.value.replace(/\D/g, ""))}
+                  inputMode="numeric"
+                  placeholder="0"
+                  aria-label="Cuántas opciones van sin cargo"
+                  className="w-14 rounded-lg border border-linea bg-arena/40 px-2 py-1.5 text-center tabular-nums text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none"
+                />
+                van <b>sin cargo</b>
+              </label>
+            )}
           </div>
 
           <Campo etiqueta="Opciones" ayuda="Dejá el precio vacío si no cuesta nada">

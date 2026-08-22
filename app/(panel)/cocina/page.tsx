@@ -8,6 +8,7 @@ import {
 } from "@/lib/cocina";
 import { soles } from "@/lib/precio";
 import { NuevoPedidoLocal } from "@/components/panel/NuevoPedidoLocal";
+import { sonarCampana, prepararCampana } from "@/lib/campana";
 
 /**
  * LA COCINA, EN LA COMPUTADORA (2026-08-19).
@@ -49,9 +50,32 @@ export default function CocinaPage() {
   const [, setTic] = useState(0);
   const vivo = useRef(true);
 
+  /**
+   * LOS QUE YA SONARON (2026-08-22).
+   *
+   * La campana tiene que sonar cuando ENTRA un pedido, no en cada refresco:
+   * el polling corre cada 15 segundos y sonaría cuatro veces por minuto con
+   * el mismo pedido en pantalla, que es peor que no sonar.
+   *
+   * Un `ref` y no estado: cambiarlo no tiene que redibujar nada.
+   */
+  const yaSonaron = useRef<Set<string> | null>(null);
+
   const traer = useCallback(async () => {
     const r = await listarPedidos();
-    if (vivo.current) setPedidos(r);
+    if (!vivo.current) return;
+
+    // La PRIMERA carga no suena: al abrir la pantalla ya hay pedidos y una
+    // campanada de bienvenida por cada uno sería una alarma sin motivo.
+    if (yaSonaron.current === null) {
+      yaSonaron.current = new Set(r.map((p) => p.id));
+    } else {
+      const nuevos = r.filter((p) => !yaSonaron.current!.has(p.id));
+      if (nuevos.length) sonarCampana();
+      for (const p of r) yaSonaron.current.add(p.id);
+    }
+
+    setPedidos(r);
   }, []);
 
   // Escape cierra el comprobante. Sin esto el diálogo atrapa a quien navega
@@ -65,12 +89,15 @@ export default function CocinaPage() {
 
   useEffect(() => {
     vivo.current = true;
+    // El navegador bloquea el audio hasta que hay una interacción: esto se
+    // engancha al primer clic que el dueño da igual, sin pedirle nada.
+    const soltar = prepararCampana();
     void traer();
     // 15s: una cocina cambia rápido y esta pantalla queda abierta. Más lento y
     // el dueño ve un pedido que entró hace rato; más rápido no aporta.
     const id = setInterval(traer, 15_000);
     const idTic = setInterval(() => setTic((n) => n + 1), 30_000);
-    return () => { vivo.current = false; clearInterval(id); clearInterval(idTic); };
+    return () => { vivo.current = false; clearInterval(id); clearInterval(idTic); soltar(); };
   }, [traer]);
 
   async function avanzar(p: PedidoCocina) {

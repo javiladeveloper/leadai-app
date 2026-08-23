@@ -1329,7 +1329,28 @@ export interface CampaniaHSM {
   respondieron: number;
   creadoEn: string;
 }
-export interface CupoCampanias { usados: number; tope: number; restante: number; incluido: boolean }
+export interface CupoCampanias {
+  usados: number; tope: number; restante: number; incluido: boolean;
+  /** Modelo administrado (2026-08-23): los envíos pasan por LeadAI. */
+  administrado?: boolean;
+  /** Mensajes recargados (no vencen). */
+  saldo?: number;
+  /** Mensajes del bono del mes que quedan / lo que regala el plan. */
+  bonoMensajes?: number;
+  bonoMensajesPlan?: number;
+}
+
+export interface BolsaAnuncios {
+  bonoCentavos: number;
+  bonoPlanCentavos: number;
+  saldoCentavos: number;
+  disponiblesCentavos: number;
+  periodo: string;
+}
+
+export async function bolsaAnuncios(tenant?: string): Promise<BolsaAnuncios | null> {
+  try { return await api<BolsaAnuncios>("/anuncios/bolsa", { tenant }); } catch { return null; }
+}
 
 export async function listarPlantillasHSM(tenant?: string): Promise<{ ok: boolean; plantillas: PlantillaHSM[]; error?: string }> {
   try {

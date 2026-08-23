@@ -7,6 +7,7 @@ import {
   objetivosAd, publicoSugeridoAd, presupuestoAd, sugerirTextoAd, listarAnuncios, crearAnuncio,
   publicarAnuncioMeta, subirMediaPost,
   type ObjetivoAd, type PublicoAd, type RecomPresupuesto, type Anuncio,
+  bolsaAnuncios, type BolsaAnuncios,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
@@ -63,6 +64,9 @@ export default function AnunciosPanel() {
   const [publicandoId, setPublicandoId] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
   const [msg, setMsg] = useState("");
+  // La bolsa publicitaria (2026-08-23): el presupuesto de cada anuncio se
+  // debita de acá — bono mensual del plan + lo recargado con nosotros.
+  const [bolsa, setBolsa] = useState<BolsaAnuncios | null>(null);
 
   // Modo global: el wizard entero trabaja sobre el negocio enfocado en la
   // barra (todas las llamadas viajan con su tenant explícito).
@@ -76,9 +80,12 @@ export default function AnunciosPanel() {
   const cargar = useCallback(async () => {
     setEstado("cargando");
     try {
-      const [a, o] = await Promise.all([listarAnuncios(g.tenantLista), objetivosAd(g.tenantLista)]);
+      const [a, o, b] = await Promise.all([
+        listarAnuncios(g.tenantLista), objetivosAd(g.tenantLista), bolsaAnuncios(g.tenantLista),
+      ]);
       setAnuncios(a);
       setObjetivos(o);
+      setBolsa(b);
       setEstado("ok");
     } catch { setEstado("error"); }
   }, [g.tenantLista]);
@@ -198,6 +205,17 @@ export default function AnunciosPanel() {
           <p className="mt-1 text-[0.92rem] text-frio">
             Creá anuncios en Instagram y Facebook con la ayuda de la IA. Te guía paso a paso.
           </p>
+          {/* LA BOLSA PUBLICITARIA (2026-08-23): la plata de los anuncios pasa
+              por LeadAI — el plan regala un bono cada mes y lo demás se
+              recarga con nosotros. Al publicar, el presupuesto sale de acá. */}
+          {bolsa && (
+            <p className="mt-2 inline-flex flex-wrap items-center gap-1 rounded-tarjeta bg-carta px-3.5 py-2 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
+              💰 Tu bolsa: <b className="text-tinta">S/{(bolsa.disponiblesCentavos / 100).toFixed(2)}</b>
+              {" "}(S/{(bolsa.bonoCentavos / 100).toFixed(2)} del bono del mes
+              {bolsa.bonoPlanCentavos > 0 && <> — tu plan te regala S/{(bolsa.bonoPlanCentavos / 100).toFixed(2)} mensuales</>}
+              {" "}+ S/{(bolsa.saldoCentavos / 100).toFixed(2)} recargados). El presupuesto de cada anuncio sale de acá.
+            </p>
+          )}
         </div>
         {!creando && (
           <button

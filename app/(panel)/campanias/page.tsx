@@ -202,12 +202,22 @@ export default function CampaniasPanel() {
       <div className="flex flex-wrap gap-3">
         {cupo && (
           <div className="rounded-tarjeta bg-carta px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
-            {cupo.incluido
+            {/* MODELO ADMINISTRADO (2026-08-23): los envíos pasan por LeadAI —
+                el plan regala un bono mensual y lo demás se recarga con
+                nosotros. El regalo se cuenta como regalo. */}
+            {cupo.administrado ? (
+              <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> mensajes disponibles:{" "}
+              <b className="text-tinta">{(cupo.bonoMensajes ?? 0).toLocaleString()}</b> del bono del mes
+              {(cupo.bonoMensajesPlan ?? 0) > 0 && <> (tu plan te regala {(cupo.bonoMensajesPlan ?? 0).toLocaleString()} cada mes)</>}
+              {" "}+ {(cupo.saldo ?? 0).toLocaleString()} recargados. El costo de envío corre por nuestra cuenta.</>
+            ) : cupo.incluido
               ? <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> envíos disponibles este mes (de {cupo.tope.toLocaleString()} del plan). No consumen tu cuota de clientes.</>
               : <>📨 Tu plan no incluye campañas — se activan desde el plan Emprende.</>}
           </div>
         )}
-        {pago && !pago.tienePago && (
+        {/* El aviso de la tarjeta de Meta es del modelo CLÁSICO: con el
+            administrado, la factura de Meta la pagamos nosotros. */}
+        {!cupo?.administrado && pago && !pago.tienePago && (
           <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
             💳 Meta cobra cada mensaje de campaña a la tarjeta de TU cuenta de Meta, y aún no tienes una registrada.{" "}
             <a href={pago.urlPagos} target="_blank" rel="noreferrer" className="font-semibold text-brasa-texto underline">

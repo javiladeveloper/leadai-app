@@ -1837,7 +1837,12 @@ function HojaCombo({
               aria-label="Buscar un plato"
               className="mb-2 w-full rounded-lg border border-linea bg-arena/40 px-3 py-2 text-[0.9rem] text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none focus:ring-2 focus:ring-brasa/25"
             />
-            <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg bg-arena/40 p-2">
+            {/* Fondo SÓLIDO a propósito (2026-08-22, captura de Jonathan):
+                el encabezado pegajoso de cada sección hereda este color, y
+                con un fondo con transparencia los platos que pasan por
+                detrás se leían ENCIMA de "ROLLS FLAMEADOS" — texto fantasma
+                tapando la lista. Opaco el contenedor, opaco el encabezado. */}
+            <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg bg-arena p-2">
               {gruposCombo.length === 0 && (
                 <p className="px-1.5 py-3 text-center text-[0.85rem] text-frio">
                   Ningún plato coincide con «{busca}».
@@ -1847,7 +1852,7 @@ function HojaCombo({
               <div key={seccion.id}>
                 {/* El nombre de la sección, pegajoso: al scrollear sigue
                     diciendo dónde estás parado. */}
-                <p className="sticky top-0 z-10 bg-arena/95 px-1.5 pb-1 pt-1.5 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+                <p className="sticky -top-2 z-10 -mx-2 bg-arena px-3.5 pb-1 pt-2 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
                   {seccion.nombre}
                 </p>
               {seccion.productos.map((p) => {

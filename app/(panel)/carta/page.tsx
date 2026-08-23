@@ -127,6 +127,41 @@ export default function CartaPanel() {
         </div>
       )}
 
+      {/* LA RUTA DEL QUE EMPIEZA (2026-08-22, "toda esa parte debe ser
+          intuitivo"). Cinco pestañas sin orden le piden al dueño nuevo que
+          adivine por dónde se empieza. Esta guía se lo dice — y desaparece
+          sola cuando la carta ya tiene platos, que es cuando deja de hacer
+          falta. Cada paso lleva a su pestaña. */}
+      {estado === "ok" && carta && carta.productos.length === 0 && (
+        <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+          <p className="eyebrow mb-2.5">Arma tu carta en este orden</p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {([
+              ["1", "Crea tus platos", "Con su sección, precio y foto.", "platos"],
+              ["2", "Suma extras y combos", "Cremas, tamaños, agregados. Opcional.", "extras"],
+              ["3", "Ponle tu marca", "Logo, colores y tu link corto.", "marca"],
+            ] as [string, string, string, Pestana][]).map(([n, t, d, destino]) => (
+              <button
+                key={n}
+                onClick={() => setPestana(destino)}
+                className="tarjeta-viva flex items-start gap-2.5 rounded-tarjeta bg-arena/60 p-3 text-left ring-1 ring-linea transition hover:ring-brasa/40 active:scale-[0.99]"
+              >
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brasa text-[0.8rem] font-bold text-sobre-brasa">
+                  {n}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[0.88rem] font-semibold text-tinta">{t}</span>
+                  <span className="block text-[0.76rem] leading-snug text-tinta-2">{d}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2.5 text-[0.78rem] text-frio">
+            Con los platos cargados, el bot manda tu carta solo — y las promos se aplican solas.
+          </p>
+        </div>
+      )}
+
       {estado === "ok" && carta && (
         <>
           {pestana === "platos" && (
@@ -2102,6 +2137,36 @@ function HojaPromo({
   const [errorCampo, setErrorCampo] = useState("");
   const foto = useFoto(promo?.fotoUrl ?? null);
 
+  // LA PROMO EN UNA FRASE, EN VIVO (2026-08-22, "toda esa parte debe ser
+  // intuitivo"). Una promo junta seis perillas —tipo, valor, alcance, días,
+  // horario, temporada— y hasta hoy el dueño tenía que armarse la oración en
+  // la cabeza. Acá se la armamos nosotros, y cambia con cada toque.
+  const fraseViva = (() => {
+    const nombres = cats
+      .map((id) => categorias.find((c) => c.id === id)?.nombre)
+      .filter((x): x is string => Boolean(x));
+    const donde = nombres.length === 0
+      ? "de toda la carta"
+      : `de ${nombres.length <= 2 ? nombres.join(" y ") : `${nombres.length} secciones`}`;
+    const cuanto = tipo === "porcentaje"
+      ? (valor.trim() ? `${valor.trim()}%` : "…%")
+      : (valor.trim() ? `S/${valor.trim()}` : "S/…");
+    const que =
+      clase === "segunda" ? `llevando 2 ${donde}, la más barata sale a mitad de precio`
+        : clase === "3x2" ? `llevando 3 ${donde}, la más barata sale gratis`
+          : clase === "4x3" ? `llevando 4 ${donde}, la más barata sale gratis`
+            : `todo lo ${donde} tiene ${cuanto} de descuento`;
+    const cuando = dias.length > 0 && dias.length < 7
+      ? `Los ${dias.map((n) => DIAS[n]).join(" y ")}`
+      : "Todos los días";
+    const horas = horaDesde && horaHasta ? `, de ${horaDesde} a ${horaHasta}` : "";
+    const f = (x: string) => x.split("-").reverse().slice(0, 2).join("/");
+    const temporada = desde && hasta
+      ? ` (del ${f(desde)} al ${f(hasta)})`
+      : desde ? ` (desde el ${f(desde)})` : hasta ? ` (hasta el ${f(hasta)})` : "";
+    return `${cuando}${horas}, ${que}${temporada}.`;
+  })();
+
   async function guardar() {
     if (!nombre.trim()) { setErrorCampo("Ponle un nombre a la promo."); return; }
 
@@ -2225,6 +2290,13 @@ function HojaPromo({
               className={CAMPO_HOJA}
             />
           </Campo>
+
+          {/* LA FRASE VIVA: lo que la promo va a hacer, en una oración que se
+              actualiza con cada perilla. Si esta frase no dice lo que el dueño
+              quería, algo de abajo está mal puesto — y lo ve al instante. */}
+          <p className="rounded-lg bg-carta px-3 py-2 text-[0.88rem] leading-snug text-tinta ring-1 ring-brasa/30">
+            👁 <b>{fraseViva}</b>
+          </p>
 
           {/* QUÉ CLASE DE PROMO. Va antes que el descuento porque elegirla
               define el resto: un "3x2" ya sabe que es 100% sobre una unidad. */}

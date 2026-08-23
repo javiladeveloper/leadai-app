@@ -206,10 +206,16 @@ export default function CampaniasPanel() {
                 el plan regala un bono mensual y lo demás se recarga con
                 nosotros. El regalo se cuenta como regalo. */}
             {cupo.administrado ? (
-              <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> mensajes disponibles:{" "}
-              <b className="text-tinta">{(cupo.bonoMensajes ?? 0).toLocaleString()}</b> del bono del mes
-              {(cupo.bonoMensajesPlan ?? 0) > 0 && <> (tu plan te regala {(cupo.bonoMensajesPlan ?? 0).toLocaleString()} cada mes)</>}
-              {" "}+ {(cupo.saldo ?? 0).toLocaleString()} recargados. El costo de envío corre por nuestra cuenta.</>
+              (cupo.bonoMensajes ?? 0) > 0 || (cupo.bonoMensajesPlan ?? 0) > 0 ? (
+                <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> mensajes disponibles:{" "}
+                {(cupo.bonoMensajes ?? 0).toLocaleString()} del bono del mes + {(cupo.saldo ?? 0).toLocaleString()} recargados.
+                El costo de envío corre por nuestra cuenta.</>
+              ) : (
+                // SIN BONO (decisión 2026-08-23): los mensajes de campaña se
+                // pagan aparte, con recargas. Nada de nombrar regalos de 0.
+                <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> mensajes recargados
+                disponibles. Los envíos se pagan por recarga con LeadAI — escríbenos para recargar.</>
+              )
             ) : cupo.incluido
               ? <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> envíos disponibles este mes (de {cupo.tope.toLocaleString()} del plan). No consumen tu cuota de clientes.</>
               : <>📨 Tu plan no incluye campañas — se activan desde el plan Emprende.</>}

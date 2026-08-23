@@ -210,10 +210,13 @@ export default function AnunciosPanel() {
               recarga con nosotros. Al publicar, el presupuesto sale de acá. */}
           {bolsa && (
             <p className="mt-2 inline-flex flex-wrap items-center gap-1 rounded-tarjeta bg-carta px-3.5 py-2 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
-              💰 Tu bolsa: <b className="text-tinta">S/{(bolsa.disponiblesCentavos / 100).toFixed(2)}</b>
-              {" "}(S/{(bolsa.bonoCentavos / 100).toFixed(2)} del bono del mes
-              {bolsa.bonoPlanCentavos > 0 && <> — tu plan te regala S/{(bolsa.bonoPlanCentavos / 100).toFixed(2)} mensuales</>}
-              {" "}+ S/{(bolsa.saldoCentavos / 100).toFixed(2)} recargados). El presupuesto de cada anuncio sale de acá.
+              💰 Tu bolsa publicitaria: <b className="text-tinta">S/{(bolsa.disponiblesCentavos / 100).toFixed(2)}</b>
+              {/* El desglose del bono solo si EXISTE un bono (hoy los planes
+                  van sin bono: los anuncios se pagan aparte, por recarga). */}
+              {(bolsa.bonoCentavos > 0 || bolsa.bonoPlanCentavos > 0) && (
+                <> (S/{(bolsa.bonoCentavos / 100).toFixed(2)} del bono del mes + S/{(bolsa.saldoCentavos / 100).toFixed(2)} recargados)</>
+              )}
+              . El presupuesto de cada anuncio sale de acá — se paga por recarga con LeadAI.
             </p>
           )}
         </div>

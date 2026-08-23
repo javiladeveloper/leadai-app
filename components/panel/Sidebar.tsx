@@ -33,11 +33,15 @@ export const SECCIONES: Seccion[] = [
   { href: "/cocina", label: "Cocina", Icono: IconoInicio, requiere: "tieneCocina", rapido: 2 },
   { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones, requiere: "calificaLeads" },
   { href: "/publicar", label: "Publicar", Icono: IconoOportunidades, requiere: "calificaLeads" },
-  { href: "/anuncios", label: "Anuncios", Icono: IconoRayo, requiere: "calificaLeads" },
+  // Anuncios y Campañas dejaron los gates prestados (2026-08-22): vivían tras
+  // calificaLeads/nutreLeads y por eso un restaurante no los veía nunca —
+  // justo el negocio que más necesita traer gente nueva y hacer volver a los
+  // caseros. Ahora tienen capacidad propia en la tabla del backend.
+  { href: "/anuncios", label: "Anuncios", Icono: IconoRayo, requiere: "tieneAnuncios" },
   // Campañas HSM (2026-08-17): envíos masivos de plantillas de WhatsApp a la
-  // base de leads. Los envíos NO consumen cuota de clientes; el peaje de Meta
-  // va directo al método de pago del negocio en su WABA.
-  { href: "/campanias", label: "Campañas", Icono: IconoRayo, requiere: "nutreLeads" },
+  // base de contactos. Los envíos NO consumen cuota de clientes; el peaje de
+  // Meta va directo al método de pago del negocio en su WABA.
+  { href: "/campanias", label: "Campañas", Icono: IconoRayo, requiere: "tieneCampanias" },
   { href: "/seguimiento", label: "Seguimiento", corto: "Pipeline", Icono: IconoSeguimiento, requiere: "tieneEmbudo", rapido: 2 },
   // La carta del restaurante: lo que ve el cliente en /c/<tenantId> y lo que
   // el bot lee para tomar pedidos. Se editaba en la app móvil hasta que se

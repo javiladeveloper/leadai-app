@@ -38,6 +38,9 @@ export interface Capacidades {
   matriculaSocios: boolean;
   iaInterpretaItems: boolean;
   iaRespondePreguntas: boolean;
+  /** Crecimiento (2026-08-22): existen para TODOS los rubros, restaurantes incluidos. */
+  tieneAnuncios: boolean;
+  tieneCampanias: boolean;
 }
 
 /** Cómo se llama al contacto en este rubro. */
@@ -71,6 +74,7 @@ const TODO_ENCENDIDO: EstadoNegocio = {
     tieneCarta: false, validaPagos: false, tieneCocina: false, tieneReservas: false,
     agendaCitas: false, matriculaSocios: false,
     iaInterpretaItems: false, iaRespondePreguntas: true,
+    tieneAnuncios: true, tieneCampanias: true,
   },
   vocabulario: { contacto: "lead", contactos: "Leads", buscar: "Buscar leads o mensajes…" },
   modoPedidos: false,

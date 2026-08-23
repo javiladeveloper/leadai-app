@@ -89,6 +89,8 @@ export function MarcaCarta() {
   const [entrega, setEntrega] = useState("");
   const [tema, setTema] = useState<"claro" | "oscuro">("claro");
   const [color, setColor] = useState("");
+  const [eslogan, setEslogan] = useState("");
+  const [anuncio, setAnuncio] = useState("");
 
   useEffect(() => {
     void obtenerNegocio().then((n) => {
@@ -105,6 +107,8 @@ export function MarcaCarta() {
       setTema(n?.temaCarta === "oscuro" ? "oscuro" : "claro");
       setColor(n?.colorCarta ?? "");
       setSlug(n?.slug ?? "");
+      setEslogan(n?.esloganCarta ?? "");
+      setAnuncio(n?.anuncioCarta ?? "");
       setCargando(false);
     });
   }, []);
@@ -157,6 +161,8 @@ export function MarcaCarta() {
       temaCarta: tema,
       // Vacío = sin color propio, vuelve al menta de LeadAI.
       colorCarta: color || null,
+      esloganCarta: eslogan.trim() || null,
+      anuncioCarta: anuncio.trim() || null,
     });
     setGuardando(false);
     if (r.ok) {
@@ -361,6 +367,29 @@ export function MarcaCarta() {
                   className={`${ENTRADA} min-w-0 flex-1 sm:w-48 sm:flex-none`}
                 />
               </div>
+              {/* SIN LINK CORTO, EL BOT COMPARTE EL ID (2026-08-22, pedido de
+                  Jonathan: "que la carta no tenga el ID"). El slug ya existía
+                  pero había que inventarlo; ahora se sugiere desde el nombre
+                  y queda a un toque. Recién al GUARDAR se reserva. */}
+              {!slug.trim() && negocio?.nombre && (
+                <button
+                  onClick={() =>
+                    setSlug(
+                      negocio.nombre.toLowerCase()
+                        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32),
+                    )
+                  }
+                  className="mt-1.5 text-[0.8rem] font-semibold text-brasa hover:underline"
+                >
+                  Usar «{sitio}/c/{negocio.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32)}» ✨
+                </button>
+              )}
+              {!slug.trim() && (
+                <p className="mt-1 text-[0.75rem] text-tibio">
+                  Sin link corto, tu carta se comparte con un código largo e ilegible.
+                </p>
+              )}
             </Campo>
           </div>
           {/* El PAÍS al costado (2026-08-19): antes había que saber que el
@@ -369,7 +398,24 @@ export function MarcaCarta() {
 
               Es el MISMO número que atiende el bot: si hay WhatsApp conectado,
               la carta usa ese y este queda de respaldo. */}
-          <Campo etiqueta="WhatsApp de pedidos" ayuda="A donde te llegan">
+          {/* EL NÚMERO CONECTADO ES LA VERDAD (2026-08-22, reporte de
+              Jonathan: este campo mostraba OTRO número que el canal
+              conectado). Cuando hay WhatsApp conectado, la carta usa ESE —
+              acá se dice claro, y el campo manual queda como respaldo. */}
+          {negocio?.whatsappConectado && (
+            <div className="sm:col-span-2 rounded-tarjeta bg-ok/10 px-3.5 py-2.5 ring-1 ring-ok/25">
+              <p className="text-[0.85rem] font-semibold text-ok">
+                ✅ Tus pedidos llegan al WhatsApp conectado: +{negocio.whatsappConectado}
+              </p>
+              <p className="text-[0.75rem] text-arena/60">
+                Es el número que atiende tu bot. El campo de abajo solo se usa si lo desconectas.
+              </p>
+            </div>
+          )}
+          <Campo
+            etiqueta={negocio?.whatsappConectado ? "WhatsApp de respaldo" : "WhatsApp de pedidos"}
+            ayuda={negocio?.whatsappConectado ? "Solo si desconectas el bot" : "A donde te llegan"}
+          >
             {/* EL PAÍS Y EL NÚMERO, EN UNA SOLA LÍNEA (2026-08-20). Antes el
                 número tenía `basis-full` para bajar a su propio renglón en
                 móvil, pero esta sección son DOS COLUMNAS: dentro de una
@@ -422,6 +468,33 @@ export function MarcaCarta() {
               <span className="text-[0.9rem] text-arena/60">minutos</span>
             </div>
           </Campo>
+
+          {/* MÁS DINAMISMO (2026-08-22, pedido de Jonathan): la frase del
+              negocio y el ANUNCIO DEL DÍA — la línea que se escribe hoy y se
+              borra mañana, sin armar una promo para todo. */}
+          <div className="sm:col-span-2">
+            <Campo etiqueta="Frase de tu negocio" ayuda="Va bajo el nombre en tu carta. Opcional">
+              <input
+                value={eslogan}
+                onChange={(e) => setEslogan(e.target.value.slice(0, 80))}
+                placeholder="Makis y más, al toque 🍣"
+                className={ENTRADA}
+              />
+            </Campo>
+          </div>
+          <div className="sm:col-span-2">
+            <Campo
+              etiqueta="Anuncio de hoy"
+              ayuda="Aparece arriba de tu carta. Bórralo cuando ya no corra"
+            >
+              <input
+                value={anuncio}
+                onChange={(e) => setAnuncio(e.target.value.slice(0, 120))}
+                placeholder="📢 Hoy: ceviche de tarapa a S/15 hasta agotar stock"
+                className={ENTRADA}
+              />
+            </Campo>
+          </div>
 
           {/* La dirección es OPCIONAL a propósito (2026-08-19): muchos negocios
               de delivery cocinan desde su casa y no quieren publicarla. */}

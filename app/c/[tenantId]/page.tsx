@@ -57,6 +57,10 @@ interface Carta {
     direccion: string | null; entregaMinutos: number | null;
     /** A dónde llega el pedido. null = el negocio no conectó WhatsApp. */
     whatsapp: string | null;
+    /** Frase corta bajo el nombre ("Makis y más, al toque"). */
+    eslogan?: string | null;
+    /** El anuncio del día, arriba de la carta. */
+    anuncio?: string | null;
     /** 'claro' | 'oscuro'. Lo elige el dueño; por defecto claro. */
     tema?: string | null;
     /** Color de acento en hex. null = el menta de LeadAI. */
@@ -542,6 +546,14 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       }}
     >
       <Cabecera negocio={carta.negocio} />
+      {/* EL ANUNCIO DEL DÍA (2026-08-22): la línea que el dueño escribe hoy y
+          borra mañana — "ceviche de tarapa S/15", "hoy cerramos temprano".
+          Es SU voz de hoy, por eso va arriba de todo, antes que las promos. */}
+      {carta.negocio.anuncio && (
+        <p className="mx-4 mt-3 rounded-tarjeta bg-brasa/12 px-3.5 py-2.5 text-center text-[0.9rem] font-semibold leading-snug text-brasa-texto ring-1 ring-brasa/25">
+          {carta.negocio.anuncio}
+        </p>
+      )}
       {/* EL PEDIDO RETOMADO SE ANUNCIA (2026-08-21): el carrito apareció
           lleno "solo" — sin esta línea parece un error o un cobro fantasma. */}
       {pedidoRetomado && (
@@ -706,6 +718,11 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <h1 className="text-[1.5rem] font-bold leading-tight text-tinta">{negocio.nombre}</h1>
+          {/* La FRASE del negocio (2026-08-22): una línea de identidad bajo
+              el nombre. La escribe el dueño en Tu marca. */}
+          {negocio.eslogan && (
+            <p className="w-full text-[0.9rem] leading-snug text-tinta-2">{negocio.eslogan}</p>
+          )}
           {/* Abierto/cerrado como chip y no como texto suelto: es el dato que
               decide si el cliente sigue o se va. */}
           <span

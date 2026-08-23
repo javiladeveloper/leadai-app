@@ -524,6 +524,10 @@ export interface NegocioCarta {
   esloganCarta?: string | null;
   /** El anuncio del día, arriba de la carta. Se escribe hoy, se borra mañana. */
   anuncioCarta?: string | null;
+  /** Estilo de tarjetas: 'lista' | 'fotos' | 'compacta'. */
+  estiloCarta?: string | null;
+  /** La letra de la carta: 'moderna' | 'elegante' | 'redonda'. */
+  tipografiaCarta?: string | null;
   /**
    * El número del WhatsApp CONECTADO (solo lectura, 2026-08-22): cuando
    * existe, la carta usa ESTE — el campo manual queda de respaldo. Sin
@@ -544,7 +548,8 @@ export async function obtenerNegocio(tenant?: string): Promise<NegocioCarta | nu
 export function guardarNegocio(
   datos: Partial<Pick<NegocioCarta,
     "direccion" | "instagramUrl" | "entregaMinutos" | "whatsappCarta" | "temaCarta" | "colorCarta"
-    | "facebookUrl" | "tiktokUrl" | "webUrl" | "slug" | "esloganCarta" | "anuncioCarta">>,
+    | "facebookUrl" | "tiktokUrl" | "webUrl" | "slug" | "esloganCarta" | "anuncioCarta"
+    | "estiloCarta" | "tipografiaCarta">>,
   tenant?: string,
 ) {
   return escribir("/carta/negocio", "PATCH", datos, tenant);

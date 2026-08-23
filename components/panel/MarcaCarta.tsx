@@ -91,6 +91,8 @@ export function MarcaCarta() {
   const [color, setColor] = useState("");
   const [eslogan, setEslogan] = useState("");
   const [anuncio, setAnuncio] = useState("");
+  const [estilo, setEstilo] = useState<"lista" | "fotos" | "compacta">("lista");
+  const [tipografia, setTipografia] = useState<"moderna" | "elegante" | "redonda">("moderna");
 
   useEffect(() => {
     void obtenerNegocio().then((n) => {
@@ -109,6 +111,13 @@ export function MarcaCarta() {
       setSlug(n?.slug ?? "");
       setEslogan(n?.esloganCarta ?? "");
       setAnuncio(n?.anuncioCarta ?? "");
+      setEstilo(
+        n?.estiloCarta === "fotos" || n?.estiloCarta === "compacta" ? n.estiloCarta : "lista",
+      );
+      setTipografia(
+        n?.tipografiaCarta === "elegante" || n?.tipografiaCarta === "redonda"
+          ? n.tipografiaCarta : "moderna",
+      );
       setCargando(false);
     });
   }, []);
@@ -163,6 +172,8 @@ export function MarcaCarta() {
       colorCarta: color || null,
       esloganCarta: eslogan.trim() || null,
       anuncioCarta: anuncio.trim() || null,
+      estiloCarta: estilo,
+      tipografiaCarta: tipografia,
     });
     setGuardando(false);
     if (r.ok) {
@@ -334,6 +345,87 @@ export function MarcaCarta() {
               )}
             </span>
           </label>
+
+          {/* PALETAS LISTAS (2026-08-22): cinco combinaciones probadas de
+              tema + color, a un toque. El selector libre queda para afinar. */}
+          <div className="mt-3">
+            <p className="text-[0.78rem] text-arena/70">O elige una paleta lista:</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {([
+                ["Menta", "claro", "#0fb68b"],
+                ["Nikkei", "oscuro", "#ff7a1a"],
+                ["Pollería", "claro", "#e03131"],
+                ["Café", "claro", "#8a5a2b"],
+                ["Neón", "oscuro", "#22d3ee"],
+              ] as const).map(([nombrePaleta, temaP, colorP]) => (
+                <button
+                  key={nombrePaleta}
+                  type="button"
+                  onClick={() => { setTema(temaP); setColor(colorP); }}
+                  className={`flex items-center gap-1.5 rounded-chip px-2.5 py-1.5 text-[0.78rem] font-semibold ring-1 transition active:scale-[0.97] ${
+                    tema === temaP && color === colorP
+                      ? "ring-2 ring-brasa text-arena"
+                      : "ring-arena/20 text-arena/80 hover:ring-arena/40"
+                  }`}
+                  style={{ backgroundColor: temaP === "oscuro" ? "#14100e" : "#f6faf8", color: temaP === "oscuro" ? "#f7f3f0" : "#0e1614" }}
+                >
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: colorP }} aria-hidden />
+                  {nombrePaleta}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* EL DISEÑO DE LA CARTA (2026-08-22, pedido de Jonathan: configuración
+            de diseño). Presets, no un editor libre: cada opción está probada
+            en un teléfono real. */}
+        <div className="border-t border-arena/10 pt-5">
+          <p className="text-[0.82rem] font-semibold text-arena">Cómo se ven tus platos</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            {([
+              ["lista", "📋 Lista", "Foto chica al costado, nombre y precio. La clásica."],
+              ["fotos", "🖼️ Fotos grandes", "Tarjetas con la foto arriba, como las apps de delivery. Ideal si tus fotos venden."],
+              ["compacta", "📝 Compacta", "Sin fotos, más platos por pantalla. Para cartas de texto."],
+            ] as const).map(([id, titulo, detalle]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setEstilo(id)}
+                aria-pressed={estilo === id}
+                className={`rounded-tarjeta bg-arena/5 p-3 text-left ring-1 transition ${
+                  estilo === id ? "ring-2 ring-brasa" : "ring-arena/15 hover:ring-arena/35"
+                }`}
+              >
+                <span className="block text-[0.85rem] font-bold text-arena">{titulo}</span>
+                <span className="mt-0.5 block text-[0.72rem] leading-snug text-arena/60">{detalle}</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="mt-4 text-[0.82rem] font-semibold text-arena">La letra de tu carta</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            {([
+              ["moderna", "Moderna", "Limpia y directa. La de siempre.", "inherit"],
+              ["elegante", "Elegante", "Títulos con serifa, aire de restaurante.", "Georgia, serif"],
+              ["redonda", "Redonda", "Amigable y suave, para marcas jóvenes.", "'Trebuchet MS', 'Segoe UI', sans-serif"],
+            ] as const).map(([id, titulo, detalle, fuente]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTipografia(id)}
+                aria-pressed={tipografia === id}
+                className={`rounded-tarjeta bg-arena/5 p-3 text-left ring-1 transition ${
+                  tipografia === id ? "ring-2 ring-brasa" : "ring-arena/15 hover:ring-arena/35"
+                }`}
+              >
+                <span className="block text-[1rem] font-bold text-arena" style={{ fontFamily: fuente }}>
+                  {titulo}
+                </span>
+                <span className="mt-0.5 block text-[0.72rem] leading-snug text-arena/60">{detalle}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="grid gap-3 border-t border-arena/10 pt-5 sm:grid-cols-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Playfair_Display, Quicksand } from "next/font/google";
 import { volarAlCarrito } from "@/lib/vuelo-carrito";
 import { usarNumeroAnimado } from "@/lib/usar-numero-animado";
 import { IconoWhatsApp, IconoInstagram, IconoMessenger, IconoTikTok } from "@/components/Iconos";
@@ -25,6 +26,17 @@ import { use } from "react";
  */
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+
+// LAS TIPOGRAFÍAS DE LA CARTA (2026-08-22, pedido de Jonathan: configuración
+// de DISEÑO). Presets y no fuentes libres — elegir tipografía arbitraria
+// termina en cartas ilegibles. La variable CSS la consumen las reglas
+// `.tipografia-*` de globals.css.
+const fuenteElegante = Playfair_Display({
+  subsets: ["latin"], weight: ["600", "700"], variable: "--fuente-carta",
+});
+const fuenteRedonda = Quicksand({
+  subsets: ["latin"], weight: ["500", "600", "700"], variable: "--fuente-carta",
+});
 
 interface Opcion {
   id: string; nombre: string; precioCentavos: number; fotoUrl: string | null;
@@ -61,6 +73,10 @@ interface Carta {
     eslogan?: string | null;
     /** El anuncio del día, arriba de la carta. */
     anuncio?: string | null;
+    /** Cómo se pintan los platos: 'lista' | 'fotos' | 'compacta'. */
+    estilo?: string | null;
+    /** La letra: 'moderna' | 'elegante' | 'redonda'. */
+    tipografia?: string | null;
     /** 'claro' | 'oscuro'. Lo elige el dueño; por defecto claro. */
     tema?: string | null;
     /** Color de acento en hex. null = el menta de LeadAI. */
@@ -529,12 +545,25 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
 
 
 
+  // EL DISEÑO ELEGIDO (2026-08-22): tipografía y estilo de tarjetas, como
+  // presets del dueño. Nada elegido = la carta de siempre.
+  const claseTipografia =
+    carta.negocio.tipografia === "elegante"
+      ? `${fuenteElegante.variable} tipografia-elegante`
+      : carta.negocio.tipografia === "redonda"
+        ? `${fuenteRedonda.variable} tipografia-redonda`
+        : "";
+  const estiloTarjetas =
+    carta.negocio.estilo === "fotos" || carta.negocio.estilo === "compacta"
+      ? carta.negocio.estilo
+      : "lista";
+
   return (
     <main
       // `key` con el paso: sin él React reusa el nodo y la animación no vuelve
       // a correr, así que volver de la confirmación sería un corte seco.
       key={volviendo ? "carta-vuelta" : "carta"}
-      className={`mx-auto min-h-dvh max-w-[900px] bg-arena pb-32 ${
+      className={`mx-auto min-h-dvh max-w-[900px] bg-arena pb-32 ${claseTipografia} ${
         saliendo === "adelante" ? "sale-adelante" : volviendo ? "paso-atras" : ""
       }`}
       style={estiloTema}
@@ -606,12 +635,13 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
               <span className="h-3.5 w-1 rounded-full bg-orbita" aria-hidden />
               {cat.nombre}
             </h2>
-            <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className={estiloTarjetas === "fotos" ? "grid grid-cols-2 gap-3 sm:grid-cols-3" : "grid gap-2.5 sm:grid-cols-2"}>
               {cat.productos.map((p) => (
                 <TarjetaProducto
                   key={p.id}
                   producto={p}
                   grupos={carta.grupos}
+                  estilo={estiloTarjetas}
                   onElegir={() => setEligiendo(p)}
                   onAgregarDirecto={() => agregar({ producto: p, cantidad: 1, opciones: [] })}
                 />
@@ -621,12 +651,13 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
         ))}
         {sueltos.length > 0 && (
           <section>
-            <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className={estiloTarjetas === "fotos" ? "grid grid-cols-2 gap-3 sm:grid-cols-3" : "grid gap-2.5 sm:grid-cols-2"}>
               {sueltos.map((p) => (
                 <TarjetaProducto
                   key={p.id}
                   producto={p}
                   grupos={carta.grupos}
+                  estilo={estiloTarjetas}
                   onElegir={() => setEligiendo(p)}
                   onAgregarDirecto={() => agregar({ producto: p, cantidad: 1, opciones: [] })}
                 />
@@ -1120,10 +1151,12 @@ function FilaDestacados({
 }
 
 function TarjetaProducto({
-  producto, grupos, onElegir, onAgregarDirecto,
+  producto, grupos, estilo, onElegir, onAgregarDirecto,
 }: {
   producto: Producto;
   grupos: Grupo[];
+  /** Preset de diseño del negocio: 'lista' (default), 'fotos' o 'compacta'. */
+  estilo?: "lista" | "fotos" | "compacta";
   onElegir: () => void;
   onAgregarDirecto: () => void;
 }) {
@@ -1131,12 +1164,55 @@ function TarjetaProducto({
   // dos toques para una gaseosa es fricción que no compra nada.
   const tieneOpciones = producto.grupoIds.some((id) => grupos.some((g) => g.id === id));
 
+  // ESTILO "FOTOS" (2026-08-22): tarjeta vertical con la foto grande arriba,
+  // como las apps de delivery que el cliente ya conoce. Un plato SIN foto en
+  // este modo cae a la fila de siempre — un rectángulo vacío no vende nada.
+  if (estilo === "fotos" && producto.fotoUrl) {
+    const pct = producto.precioAntesCentavos
+      ? descuentoPct(producto.precioAntesCentavos, producto.precioCentavos)
+      : null;
+    return (
+      <button
+        onClick={tieneOpciones ? onElegir : onAgregarDirecto}
+        className="entra tarjeta-viva group flex w-full flex-col overflow-hidden rounded-tarjeta bg-carta text-left ring-1 ring-linea transition hover:ring-brasa/40 active:scale-[0.99]"
+      >
+        <span className="relative w-full">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={producto.fotoUrl} alt="" className="aspect-[4/3] w-full object-cover" />
+          <span className="absolute bottom-2 right-2 grid h-8 w-8 place-items-center rounded-full bg-brasa text-[1.15rem] font-bold text-sobre-brasa shadow-md">
+            +
+          </span>
+          {pct && (
+            <span className="absolute left-2 top-2 rounded-chip bg-orbita px-2 py-0.5 text-[0.72rem] font-bold text-sobre-orbita">
+              −{pct}%
+            </span>
+          )}
+        </span>
+        <span className="flex min-w-0 flex-col p-3">
+          <span className="line-clamp-2 text-[0.92rem] font-semibold leading-snug text-tinta">
+            {producto.nombre}
+          </span>
+          <span className="mt-1 flex items-baseline gap-2">
+            <span className="font-bold text-calor">{soles(producto.precioCentavos)}</span>
+            {pct && producto.precioAntesCentavos && (
+              <span className="text-[0.8rem] text-frio line-through">
+                {soles(producto.precioAntesCentavos)}
+              </span>
+            )}
+          </span>
+        </span>
+      </button>
+    );
+  }
+
   return (
     <button
       onClick={tieneOpciones ? onElegir : onAgregarDirecto}
-      className="entra tarjeta-viva group flex w-full items-start gap-3 rounded-tarjeta bg-carta p-4 text-left ring-1 ring-linea transition hover:ring-brasa/40 active:scale-[0.99]"
+      className={`entra tarjeta-viva group flex w-full items-start gap-3 rounded-tarjeta bg-carta text-left ring-1 ring-linea transition hover:ring-brasa/40 active:scale-[0.99] ${
+        estilo === "compacta" ? "p-3" : "p-4"
+      }`}
     >
-      {producto.fotoUrl && (
+      {estilo !== "compacta" && producto.fotoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={producto.fotoUrl}

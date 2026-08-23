@@ -543,3 +543,19 @@ button[class*="active:scale"]:active {
   width: 100%;
   border: 0;
 }
+
+/* ── Tipografías de la carta pública (2026-08-22) ─────────────────────
+   Presets elegidos en Tu marca. La fuente viaja en --fuente-carta
+   (next/font); acá solo se decide DÓNDE se aplica: la elegante viste
+   títulos (serif en el cuerpo cansa en un teléfono), la redonda viste
+   toda la carta. */
+.tipografia-elegante h1,
+.tipografia-elegante h2 {
+  font-family: var(--fuente-carta), Georgia, serif;
+  letter-spacing: 0.01em;
+}
+.tipografia-redonda,
+.tipografia-redonda button,
+.tipografia-redonda input {
+  font-family: var(--fuente-carta), system-ui, sans-serif;
+}

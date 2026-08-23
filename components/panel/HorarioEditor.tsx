@@ -6,6 +6,9 @@ import {
   obtenerHorario, guardarHorario, resumenHorario, DIAS_SEMANA,
   type ConfigHorario,
 } from "@/lib/horario";
+import QRCode from "qrcode";
+import { obtenerNegocio } from "@/lib/carta";
+import { leerEmpresaActiva } from "@/lib/auth";
 
 /**
  * CUÁNDO ATIENDE EL RESTAURANTE (2026-08-19).
@@ -270,6 +273,7 @@ export function HorarioEditor() {
                   sección: sin local físico no existen, y quien acaba de decir
                   que tiene local es exactamente quien las va a cargar. */}
               <EditorSalas salas={cfg.salas} onCambiar={(salas) => aplicar({ salas })} />
+              <QRsDeMesa salas={cfg.salas} />
             </div>
           )}
         </div>
@@ -567,6 +571,98 @@ function EditorSalas({
           {salas.length === 0 ? "+ Cargar mis mesas" : "+ Otro ambiente"}
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * LOS QR DE CADA MESA (2026-08-23, pedido de Jonathan: "arma el QR de mesa").
+ *
+ * Un QR pegado en la mesa 4 abre la carta EN MODO MESA (`/c/slug?mesa=4`): el
+ * comensal arma su pedido y confirma, y entra directo a cocina como "Mesa 4"
+ * — sin WhatsApp, sin mozo anotando, y se cobra al final como todo pedido del
+ * local.
+ *
+ * Vive junto a "Mis mesas" porque los QR SALEN de esa lista: el backend
+ * rechaza una mesa que no exista acá, así que renombrar una mesa pide
+ * reimprimir su QR. La impresión es una ventana lista para imprimir con una
+ * tarjeta por mesa — nada de PDF que descargar y perder.
+ */
+function QRsDeMesa({ salas }: { salas: SalaLocal[] }) {
+  const [generando, setGenerando] = useState(false);
+  const [error, setError] = useState("");
+  const mesas = salas.flatMap((s) => s.mesas);
+  if (mesas.length === 0) return null;
+
+  async function imprimir() {
+    setGenerando(true);
+    setError("");
+    try {
+      // El link corto si existe; el id de siempre si no — la ruta pública
+      // acepta los dos, igual que el link que se comparte por WhatsApp.
+      const negocio = await obtenerNegocio().catch(() => null);
+      const destino = negocio?.slug?.trim() || leerEmpresaActiva();
+      if (!destino) {
+        setError("No pudimos armar el link de tu carta. Recarga e intenta de nuevo.");
+        return;
+      }
+      const base = `${window.location.origin}/c/${destino}`;
+      const tarjetas = await Promise.all(
+        mesas.map(async (m) => ({
+          mesa: m,
+          png: await QRCode.toDataURL(`${base}?mesa=${encodeURIComponent(m)}`, {
+            width: 520, margin: 1,
+          }),
+        })),
+      );
+      const v = window.open("", "_blank");
+      if (!v) {
+        setError("El navegador bloqueó la ventana de impresión. Permite los pop-ups e intenta de nuevo.");
+        return;
+      }
+      const nombre = negocio?.nombre ?? "";
+      v.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR de mesas</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; }
+  .grilla { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .tarjeta { border: 2px dashed #bbb; border-radius: 16px; padding: 20px; text-align: center; break-inside: avoid; }
+  .nombre { font-size: 14px; color: #555; margin: 0; }
+  .mesa { font-size: 30px; font-weight: 800; margin: 4px 0 10px; }
+  img { width: 100%; max-width: 260px; }
+  .pie { font-size: 13px; color: #555; margin: 10px 0 0; }
+  @media print { .tarjeta { page-break-inside: avoid; } }
+</style></head><body><div class="grilla">
+${tarjetas.map((t) => `<div class="tarjeta">
+  <p class="nombre">${nombre.replace(/</g, "&lt;")}</p>
+  <p class="mesa">Mesa ${String(t.mesa).replace(/</g, "&lt;")}</p>
+  <img src="${t.png}" alt="QR de la mesa ${String(t.mesa).replace(/</g, "&lt;")}">
+  <p class="pie">📱 Escanea, pide desde tu mesa y paga al final</p>
+</div>`).join("")}
+</div><script>window.print()</script></body></html>`);
+      v.document.close();
+    } finally {
+      setGenerando(false);
+    }
+  }
+
+  return (
+    <div className="rounded-tarjeta bg-arena/50 p-4">
+      <p className="font-bold text-tinta">QR para pedir desde la mesa</p>
+      <p className="mt-0.5 text-[0.84rem] leading-snug text-frio">
+        Imprime un QR por mesa y pégalo ahí: el cliente escanea, arma su pedido
+        en tu carta y le llega directo a tu Cocina como «Mesa 4» — sin mozo
+        anotando. Se cobra al final, como todo pedido del local. Si renombras
+        una mesa, reimprime su QR.
+      </p>
+      <button
+        type="button"
+        onClick={imprimir}
+        disabled={generando}
+        className="mt-3 rounded-chip bg-brasa px-4 py-2 text-[0.85rem] font-bold text-sobre-brasa transition active:scale-95 disabled:opacity-40"
+      >
+        {generando ? "Generando…" : `🖨️ Imprimir ${mesas.length} QR${mesas.length === 1 ? "" : "s"}`}
+      </button>
+      {error && <p className="mt-2 text-[0.84rem] font-semibold text-alerta">{error}</p>}
     </div>
   );
 }

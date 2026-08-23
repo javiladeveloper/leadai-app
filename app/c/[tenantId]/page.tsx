@@ -227,8 +227,16 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   // El ref FIRMADO del lead, si el link lo trajo (lo pone el bot al mandarlo).
   // Se guarda una vez: la URL no cambia mientras se navega la carta.
   const [refLead, setRefLead] = useState<string | null>(null);
+  // EL QR DE LA MESA (2026-08-23): el link pegado en la mesa trae ?mesa=.
+  // Cambia el destino del pedido — directo a cocina como "Mesa 4", sin
+  // WhatsApp, sin código, y se paga al final en la caja.
+  const [mesaQR, setMesaQR] = useState<string | null>(null);
+  // El pedido de mesa ya enviado: qué mesa y cuánto, para la despedida.
+  const [enMesa, setEnMesa] = useState<{ mesa: string; total: number } | null>(null);
   useEffect(() => {
-    setRefLead(new URLSearchParams(window.location.search).get("ref"));
+    const q = new URLSearchParams(window.location.search);
+    setRefLead(q.get("ref"));
+    setMesaQR(q.get("mesa"));
   }, []);
 
   useEffect(() => {
@@ -375,6 +383,8 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
         cantidad: l.cantidad,
       })),
       modalidad,
+      // Con el QR de mesa el backend cotiza "comer acá": sin envase (taper).
+      ...(mesaQR ? { mesa: mesaQR } : {}),
     };
   }
 
@@ -432,6 +442,38 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     if (carrito.length === 0 || enviando) return;
     setEnviando(true);
     setError(null);
+    // QR DE MESA: directo a cocina, sin WhatsApp de por medio.
+    if (mesaQR) {
+      try {
+        const res = await fetch(`${API_URL}/c/${tenantId}/pedido-mesa`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mesa: mesaQR,
+            items: carrito.filter((l) => !l.combo).map((l) => ({
+              productoId: l.producto.id,
+              cantidad: l.cantidad,
+              opcionIds: l.opciones.map((o) => o.id),
+            })),
+            combos: carrito.filter((l) => l.combo).map((l) => ({
+              comboId: l.producto.id,
+              cantidad: l.cantidad,
+            })),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? "No pudimos enviar tu pedido");
+          return;
+        }
+        setEnMesa({ mesa: data.mesa ?? mesaQR, total: data.totalCentavos });
+      } catch {
+        setError("No pudimos conectar. Revisa tu internet.");
+      } finally {
+        setEnviando(false);
+      }
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/c/${tenantId}/pedido`, {
         method: "POST",
@@ -502,6 +544,22 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     ...(acento ? { "--color-brasa": acento, "--color-brasa-texto": acento } : {}),
   } as React.CSSProperties;
 
+  // Pedido de MESA ya en cocina: la despedida invita a la siguiente ronda.
+  if (enMesa) {
+    return (
+      <PedidoEnMesa
+        mesa={enMesa.mesa}
+        total={enMesa.total}
+        estiloTema={estiloTema}
+        onOtraRonda={() => {
+          setCarrito([]);
+          setCotizacion(null);
+          setEnMesa(null);
+        }}
+      />
+    );
+  }
+
   // Pedido que ya viajó DIRECTO al chat: la página solo despide.
   if (enChat) return <PedidoEnChat whatsapp={carta.negocio.whatsapp} estiloTema={estiloTema} />;
 
@@ -517,6 +575,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
         negocio={carta.negocio}
         estiloTema={estiloTema}
         modalidad={modalidad}
+        mesa={mesaQR}
         enviando={enviando}
         error={error}
         onVolver={() => {
@@ -575,6 +634,14 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       }}
     >
       <Cabecera negocio={carta.negocio} />
+      {/* LA MESA, DICHA DE ENTRADA (2026-08-23). Quien escaneó el QR tiene
+          que ver al instante que este link ES su mesa: pide desde acá, llega
+          a cocina con su número y paga al final — sin WhatsApp de por medio. */}
+      {mesaQR && (
+        <div className="mx-4 mt-3 rounded-tarjeta bg-brasa/10 px-4 py-3 text-center text-[0.9rem] font-semibold text-brasa-texto ring-1 ring-brasa/30">
+          🍽️ Estás pidiendo en la <b>Mesa {mesaQR}</b> — tu pedido va directo a cocina y pagas al final.
+        </div>
+      )}
       {/* EL ANUNCIO DEL DÍA (2026-08-22): la línea que el dueño escribe hoy y
           borra mañana — "ceviche de tarapa S/15", "hoy cerramos temprano".
           Es SU voz de hoy, por eso va arriba de todo, antes que las promos. */}
@@ -700,6 +767,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           abierto={carta.negocio.abierto}
           modalidad={modalidad}
           onModalidad={setModalidad}
+          mesa={mesaQR}
           enviando={enviando}
           error={error}
           onQuitar={quitar}
@@ -1544,7 +1612,7 @@ function HojaOpciones({
 
 function BarraCarrito({
   carrito, total, abierto, modalidad, onModalidad, enviando, error, onQuitar, onCantidad, onEnviar, minimo,
-  refCarrito,
+  refCarrito, mesa,
 }: {
   carrito: LineaCarrito[];
   total: number;
@@ -1561,11 +1629,14 @@ function BarraCarrito({
   /** Sumar o restar una unidad. Llegar a 0 saca la línea. */
   onCantidad: (i: number, delta: number) => void;
   onEnviar: () => void;
+  /** Vino del QR de una mesa: sin delivery/recojo y sin mínimo. */
+  mesa?: string | null;
 }) {
   // Cuánto falta para el mínimo. Solo en DELIVERY: quien pasa a recoger no
-  // le cuesta un viaje al local, así que no hay mínimo que exigirle.
+  // le cuesta un viaje al local, así que no hay mínimo que exigirle — y en
+  // la mesa tampoco: nadie manda un motorizado a la mesa 4.
   const faltaParaElMinimo =
-    modalidad === "delivery" && minimo > 0 ? Math.max(0, minimo - total) : 0;
+    !mesa && modalidad === "delivery" && minimo > 0 ? Math.max(0, minimo - total) : 0;
 
   // ABIERTO DE ENTRADA (2026-08-20). Estaba colapsado detrás de "ver detalle",
   // así que el cliente tenía que descubrir ese botón para saber qué llevaba y
@@ -1659,9 +1730,13 @@ function BarraCarrito({
         {abiertoDetalle ? "ocultar" : "ver mi pedido"}
       </button>
 
-      {/* La modalidad se decide acá, con el pedido ya armado — el chat no la
-          vuelve a preguntar. Dos opciones grandes, nada de dropdown: esto se
-          toca con el pulgar apurado y con hambre. */}
+      {/* En la mesa no hay nada que elegir: la modalidad ES la mesa. Una
+          línea que lo recuerda, en lugar de dos botones que no aplican. */}
+      {mesa ? (
+        <p className="mb-2 rounded-tarjeta bg-brasa/10 px-3 py-2 text-center text-[0.88rem] font-semibold text-brasa-texto">
+          🍽️ Mesa {mesa} · pagas al final
+        </p>
+      ) : (
       <div className="mb-2 grid grid-cols-2 gap-2">
         {([
           ["delivery", "🛵 Delivery"],
@@ -1680,6 +1755,7 @@ function BarraCarrito({
           </button>
         ))}
       </div>
+      )}
 
       {/* CUÁNTO FALTA PARA EL MÍNIMO (2026-08-19). Se dice MIENTRAS arma, no
           al enviar: enterarse al final de que su pedido no alcanza se siente
@@ -1719,7 +1795,7 @@ function BarraCarrito({
  * y una sorpresa en el precio, aunque sea a favor, huele a error.
  */
 function ConfirmarPedido({
-  cotizacion, negocio, estiloTema, modalidad, enviando, error, onVolver, onConfirmar, saliendo,
+  cotizacion, negocio, estiloTema, modalidad, enviando, error, onVolver, onConfirmar, saliendo, mesa,
 }: {
   cotizacion: Cotizacion;
   /** La marca del negocio: sin esto la confirmación parece otro sitio. */
@@ -1728,6 +1804,8 @@ function ConfirmarPedido({
   saliendo: boolean;
   estiloTema: React.CSSProperties;
   modalidad: "delivery" | "recojo";
+  /** Vino del QR de una mesa: el pedido va directo a cocina. */
+  mesa?: string | null;
   enviando: boolean;
   error: string | null;
   onVolver: () => void;
@@ -1770,7 +1848,10 @@ function ConfirmarPedido({
 
       <h1 className="mb-1 text-[1.35rem] font-bold text-tinta">Tu pedido</h1>
       <p className="mb-4 text-[0.9rem] text-tinta-2">
-        {modalidad === "delivery" ? "🛵 Delivery" : "🥡 Para llevar"} · revísalo antes de enviarlo
+        {mesa
+          ? `🍽️ Mesa ${mesa}`
+          : modalidad === "delivery" ? "🛵 Delivery" : "🥡 Para llevar"}{" "}
+        · revísalo antes de enviarlo
       </p>
 
       <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
@@ -1818,7 +1899,11 @@ function ConfirmarPedido({
           disabled={enviando}
           className="w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-40"
         >
-          {enviando ? "Enviando…" : `Confirmar pedido · ${soles(cotizacion.totalCentavos)}`}
+          {enviando
+            ? "Enviando…"
+            : mesa
+              ? `Mandar a cocina · ${soles(cotizacion.totalCentavos)}`
+              : `Confirmar pedido · ${soles(cotizacion.totalCentavos)}`}
         </button>
       </div>
       </div>
@@ -1894,6 +1979,43 @@ function PedidoEnChat({ whatsapp, estiloTema }: { whatsapp: string | null; estil
           Volver al chat
         </a>
       )}
+    </main>
+  );
+}
+
+/**
+ * EL PEDIDO DE LA MESA YA ESTÁ EN COCINA (2026-08-23).
+ *
+ * La despedida del QR de mesa no despide: el comensal sigue sentado ahí y lo
+ * más probable es que en un rato quiera otra ronda — el botón lo devuelve a
+ * la carta con el carrito limpio. Y dice claro lo del pago: nadie pagó nada
+ * todavía, se cobra al final en la caja (o el mozo pasa).
+ */
+function PedidoEnMesa({
+  mesa, total, estiloTema, onOtraRonda,
+}: {
+  mesa: string;
+  total: number;
+  estiloTema: React.CSSProperties;
+  onOtraRonda: () => void;
+}) {
+  return (
+    <main
+      className="aparece mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center"
+      style={estiloTema}
+    >
+      <div className="text-[3rem]">👨‍🍳</div>
+      <h1 className="text-[1.5rem] font-bold text-tinta">¡Marchando, Mesa {mesa}!</h1>
+      <p className="text-tinta-2">
+        Tu pedido ya está en la cocina. El total va <b>{soles(total)}</b> y lo
+        pagas al final — en la caja o cuando pase alguien del local 🙌
+      </p>
+      <button
+        onClick={onOtraRonda}
+        className="mt-1 w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99]"
+      >
+        Pedir algo más
+      </button>
     </main>
   );
 }

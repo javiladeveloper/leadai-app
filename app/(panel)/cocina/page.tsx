@@ -568,6 +568,16 @@ function TarjetaPedido({
           seis pedidos eso es media pantalla. */}
       {validacion && <ChipPago validacion={validacion} onVer={() => onVerPago?.(pedido)} />}
 
+      {/* EFECTIVO EN LA PUERTA (2026-08-22). El cliente eligió pagar al
+          recibir: acá no hay captura que revisar — hay plata que COBRAR. El
+          chip canta el monto para que nadie suelte el pedido sin cobrarlo;
+          desaparece solo cuando la entrega lo valida como cobrado. */}
+      {pedido.pago === "efectivo_pendiente" && (
+        <p className="mt-1.5 inline-flex items-center gap-1 rounded-chip bg-calor-suave px-2.5 py-1 text-[0.78rem] font-bold text-calor-hondo">
+          💵 Cobrar {soles(pedido.totalCentavos)} al entregar
+        </p>
+      )}
+
       {/* LA DIRECCIÓN SE PIDE, NO SE MUESTRA (2026-08-21, idea de Jonathan).
           Antes ocupaba dos renglones fijos en TODAS las tarjetas, y en una
           cocina no se usa para nada: nadie cocina mirando la calle. La necesita

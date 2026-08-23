@@ -134,7 +134,20 @@ export function PagosEditor() {
             onClick={() => aplicar({ aceptaPlin: !cfg.aceptaPlin })}
             label="Acepto Plin"
           />
+          <Chip
+            activo={cfg.aceptaEfectivo}
+            onClick={() => aplicar({ aceptaEfectivo: !cfg.aceptaEfectivo })}
+            label="Acepto efectivo al entregar"
+          />
         </div>
+
+        {cfg.aceptaEfectivo && (
+          <p className="text-[0.84rem] text-frio">
+            El cliente puede elegir pagar en la puerta: el pedido entra a
+            cocina sin captura y quien entrega cobra. La tarjeta en Cocina lo
+            marca con 💵 para que nadie lo suelte sin cobrar.
+          </p>
+        )}
 
         {!cfg.aceptaYape && !cfg.aceptaPlin && (
           <p className="text-[0.84rem] text-frio">

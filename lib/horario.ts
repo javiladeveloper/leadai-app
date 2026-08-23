@@ -34,6 +34,8 @@ export interface ConfigHorario {
   yapeNombre: string;
   aceptaYape: boolean;
   aceptaPlin: boolean;
+  /** ¿Cobra en efectivo al entregar? Enciende el botón 💵 del chat (2026-08-22). */
+  aceptaEfectivo: boolean;
 
   // ── Cuánto puede la cocina ──────────────────────────────────────────
   //
@@ -85,6 +87,8 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       // existentes, y apagarlos por un campo ausente les cortaría el cobro.
       aceptaYape: r.config.aceptaYape ?? true,
       aceptaPlin: r.config.aceptaPlin ?? true,
+      // `?? false`: cobrar en la puerta es una decisión del dueño, no un default.
+      aceptaEfectivo: r.config.aceptaEfectivo ?? false,
       capacidadSimultanea: r.config.capacidadSimultanea ?? 3,
       minutosPorPedido: r.config.minutosPorPedido ?? 20,
       aceptaReservas: r.config.aceptaReservas ?? true,

@@ -996,7 +996,7 @@ function Extras({
       bajada={
         total === 0
           ? "Cremas, tamaño, término de la carne: lo que el cliente elige junto al plato."
-          : `${total} ${total === 1 ? "grupo" : "grupos"} · después los asignas a los platos que los llevan`
+          : `${total} ${total === 1 ? "grupo" : "grupos"} · cada uno dice qué platos lo llevan`
       }
       tono="hondo"
       accion={
@@ -1085,6 +1085,7 @@ function Extras({
                iniciales —el grupo viejo— quedan pegados al abrir otro. */
             key={editando?.id ?? "nuevo"}
             grupo={editando}
+            carta={carta}
             cerrar={() => { setAbriendo(false); setEditando(null); }}
             recargar={recargar}
           />
@@ -1107,11 +1108,43 @@ function reglaDelGrupo(g: GrupoOpciones): string {
   return g.maxSelec ? `Hasta ${g.maxSelec}, opcional` : "Las que quiera, opcional";
 }
 
+/**
+ * Los CASOS REALES detrás de un grupo de extras (2026-08-22, feedback de
+ * Jonathan: "la sección extras es confusa hasta para mí"). El dueño no piensa
+ * en min/max: piensa "el cliente elige su término", "cobro el queso extra",
+ * "el 1er topping va gratis". Elegir el caso preconfigura las reglas — los
+ * toggles quedan abajo como ajuste fino, no como examen de entrada.
+ */
+const PLANTILLAS_GRUPO = [
+  {
+    id: "elige_una" as const,
+    icono: "🥩",
+    titulo: "El cliente elige UNA",
+    ejemplo: "Término de la carne, tamaño, sabor. No puede pedir sin elegir.",
+    obligatorio: true, unaSola: true, sinCargo: "",
+  },
+  {
+    id: "agregados" as const,
+    icono: "🧀",
+    titulo: "Agregados que se cobran",
+    ejemplo: "Queso extra, porción de arroz, cremas. Puede saltárselo.",
+    obligatorio: false, unaSola: false, sinCargo: "",
+  },
+  {
+    id: "con_gratis" as const,
+    icono: "🧋",
+    titulo: "Incluye algunos gratis",
+    ejemplo: "El 1er topping va gratis y del 2° se cobra.",
+    obligatorio: false, unaSola: false, sinCargo: "1",
+  },
+];
+
 function HojaGrupo({
-  grupo, cerrar, recargar,
+  grupo, carta, cerrar, recargar,
 }: {
   /** El grupo a editar. `null` = uno nuevo. */
   grupo?: GrupoOpciones | null;
+  carta: Carta;
   cerrar: () => void;
   recargar: () => Promise<void>;
 }) {
@@ -1146,8 +1179,29 @@ function HojaGrupo({
   );
   const [guardando, setGuardando] = useState(false);
   const [errorCampo, setErrorCampo] = useState("");
+  // Al CREAR se elige primero el caso (plantilla); al editar se va directo al
+  // formulario — las reglas ya existen y el dueño viene a corregir algo.
+  const [eligiendoCaso, setEligiendoCaso] = useState(!grupo);
+  // Qué platos llevan este grupo — SE ASIGNAN ACÁ MISMO (2026-08-22). Antes
+  // el flujo estaba partido: crear el grupo y después ir plato por plato.
+  const [platosIds, setPlatosIds] = useState<string[]>(
+    grupo
+      ? carta.productos.filter((pl) => pl.grupos.some((x) => x.grupoId === grupo.id)).map((pl) => pl.id)
+      : [],
+  );
 
   const llenas = opciones.filter((o) => o.nombre.trim());
+
+  // La regla EN PALABRAS, en vivo: es lo que el cliente va a vivir al pedir.
+  const reglaViva = obligatorio
+    ? unaSola
+      ? "tendrá que elegir exactamente una"
+      : `tendrá que elegir al menos una${Number(sinCargo) > 0 ? ` (las ${sinCargo} más caras van gratis)` : ""}`
+    : unaSola
+      ? "podrá elegir una, o ninguna"
+      : Number(sinCargo) > 0
+        ? `podrá elegir varias — las ${Number(sinCargo) === 1 ? "1 más cara va" : `${sinCargo} más caras van`} gratis`
+        : "podrá elegir varias, o ninguna";
 
   async function guardar() {
     if (!nombre.trim()) { setErrorCampo("Ponle un nombre al grupo."); return; }
@@ -1170,6 +1224,9 @@ function HojaGrupo({
         nombre: o.nombre.trim(),
         precioCentavos: o.precio.trim() ? aCentavos(o.precio)! : 0,
       })),
+      // Los enganches viajan en el MISMO guardado: un grupo sin platos es un
+      // grupo que el cliente nunca ve.
+      productoIds: platosIds,
     };
 
     if (grupo) {
@@ -1202,6 +1259,43 @@ function HojaGrupo({
     cerrar();
   }
 
+  // PASO 0 AL CREAR: elegir el CASO, no descifrar checkboxes. Cada tarjeta es
+  // una situación que el dueño reconoce; tocarla preconfigura las reglas.
+  if (eligiendoCaso) {
+    return (
+      <Hoja
+        titulo="Nuevo grupo de extras"
+        bajada="¿Cómo funciona lo que el cliente va a elegir?"
+        cerrar={cerrar}
+        pie={null}
+      >
+        <div className="space-y-2.5">
+          {PLANTILLAS_GRUPO.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => {
+                setObligatorio(c.obligatorio);
+                setUnaSola(c.unaSola);
+                setSinCargo(c.sinCargo);
+                setEligiendoCaso(false);
+              }}
+              className="tarjeta-viva flex w-full items-start gap-3 rounded-tarjeta bg-arena/60 p-4 text-left ring-1 ring-linea transition hover:ring-brasa/50 active:scale-[0.99]"
+            >
+              <span className="text-[1.6rem]" aria-hidden>{c.icono}</span>
+              <span className="min-w-0">
+                <span className="block font-semibold text-tinta">{c.titulo}</span>
+                <span className="block text-[0.82rem] leading-snug text-tinta-2">{c.ejemplo}</span>
+              </span>
+            </button>
+          ))}
+          <p className="pt-1 text-center text-[0.78rem] text-frio">
+            Después puedes afinar las reglas — esto solo te ahorra el armado.
+          </p>
+        </div>
+      </Hoja>
+    );
+  }
+
   return (
     <Hoja
       titulo={grupo ? "Editar grupo de extras" : "Nuevo grupo de extras"}
@@ -1228,6 +1322,20 @@ function HojaGrupo({
           </Campo>
 
           <div className="space-y-2 rounded-lg bg-arena/50 p-3">
+            {/* LA REGLA EN PALABRAS, EN VIVO (2026-08-22): cada toggle cambia
+                esta frase — el dueño lee qué le va a pasar a su cliente, no
+                un par de checkboxes que hay que interpretar. */}
+            <p className="rounded-lg bg-carta px-3 py-2 text-[0.85rem] text-tinta ring-1 ring-linea">
+              👁 Al pedir un plato con este grupo, el cliente <b>{reglaViva}</b>.
+              {!grupo && (
+                <button
+                  onClick={() => setEligiendoCaso(true)}
+                  className="ml-2 text-[0.78rem] font-semibold text-brasa-texto hover:underline"
+                >
+                  cambiar el caso
+                </button>
+              )}
+            </p>
             <label className="flex cursor-pointer items-center gap-2.5 text-[0.9rem] text-tinta-2">
               <input
                 type="checkbox"
@@ -1342,6 +1450,85 @@ function HojaGrupo({
               </button>
             </div>
           </Campo>
+
+          {/* QUÉ PLATOS LO LLEVAN — ACÁ MISMO (2026-08-22). Antes había que
+              guardar el grupo, salir, y entrar plato por plato a tildarlo:
+              el flujo partido que hacía confusa toda la sección. Un grupo
+              sin platos es un grupo que el cliente nunca ve — por eso el
+              contador y el aviso cuando queda en cero. */}
+          {carta.productos.length > 0 && (
+            <Campo
+              etiqueta={`¿Qué platos lo llevan? (${platosIds.length})`}
+              ayuda="Tócalos para marcar o desmarcar"
+            >
+              <div className="flex max-h-44 flex-wrap gap-1.5 overflow-y-auto">
+                {carta.productos.map((pl) => {
+                  const activo = platosIds.includes(pl.id);
+                  return (
+                    <button
+                      key={pl.id}
+                      onClick={() =>
+                        setPlatosIds((prev) =>
+                          activo ? prev.filter((x) => x !== pl.id) : [...prev, pl.id],
+                        )
+                      }
+                      aria-pressed={activo}
+                      className={`rounded-chip px-2.5 py-1 text-[0.8rem] transition active:scale-[0.97] ${
+                        activo
+                          ? "bg-brasa/15 font-semibold text-brasa-texto ring-1 ring-brasa/40"
+                          : "bg-arena text-tinta-2 ring-1 ring-linea hover:ring-brasa/30"
+                      }`}
+                    >
+                      {activo ? "✓ " : ""}{pl.nombre}
+                    </button>
+                  );
+                })}
+              </div>
+              {platosIds.length === 0 && (
+                <p className="mt-1.5 text-[0.78rem] font-semibold text-tibio">
+                  Sin platos marcados, este grupo no se le muestra a nadie.
+                </p>
+              )}
+            </Campo>
+          )}
+
+          {/* ASÍ LO VE EL CLIENTE: la vista previa mata la duda de qué están
+              configurando estos campos. Mismo layout que la carta pública:
+              círculo si elige una, cuadrado si puede varias. */}
+          {llenas.length > 0 && (
+            <div className="rounded-tarjeta bg-arena/60 p-3.5 ring-1 ring-linea">
+              <p className="eyebrow mb-2">Así lo verá el cliente</p>
+              <div className="rounded-tarjeta bg-carta p-3 ring-1 ring-linea">
+                <p className="text-[0.9rem] font-semibold text-tinta">
+                  {nombre.trim() || "Nombre del grupo"}
+                  <span className="ml-2 text-[0.75rem] font-normal text-frio">
+                    {obligatorio ? (unaSola ? "elige 1" : "elige al menos 1") : "opcional"}
+                  </span>
+                </p>
+                <div className="mt-2 space-y-1.5">
+                  {llenas.slice(0, 5).map((o, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 text-[0.85rem]">
+                      <span className="flex items-center gap-2 text-tinta-2">
+                        <span aria-hidden className="text-frio">{unaSola ? "◯" : "☐"}</span>
+                        {o.nombre}
+                      </span>
+                      <span className="tabular-nums text-frio">
+                        {o.precio.trim() && aCentavos(o.precio) ? `+S/${Number(o.precio).toFixed(2)}` : "gratis"}
+                      </span>
+                    </div>
+                  ))}
+                  {llenas.length > 5 && (
+                    <p className="text-[0.78rem] text-frio">…y {llenas.length - 5} más</p>
+                  )}
+                </div>
+                {!unaSola && Number(sinCargo) > 0 && (
+                  <p className="mt-2 text-[0.78rem] text-brasa-texto">
+                    🎁 {Number(sinCargo) === 1 ? "La opción más cara que elija va" : `Las ${sinCargo} más caras que elija van`} sin cargo.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {errorCampo && (
             <p className="fila-entra rounded-lg bg-alerta/10 px-3 py-2 text-[0.85rem] font-semibold text-alerta">

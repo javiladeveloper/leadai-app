@@ -312,7 +312,15 @@ export interface GrupoEntrada {
   nombre: string;
   minSelec?: number;
   maxSelec?: number | null;
+  /** Cuántas opciones van sin cargo (bubble tea: la 1ª gratis). */
+  sinCargo?: number;
   opciones?: { nombre: string; precioCentavos: number }[];
+  /**
+   * A qué platos se engancha el grupo (2026-08-22): la hoja de extras asigna
+   * los platos ahí mismo — se acabó el flujo partido en dos lugares.
+   * Ausente = no tocar los enganches.
+   */
+  productoIds?: string[];
 }
 
 export function crearGrupo(datos: GrupoEntrada, tenant?: string) {

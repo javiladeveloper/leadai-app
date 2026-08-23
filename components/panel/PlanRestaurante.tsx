@@ -5,6 +5,8 @@ import {
   obtenerSuscripcion,
   contratarPlan,
   cancelarPlan,
+  cambiarPlanProgramado,
+  cancelarCambioPlan,
   historialPagos,
   type RespuestaSuscripcion,
   type PlanDisponible,
@@ -61,6 +63,9 @@ export function PlanRestaurante() {
   const [verPagos, setVerPagos] = useState(false);
   const [dandoBaja, setDandoBaja] = useState(false);
   const [avisoBaja, setAvisoBaja] = useState(false);
+  // Cambio de plan programado (2026-08-23): en curso / error del pedido.
+  const [programando, setProgramando] = useState(false);
+  const [errorCambio, setErrorCambio] = useState<string | null>(null);
 
   function recargar() {
     return obtenerSuscripcion().then((d) => {
@@ -146,10 +151,31 @@ export function PlanRestaurante() {
 
   // PASO 1 — elegir. Solo marca el plan y muestra el resumen; NO abre el
   // formulario de tarjeta todavía.
-  function contratar(plan: PlanDisponible) {
+  //
+  // CON SUSCRIPCIÓN ACTIVA no hay checkout (2026-08-23, decisión de
+  // Jonathan): el cambio se PROGRAMA para el cierre del ciclo — no se cobra
+  // nada hoy y la siguiente factura ya sale con el plan nuevo. La tarjeta
+  // guardada sigue valiendo, así que no se vuelve a pedir.
+  async function contratar(plan: PlanDisponible) {
+    if (s && activa) {
+      setErrorCambio(null);
+      setProgramando(true);
+      const r = await cambiarPlanProgramado({ plan: plan.id, periodicidad });
+      setProgramando(false);
+      if (!r.ok) { setErrorCambio(r.error ?? "No se pudo programar el cambio"); return; }
+      await recargar();
+      return;
+    }
     checkout.cerrar();
     setPagando(false);
     setElegido(plan.id);
+  }
+
+  async function deshacerCambio() {
+    setProgramando(true);
+    await cancelarCambioPlan();
+    setProgramando(false);
+    await recargar();
   }
 
   // PASO 2 — confirmar. Recién acá se monta la tarjeta.
@@ -183,6 +209,31 @@ export function PlanRestaurante() {
     <div className="space-y-5">
       {/* El plan ACTUAL primero: es lo que el dueño vino a ver. */}
       {activa && s && <PlanActual s={s} />}
+
+      {/* EL CAMBIO PROGRAMADO (2026-08-23). Se dice CUÁNDO pasa y que la
+          siguiente factura ya sale con el plan nuevo — sin esto el dueño
+          toca "Crecer", no ve ningún cobro y cree que no funcionó. */}
+      {activa && s?.planSiguiente && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-tarjeta bg-brasa/10 px-4 py-3 ring-1 ring-brasa/30">
+          <p className="text-[0.88rem] text-tinta">
+            🔁 Tu plan pasa a <b>{NOMBRE[s.planSiguiente] ?? s.planSiguiente}</b>
+            {s.periodicidadSiguiente === "anual" ? " (anual)" : ""} el{" "}
+            <b>{fecha(s.vigenteHasta)}</b> — tu siguiente factura ya sale con el plan nuevo.
+          </p>
+          <button
+            onClick={deshacerCambio}
+            disabled={programando}
+            className="shrink-0 rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold text-frio ring-1 ring-linea transition hover:bg-arena disabled:opacity-40"
+          >
+            Cancelar el cambio
+          </button>
+        </div>
+      )}
+      {errorCambio && (
+        <p className="rounded-tarjeta bg-alerta-suave px-4 py-2.5 text-[0.85rem] font-semibold text-alerta">
+          {errorCambio}
+        </p>
+      )}
 
       {/* PLAN SIN SUSCRIPCIÓN (2026-08-20): el que se vendió hablando y se
           asignó a mano. No tiene precio cobrado, ni fecha de renovación, ni
@@ -222,9 +273,11 @@ export function PlanRestaurante() {
       <Seccion
         titulo={tienePlan ? "Cambiar de plan" : "Elige tu plan"}
         bajada={
-          tienePlan
-            ? "Puedes subir o bajar cuando quieras. El cambio se cobra desde hoy."
-            : "Pagas por los pedidos del mes. Si te pasas, sigues vendiendo igual."
+          s && activa
+            ? "Puedes subir o bajar cuando quieras: el cambio se aplica al cierre de tu ciclo, antes de la siguiente factura."
+            : tienePlan
+              ? "Elige el plan y se activa con tu primer pago."
+              : "Pagas por los pedidos del mes. Si te pasas, sigues vendiendo igual."
         }
         tono={tienePlan ? "claro" : "hondo"}
       >
@@ -254,7 +307,7 @@ export function PlanRestaurante() {
                   // periodicidad guardada, así que alcanza con el plan.
                   (s && activa ? s.periodicidad === periodicidad : true)
                 }
-                deshabilitado={checkout.estado === "abriendo" || checkout.estado === "procesando"}
+                deshabilitado={programando || checkout.estado === "abriendo" || checkout.estado === "procesando"}
                 onElegir={() => contratar(p)}
                 sobreOscuro={!tienePlan}
               />

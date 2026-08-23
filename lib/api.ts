@@ -657,6 +657,9 @@ export interface EstadoSuscripcion {
   fallaDesde: string | null;
   tarjetaUltimos4: string | null;
   tarjetaMarca: string | null;
+  /** Cambio programado (2026-08-23): el plan al que pasa al cierre del ciclo. */
+  planSiguiente?: string | null;
+  periodicidadSiguiente?: Periodicidad | null;
 }
 
 export interface RespuestaSuscripcion {
@@ -703,6 +706,32 @@ export async function contratarPlan(datos: {
     // El mensaje de Culqi es accionable ("Tarjeta sin fondos"): se muestra
     // tal cual en vez de un "ocurrió un error".
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo contratar el plan" };
+  }
+}
+
+/**
+ * Programa el cambio de plan para el CIERRE del ciclo (2026-08-23): no se
+ * cobra nada hoy — la siguiente factura ya sale con el plan nuevo. No pide
+ * tarjeta: la guardada sigue valiendo.
+ */
+export async function cambiarPlanProgramado(datos: {
+  plan: string;
+  periodicidad: Periodicidad;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/suscripcion/cambio-plan", { method: "POST", body: datos });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo programar el cambio" };
+  }
+}
+
+export async function cancelarCambioPlan(): Promise<{ ok: boolean }> {
+  try {
+    await api("/suscripcion/cambio-plan", { method: "DELETE" });
+    return { ok: true };
+  } catch {
+    return { ok: false };
   }
 }
 

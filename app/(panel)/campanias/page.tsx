@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
+import ComprarMensajes from "@/components/panel/ComprarMensajes";
 import {
   listarPlantillasHSM, crearPlantillaHSM, eliminarPlantillaHSM, cupoCampanias,
   estadoPagoCampanias, listarCampanias, crearCampaniaHSM, pausarCampania, subirMediaPost,
@@ -28,7 +29,11 @@ const ESTADO_PLANTILLA: Record<string, { texto: string; clase: string }> = {
 // Campañas HSM: envíos masivos de plantillas de WhatsApp a la base de contactos.
 // Los envíos NO consumen la cuota de clientes; el peaje por mensaje lo cobra
 // Meta directo a la tarjeta del negocio (registrada en SU cuenta de Meta).
-export default function CampaniasPanel() {
+/**
+ * `embebido`: esta pantalla se monta DENTRO de /marketing, que ya puso el
+ * título y la barra de negocios. Sin esto, se verían dos veces.
+ */
+export default function CampaniasPanel({ embebido = false }: { embebido?: boolean } = {}) {
   const router = useRouter();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
@@ -175,26 +180,31 @@ export default function CampaniasPanel() {
   const contactosValidos = parsearContactos().length;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">
+    <div className={embebido ? "space-y-6" : "mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8"}>
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Tu embudo</p>
-          <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Campañas</h1>
-          <p className="mt-1 text-[0.92rem] text-frio">
-            Envíos masivos por WhatsApp a tu base de contactos, con plantillas aprobadas por Meta.
-          </p>
-        </div>
+        {!embebido && (
+          <div>
+            <p className="eyebrow">Tu embudo</p>
+            <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Campañas</h1>
+            <p className="mt-1 text-[0.92rem] text-frio">
+              Envíos masivos por WhatsApp a tu base de contactos, con plantillas aprobadas por Meta.
+            </p>
+          </div>
+        )}
+        {/* El botón de acción SE QUEDA aunque esté embebido: es lo que la
+            persona vino a hacer. `ml-auto` lo mantiene a la derecha cuando el
+            título ya no está para empujarlo. */}
         {!creando && pestania === "campanias" && (
           <button
             onClick={() => setCreando(true)}
-            className="rounded-chip bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
+            className={`rounded-chip bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo ${embebido ? "ml-auto" : ""}`}
           >
             + Nueva campaña
           </button>
         )}
       </header>
 
-      {g.modoGlobal && (
+      {!embebido && g.modoGlobal && (
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
       )}
 
@@ -214,7 +224,7 @@ export default function CampaniasPanel() {
                 // SIN BONO (decisión 2026-08-23): los mensajes de campaña se
                 // pagan aparte, con recargas. Nada de nombrar regalos de 0.
                 <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> mensajes recargados
-                disponibles. Los envíos se pagan por recarga con LeadAI — escríbenos para recargar.</>
+                disponibles. Recarga abajo cuando quieras.</>
               )
             ) : cupo.incluido
               ? <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> envíos disponibles este mes (de {cupo.tope.toLocaleString()} del plan). No consumen tu cuota de clientes.</>
@@ -234,6 +244,11 @@ export default function CampaniasPanel() {
         )}
       </div>
 
+      {/* COMPRAR MENSAJES (2026-08-24). Solo en administrado: con WABA propia
+          el negocio le paga a Meta directo, y venderle una bolsa sería
+          cobrarle por algo que ya paga. */}
+      {cupo?.administrado && <ComprarMensajes onExito={cargar} />}
+
       {aviso && (
         <div className="flex items-start justify-between gap-3 rounded-tarjeta bg-ok/8 px-4 py-3 text-[0.86rem] text-tinta-2 ring-1 ring-ok/25">
           <span>{aviso}</span>
@@ -243,7 +258,12 @@ export default function CampaniasPanel() {
 
       {/* Pestañas */}
       <div className="flex gap-1.5">
-        {([["campanias", "Campañas"], ["plantillas", "Plantillas"]] as const).map(([id, label]) => (
+        {/* "Envíos", no "Campañas" (2026-08-24): esta pantalla ahora vive
+            dentro de Marketing, bajo una pestaña que YA se llama Campañas.
+            Repetir la palabra un nivel más abajo hacía que dos controles
+            distintos parecieran el mismo. Y "Envíos" describe mejor lo que
+            hay acá: la lista de lo que se mandó. */}
+        {([["campanias", "Envíos"], ["plantillas", "Plantillas"]] as const).map(([id, label]) => (
           <button
             key={id}
             onClick={() => { setPestania(id); setCreando(false); setCreandoPlantilla(false); }}

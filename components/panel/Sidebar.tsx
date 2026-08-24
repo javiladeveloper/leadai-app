@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { leerSesion, esSuperAdmin, rolEnEmpresaActiva } from "@/lib/auth";
 import { useCapacidades } from "@/lib/modo-negocio";
-import { seccionesDe, type Seccion } from "@/lib/secciones";
+import { seccionesDe, agruparSecciones, type Seccion } from "@/lib/secciones";
 import { ContadorHits } from "@/components/panel/ContadorHits";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 import {
@@ -37,11 +37,14 @@ export const SECCIONES: Seccion[] = [
   // calificaLeads/nutreLeads y por eso un restaurante no los veía nunca —
   // justo el negocio que más necesita traer gente nueva y hacer volver a los
   // caseros. Ahora tienen capacidad propia en la tabla del backend.
-  { href: "/anuncios", label: "Anuncios", Icono: IconoRayo, requiere: "tieneAnuncios" },
-  // Campañas HSM (2026-08-17): envíos masivos de plantillas de WhatsApp a la
-  // base de contactos. Los envíos NO consumen cuota de clientes; el peaje de
-  // Meta va directo al método de pago del negocio en su WABA.
-  { href: "/campanias", label: "Campañas", Icono: IconoRayo, requiere: "tieneCampanias" },
+  // MARKETING (2026-08-24): una sola sección con Anuncios y Campañas en
+  // pestañas. Sueltas en el menú no se leían como lo mismo —una trae gente
+  // nueva, la otra hace volver a la que ya vino— y el dueño buscaba "lo de
+  // traer clientes" sin saber cuál de las dos abrir.
+  //
+  // Basta UNA de las dos capacidades para que la sección exista; adentro, cada
+  // pestaña se muestra según la suya.
+  { href: "/marketing", label: "Marketing", Icono: IconoRayo, requiereAlguna: ["tieneAnuncios", "tieneCampanias"] },
   { href: "/seguimiento", label: "Seguimiento", corto: "Pipeline", Icono: IconoSeguimiento, requiere: "tieneEmbudo", rapido: 2 },
   // La carta del restaurante: lo que ve el cliente en /c/<tenantId> y lo que
   // el bot lee para tomar pedidos. Se editaba en la app móvil hasta que se
@@ -179,7 +182,18 @@ export function Sidebar() {
             </div>
           ))}
 
-        {secciones.map(({ href, label, Icono }) => {
+        {agruparSecciones(secciones).map((grupo, i) => (
+        <div key={grupo.titulo ?? `sueltas-${i}`} className={grupo.titulo ? "space-y-1 pt-3" : "space-y-1"}>
+          {/* EL TÍTULO DEL GRUPO. Colapsado no hay lugar para texto, y una
+              línea separa igual de bien sin empujar el ancho. */}
+          {grupo.titulo && (expandido ? (
+            <p className="px-2.5 pb-0.5 text-[0.68rem] font-bold uppercase tracking-wider text-arena/40">
+              {grupo.titulo}
+            </p>
+          ) : (
+            <div className="mx-auto h-px w-6 bg-arena/15" aria-hidden />
+          ))}
+        {grupo.items.map(({ href, label, Icono }) => {
           const activo = path.startsWith(href);
           return (
             <Link
@@ -202,6 +216,8 @@ export function Sidebar() {
             </Link>
           );
         })}
+        </div>
+        ))}
         {/* Acceso al panel de plataforma, solo para super admins. */}
         {superAdmin && (
           <Link

@@ -25,10 +25,51 @@ export interface Seccion {
    */
   requiere?: keyof Capacidades;
   /**
+   * ALTERNATIVA A `requiere`: basta UNA de estas capacidades (2026-08-24).
+   *
+   * Marketing junta Anuncios y Campanias en pestanias. Colgarla de una sola
+   * capacidad la haria desaparecer entera para un negocio que tenga la otra;
+   * con `requiereAlguna`, la seccion existe si al menos una pestania tiene
+   * sentido, y adentro cada pestania se muestra segun la suya.
+   */
+  requiereAlguna?: (keyof Capacidades)[];
+  /**
    * Prioridad en la barra inferior de móvil, donde solo entran cuatro. Menor
    * es antes. Las demás viven en el menú "Más", que nunca se filtra por esto.
    */
   rapido?: number;
+  /**
+   * EL GRUPO BAJO EL QUE SE LISTA (2026-08-24).
+   *
+   * "Anuncios" y "Campanias" eran dos items sueltos que, sueltos, no se leen
+   * como lo mismo: uno trae clientes nuevos y el otro le vuelve a escribir a
+   * los que ya vinieron. Juntos bajo Marketing, el dueno encuentra "lo de
+   * traer gente" en un solo lugar.
+   *
+   * Sin `grupo`, la seccion va suelta como siempre.
+   */
+  grupo?: string;
+}
+
+/**
+ * Las secciones agrupadas, en el orden en que aparecen.
+ *
+ * Las sueltas salen como un grupo sin titulo, asi el que dibuja el menu
+ * recorre una sola lista en vez de mezclar dos casos.
+ */
+export function agruparSecciones(
+  secciones: readonly Seccion[],
+): { titulo?: string; items: Seccion[] }[] {
+  const salida: { titulo?: string; items: Seccion[] }[] = [];
+  for (const s of secciones) {
+    const ultimo = salida[salida.length - 1];
+    // Se agrupa solo con el bloque INMEDIATAMENTE anterior: asi el orden de la
+    // lista manda, y un grupo partido en dos se ve partido en vez de saltar
+    // secciones de lugar por su cuenta.
+    if (ultimo && ultimo.titulo === s.grupo) ultimo.items.push(s);
+    else salida.push({ titulo: s.grupo, items: [s] });
+  }
+  return salida;
 }
 
 /**
@@ -64,7 +105,11 @@ export function seccionesDe(
   caps: Capacidades,
   rol?: string,
 ): Seccion[] {
-  const porCapacidad = secciones.filter((s) => !s.requiere || caps[s.requiere]);
+  const porCapacidad = secciones.filter((s) => {
+    if (s.requiere && !caps[s.requiere]) return false;
+    if (s.requiereAlguna && !s.requiereAlguna.some((c) => caps[c])) return false;
+    return true;
+  });
   if (rol !== "mozo") return porCapacidad;
   return porCapacidad.filter((s) => RUTAS_DEL_MOZO.some((r) => s.href === r));
 }

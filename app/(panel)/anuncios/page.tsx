@@ -37,7 +37,11 @@ const ZONAS = [
 // Creador de anuncios guiado (Fase 3B): wizard en pasos que pregunta qué querés
 // conseguir y arma el ad con las mejores configuraciones. La publicación real
 // espera la conexión de Meta; hoy se simula.
-export default function AnunciosPanel() {
+/**
+ * `embebido`: esta pantalla se monta DENTRO de /marketing, que ya puso el
+ * título y la barra de negocios. Sin esto, se verían dos veces.
+ */
+export default function AnunciosPanel({ embebido = false }: { embebido?: boolean } = {}) {
   const router = useRouter();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
@@ -197,14 +201,18 @@ export default function AnunciosPanel() {
     (paso === 3 && Number(total) > 0 && Number(dias) > 0);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">
+    <div className={embebido ? "space-y-6" : "mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8"}>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Tu embudo</p>
-          <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Anuncios</h1>
-          <p className="mt-1 text-[0.92rem] text-frio">
-            Creá anuncios en Instagram y Facebook con la ayuda de la IA. Te guía paso a paso.
-          </p>
+          {!embebido && (
+            <>
+              <p className="eyebrow">Tu embudo</p>
+              <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Anuncios</h1>
+              <p className="mt-1 text-[0.92rem] text-frio">
+                Creá anuncios en Instagram y Facebook con la ayuda de la IA. Te guía paso a paso.
+              </p>
+            </>
+          )}
           {/* LA BOLSA PUBLICITARIA (2026-08-23): la plata de los anuncios pasa
               por LeadAI — el plan regala un bono cada mes y lo demás se
               recarga con nosotros. Al publicar, el presupuesto sale de acá. */}
@@ -216,7 +224,10 @@ export default function AnunciosPanel() {
               {(bolsa.bonoCentavos > 0 || bolsa.bonoPlanCentavos > 0) && (
                 <> (S/{(bolsa.bonoCentavos / 100).toFixed(2)} del bono del mes + S/{(bolsa.saldoCentavos / 100).toFixed(2)} recargados)</>
               )}
-              . El presupuesto de cada anuncio sale de acá — se paga por recarga con LeadAI.
+              {/* Sin el punto suelto del inicio (2026-08-24): cuando no hay
+                  bono que desglosar, la frase anterior termina y esta abría
+                  con un "." huérfano. */}
+              <span>El presupuesto de cada anuncio sale de acá — se paga por recarga con LeadAI.</span>
             </p>
           )}
         </div>
@@ -230,7 +241,7 @@ export default function AnunciosPanel() {
         )}
       </header>
 
-      {g.modoGlobal && (
+      {!embebido && g.modoGlobal && (
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
       )}
 

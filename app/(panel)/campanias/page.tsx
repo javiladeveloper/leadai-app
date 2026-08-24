@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
-import ComprarMensajes from "@/components/panel/ComprarMensajes";
 import {
   listarPlantillasHSM, crearPlantillaHSM, eliminarPlantillaHSM, cupoCampanias,
   estadoPagoCampanias, listarCampanias, crearCampaniaHSM, pausarCampania, subirMediaPost,
   type PlantillaHSM, type CampaniaHSM, type CupoCampanias,
+  type EstadoPagoCampanias,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
@@ -41,7 +41,7 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
   const [plantillas, setPlantillas] = useState<PlantillaHSM[]>([]);
   const [errorPlantillas, setErrorPlantillas] = useState("");
   const [cupo, setCupo] = useState<CupoCampanias | null>(null);
-  const [pago, setPago] = useState<{ tienePago: boolean; urlPagos: string } | null>(null);
+  const [pago, setPago] = useState<EstadoPagoCampanias | null>(null);
   const [pestania, setPestania] = useState<"campanias" | "plantillas">("campanias");
   const [aviso, setAviso] = useState("");
 
@@ -212,28 +212,19 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
       <div className="flex flex-wrap gap-3">
         {cupo && (
           <div className="rounded-tarjeta bg-carta px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
-            {/* MODELO ADMINISTRADO (2026-08-23): los envíos pasan por LeadAI —
-                el plan regala un bono mensual y lo demás se recarga con
-                nosotros. El regalo se cuenta como regalo. */}
-            {cupo.administrado ? (
-              (cupo.bonoMensajes ?? 0) > 0 || (cupo.bonoMensajesPlan ?? 0) > 0 ? (
-                <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> mensajes disponibles:{" "}
-                {(cupo.bonoMensajes ?? 0).toLocaleString()} del bono del mes + {(cupo.saldo ?? 0).toLocaleString()} recargados.
-                El costo de envío corre por nuestra cuenta.</>
-              ) : (
-                // SIN BONO (decisión 2026-08-23): los mensajes de campaña se
-                // pagan aparte, con recargas. Nada de nombrar regalos de 0.
-                <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> mensajes recargados
-                disponibles. Recarga abajo cuando quieras.</>
-              )
-            ) : cupo.incluido
+            {/* EL TOPE ES EL DEL PLAN (2026-08-24). Meta le cobra directo a la
+                tarjeta del negocio, así que acá solo se cuenta cuántos envíos
+                le quedan del mes. */}
+            {cupo.incluido
               ? <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> envíos disponibles este mes (de {cupo.tope.toLocaleString()} del plan). No consumen tu cuota de clientes.</>
               : <>📨 Tu plan no incluye campañas — se activan desde el plan Emprende.</>}
           </div>
         )}
-        {/* El aviso de la tarjeta de Meta es del modelo CLÁSICO: con el
-            administrado, la factura de Meta la pagamos nosotros. */}
-        {!cupo?.administrado && pago && !pago.tienePago && (
+        {/* LA TARJETA EN META. Solo si SABEMOS que no la tiene:
+            `tieneMetodoPago === null` significa "no se pudo determinar" (Meta
+            no respondió, o la WABA no está conectada), y ahí callarse es mejor
+            que pedirle una tarjeta a quien quizás ya la registró. */}
+        {pago?.tieneMetodoPago === false && (
           <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
             💳 Meta cobra cada mensaje de campaña a la tarjeta de TU cuenta de Meta, y aún no tienes una registrada.{" "}
             <a href={pago.urlPagos} target="_blank" rel="noreferrer" className="font-semibold text-brasa-texto underline">
@@ -243,11 +234,6 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
           </div>
         )}
       </div>
-
-      {/* COMPRAR MENSAJES (2026-08-24). Solo en administrado: con WABA propia
-          el negocio le paga a Meta directo, y venderle una bolsa sería
-          cobrarle por algo que ya paga. */}
-      {cupo?.administrado && <ComprarMensajes onExito={cargar} />}
 
       {aviso && (
         <div className="flex items-start justify-between gap-3 rounded-tarjeta bg-ok/8 px-4 py-3 text-[0.86rem] text-tinta-2 ring-1 ring-ok/25">

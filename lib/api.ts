@@ -1417,8 +1417,27 @@ export async function cupoCampanias(tenant?: string): Promise<CupoCampanias | nu
   try { return await api<CupoCampanias>("/campanias/cupo", { tenant }); } catch { return null; }
 }
 
-export async function estadoPagoCampanias(tenant?: string): Promise<{ tienePago: boolean; urlPagos: string } | null> {
-  try { return await api<{ tienePago: boolean; urlPagos: string }>("/campanias/estado-pago", { tenant }); } catch { return null; }
+/**
+ * ¿La cuenta de WhatsApp del negocio ya tiene tarjeta registrada en Meta?
+ *
+ * EL NOMBRE DEL CAMPO IMPORTA (2026-08-24): esto leía `tienePago`, que el
+ * backend NUNCA devolvió —manda `tieneMetodoPago`—, así que era siempre
+ * `undefined` y el aviso "registrá tu tarjeta" se le habría mostrado a TODOS,
+ * incluso a quien ya la tenía. Estaba tapado tras el flag de mensajería
+ * administrada, así que nadie lo vio.
+ *
+ * `tieneMetodoPago` puede ser `null`: no se pudo determinar (Meta no
+ * respondió, o la WABA no está conectada). Se distingue de `false` a
+ * propósito — ver quién consume esto.
+ */
+export interface EstadoPagoCampanias {
+  conectado: boolean;
+  tieneMetodoPago: boolean | null;
+  urlPagos: string;
+}
+
+export async function estadoPagoCampanias(tenant?: string): Promise<EstadoPagoCampanias | null> {
+  try { return await api<EstadoPagoCampanias>("/campanias/estado-pago", { tenant }); } catch { return null; }
 }
 
 export async function listarCampanias(tenant?: string): Promise<CampaniaHSM[]> {
@@ -1451,3 +1470,4 @@ export async function pausarCampania(id: string, reanudar: boolean, tenant?: str
 }
 
 export { API_URL };
+

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listarPedidos, avanzarPedido, editarItemsPedido, siguientePaso, minutosDesde, esUrgente,
   esRecienLlegado, nivelEspera, esperaLegible, validacionDe, motivoLegible,
-  puedeSoltarseEn, COLUMNAS, type PedidoCocina, type ValidacionPago,
+  puedeSoltarseEn, cobrarPedido, estaCobrado, METODOS_COBRO,
+  COLUMNAS, type PedidoCocina, type ValidacionPago, type MetodoCobro,
 } from "@/lib/cocina";
 import { soles } from "@/lib/precio";
 import { NuevoPedidoLocal } from "@/components/panel/NuevoPedidoLocal";
@@ -45,6 +46,7 @@ export default function CocinaPage() {
   // solo: si quedara pegado, la tarjeta seguiría destellando para siempre.
   const [aterrizo, setAterrizo] = useState<string | null>(null);
   const [tomandoPedido, setTomandoPedido] = useState(false);
+  const [cobrando, setCobrando] = useState<string | null>(null);
   // Fuerza el recálculo de los minutos sin volver a pedir al backend: la
   // espera crece sola aunque no entre ningún pedido.
   const [, setTic] = useState(0);
@@ -338,6 +340,7 @@ export default function CocinaPage() {
                       onAvanzar={() => avanzar(p)}
                       onVerPago={() => setViendoPago(p.id)}
                       onCancelar={() => cancelar(p)}
+                      onCobrar={() => setCobrando(p.id)}
                       arrastrando={arrastrando === p.id}
                       aterrizo={aterrizo === p.id}
                       onArrastrar={setArrastrando}
@@ -360,6 +363,17 @@ export default function CocinaPage() {
           onCreado={() => { setTomandoPedido(false); void traer(); }}
         />
       )}
+
+      {cobrando && (() => {
+        const p = pedidos.find((x) => x.id === cobrando);
+        return p ? (
+          <DialogoCobro
+            pedido={p}
+            onCerrar={() => setCobrando(null)}
+            onCobrado={() => { setCobrando(null); void traer(); }}
+          />
+        ) : null;
+      })()}
 
       {viendoPago && (() => {
         const p = pedidos.find((x) => x.id === viendoPago);
@@ -397,7 +411,7 @@ export default function CocinaPage() {
 const COMPLETAS_ARRIBA = 2;
 
 function TarjetaPedido({
-  pedido, compacta, avanzando, onAvanzar, onVerPago, onCancelar,
+  pedido, compacta, avanzando, onAvanzar, onVerPago, onCancelar, onCobrar,
   arrastrando, aterrizo, onArrastrar, onEditar,
 }: {
   pedido: PedidoCocina;
@@ -407,6 +421,8 @@ function TarjetaPedido({
   onVerPago?: (p: PedidoCocina) => void;
   /** Cancelar el pedido. Solo se ofrece donde el backend lo permite. */
   onCancelar?: () => void;
+  /** Abrir el cobro. Solo para pedidos del local que no se cobraron. */
+  onCobrar?: () => void;
   arrastrando?: boolean;
   aterrizo?: boolean;
   onArrastrar?: (id: string | null) => void;
@@ -610,7 +626,11 @@ function TarjetaPedido({
         </>
       )}
 
-      <div className={`flex items-center justify-between gap-2 ${apretada ? "mt-1.5" : "mt-2.5"}`}>
+      <div
+        className={`flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 ${
+          apretada ? "mt-1.5" : "mt-2.5"
+        }`}
+      >
         <span className="flex shrink-0 items-center gap-1">
           <span
             className={`font-bold tabular-nums text-tinta ${
@@ -619,6 +639,34 @@ function TarjetaPedido({
           >
             {soles(pedido.totalCentavos)}
           </span>
+
+          {/* EL COBRO, EN LA MISMA FILA DEL PRECIO (2026-08-22, Jonathan: "2
+              órdenes ya me ocupan el 70% de la pantalla"). Antes era una
+              franja de ancho completo que sumaba un renglón a CADA tarjeta.
+
+              Un pedido del local siempre se cobra, así que su estado va
+              pegado a la plata: ✓ cuando entró, un toque cuando falta. */}
+          {pedido.modalidad === "local" && (
+            estaCobrado(pedido) ? (
+              <span
+                className="shrink-0 rounded-chip bg-brasa-suave px-1.5 py-0.5 text-[0.7rem] font-semibold text-brasa-texto"
+                title={pedido.pagoMetodo ? `Cobrado con ${pedido.pagoMetodo}` : "Cobrado"}
+              >
+                ✓ {pedido.pagoMetodo ?? "cobrado"}
+              </span>
+            ) : (
+              onCobrar && (
+                <button
+                  type="button"
+                  onClick={onCobrar}
+                  title="Registrar el cobro"
+                  className="shrink-0 rounded-chip bg-tibio-suave px-1.5 py-0.5 text-[0.7rem] font-semibold text-tibio transition hover:bg-tibio-suave/70"
+                >
+                  💰 Cobrar
+                </button>
+              )
+            )
+          )}
           {/* EDITAR EL PEDIDO (2026-08-21): el cliente escribió "agrégame un
               arroz" después de pagar y el push ya te lo contó — este lápiz es
               el botón para actuar. Solo mientras está en cocina: listo o en
@@ -669,7 +717,7 @@ function TarjetaPedido({
             //
             // `whitespace-nowrap` se queda: sin eso "Empezar a preparar" se
             // parte en dos renglones al angostarse la tarjeta.
-            className={`shrink-0 whitespace-nowrap rounded-chip bg-brasa font-semibold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-50 ${
+            className={`ml-auto shrink-0 whitespace-nowrap rounded-chip bg-brasa font-semibold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.98] disabled:opacity-50 ${
               apretada ? "px-2.5 py-1 text-[0.73rem]" : "px-3 py-1.5 text-[0.78rem]"
             }`}
           >
@@ -753,6 +801,103 @@ function ChipPago({ validacion, onVer }: { validacion: ValidacionPago; onVer: ()
  * cambiar de pantalla — que es exactamente lo que el dueño hace con su app de
  * Yape abierta en la otra mano.
  */
+/**
+ * COBRAR UN PEDIDO DEL LOCAL (2026-08-22).
+ *
+ * El pedido entra a cocina sin pagar —en una mesa nadie paga antes de comer—
+ * y se cobra al final. Acá el mozo o la caja registran CON QUÉ cobraron.
+ *
+ * Sin pasarela: la plata la recibe una persona. Esto es el asiento de algo
+ * que ya pasó, y lo que después permite cuadrar el turno.
+ *
+ * Un toque por método y listo: quien cobra tiene al cliente enfrente
+ * esperando el vuelto, así que no hay confirmar ni segundo paso.
+ */
+function DialogoCobro({
+  pedido, onCerrar, onCobrado,
+}: { pedido: PedidoCocina; onCerrar: () => void; onCobrado: () => void }) {
+  const [cobrando, setCobrando] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const alTecla = (e: KeyboardEvent) => { if (e.key === "Escape") onCerrar(); };
+    window.addEventListener("keydown", alTecla);
+    return () => window.removeEventListener("keydown", alTecla);
+  }, [onCerrar]);
+
+  async function cobrar(metodo: MetodoCobro) {
+    if (cobrando) return;
+    setCobrando(metodo);
+    setError("");
+    const r = await cobrarPedido(pedido.id, metodo);
+    setCobrando(null);
+    if (!r.ok) { setError(r.error ?? "No se pudo cobrar"); return; }
+    onCobrado();
+  }
+
+  return (
+    <div
+      onClick={onCerrar}
+      role="presentation"
+      className="fixed inset-0 z-50 grid place-items-center bg-tinta/40 p-4 backdrop-blur-sm"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Cobrar el pedido"
+        className="surge w-full max-w-sm rounded-tarjeta bg-carta p-5 shadow-[0_8px_24px_rgba(51,40,31,0.2)] ring-1 ring-linea"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow">
+              {pedido.mesa ? `Mesa ${pedido.mesa}` : "Mostrador"}
+            </p>
+            <h2 className="mt-0.5 text-[1.5rem] font-bold leading-none tabular-nums text-tinta">
+              {soles(pedido.totalCentavos)}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="shrink-0 rounded-chip px-2.5 py-1 text-[0.82rem] text-frio transition hover:bg-arena"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        <p className="mt-3 text-[0.85rem] text-frio">¿Con qué te pagó?</p>
+
+        <div className="mt-2 space-y-1.5">
+          {METODOS_COBRO.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => cobrar(m.id)}
+              disabled={Boolean(cobrando)}
+              className="fila-entra flex w-full items-center gap-3 rounded-tarjeta bg-arena/50 px-3 py-2.5 text-left transition hover:bg-brasa-suave disabled:opacity-50"
+            >
+              <span aria-hidden className="text-[1.1rem]">{m.icono}</span>
+              <span className="flex-1 text-[0.92rem] font-semibold text-tinta">{m.nombre}</span>
+              {cobrando === m.id && <span className="text-[0.82rem] text-frio">…</span>}
+            </button>
+          ))}
+        </div>
+
+        {error && (
+          <p className="fila-entra mt-3 text-[0.85rem] font-semibold text-alerta">{error}</p>
+        )}
+
+        {/* Cobrar NO saca el pedido de la cocina: puede seguir cocinándose
+            mientras el cliente ya pagó, o estar listo y sin cobrar. */}
+        <p className="mt-3 text-center text-[0.75rem] leading-snug text-frio/70">
+          El pedido sigue su curso en la cocina
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function DialogoPago({
   pedido, onCerrar,
 }: { pedido: PedidoCocina; onCerrar: () => void }) {

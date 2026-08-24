@@ -380,3 +380,36 @@ export function promosVigentes(
     .filter((d) => promoCorreAhora(d, ahora))
     .map((d) => ({ id: d.id, nombre: d.nombre, detalle: detalleDePromo(d) }));
 }
+
+/**
+ * LOS MÉTODOS DE COBRO DEL LOCAL (2026-08-22).
+ *
+ * Espejo de `METODOS_COBRO` del backend. Sin pasarela: el mozo o la caja
+ * cobran de verdad y esto registra con qué, para poder cuadrar el turno.
+ */
+export const METODOS_COBRO = [
+  { id: "efectivo", nombre: "Efectivo", icono: "💵" },
+  { id: "yape", nombre: "Yape", icono: "📱" },
+  { id: "plin", nombre: "Plin", icono: "📱" },
+  { id: "tarjeta", nombre: "Tarjeta", icono: "💳" },
+  { id: "transferencia", nombre: "Transferencia", icono: "🏦" },
+] as const;
+
+export type MetodoCobro = (typeof METODOS_COBRO)[number]["id"];
+
+/** ¿Este pedido ya se cobró? `pago: 'validado'` es el sí. */
+export function estaCobrado(p: PedidoCocina): boolean {
+  return p.pago === "validado";
+}
+
+export async function cobrarPedido(
+  id: string,
+  metodo: MetodoCobro,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/pedidos/${id}/cobrar`, { method: "POST", body: { metodo } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo cobrar" };
+  }
+}

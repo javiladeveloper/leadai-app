@@ -631,10 +631,12 @@ export function PlanConsumo() {
         </Seccion>
       )}
 
-      {/* Contratar o cambiar el plan — solo restaurantes (2026-08-18). Los
-          planes de captación se venden por otro lado y con otra unidad; acá
-          se cobraría lo que no corresponde. */}
-      {esRestaurante && <PlanRestaurante />}
+      {/* Contratar o cambiar el plan (2026-08-24: ya no es solo restaurantes).
+          Con Culqi LIVE y los planes de captación contratables, la misma
+          pantalla sirve para las dos escaleras: el backend decide qué planes
+          ofrecer según el rubro (GET /suscripcion → disponibles) y las
+          tarjetas muestran la unidad que corresponde (pedidos o clientes). */}
+      <PlanRestaurante />
 
       {/* "Clientes atendidos por la IA" y "comprar clientes extra" son de los
           planes de CAPTACIÓN. En un plan de restaurante la unidad es el pedido

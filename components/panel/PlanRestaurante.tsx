@@ -35,6 +35,12 @@ const NOMBRE: Record<string, string> = {
   full: "Full",
   resto_gratis: "Gratis",
   pedidos: "Arranque",
+  // Escalera de captación/ventas (contratables desde 2026-08-24, Culqi live).
+  light: "Emprende",
+  pro: "Pro",
+  business: "Business",
+  free: "Free",
+  flujos: "Flujos",
 };
 
 /** Qué incluye cada plan, en la unidad que el dueño reconoce. */
@@ -42,7 +48,25 @@ const GANCHO: Record<string, string> = {
   arranque: "Para el local que ya vende",
   crecer: "El más elegido",
   full: "Sin techo de pedidos",
+  light: "Cuando Free te quedó chico",
+  pro: "El más elegido",
+  business: "Para alto volumen y equipos",
 };
+
+/**
+ * La unidad de cada escalera: los planes de restaurante se venden por PEDIDOS
+ * y los de captación por CLIENTES atendidos por la IA. `clientesMes` lo manda
+ * el backend nuevo (2026-08-24); api.ts todavía no lo tipa y por eso el campo
+ * se lee con este tipo local.
+ */
+type ConClientes = { clientesMes?: number };
+function unidadDelPlan(plan: PlanDisponible & ConClientes): string {
+  const clientes = plan.clientesMes ?? 0;
+  if (clientes > 0) return `${clientes.toLocaleString("es-PE")} clientes atendidos al mes`;
+  return plan.pedidosMes === 0
+    ? "Pedidos ilimitados"
+    : `${plan.pedidosMes.toLocaleString("es-PE")} pedidos al mes`;
+}
 
 function fecha(iso: string): string {
   return new Date(iso).toLocaleDateString("es-PE", {
@@ -250,11 +274,7 @@ export function PlanRestaurante() {
               <p className="text-[1.6rem] font-bold leading-tight text-arena">
                 {NOMBRE[planVigente!] ?? planVigente}
               </p>
-              <p className="text-[0.82rem] text-arena/70">
-                {planDelVigente.pedidosMes === 0
-                  ? "Pedidos ilimitados"
-                  : `${planDelVigente.pedidosMes.toLocaleString("es-PE")} pedidos al mes`}
-              </p>
+              <p className="text-[0.82rem] text-arena/70">{unidadDelPlan(planDelVigente)}</p>
             </div>
             <p className="text-[1.1rem] font-bold tabular-nums text-arena">
               {soles(planDelVigente.precioCentavos)}
@@ -277,7 +297,9 @@ export function PlanRestaurante() {
             ? "Puedes subir o bajar cuando quieras: el cambio se aplica al cierre de tu ciclo, antes de la siguiente factura."
             : tienePlan
               ? "Elige el plan y se activa con tu primer pago."
-              : "Pagas por los pedidos del mes. Si te pasas, sigues vendiendo igual."
+              : ((datos.disponibles[0] as PlanDisponible & ConClientes)?.clientesMes ?? 0) > 0
+                ? "Pagas por los clientes que tu IA atiende en el mes."
+                : "Pagas por los pedidos del mes. Si te pasas, sigues vendiendo igual."
         }
         tono={tienePlan ? "claro" : "hondo"}
       >
@@ -335,9 +357,7 @@ export function PlanRestaurante() {
                   <p className="text-[0.82rem] text-frio">
                     {periodicidad === "anual" ? "Pago anual" : "Pago mensual"}
                     {" · "}
-                    {planElegido.pedidosMes === 0
-                      ? "pedidos ilimitados"
-                      : `${planElegido.pedidosMes.toLocaleString("es-PE")} pedidos al mes`}
+                    {unidadDelPlan(planElegido).toLowerCase()}
                   </p>
                 </div>
                 <div className="text-right">
@@ -619,16 +639,10 @@ function TarjetaPlan({
       <p className={`mt-1 text-[0.75rem] ${secundario}`}>
         {anual
           ? `${soles(anual.precioCentavos)} al año · ahorrás ${soles(anual.ahorroCentavos)}`
-          : plan.pedidosMes === 0
-            ? "Pedidos ilimitados"
-            : `${plan.pedidosMes.toLocaleString("es-PE")} pedidos al mes`}
+          : unidadDelPlan(plan)}
       </p>
       {anual && (
-        <p className={`text-[0.75rem] ${secundario}`}>
-          {plan.pedidosMes === 0
-            ? "Pedidos ilimitados"
-            : `${plan.pedidosMes.toLocaleString("es-PE")} pedidos al mes`}
-        </p>
+        <p className={`text-[0.75rem] ${secundario}`}>{unidadDelPlan(plan)}</p>
       )}
 
       <button

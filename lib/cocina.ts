@@ -258,6 +258,11 @@ export interface ItemNuevoPedido {
   precioCentavos?: number;
   cantidad: number;
   nota?: string;
+  /**
+   * Las opciones elegidas (2026-08-24): sabores, término, toppings. Solo los
+   * IDS — el precio y las que van sin cargo los calcula el servidor.
+   */
+  opcionIds?: string[];
 }
 
 export interface SalaConfigurada {

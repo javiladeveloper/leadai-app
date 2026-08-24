@@ -70,6 +70,12 @@ export interface ComboCarta {
   fotoUrl: string | null;
   orden: number;
   productos: { productoId: string; cantidad: number }[];
+  /**
+   * Los grupos de opciones que el combo PREGUNTA (2026-08-24): "elegí 2
+   * sabores". Opcional porque un backend viejo no lo manda — sin el campo, el
+   * combo se comporta como antes en vez de romper la pantalla.
+   */
+  grupos?: { grupoId: string; orden: number }[];
 }
 
 /** En minúscula: es el enum tal cual lo valida el backend. */

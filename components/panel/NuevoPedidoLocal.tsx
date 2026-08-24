@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { obtenerCarta, type Carta, type ProductoCarta, type ComboCarta } from "@/lib/carta";
+import ElegirOpciones, { type OpcionesElegidas } from "@/components/panel/ElegirOpciones";
+import { obtenerCarta, type Carta, type ProductoCarta, type ComboCarta, type GrupoOpciones } from "@/lib/carta";
 import {
   crearPedidoLocal, cotizarPedidoLocal, obtenerSalas, promosVigentes,
   type ItemNuevoPedido, type SalaConfigurada,
@@ -35,6 +36,10 @@ interface LineaComanda {
   nombre: string;
   precioCentavos: number;
   cantidad: number;
+  /** Las opciones elegidas (2026-08-24): solo los ids viajan al servidor. */
+  opcionIds?: string[];
+  /** Para mostrarlas en la comanda: "Emperatriz A · Acevichada". */
+  etiquetas?: string[];
 }
 
 /** La sección reservada de combos: no es una categoría real de la carta. */
@@ -52,6 +57,27 @@ export function NuevoPedidoLocal({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const buscador = useRef<HTMLInputElement>(null);
+  /**
+   * EL ÍTEM QUE ESTÁ ESPERANDO SUS OPCIONES (2026-08-24).
+   *
+   * `null` = no hay modal abierto. Solo se abre si el ítem tiene grupos: para
+   * una gaseosa sin opciones sería un clic de más en plena hora pico.
+   */
+  const [pidiendo, setPidiendo] = useState<
+    { titulo: string; grupos: GrupoOpciones[]; base: LineaComanda } | null
+  >(null);
+
+  /** Los grupos de un producto o combo, resueltos contra la carta. */
+  const gruposDe = useCallback(
+    (refs: { grupoId: string; orden: number }[] | undefined): GrupoOpciones[] => {
+      if (!refs?.length || !carta) return [];
+      return [...refs]
+        .sort((a, b) => a.orden - b.orden)
+        .map((r) => carta.grupos.find((g) => g.id === r.grupoId))
+        .filter((g): g is GrupoOpciones => g != null);
+    },
+    [carta],
+  );
 
   useEffect(() => {
     void obtenerCarta().then(setCarta);
@@ -149,7 +175,56 @@ export function NuevoPedidoLocal({
       .sort((a, b) => a.orden - b.orden);
   }, [disponibles, q, seccionActiva]);
 
+  /** Suma la línea a la comanda (o sube la cantidad si ya estaba). */
+  const sumarLinea = useCallback((nueva: LineaComanda) => {
+    setLineas((ls) => {
+      // El mismo ítem CON LAS MISMAS OPCIONES suma cantidad; con opciones
+      // distintas es otra línea, porque se cocinan distinto.
+      const i = ls.findIndex((l) => l.clave === nueva.clave);
+      if (i >= 0) {
+        const copia = [...ls];
+        copia[i] = { ...copia[i], cantidad: copia[i].cantidad + nueva.cantidad };
+        return copia;
+      }
+      return [...ls, nueva];
+    });
+    setBusqueda("");
+    buscador.current?.focus();
+  }, []);
+
+  /**
+   * Cierra el modal guardando lo elegido.
+   *
+   * EL `sumarLinea` VA AFUERA DEL `setPidiendo` (2026-08-24). Estaba adentro y
+   * el combo entraba con cantidad 2 de un solo clic: React puede ejecutar un
+   * actualizador de estado dos veces (StrictMode lo hace siempre), así que
+   * meter un efecto ahí adentro lo duplica. Un actualizador tiene que ser
+   * PURO: solo calcular el estado nuevo.
+   */
+  const confirmarOpciones = useCallback((el: OpcionesElegidas) => {
+    if (!pidiendo) return;
+    sumarLinea({
+      ...pidiendo.base,
+      // La clave incluye las opciones: "Emperatriz acevichada" y "Emperatriz
+      // con maracuyá" son dos líneas, no una de cantidad 2.
+      clave: `${pidiendo.base.clave}|${el.opcionIds.join(',')}`,
+      precioCentavos: pidiendo.base.precioCentavos + el.extraCentavos,
+      opcionIds: el.opcionIds,
+      etiquetas: el.etiquetas,
+    });
+    setPidiendo(null);
+  }, [pidiendo, sumarLinea]);
+
   const agregar = useCallback((p: ProductoCarta) => {
+    const grupos = gruposDe(p.grupos);
+    if (grupos.length) {
+      setPidiendo({
+        titulo: p.nombre,
+        grupos,
+        base: { clave: p.id, productoId: p.id, nombre: p.nombre, precioCentavos: p.precioCentavos, cantidad: 1 },
+      });
+      return;
+    }
     setLineas((ls) => {
       const i = ls.findIndex((l) => l.productoId === p.id);
       // El mismo plato otra vez SUMA CANTIDAD. Dos líneas iguales en una
@@ -168,9 +243,21 @@ export function NuevoPedidoLocal({
     // escribe de una, sin tocar el mouse.
     setBusqueda("");
     buscador.current?.focus();
-  }, []);
+  }, [gruposDe]);
 
   const agregarCombo = useCallback((c: ComboCarta) => {
+    // LO QUE FALLÓ EN LA DEMO (2026-08-24): el combo entraba mudo, sin
+    // preguntar los sabores. Ahora, si tiene grupos, se preguntan igual que
+    // los de un plato.
+    const grupos = gruposDe(c.grupos);
+    if (grupos.length) {
+      setPidiendo({
+        titulo: c.nombre,
+        grupos,
+        base: { clave: c.id, comboId: c.id, nombre: c.nombre, precioCentavos: c.precioCentavos, cantidad: 1 },
+      });
+      return;
+    }
     setLineas((ls) => {
       const i = ls.findIndex((l) => l.comboId === c.id);
       if (i >= 0) {
@@ -185,7 +272,7 @@ export function NuevoPedidoLocal({
     });
     setBusqueda("");
     buscador.current?.focus();
-  }, []);
+  }, [gruposDe]);
 
   const cambiarCantidad = useCallback((clave: string, delta: number) => {
     setLineas((ls) =>
@@ -219,6 +306,7 @@ export function NuevoPedidoLocal({
         modalidad,
         items: lineas.map((l) => ({
           productoId: l.productoId, comboId: l.comboId, cantidad: l.cantidad,
+          opcionIds: l.opcionIds,
         })),
       });
       setTotalReal(r?.totalCentavos ?? null);
@@ -237,6 +325,7 @@ export function NuevoPedidoLocal({
       productoId: l.productoId,
       comboId: l.comboId,
       cantidad: l.cantidad,
+      opcionIds: l.opcionIds,
     }));
     const r = await crearPedidoLocal({
       modalidad,
@@ -486,6 +575,11 @@ export function NuevoPedidoLocal({
                       <div className="flex items-start justify-between gap-2">
                         <span className="min-w-0 flex-1 text-[0.85rem] leading-snug text-tinta">
                           {l.nombre}
+                          {/* Lo elegido va en la comanda: el cocinero necesita
+                              saber el sabor tanto como el plato. */}
+                          {l.etiquetas?.length ? (
+                            <span className="block text-[0.76rem] text-tinta-2">{l.etiquetas.join(" · ")}</span>
+                          ) : null}
                         </span>
                         <span className="shrink-0 text-[0.85rem] font-bold tabular-nums text-tinta">
                           {soles(l.precioCentavos * l.cantidad)}
@@ -546,6 +640,17 @@ export function NuevoPedidoLocal({
           </div>
         </div>
       </div>
+
+      {/* EL MODAL DE OPCIONES (2026-08-24). Solo se monta cuando el ítem tiene
+          grupos que preguntar — ver `agregar`/`agregarCombo`. */}
+      {pidiendo && (
+        <ElegirOpciones
+          titulo={pidiendo.titulo}
+          grupos={pidiendo.grupos}
+          onConfirmar={confirmarOpciones}
+          onCancelar={() => setPidiendo(null)}
+        />
+      )}
     </div>
   );
 }

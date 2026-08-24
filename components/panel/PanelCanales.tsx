@@ -182,6 +182,27 @@ export function PanelCanales() {
                   ))}
                 </div>
               )}
+              {/* UN SEGUNDO NUMERO PARA OTRO RUBRO VA EN OTRA EMPRESA
+                  (2026-08-24).
+                  
+                  Dos numeros en la MISMA empresa se conectan bien y reciben
+                  bien, pero al responder se elige un canal cualquiera
+                  (`core/envio.ts`): un cliente del estudio juridico puede
+                  recibir la respuesta desde el numero de la inmobiliaria, sin
+                  ningun error visible. Ademas comparten playbook, asi que la
+                  IA contestaria igual en los dos rubros.
+
+                  El aviso va ACA, pegado al boton, y no en la documentacion:
+                  es el segundo exacto en que alguien se equivoca. Solo aparece
+                  con un numero ya conectado — antes de eso no hay decision que
+                  tomar. */}
+              {!cargando && conexiones.length > 0 && (
+                <p className="rounded-lg bg-tibio-suave/50 px-3.5 py-2.5 text-[0.82rem] text-tinta-2 ring-1 ring-tibio/30">
+                  <b className="text-tinta">¿El otro número es de otro negocio?</b> Conviene crearle
+                  su propia empresa: así la IA responde distinto en cada una y los clientes no se
+                  mezclan. Puedes cambiar de empresa desde el selector de arriba.
+                </p>
+              )}
               {/* Tampoco antes de saber: `otroNumero` cambia el texto del
                   botón ("conectar otro" vs "conectar"), y con la lista vacía
                   decía lo que no era. */}

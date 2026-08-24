@@ -24,6 +24,15 @@ import {
 //
 // Ahora, agregar un rubro es una fila en la tabla del backend
 // (`core/capacidades-rubro.ts`) y este archivo no se toca.
+// EL MENÚ AGRUPADO (2026-08-24, pedido de Jonathan: "el panel tiene
+// demasiadas secciones"). Captación veía DOCE items sueltos y el dueño
+// escaneaba la lista entera para cada tarea. Ahora las secciones se leen en
+// bloques por lo que el dueño quiere HACER: vender (el ciclo del lead),
+// atraer (marketing) y administrar (reportes y equipo). Los doce items pasan
+// a siete bloques visuales sin quitar ninguna pantalla.
+//
+// El orden IMPORTA: `agruparSecciones` junta solo items contiguos del mismo
+// grupo, así que las secciones de un grupo van seguidas en esta lista.
 export const SECCIONES: Seccion[] = [
   { href: "/inicio", label: "Inicio", Icono: IconoInicio, rapido: 0 },
   { href: "/conversaciones", label: "Conversaciones", corto: "Chats", Icono: IconoConversaciones, rapido: 1 },
@@ -31,29 +40,28 @@ export const SECCIONES: Seccion[] = [
   // solo en la app, así que el dueño con la compu en el mostrador tenía que
   // agarrar el celular con las manos ocupadas.
   { href: "/cocina", label: "Cocina", Icono: IconoInicio, requiere: "tieneCocina", rapido: 2 },
-  { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones, requiere: "calificaLeads" },
-  { href: "/publicar", label: "Publicar", Icono: IconoOportunidades, requiere: "calificaLeads" },
-  // Anuncios y Campañas dejaron los gates prestados (2026-08-22): vivían tras
-  // calificaLeads/nutreLeads y por eso un restaurante no los veía nunca —
-  // justo el negocio que más necesita traer gente nueva y hacer volver a los
-  // caseros. Ahora tienen capacidad propia en la tabla del backend.
-  // MARKETING (2026-08-24): una sola sección con Anuncios y Campañas en
-  // pestañas. Sueltas en el menú no se leían como lo mismo —una trae gente
-  // nueva, la otra hace volver a la que ya vino— y el dueño buscaba "lo de
-  // traer clientes" sin saber cuál de las dos abrir.
-  //
-  // Basta UNA de las dos capacidades para que la sección exista; adentro, cada
-  // pestaña se muestra según la suya.
-  { href: "/marketing", label: "Marketing", Icono: IconoRayo, requiereAlguna: ["tieneAnuncios", "tieneCampanias"] },
-  { href: "/seguimiento", label: "Seguimiento", corto: "Pipeline", Icono: IconoSeguimiento, requiere: "tieneEmbudo", rapido: 2 },
   // La carta del restaurante: lo que ve el cliente en /c/<tenantId> y lo que
   // el bot lee para tomar pedidos. Se editaba en la app móvil hasta que se
   // movió acá (2026-08-17): 40 platos con el pulgar no los carga nadie.
   //
   // Comparte prioridad con Seguimiento a propósito: ningún negocio tiene las
   // dos, así que el tercer acceso rápido es el embudo o la carta según quién
-  // sea. Antes esto exigía una segunda lista escrita a mano.
+  // sea.
   { href: "/carta", label: "Carta", Icono: IconoOportunidades, requiere: "tieneCarta", rapido: 2 },
+
+  // ── VENTAS: el ciclo del lead, de la primera charla al cierre ──
+  { href: "/seguimiento", label: "Seguimiento", corto: "Pipeline", Icono: IconoSeguimiento, requiere: "tieneEmbudo", rapido: 2, grupo: "Ventas" },
+  { href: "/leads", label: "Leads", Icono: IconoBandeja, requiere: "calificaLeads", rapido: 3, grupo: "Ventas" },
+  { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades, requiere: "tieneEmbudo", grupo: "Ventas" },
+
+  // ── MARKETING: atraer gente nueva y hablarle a la que ya vino ──
+  // Anuncios y Campañas ya viven en /marketing con pestañas (2026-08-24);
+  // Publicar y Comentarios son la otra mitad del mismo trabajo (las redes
+  // del negocio), así que el bloque junta a los tres.
+  { href: "/marketing", label: "Marketing", Icono: IconoRayo, requiereAlguna: ["tieneAnuncios", "tieneCampanias"], grupo: "Marketing" },
+  { href: "/publicar", label: "Publicar", Icono: IconoOportunidades, requiere: "calificaLeads", grupo: "Marketing" },
+  { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones, requiere: "calificaLeads", grupo: "Marketing" },
+
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos, requiere: "redactaRespuestas" },
   // "Probar bot" NO va en el menú (2026-08-17). Era andamiaje para ver cómo
   // respondía la IA mientras se resolvía el tema del tech provider de Meta;
@@ -64,18 +72,16 @@ export const SECCIONES: Seccion[] = [
   // mano, y `evals/golden.test.ts` usa /simular-mensaje en el CI. Solo se saca
   // del menú.
   // { href: "/probar-bot", label: "Probar bot", Icono: IconoRayo },
-  { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades, requiere: "tieneEmbudo" },
+
+  // ── TU NEGOCIO: los números y el equipo ──
+  // Reportes y Equipo son de CAPTACIÓN (2026-08-19): un restaurante ve lo que
+  // vendió hoy en su Inicio y casi siempre lo maneja una sola persona.
+  { href: "/reportes", label: "Reportes", Icono: IconoReportes, requiere: "calificaLeads", grupo: "Tu negocio" },
+  { href: "/equipo", label: "Equipo", Icono: IconoConversaciones, requiere: "calificaLeads", grupo: "Tu negocio" },
+
   // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona,
-  // no de un negocio; decisión 2026-07-22).
-  { href: "/leads", label: "Leads", Icono: IconoBandeja, requiere: "calificaLeads", rapido: 3 },
-  // Reportes y Equipo son de CAPTACIÓN (2026-08-19). Un restaurante ve lo que
-  // vendió hoy en su Inicio —InicioRestaurante— y casi siempre lo maneja una
-  // sola persona; en la migración a capacidades se le colaron las dos porque
-  // no declaraban nada, y hasta ese momento nunca las había visto.
-  { href: "/reportes", label: "Reportes", Icono: IconoReportes, requiere: "calificaLeads" },
-  { href: "/equipo", label: "Equipo", Icono: IconoConversaciones, requiere: "calificaLeads" },
-  // Ajustes entra a la barra de móvil solo si sobra lugar: en captación los
-  // cuatro puestos ya se llenan con Pipeline y Leads.
+  // no de un negocio; decisión 2026-07-22). Ajustes entra a la barra de móvil
+  // solo si sobra lugar: en captación los cuatro puestos ya se llenan.
   { href: "/configuracion", label: "Configuración", corto: "Ajustes", Icono: IconoConfig, rapido: 4 },
 ];
 

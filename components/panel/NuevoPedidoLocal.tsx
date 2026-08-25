@@ -647,6 +647,7 @@ export function NuevoPedidoLocal({
         <ElegirOpciones
           titulo={pidiendo.titulo}
           grupos={pidiendo.grupos}
+          carta={carta}
           onConfirmar={confirmarOpciones}
           onCancelar={() => setPidiendo(null)}
         />

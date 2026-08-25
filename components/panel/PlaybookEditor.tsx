@@ -133,7 +133,7 @@ export function PlaybookEditor() {
             onChange={(e) => setPerfil({ ...perfil, rubro: e.target.value })}
             className="w-full rounded-tarjeta border border-linea bg-carta px-3.5 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa"
           >
-            <option value="">Elegí tu rubro…</option>
+            <option value="">Elige tu rubro…</option>
             {RUBROS.map((r) => (
               <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>
             ))}

@@ -9,8 +9,35 @@
  *
  * Los pasos se muestran SIEMPRE todos: ver "3 de 5" tranquiliza, ver un paso
  * suelto sin contexto no dice nada.
+ *
+ * `total` PUEDE SER `null` (2026-08-25). En el primer paso todavía no se sabe
+ * a qué se dedica el negocio, y de eso depende cuántos pasos son: comida hace
+ * 6, el resto hace 2. Decía "1 de 2" y al elegir restaurante saltaba a "de 6",
+ * o sea que el número que estaba para tranquilizar hacía lo contrario —
+ * prometía un alta corta y después la alargaba.
+ *
+ * Con `null` no se promete nada: se muestra "Paso 1" a secas hasta saberlo.
+ * Es preferible decir menos que decir algo que se va a desmentir.
  */
-export function PasosOnboarding({ actual, total }: { actual: number; total: number }) {
+export function PasosOnboarding({ actual, total }: { actual: number; total: number | null }) {
+  // Sin total conocido: una sola barra a medio llenar. No se puede dibujar un
+  // progreso honesto sobre un largo que todavía no existe.
+  if (total === null) {
+    return (
+      <div className="mb-8">
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="text-[0.78rem] font-bold uppercase tracking-wide text-calor">
+            Paso {actual}
+          </span>
+        </div>
+        <div className="flex gap-1.5">
+          <div className="h-1.5 flex-1 rounded-full bg-brasa" />
+          <div className="h-1.5 flex-[3] rounded-full bg-linea" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mb-8">
       <div className="mb-2 flex items-baseline justify-between">

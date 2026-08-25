@@ -315,7 +315,15 @@ export default function BienvenidaPanel() {
           </span>
         </div>
 
-        {paso !== 5 && <PasosOnboarding actual={POSICION[paso] ?? paso} total={esComida ? TOTAL_PASOS : 2} />}
+        {paso !== 5 && (
+          <PasosOnboarding
+            actual={POSICION[paso] ?? paso}
+            /* SIN RUBRO NO HAY TOTAL. De a qué se dedica depende si el alta
+               son 6 pasos o 2, y en el paso 1 todavía no se eligió: decía
+               "1 de 2" y saltaba a "de 6" al tocar restaurante. */
+            total={rubro === "" ? null : esComida ? TOTAL_PASOS : 2}
+          />
+        )}
 
         {error && (
           <p className="mb-4 rounded-tarjeta bg-alerta/10 px-4 py-3 text-[0.9rem] font-semibold text-alerta ring-1 ring-alerta/25">
@@ -346,7 +354,7 @@ export default function BienvenidaPanel() {
 
               <Campo etiqueta="¿A qué se dedica?">
                 <select value={rubro} onChange={(e) => setRubro(e.target.value)} className={ENTRADA}>
-                  <option value="">Elegí tu rubro…</option>
+                  <option value="">Elige tu rubro…</option>
                   {RUBROS_DISPONIBLES.map((r) => (
                     <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>
                   ))}

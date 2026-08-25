@@ -141,3 +141,34 @@ export function resumenHorario(c: ConfigHorario): string {
 
   return partes.join(" · ");
 }
+
+/**
+ * CÓMO TRABAJA EL NEGOCIO (2026-08-25).
+ *
+ * Local o solo delivery, si toma reservas, a dónde le pagan y si cobra antes
+ * o al entregar. Son las decisiones que definen qué puede hacer el bot, y
+ * hasta hoy el alta no preguntaba ninguna: quedaban escondidas en Ajustes y
+ * el dueño se enteraba cuando un cliente no podía pagarle.
+ */
+export interface FormaDeTrabajo {
+  tieneLocal: boolean;
+  aceptaReservas: boolean;
+  yapeNumero: string;
+  yapeNombre: string;
+  aceptaYape: boolean;
+  aceptaPlin: boolean;
+  /** Cobra al entregar, además de (o en vez de) por adelantado. */
+  aceptaEfectivo: boolean;
+}
+
+export async function guardarFormaDeTrabajo(
+  cambios: Partial<FormaDeTrabajo>,
+  tenant?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/pedidos-config", { method: "PATCH", body: cambios, tenant });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
+}

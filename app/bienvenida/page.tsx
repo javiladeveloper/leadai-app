@@ -25,10 +25,20 @@ import {
   type ItemImportado, type Especialidad,
 } from "@/lib/carta";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
+import { guardarFormaDeTrabajo } from "@/lib/horario";
 import { PasosOnboarding, Preparando } from "@/components/panel/PasosOnboarding";
 import { CartaAMano } from "@/components/panel/CartaAMano";
 
-const TOTAL_PASOS = 5;
+const TOTAL_PASOS = 6;
+
+/**
+ * EL PASO "CÓMO TRABAJÁS" ES EL 6 EN EL CÓDIGO PERO EL 2 EN PANTALLA.
+ *
+ * Se agregó después (2026-08-25) y renumerar los cinco que ya existían habría
+ * tocado ocho `setPaso` y sus tests. El orden lo decide `POSICION`, no el
+ * número: agregar otro paso mañana es una fila más acá.
+ */
+const POSICION: Record<number, number> = { 1: 1, 6: 2, 2: 3, 3: 4, 4: 5, 5: 6 };
 
 /** Los países donde puede estar el negocio. Perú primero: es donde estamos. */
 const PAISES = [
@@ -73,6 +83,14 @@ export default function BienvenidaPanel() {
    * Su única salida era "Saltar": un negocio sin carta, que es lo que hace
    * inútil al bot.
    */
+  // Paso "cómo trabajás" (2026-08-25). Los defaults son el caso más común de
+  // un restaurante peruano: local físico, toma reservas, cobra por Yape.
+  const [tieneLocal, setTieneLocal] = useState(true);
+  const [aceptaReservas, setAceptaReservas] = useState(true);
+  const [yapeNumero, setYapeNumero] = useState("");
+  const [yapeNombre, setYapeNombre] = useState("");
+  const [cobra, setCobra] = useState<"antes" | "entrega" | "ambos">("antes");
+
   const [modoCarta, setModoCarta] = useState<"sugerida" | "archivo" | "mano">("sugerida");
   /** Las especialidades para prepoblar la carta (2026-08-25). */
   const [especialidades, setEspecialidades] = useState<Especialidad[]>([]);
@@ -163,7 +181,34 @@ export default function BienvenidaPanel() {
     }
     // Un negocio que no es de comida no tiene carta ni horario de cocina:
     // salta directo al final.
-    setPaso(esComida ? 2 : 5);
+    // El negocio de comida pasa por "cómo trabajás" (6, ver POSICION);
+    // captación no tiene local ni cobra por Yape, así que salta al resumen.
+    setPaso(esComida ? 6 : 5);
+  }
+
+  /**
+   * Guarda CÓMO TRABAJA el negocio: local o delivery, reservas, a dónde le
+   * pagan y si cobra antes o al entregar.
+   *
+   * Nada de esto se preguntaba en el alta y quedaba escondido en Ajustes — el
+   * dueño se enteraba cuando un cliente no podía pagarle.
+   */
+  async function guardarComoTrabaja() {
+    setGuardando(true);
+    await guardarFormaDeTrabajo({
+      tieneLocal,
+      // Sin local no hay mesa que reservar, pase lo que pase el toggle.
+      aceptaReservas: tieneLocal && aceptaReservas,
+      yapeNumero: yapeNumero.trim(),
+      yapeNombre: yapeNombre.trim(),
+      // Sin número cargado no se puede cobrar por ahí: encenderlo dejaría al
+      // bot pidiendo un Yape que no existe.
+      aceptaYape: yapeNumero.trim().length > 0 && cobra !== "entrega",
+      aceptaPlin: yapeNumero.trim().length > 0 && cobra !== "entrega",
+      aceptaEfectivo: cobra !== "antes",
+    });
+    setGuardando(false);
+    setPaso(2);
   }
 
   async function guardarPaso2() {
@@ -270,7 +315,7 @@ export default function BienvenidaPanel() {
           </span>
         </div>
 
-        {paso < 5 && <PasosOnboarding actual={paso} total={esComida ? TOTAL_PASOS : 2} />}
+        {paso !== 5 && <PasosOnboarding actual={POSICION[paso] ?? paso} total={esComida ? TOTAL_PASOS : 2} />}
 
         {error && (
           <p className="mb-4 rounded-tarjeta bg-alerta/10 px-4 py-3 text-[0.9rem] font-semibold text-alerta ring-1 ring-alerta/25">
@@ -374,6 +419,130 @@ export default function BienvenidaPanel() {
         )}
 
         {/* ── 2. Dónde y cuándo ── */}
+        {/* CÓMO TRABAJA EL NEGOCIO (2026-08-25). Es el paso 2 en pantalla —
+            ver POSICION— porque son las decisiones que definen qué puede
+            hacer el bot: sin saber si tiene local o a dónde le pagan, no
+            puede tomar una reserva ni cobrar un pedido. */}
+        {paso === 6 && (
+          <div className="entra">
+            <h1 className="text-[1.8rem] font-bold leading-tight text-tinta">
+              ¿Cómo trabajás?
+            </h1>
+            <p className="mt-2 text-[1.02rem] text-tinta-2">
+              Con esto tu bot sabe qué ofrecerle a cada cliente.
+            </p>
+
+            <div className="mt-7 space-y-5">
+              <Campo etiqueta="¿Tenés local para comer ahí?">
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { v: true, txt: "🍽️ Sí, tengo local" },
+                    { v: false, txt: "🛵 Solo delivery" },
+                  ] as const).map((o) => (
+                    <button
+                      key={String(o.v)}
+                      type="button"
+                      onClick={() => setTieneLocal(o.v)}
+                      className={`rounded-chip px-4 py-2.5 text-[0.9rem] font-semibold transition ${
+                        tieneLocal === o.v
+                          ? "bg-brasa text-sobre-brasa"
+                          : "text-tinta-2 ring-1 ring-linea hover:bg-carta"
+                      }`}
+                    >
+                      {o.txt}
+                    </button>
+                  ))}
+                </div>
+              </Campo>
+
+              {/* Sin local no hay mesa que reservar: la pregunta desaparece en
+                  vez de quedar en gris pidiendo una decisión imposible. */}
+              {tieneLocal && (
+                <Campo etiqueta="¿Tomás reservas de mesa?">
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      { v: true, txt: "Sí" },
+                      { v: false, txt: "No, solo llegan" },
+                    ] as const).map((o) => (
+                      <button
+                        key={String(o.v)}
+                        type="button"
+                        onClick={() => setAceptaReservas(o.v)}
+                        className={`rounded-chip px-4 py-2.5 text-[0.9rem] font-semibold transition ${
+                          aceptaReservas === o.v
+                            ? "bg-brasa text-sobre-brasa"
+                            : "text-tinta-2 ring-1 ring-linea hover:bg-carta"
+                        }`}
+                      >
+                        {o.txt}
+                      </button>
+                    ))}
+                  </div>
+                </Campo>
+              )}
+
+              <Campo etiqueta="¿Cuándo te pagan?">
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { v: "antes", txt: "Antes de cocinar" },
+                    { v: "entrega", txt: "Al recibir" },
+                    { v: "ambos", txt: "Las dos" },
+                  ] as const).map((o) => (
+                    <button
+                      key={o.v}
+                      type="button"
+                      onClick={() => setCobra(o.v)}
+                      className={`rounded-chip px-4 py-2.5 text-[0.9rem] font-semibold transition ${
+                        cobra === o.v
+                          ? "bg-brasa text-sobre-brasa"
+                          : "text-tinta-2 ring-1 ring-linea hover:bg-carta"
+                      }`}
+                    >
+                      {o.txt}
+                    </button>
+                  ))}
+                </div>
+              </Campo>
+
+              {/* El Yape solo si cobra por adelantado: a quien cobra al
+                  entregar, pedirle un número es preguntarle por algo que no
+                  usa. */}
+              {cobra !== "entrega" && (
+                <>
+                  <Campo etiqueta="Tu número de Yape o Plin" ayuda="A dónde te transfieren">
+                    <input
+                      value={yapeNumero}
+                      onChange={(e) => setYapeNumero(e.target.value.replace(/\D/g, ""))}
+                      inputMode="tel"
+                      placeholder="987 654 321"
+                      className={ENTRADA}
+                    />
+                  </Campo>
+                  <Campo etiqueta="A nombre de quién" ayuda="Como aparece en la app, para revisar el pago">
+                    <input
+                      value={yapeNombre}
+                      onChange={(e) => setYapeNombre(e.target.value)}
+                      placeholder="María López"
+                      className={ENTRADA}
+                    />
+                  </Campo>
+                </>
+              )}
+            </div>
+
+            <div className="mt-7 flex gap-2">
+              <button onClick={() => setPaso(2)} className={BOTON_SECUNDARIO}>Saltar</button>
+              <button
+                onClick={guardarComoTrabaja}
+                disabled={guardando}
+                className={`${BOTON} mt-0 flex-1`}
+              >
+                {guardando ? "Guardando…" : "Continuar"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {paso === 2 && (
           <div className="entra">
             <h1 className="text-[1.8rem] font-bold leading-tight text-tinta">

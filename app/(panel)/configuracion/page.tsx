@@ -8,6 +8,7 @@ import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { HorarioEditor } from "@/components/panel/HorarioEditor";
 import { PagosEditor } from "@/components/panel/PagosEditor";
+import { LocalesEditor } from "@/components/panel/LocalesEditor";
 import { PanelCanales } from "@/components/panel/PanelCanales";
 import { QueRespondeElBot } from "@/components/panel/QueRespondeElBot";
 import { Seccion } from "@/components/panel/Seccion";
@@ -202,6 +203,19 @@ function ConfiguracionInner() {
               >
                 <PanelCanales />
               </Seccion>
+
+              {/* LOS LOCALES, JUNTO A LOS NÚMEROS (2026-08-25). Es donde el
+                  dueño llega cuando quiere conectar el WhatsApp de su segundo
+                  local — el aviso de arriba lo manda acá. Solo para negocios
+                  con cocina: una clínica no tiene locales que despachen. */}
+              {caps.tieneCocina && (
+                <Seccion
+                  titulo="Tus locales"
+                  bajada="Un negocio, varios locales: comparten carta y clientes, cada uno con su cocina."
+                >
+                  <LocalesEditor />
+                </Seccion>
+              )}
 
               {/* DEBAJO DE LA VINCULACIÓN (2026-08-20, pedido de Jonathan
                   mirando la pantalla de ola.click): quien acaba de conectar su

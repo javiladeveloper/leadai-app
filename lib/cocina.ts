@@ -418,3 +418,83 @@ export async function cobrarPedido(
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo cobrar" };
   }
 }
+
+// ── Locales del negocio (2026-08-25) ──────────────────────────────────
+//
+// Una cadena es UN negocio con varios locales, no varios negocios. El porqué y
+// el plan comercial están en `compartido/sucursales.md`.
+
+export interface Sucursal {
+  id: string;
+  nombre: string;
+  principal: boolean;
+  activa: boolean;
+  direccion: string | null;
+  /** `null` = hereda lo del negocio. No confundir con "apagado". */
+  capacidadSimultanea: number | null;
+  minutosPorPedido: number | null;
+  cocinaAbierta: boolean | null;
+  horaAbre: number | null;
+  horaCierra: number | null;
+  diasCerrado: number[];
+}
+
+export interface VentasPorLocal {
+  porSucursal: { sucursalId: string; nombre: string; totalCentavos: number; pedidos: number }[];
+  totalCentavos: number;
+  pedidos: number;
+}
+
+export async function listarSucursales(): Promise<Sucursal[]> {
+  try {
+    const r = await api<{ sucursales: Sucursal[] }>("/sucursales");
+    return r.sucursales ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function crearSucursal(
+  datos: { nombre: string; direccion?: string | null },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/sucursales", { method: "POST", body: datos });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el local" };
+  }
+}
+
+export async function actualizarSucursal(
+  id: string,
+  datos: Partial<Omit<Sucursal, "id" | "principal" | "activa">>,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/sucursales/${id}`, { method: "PATCH", body: datos });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
+}
+
+/** Cierra un local: se desactiva, no se borra — su historial sigue contando. */
+export async function cerrarSucursal(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/sucursales/${id}`, { method: "DELETE" });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo cerrar" };
+  }
+}
+
+/** Lo que vendió cada local y el total. Sin fechas: hoy. */
+export async function ventasPorLocal(desde?: string, hasta?: string): Promise<VentasPorLocal | null> {
+  const q = new URLSearchParams();
+  if (desde) q.set("desde", desde);
+  if (hasta) q.set("hasta", hasta);
+  try {
+    return await api<VentasPorLocal>(`/sucursales/ventas${q.toString() ? `?${q}` : ""}`);
+  } catch {
+    return null;
+  }
+}

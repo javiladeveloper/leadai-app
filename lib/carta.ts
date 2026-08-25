@@ -351,6 +351,14 @@ export interface ComboEntrada {
   precioCentavos: number;
   descripcion?: string;
   productos: { productoId: string; cantidad?: number }[];
+  /**
+   * Los grupos de opciones que el combo PREGUNTA (2026-08-24): "elegí 2
+   * sabores". Son los mismos que usan los productos, así que se reusan.
+   *
+   * En el PATCH, `[]` significa "sacale todos los grupos" — por eso es
+   * opcional y no un array que siempre viaja.
+   */
+  grupoIds?: string[];
 }
 
 export function crearCombo(datos: ComboEntrada, tenant?: string) {

@@ -1680,6 +1680,13 @@ function Combos({
                     return p ? `${x.cantidad > 1 ? `${x.cantidad}x ` : ""}${p.nombre}` : null;
                   }).filter(Boolean).join(" + ")}
                 </p>
+                {/* Que pregunta se ve de un vistazo, igual que en los platos:
+                    si no, el dueño no sabe cuáles combos ya lo tienen. */}
+                {(c.grupos?.length ?? 0) > 0 && (
+                  <p className="text-[0.78rem] text-frio">
+                    + {c.grupos!.length} {c.grupos!.length === 1 ? "pregunta" : "preguntas"} al pedirlo
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <p className="font-bold tabular-nums text-calor">{precioTexto(c.precioCentavos)}</p>
@@ -1725,6 +1732,8 @@ function HojaCombo({
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("");
   const [elegidos, setElegidos] = useState<{ productoId: string; cantidad: number }[]>([]);
+  /** Los grupos que el combo pregunta al pedirlo: "elegí 2 sabores". */
+  const [grupoIds, setGrupoIds] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [errorCampo, setErrorCampo] = useState("");
   const foto = useFoto(null);
@@ -1784,6 +1793,7 @@ function HojaCombo({
       nombre: nombre.trim(),
       precioCentavos: centavos,
       productos: elegidos,
+      grupoIds,
     });
     if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
 
@@ -1913,6 +1923,35 @@ function HojaCombo({
               )}
             </div>
           </Campo>
+
+          {/* QUÉ SE PREGUNTA AL PEDIRLO (2026-08-24).
+              Reportado en la demo: se agregaba un combo y nunca preguntaba los
+              sabores, porque no había forma de configurarlo. Son los MISMOS
+              grupos que usan los platos, así que se reusan. */}
+          {carta.grupos.length > 0 && (
+            <Campo etiqueta="Qué preguntar" ayuda="Sabores, término, extras: se preguntan al pedirlo">
+              <div className="space-y-1.5">
+                {carta.grupos.map((g) => (
+                  <label key={g.id} className="flex cursor-pointer items-center gap-2.5 text-[0.9rem] text-tinta-2">
+                    <input
+                      type="checkbox"
+                      checked={grupoIds.includes(g.id)}
+                      onChange={(e) =>
+                        setGrupoIds((prev) =>
+                          e.target.checked ? [...prev, g.id] : prev.filter((x) => x !== g.id),
+                        )
+                      }
+                      className="size-4 accent-[var(--color-brasa)]"
+                    />
+                    <span>{g.nombre}</span>
+                    <span className="text-[0.78rem] text-frio">
+                      {g.minSelec > 0 ? "obligatorio" : "opcional"}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </Campo>
+          )}
 
           {errorCampo && (
             <p className="fila-entra rounded-lg bg-alerta/10 px-3 py-2 text-[0.85rem] font-semibold text-alerta">

@@ -28,7 +28,7 @@ export default function AdminAprendizaje() {
         <p className="eyebrow">Inteligencia de LeadAI</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Aprendizaje por rubro</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
-          Cada conversación cerrada (por vos o automática por inactividad) se guarda completa y
+          Cada conversación cerrada (por ti o automática por inactividad) se guarda completa y
           anonimizada. Con suficientes datos por rubro, entrenamos un modelo propio que hace que el
           bot venda mejor — para todos los negocios de ese rubro.
         </p>
@@ -37,14 +37,14 @@ export default function AdminAprendizaje() {
       {estado === "cargando" && <SkeletonLista filas={3} />}
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar el progreso. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar el progreso. Recarga.</p>
         </div>
       )}
       {estado === "ok" && rubros.length === 0 && (
         <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
           <p className="text-[1.05rem] font-bold text-tinta">Todavía no hay datos de aprendizaje</p>
           <p className="mt-1 text-[0.9rem] text-frio">
-            A medida que se cierren ventas, cada rubro va juntando ejemplos acá.
+            A medida que se cierren ventas, cada rubro va juntando ejemplos aquí.
           </p>
         </div>
       )}

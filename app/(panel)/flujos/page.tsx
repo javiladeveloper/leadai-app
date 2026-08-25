@@ -78,7 +78,7 @@ export default function FlujosPanel() {
         <div>
           <p className="eyebrow">Automatización</p>
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Flujos del bot</h1>
-          <p className="mt-1 text-[0.92rem] text-frio">Armá cómo responde el bot paso a paso.</p>
+          <p className="mt-1 text-[0.92rem] text-frio">Arma cómo responde el bot paso a paso.</p>
         </div>
         <button onClick={nuevo} disabled={creando}
           className="rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.99] disabled:opacity-60">
@@ -99,13 +99,13 @@ export default function FlujosPanel() {
       {estado === "cargando" && <SkeletonLista filas={3} />}
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar los flujos. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar los flujos. Recarga.</p>
         </div>
       )}
       {estado === "ok" && flujos.length === 0 && (
         <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
-          <p className="text-[1.05rem] font-bold text-tinta">Todavía no tenés flujos</p>
-          <p className="mt-1 text-[0.9rem] text-frio">Creá uno para que el bot siga un guion.</p>
+          <p className="text-[1.05rem] font-bold text-tinta">Todavía no tienes flujos</p>
+          <p className="mt-1 text-[0.9rem] text-frio">Crea uno para que el bot siga un guion.</p>
         </div>
       )}
       {estado === "ok" && flujos.length > 0 && (

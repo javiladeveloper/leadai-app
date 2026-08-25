@@ -12,7 +12,7 @@ export function PanelPropiedades({
   if (!nodo) {
     // En móvil no ocupa espacio (el lienzo manda); el hint solo tiene sentido
     // en desktop, donde el panel es una columna fija.
-    return <div className="hidden w-72 shrink-0 border-l border-linea bg-carta p-4 text-[0.85rem] text-frio lg:block">Tocá un paso para editarlo.</div>;
+    return <div className="hidden w-72 shrink-0 border-l border-linea bg-carta p-4 text-[0.85rem] text-frio lg:block">Toca un paso para editarlo.</div>;
   }
   const data = (nodo.data ?? {}) as { tipo: string } & Record<string, unknown>;
   const tipo = data.tipo;
@@ -96,7 +96,7 @@ export function PanelPropiedades({
               placeholder="ej: caliente, ganado"
               className="w-full rounded-lg border border-linea bg-arena/30 px-3 py-2 text-sm text-tinta outline-none focus:border-brasa" />
           </label>
-          <p className="text-[0.78rem] text-frio">Conectá la salida &quot;Sí&quot; y la &quot;No&quot; a distintos pasos.</p>
+          <p className="text-[0.78rem] text-frio">Conecta la salida &quot;Sí&quot; y la &quot;No&quot; a distintos pasos.</p>
         </div>
       )}
       {tipo === "accion" && (

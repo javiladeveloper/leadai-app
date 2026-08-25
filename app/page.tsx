@@ -113,7 +113,7 @@ export default function Login() {
           Tus leads, en un solo lugar. La IA atiende y te avisa{" "}
           {/* En NARANJA y no menta (2026-08-17): así la portada muestra los
               tres colores del logo — el verde oscuro del ícono, el menta del
-              nombre y el naranja acá. Es `calor` y no el #fc8a05 del logo
+              nombre y el naranja aquí. Es `calor` y no el #fc8a05 del logo
               pelado: ese sobre este fondo da 2.27:1, ilegible; calor es el
               mismo naranja oscurecido hasta 4.5:1. */}
           <span className="font-bold text-calor">justo cuándo entrar a cerrar</span>.
@@ -183,7 +183,7 @@ export default function Login() {
         )}
 
         <p className="mt-2 text-[0.8rem] text-frio">
-          Al continuar aceptás los términos de LeadAI.
+          Al continuar aceptas los términos de LeadAI.
         </p>
       </div>
     </main>

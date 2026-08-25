@@ -53,7 +53,7 @@ const GRUPOS: { grupo: string; bajada: string; mensajes: Mensaje[] }[] = [
         cuando: "Alguien saluda o pide la carta",
         entrada: "Hola, buenas",
         texto:
-          "¡Buenísimo! 😋\n\nAcá está nuestra carta, con fotos y precios:\nlink de tu carta\n\nElegí tranquilo y confirmá: tu pedido llega solito a este chat 👍\n_También podés escribirme lo que querés y te lo tomo por acá._",
+          "¡Buenísimo! 😋\n\nAquí está nuestra carta, con fotos y precios:\nlink de tu carta\n\nElige tranquilo y confirma: tu pedido llega solito a este chat 👍\n_También puedes escribirme lo que quieres y te lo tomo por aquí._",
       },
       {
         id: "promos",
@@ -150,14 +150,14 @@ const GRUPOS: { grupo: string; bajada: string; mensajes: Mensaje[] }[] = [
         titulo: "Salió el reparto",
         cuando: "El motorizado acepta el pedido",
         texto:
-          "¡Tu pedido va en camino! 🛵 Lo lleva *Carlos*. Llega en ~20 min.\n\n📍 Síguelo en vivo acá:\nlink del mapa",
+          "¡Tu pedido va en camino! 🛵 Lo lleva *Carlos*. Llega en ~20 min.\n\n📍 Síguelo en vivo aquí:\nlink del mapa",
         nota: "El mapa en vivo solo va si lo lleva un motorizado con GPS.",
       },
       {
         id: "entregado",
         titulo: "Llegó",
         cuando: "Tocas “Entregado”",
-        texto: "¡Que lo disfrutes! 😋 Cualquier cosa escríbeme por acá. ¡Gracias por tu pedido! 🙌",
+        texto: "¡Que lo disfrutes! 😋 Cualquier cosa escríbeme por aquí. ¡Gracias por tu pedido! 🙌",
       },
       {
         id: "cancelado",
@@ -176,7 +176,7 @@ const GRUPOS: { grupo: string; bajada: string; mensajes: Mensaje[] }[] = [
         titulo: "Lo invitas a volver",
         cuando: "Pasaron los días que elegiste desde su último pedido",
         texto:
-          "¡Hola! 👋 Hace rato que no pides por acá — *SHIRO* te extraña 😄\n\n¿Se te antoja algo? Escríbeme *hola* y te muestro la carta 😋",
+          "¡Hola! 👋 Hace rato que no pides por aquí — *SHIRO* te extraña 😄\n\n¿Se te antoja algo? Escríbeme *hola* y te muestro la carta 😋",
         nota: "Eliges cada cuántos días se manda, en Ajustes.",
       },
       {

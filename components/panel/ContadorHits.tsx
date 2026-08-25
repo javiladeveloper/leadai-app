@@ -141,7 +141,7 @@ function ContadorPedidos({
       </p>
       {!ilimitado && (
         <p className="text-[0.72rem] text-arena/60">
-          {pasado ? "Seguís vendiendo igual" : `Te quedan ${(limite - usados).toLocaleString("es-PE")}`}
+          {pasado ? "Sigues vendiendo igual" : `Te quedan ${(limite - usados).toLocaleString("es-PE")}`}
         </p>
       )}
       <p className="text-[0.72rem] text-arena/50">

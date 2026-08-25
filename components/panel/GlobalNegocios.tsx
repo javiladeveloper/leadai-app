@@ -83,7 +83,7 @@ export function BarraNegociosGlobal({
   return (
     <div className="space-y-1.5">
       <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
-        Elegí el negocio que querés mirar
+        Elige el negocio que quieres mirar
       </p>
       <div className="flex flex-wrap gap-2">
         {todosLabel && (

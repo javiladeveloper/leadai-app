@@ -78,7 +78,7 @@ export default function CartaPanel() {
         <p className="eyebrow">Pedidos</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Carta y precios</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
-          Lo que cargues acá es lo que ve tu cliente y lo que el bot usa para tomar pedidos.
+          Lo que cargues aquí es lo que ve tu cliente y lo que el bot usa para tomar pedidos.
         </p>
       </header>
 
@@ -123,7 +123,7 @@ export default function CartaPanel() {
       {estado === "cargando" && <SkeletonLista filas={4} />}
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar la carta. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar la carta. Recarga.</p>
         </div>
       )}
 
@@ -200,7 +200,7 @@ function EnlaceCarta({ url }: { url: string }) {
           El link de tu carta
         </p>
         {/* El link en menta sobre el oscuro: 7.1:1, y es el dato que el dueño
-            viene a buscar acá. */}
+            viene a buscar aquí. */}
         <p className="truncate text-[0.9rem] font-medium text-brasa">{url}</p>
       </div>
       <button
@@ -546,7 +546,7 @@ function Platos({
                 ) : (
                   /* UN HUECO CON FORMA (2026-08-20): sin foto la fila arrancaba
                      pegada al borde y las filas con y sin foto no alineaban
-                     entre sí. Además el marco vacío se lee como "acá falta la
+                     entre sí. Además el marco vacío se lee como "aquí falta la
                      foto", que es información útil para el dueño. */
                   <span
                     className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-arena-2 text-[1.1rem] opacity-45 ring-1 ring-linea"
@@ -935,7 +935,7 @@ function HojaPlato({
             <Campo etiqueta="Sección">
               <p className="rounded-lg bg-arena/50 px-3 py-2.5 text-[0.85rem] text-frio">
                 Todavía no tienes secciones. Crea una (Entradas, Bebidas…) desde la
-                lista de platos y después podés mover este plato ahí.
+                lista de platos y después puedes mover este plato ahí.
               </p>
             </Campo>
           ) : (
@@ -1414,7 +1414,7 @@ function HojaGrupo({
             )}
           </div>
 
-          <Campo etiqueta="Opciones" ayuda="Dejá el precio vacío si no cuesta nada">
+          <Campo etiqueta="Opciones" ayuda="Deja el precio vacío si no cuesta nada">
             <div className="space-y-2">
               {opciones.map((o, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -2065,7 +2065,7 @@ function Promos({
             /* LOS COMBOS SON UNA "SECCIÓN" MÁS (2026-08-20): no viven en
                ninguna categoría de la carta, así que ninguna promo podía
                apuntarles y "3 combos x 2" no se podía armar. El id reservado
-               `__combos` lo entiende el motor de precios; acá es una opción
+               `__combos` lo entiende el motor de precios; aquí es una opción
                más del selector. Solo se ofrece si hay combos cargados. */
             categorias={
               carta.combos.length > 0

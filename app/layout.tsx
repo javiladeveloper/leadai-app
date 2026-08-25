@@ -14,7 +14,7 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "LeadAI",
   description:
-    "Ve tus leads, respondé al instante y cerrá más ventas. La IA atiende; vos cerrás.",
+    "Ve tus leads, responde al instante y cierra más ventas. La IA atiende; tú cierras.",
   applicationName: "LeadAI",
   appleWebApp: { capable: true, title: "LeadAI", statusBarStyle: "default" },
 };

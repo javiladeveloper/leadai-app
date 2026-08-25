@@ -78,8 +78,8 @@ export function PanelCanales() {
   async function desconectar(c: Canal) {
     const seguro = window.confirm(
       `¿Desconectar ${c.nombre || c.cuentaExterna}?\n\n` +
-        "La cuenta deja de estar conectada a LeadAI (el bot ya no atenderá por acá). " +
-        "Tus conversaciones y leads NO se borran, y podés volver a conectarla cuando quieras.",
+        "La cuenta deja de estar conectada a LeadAI (el bot ya no atenderá por aquí). " +
+        "Tus conversaciones y leads NO se borran, y puedes volver a conectarla cuando quieras.",
     );
     if (!seguro) return;
     await eliminarCanal(c.id);
@@ -136,7 +136,7 @@ export function PanelCanales() {
 
       {/* El detalle en BLANCO sobre la sección oscura: acá hay listas de
           cuentas, links y formularios pensados para fondo claro. El contraste
-          marca la estructura —elegís arriba, operás abajo— sin obligar a
+          marca la estructura —eliges arriba, operas abajo— sin obligar a
           reescribir cada control. */}
       <div className="rounded-tarjeta bg-carta p-5">
         <div className="flex items-center gap-3">
@@ -240,7 +240,7 @@ export function PanelCanales() {
                     Puedes cambiar de empresa desde el selector de arriba.
                   </p>
                   {/* SUCURSALES NO SE MANDAN SOLAS A OTRA EMPRESA (2026-08-25).
-                      Con el mismo negocio en varios locales, "creá otra
+                      Con el mismo negocio en varios locales, "crea otra
                       empresa" es el consejo CARO: carga la carta de nuevo,
                       paga otro plan y pierde las ventas juntas. Todavía no hay
                       soporte real de sucursales, así que se les pide que

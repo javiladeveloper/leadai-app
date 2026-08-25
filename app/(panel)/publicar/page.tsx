@@ -144,7 +144,7 @@ export default function PublicarPanel() {
         <p className="eyebrow">Tu embudo</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Publicar</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
-          Creá un post una vez y publicalo en tus redes. La IA te ayuda a escribirlo.
+          Crea un post una vez y publicalo en tus redes. La IA te ayuda a escribirlo.
         </p>
       </header>
 
@@ -154,7 +154,7 @@ export default function PublicarPanel() {
 
       <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
         📸 La publicación real en Instagram/Facebook se activa cuando conectes tus redes
-        (requiere la aprobación de Meta). Mientras tanto, armá y probá tus posts acá.
+        (requiere la aprobación de Meta). Mientras tanto, arma y prueba tus posts aquí.
       </div>
 
       {/* Editor */}
@@ -195,7 +195,7 @@ export default function PublicarPanel() {
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           rows={4}
-          placeholder="Escribí tu post, o tocá una idea de arriba para que la IA lo redacte…"
+          placeholder="Escribe tu post, o toca una idea de arriba para que la IA lo redacte…"
           className="mt-1.5 w-full resize-none rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
         />
 
@@ -286,7 +286,7 @@ export default function PublicarPanel() {
         {estado === "ok" && posts.length === 0 && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Todavía no publicaste nada</p>
-            <p className="mt-1 text-[0.88rem] text-frio">Creá tu primer post arriba.</p>
+            <p className="mt-1 text-[0.88rem] text-frio">Crea tu primer post arriba.</p>
           </div>
         )}
         {estado === "ok" && posts.length > 0 && (

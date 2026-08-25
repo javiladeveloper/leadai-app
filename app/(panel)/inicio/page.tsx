@@ -130,14 +130,14 @@ export default function InicioPanel() {
 
       {!modoPedidos && estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar tus datos. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar tus datos. Recarga.</p>
         </div>
       )}
 
       {!modoPedidos && estado === "ok" && vacio && (
         <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="text-[1.05rem] font-bold text-tinta">
-            Aún no tenés leads. Conectá WhatsApp para empezar a recibirlos
+            Aún no tienes leads. Conecta WhatsApp para empezar a recibirlos
           </p>
           <Link
             href="/configuracion"
@@ -164,7 +164,7 @@ export default function InicioPanel() {
                   {resumen.calientesSinAtender}{" "}
                   {resumen.calientesSinAtender === 1 ? "lead caliente" : "leads calientes"} sin atender
                 </p>
-                <p className="text-[0.86rem] text-carta/85">Tocá para verlos — están listos para cerrar</p>
+                <p className="text-[0.86rem] text-carta/85">Toca para verlos — están listos para cerrar</p>
               </div>
               <span className="shrink-0 text-2xl leading-none text-carta/80">›</span>
             </Link>
@@ -283,7 +283,7 @@ export default function InicioPanel() {
                 <div>
                   <p className="text-[0.9rem] font-bold text-tinta-2">📈 Línea de tiempo de ventas</p>
                   <p className="mt-1 text-[0.8rem] text-frio">
-                    Cuando cierres tus primeras ventas, acá vas a ver cómo evolucionan mes a mes.
+                    Cuando cierres tus primeras ventas, aquí vas a ver cómo evolucionan mes a mes.
                   </p>
                 </div>
               </Link>
@@ -294,7 +294,7 @@ export default function InicioPanel() {
               <div>
                 <p className="text-[1rem] font-bold leading-snug">¿Todavía no conectaste tus redes?</p>
                 <p className="mt-1 text-[0.84rem] text-arena/70">
-                  Probá tu bot y dejá todo listo — cuando conectes, arrancás al toque.
+                  Prueba tu bot y deja todo listo — cuando conectes, arrancas al toque.
                 </p>
               </div>
               <Link

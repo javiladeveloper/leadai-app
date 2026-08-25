@@ -378,7 +378,7 @@ export function NuevoPedidoLocal({
               mesa— y decide si hace falta elegir número. */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Alternativa activo={modalidad === "local"} onClick={() => setModalidad("local")}>
-              🍽️ Come acá
+              🍽️ Come aquí
             </Alternativa>
             <Alternativa activo={modalidad === "recojo"} onClick={() => setModalidad("recojo")}>
               🥡 Se lo lleva
@@ -563,7 +563,7 @@ export function NuevoPedidoLocal({
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {lineas.length === 0 ? (
                 <p className="py-8 text-center text-[0.82rem] leading-snug text-frio/70">
-                  Tocá un plato<br />para agregarlo
+                  Toca un plato<br />para agregarlo
                 </p>
               ) : (
                 <ul className="space-y-1.5">

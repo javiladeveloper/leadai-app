@@ -53,7 +53,7 @@ export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, "No pudimos conectar con el servidor. Revisá tu conexión.");
+    throw new ApiError(0, "No pudimos conectar con el servidor. Revisa tu conexión.");
   }
 
   if (!res.ok) {

@@ -209,13 +209,13 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
               <p className="eyebrow">Tu embudo</p>
               <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Anuncios</h1>
               <p className="mt-1 text-[0.92rem] text-frio">
-                Creá anuncios en Instagram y Facebook con la ayuda de la IA. Te guía paso a paso.
+                Crea anuncios en Instagram y Facebook con la ayuda de la IA. Te guía paso a paso.
               </p>
             </>
           )}
           {/* LA BOLSA PUBLICITARIA (2026-08-23): la plata de los anuncios pasa
               por LeadAI — el plan regala un bono cada mes y lo demás se
-              recarga con nosotros. Al publicar, el presupuesto sale de acá. */}
+              recarga con nosotros. Al publicar, el presupuesto sale de aquí. */}
           {bolsa && (
             <p className="mt-2 inline-flex flex-wrap items-center gap-1 rounded-tarjeta bg-carta px-3.5 py-2 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
               💰 Tu bolsa publicitaria: <b className="text-tinta">S/{(bolsa.disponiblesCentavos / 100).toFixed(2)}</b>
@@ -227,7 +227,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
               {/* Sin el punto suelto del inicio (2026-08-24): cuando no hay
                   bono que desglosar, la frase anterior termina y esta abría
                   con un "." huérfano. */}
-              <span>El presupuesto de cada anuncio sale de acá — se paga por recarga con LeadAI.</span>
+              <span>El presupuesto de cada anuncio sale de aquí — se paga por recarga con LeadAI.</span>
             </p>
           )}
         </div>
@@ -273,8 +273,8 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
           {/* Paso 0 — Objetivo */}
           {paso === 0 && (
             <div>
-              <h2 className="text-[1.05rem] font-bold text-tinta">¿Qué querés conseguir?</h2>
-              <p className="mt-0.5 text-[0.82rem] text-frio">Elegí tu meta y armamos el anuncio para eso.</p>
+              <h2 className="text-[1.05rem] font-bold text-tinta">¿Qué quieres conseguir?</h2>
+              <p className="mt-0.5 text-[0.82rem] text-frio">Elige tu meta y armamos el anuncio para eso.</p>
               <div className="mt-3 space-y-2">
                 {objetivos.map((o) => (
                   <button
@@ -320,7 +320,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
                   rows={4}
-                  placeholder="Poné el nombre de la campaña y tocá 'Escribir con IA', o escribilo vos…"
+                  placeholder="Pon el nombre de la campaña y toca 'Escribir con IA', o escríbelo tú…"
                   className="mt-1 w-full resize-none rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
                 />
                 <p className="mt-1 text-[0.74rem] text-frio">Tip: la primera frase es la que engancha. Usá algo que frene el scroll.</p>
@@ -399,9 +399,9 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
           {/* Paso 3 — Presupuesto */}
           {paso === 3 && (
             <div className="space-y-3">
-              <h2 className="text-[1.05rem] font-bold text-tinta">¿Cuánto querés invertir?</h2>
+              <h2 className="text-[1.05rem] font-bold text-tinta">¿Cuánto quieres invertir?</h2>
               <p className="text-[0.82rem] text-frio">
-                Así funciona: vos ponés el monto total y Meta lo reparte en los días que elijas
+                Así funciona: tú pones el monto total y Meta lo reparte en los días que elijas
                 (ese es el gasto por día). Lo que varía es el <b>resultado</b> — cuánta gente ve tu
                 anuncio y cuántos te escriben depende de tu público, la competencia y qué tan bueno
                 sea el anuncio. Por eso la estimación es un rango, no una promesa.
@@ -429,7 +429,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
           {/* Paso 4 — Resumen */}
           {paso === 4 && (
             <div className="space-y-3">
-              <h2 className="text-[1.05rem] font-bold text-tinta">Revisá antes de publicar</h2>
+              <h2 className="text-[1.05rem] font-bold text-tinta">Revisa antes de publicar</h2>
               <div className="space-y-1.5 rounded-tarjeta bg-arena/50 p-4 text-[0.86rem] text-tinta-2">
                 <p><b className="text-tinta">Objetivo:</b> {objSel?.pregunta}</p>
                 <p><b className="text-tinta">Campaña:</b> {campania}</p>
@@ -487,7 +487,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
           {estado === "ok" && anuncios.length === 0 && (
             <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
               <p className="text-[1.02rem] font-bold text-tinta">Todavía no creaste anuncios</p>
-              <p className="mt-1 text-[0.88rem] text-frio">Tocá "Crear anuncio" y te guiamos paso a paso.</p>
+              <p className="mt-1 text-[0.88rem] text-frio">Toca "Crear anuncio" y te guiamos paso a paso.</p>
             </div>
           )}
           {estado === "ok" && anuncios.length > 0 && (

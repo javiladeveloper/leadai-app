@@ -46,7 +46,7 @@ export default function InvitacionPage() {
     const t = new URLSearchParams(window.location.search).get("token");
     if (!t) {
       setEstado("error");
-      setMensaje("Este enlace no es válido. Pedile al negocio que te lo mande de nuevo.");
+      setMensaje("Este enlace no es válido. Pídele al negocio que te lo mande de nuevo.");
       return;
     }
     setToken(t);
@@ -118,7 +118,7 @@ export default function InvitacionPage() {
             {otroCorreo ? (
               <div className="mt-4">
                 <p className="text-[0.88rem] leading-snug text-calor-hondo">
-                  Estás con otra cuenta ({sesion?.usuario.email}). Salí y entrá
+                  Estás con otra cuenta ({sesion?.usuario.email}). Sal y entra
                   con <b className="break-all">{datos.email}</b> para aceptar.
                 </p>
                 <button
@@ -145,7 +145,7 @@ export default function InvitacionPage() {
                     con Google o desde la app—, así que se lo manda a entrar y
                     listo: si el correo no existe, Google la crea sola. El
                     token ya quedó en sessionStorage, y `destinoTrasEntrar` de
-                    la pantalla de login lo trae de vuelta acá. */}
+                    la pantalla de login lo trae de vuelta aquí. */}
                 <button
                   type="button"
                   onClick={() => router.replace("/")}
@@ -167,7 +167,7 @@ export default function InvitacionPage() {
             <h1 className="mt-6 text-2xl font-bold text-tinta">¡Listo! 🎉</h1>
             <p className="mt-2 text-tinta-2">
               {datos?.rol === "mozo"
-                ? "Ya podés tomar pedidos. Entrando…"
+                ? "Ya puedes tomar pedidos. Entrando…"
                 : "Ya estás en el equipo. Entrando…"}
             </p>
           </div>

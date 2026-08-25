@@ -491,8 +491,8 @@ function EditorSalas({
     <div className="rounded-tarjeta bg-arena/50 p-4">
       <p className="font-bold text-tinta">Mis mesas</p>
       <p className="mt-0.5 text-[0.84rem] leading-snug text-frio">
-        Para poder anotar en qué mesa come cada pedido. Si atendés solo en
-        mostrador, dejalo vacío.
+        Para poder anotar en qué mesa come cada pedido. Si atiendes solo en
+        mostrador, déjalo vacío.
       </p>
 
       <div className="mt-3 space-y-3">

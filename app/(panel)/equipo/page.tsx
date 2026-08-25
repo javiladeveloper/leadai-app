@@ -96,8 +96,8 @@ function EquipoPanel() {
     return (
       <div className="px-5 py-10 lg:px-8">
         <BloqueoPlan
-          titulo="Sumá trabajadores a tu equipo"
-          descripcion="Invitar trabajadores está disponible desde el plan Pro. Mejorá tu plan para que te ayuden a atender."
+          titulo="Suma trabajadores a tu equipo"
+          descripcion="Invitar trabajadores está disponible desde el plan Pro. Mejora tu plan para que te ayuden a atender."
         />
       </div>
     );
@@ -109,7 +109,7 @@ function EquipoPanel() {
         <p className="eyebrow">Tu negocio</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Equipo</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
-          Sumá trabajadores para que te ayuden a atender. Les llega un correo con el enlace para unirse.
+          Suma trabajadores para que te ayuden a atender. Les llega un correo con el enlace para unirse.
         </p>
       </header>
 
@@ -151,7 +151,7 @@ function EquipoPanel() {
       {estado === "cargando" && <SkeletonLista filas={3} />}
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar el equipo. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar el equipo. Recarga.</p>
         </div>
       )}
 

@@ -99,7 +99,7 @@ export function PlaybookEditor() {
   if (estado === "error-carga") {
     return (
       <p className="rounded-xl border border-brasa/40 bg-arena/40 p-4 text-sm text-brasa-texto">
-        No pudimos cargar tu configuración. Recargá la página.
+        No pudimos cargar tu configuración. Recarga la página.
       </p>
     );
   }
@@ -112,13 +112,13 @@ export function PlaybookEditor() {
       bajada={
         caps.tieneCarta
           ? "Cómo saluda y responde tu bot: tono, tu saludo y tus horarios y formas de pago. Tu carta se edita en su propia sección."
-          : "El playbook que usa la IA para responder por vos: tono, qué vendés, preguntas clave y objeciones."
+          : "El playbook que usa la IA para responder por ti: tono, qué vendes, preguntas clave y objeciones."
       }
       tono="hondo"
     >
       {/* El formulario en BLANCO dentro de la sección oscura: son ocho campos,
           chips y cuatro listas pensadas para fondo claro, y un formulario largo
-          sobre oscuro se lee peor. El verde hondo enmarca; acá se escribe. */}
+          sobre oscuro se lee peor. El verde hondo enmarca; aquí se escribe. */}
       <div className="space-y-5 rounded-tarjeta bg-carta p-5">
       <div className="grid gap-4 lg:grid-cols-2">
         <Campo
@@ -127,7 +127,7 @@ export function PlaybookEditor() {
           onChange={(v) => setPerfil({ ...perfil, nombreNegocio: v })}
         />
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-tinta">A qué te dedicás</span>
+          <span className="mb-1 block text-sm font-medium text-tinta">A qué te dedicas</span>
           <select
             value={perfil.rubro}
             onChange={(e) => setPerfil({ ...perfil, rubro: e.target.value })}
@@ -147,7 +147,7 @@ export function PlaybookEditor() {
           antes) se muestra como "Actual" y se respeta hasta que elijan uno
           curado (el backend valida con la misma lista). */}
       <div>
-        <span className="mb-2 block text-sm font-medium text-tinta">Cómo querés que hable el bot</span>
+        <span className="mb-2 block text-sm font-medium text-tinta">Cómo quieres que hable el bot</span>
         <div className="flex flex-wrap gap-2">
           {perfil.tono.trim() !== "" &&
             !TONOS_BOT.some((t) => t.toLowerCase() === perfil.tono.trim().toLowerCase()) && (
@@ -188,7 +188,7 @@ export function PlaybookEditor() {
           <ListaSimple
             titulo="Preguntas clave"
             descripcion="Lo que el bot pregunta antes de avisarte que un cliente está listo para comprar"
-            placeholder="¿Para cuándo lo necesitás?"
+            placeholder="¿Para cuándo lo necesitas?"
             valores={perfil.preguntasClave}
             onChange={(preguntasClave) => setPerfil({ ...perfil, preguntasClave })}
           />
@@ -239,14 +239,14 @@ export function PlaybookEditor() {
       )}
 
       <CampoArea
-        label="Cómo trabajás (envíos, horarios, pagos)"
+        label="Cómo trabajas (envíos, horarios, pagos)"
         value={perfil.politicas}
         onChange={(v) => setPerfil({ ...perfil, politicas: v })}
         placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
       />
       {caps.calificaLeads && (
         <CampoArea
-          label="Qué querés que hagan"
+          label="Qué quieres que hagan"
           value={perfil.llamadaAccion}
           onChange={(v) => setPerfil({ ...perfil, llamadaAccion: v })}
           placeholder="Ej: Que agenden una llamada / que hagan el pedido"
@@ -409,7 +409,7 @@ function ListaCatalogo({
     <div className="border-t border-linea pt-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <div>
-          <p className="text-[0.88rem] font-bold text-tinta">Qué vendés</p>
+          <p className="text-[0.88rem] font-bold text-tinta">Qué vendes</p>
           <p className="mt-0.5 text-[0.78rem] text-frio">Productos o servicios que ofrece el negocio</p>
         </div>
         <span className={`shrink-0 text-xs font-semibold ${lleno ? "text-brasa-hondo" : "text-frio"}`}>
@@ -505,7 +505,7 @@ function ListaRespuestasFijas({
             <input
               value={item.respuesta}
               onChange={(e) => actualizar(i, "respuesta", e.target.value)}
-              placeholder="El bot responde... Ej: Depende de tu caso, ¿cuánto facturás al mes?"
+              placeholder="El bot responde... Ej: Depende de tu caso, ¿cuánto facturas al mes?"
               className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
             />
             <button
@@ -565,7 +565,7 @@ function ListaObjeciones({
             <input
               value={item.respuesta}
               onChange={(e) => actualizar(i, "respuesta", e.target.value)}
-              placeholder="Ej: Tenemos planes a tu medida, ¿cuánto facturás al mes?"
+              placeholder="Ej: Tenemos planes a tu medida, ¿cuánto facturas al mes?"
               className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
             />
             <button

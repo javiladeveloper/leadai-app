@@ -64,7 +64,7 @@ export function AjustesComentarios() {
             Mensaje al invitar al privado <span className="font-normal text-frio">(opcional)</span>
           </label>
           <p className="mt-0.5 text-[0.8rem] text-frio">
-            Dejalo vacío para que la IA lo redacte sola, o escribí uno fijo.
+            Déjalo vacío para que la IA lo redacte sola, o escribe uno fijo.
           </p>
           <div className="mt-2 flex gap-2">
             <input

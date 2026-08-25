@@ -63,7 +63,7 @@ export function NotaLead({
             onClick={() => { setNombreBorrador(nombre ?? ""); setEditandoNombre(true); }}
             className="flex w-full items-center justify-between rounded-lg px-1 py-1.5 text-left text-sm font-semibold text-tinta transition hover:bg-arena/40"
           >
-            <span className="truncate">{nombre?.trim() || "Sin nombre — tocá para poner uno"}</span>
+            <span className="truncate">{nombre?.trim() || "Sin nombre — toca para poner uno"}</span>
             <span className="ml-2 shrink-0 text-[0.72rem] font-normal text-brasa-hondo">Editar</span>
           </button>
         )}

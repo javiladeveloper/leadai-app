@@ -14,7 +14,7 @@ export function BloqueoPlan({ titulo, descripcion }: { titulo: string; descripci
         href="/configuracion"
         className="mt-6 inline-flex rounded-tarjeta bg-brasa px-6 py-3 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
       >
-        Mejorá tu plan
+        Mejora tu plan
       </Link>
     </div>
   );

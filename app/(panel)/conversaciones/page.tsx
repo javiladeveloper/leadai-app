@@ -444,7 +444,7 @@ export default function ConversacionesPanel() {
     if (!seleccionadoId || enviando) return;
     const monto = Number(montoVenta);
     if (!montoVenta || Number.isNaN(monto) || monto <= 0) {
-      setAccionError("Ingresá un monto válido.");
+      setAccionError("Ingresa un monto válido.");
       return;
     }
     setEnviando(true);
@@ -544,13 +544,13 @@ export default function ConversacionesPanel() {
       {estadoLista === "cargando" && <SkeletonLista filas={5} />}
       {estadoLista === "error" && (
         <div className="rounded-tarjeta bg-carta p-4 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <p className="text-[0.9rem] font-semibold text-tinta">No pudimos cargar la lista. Recargá.</p>
+          <p className="text-[0.9rem] font-semibold text-tinta">No pudimos cargar la lista. Recarga.</p>
         </div>
       )}
       {listaVacia && (
         <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="text-[0.95rem] font-bold text-tinta">
-            Aún no tenés conversaciones. Conectá WhatsApp para empezar
+            Aún no tienes conversaciones. Conecta WhatsApp para empezar
           </p>
           <Link
             href="/configuracion"
@@ -562,7 +562,7 @@ export default function ConversacionesPanel() {
       )}
       {estadoLista === "ok" && !listaVacia && leadsVisibles.length === 0 && (
         <p className="px-1 py-3 text-center text-[0.85rem] text-frio">
-          Nada por acá con esos filtros.
+          Nada por aquí con esos filtros.
         </p>
       )}
       {estadoLista === "ok" &&
@@ -679,13 +679,13 @@ export default function ConversacionesPanel() {
               {estadoLista === "cargando" && <div className="p-3"><SkeletonLista filas={6} /></div>}
               {estadoLista === "error" && (
                 <p className="p-4 text-center text-[0.85rem] font-semibold text-tinta">
-                  No pudimos cargar la lista. Recargá.
+                  No pudimos cargar la lista. Recarga.
                 </p>
               )}
               {listaVacia && (
                 <div className="p-4 text-center">
                   <p className="text-[0.9rem] font-bold text-tinta">
-                    Aún no tenés conversaciones.
+                    Aún no tienes conversaciones.
                   </p>
                   <Link
                     href="/configuracion"
@@ -696,7 +696,7 @@ export default function ConversacionesPanel() {
                 </div>
               )}
               {estadoLista === "ok" && !listaVacia && leadsVisibles.length === 0 && (
-                <p className="p-4 text-center text-[0.85rem] text-frio">Nada por acá con esos filtros.</p>
+                <p className="p-4 text-center text-[0.85rem] text-frio">Nada por aquí con esos filtros.</p>
               )}
               {estadoLista === "ok" &&
                 leadsVisibles.map((l) => {
@@ -794,8 +794,8 @@ export default function ConversacionesPanel() {
                   disabled={togglingBot}
                   title={
                     lead.botPausado
-                      ? "Lidia está en pausa en este chat: lo atendés vos. Tocá para reactivarla."
-                      : "Lidia responde sola en este chat. Tocá para tomarlo vos."
+                      ? "Lidia está en pausa en este chat: lo atiendes tú. Toca para reactivarla."
+                      : "Lidia responde sola en este chat. Toca para tomarlo tú."
                   }
                   className={`flex shrink-0 items-center gap-2 rounded-chip px-3 py-1.5 text-[0.78rem] font-bold transition active:scale-[0.98] ${
                     lead.botPausado
@@ -827,7 +827,7 @@ export default function ConversacionesPanel() {
                     <Burbuja m={aBurbuja(m)} />
                     {m.direccion === "saliente" && m.estado === "fallido" && (
                       <p className="mt-0.5 text-right text-[0.72rem] font-semibold text-calor">
-                        ⚠️ No se pudo entregar — revisá el canal en Configuración
+                        ⚠️ No se pudo entregar — revisa el canal en Configuración
                       </p>
                     )}
                   </div>
@@ -846,7 +846,7 @@ export default function ConversacionesPanel() {
                       {lead.borradorIA}
                     </button>
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <p className="text-[0.72rem] text-frio">Tocá el texto para editarlo abajo antes de enviar</p>
+                      <p className="text-[0.72rem] text-frio">Toca el texto para editarlo abajo antes de enviar</p>
                       <button
                         onClick={aprobarBorrador}
                         disabled={enviando}
@@ -882,7 +882,7 @@ export default function ConversacionesPanel() {
                     type="button"
                     onClick={pedirSugerencia}
                     disabled={sugiriendo}
-                    title="La IA escribe un borrador con todo el contexto; lo editás antes de enviar"
+                    title="La IA escribe un borrador con todo el contexto; lo editas antes de enviar"
                     className="flex h-8 shrink-0 items-center gap-1 rounded-full bg-tibio-suave px-3 text-[0.78rem] font-bold text-tibio ring-1 ring-tibio/30 transition hover:brightness-95 active:scale-[0.98] disabled:opacity-60"
                   >
                     ✦ {sugiriendo ? "Pensando…" : "Asistente IA"}
@@ -924,7 +924,7 @@ export default function ConversacionesPanel() {
                       }
                     }}
                     rows={1}
-                    placeholder={dictado.soportado ? "Escribí o tocá 🎤 para hablar…" : "Escribí tu mensaje…"}
+                    placeholder={dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
                     className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
                   />
                   {dictado.soportado && (
@@ -932,7 +932,7 @@ export default function ConversacionesPanel() {
                       type="button"
                       onClick={dictado.escuchando ? dictado.parar : dictado.empezar}
                       aria-label={dictado.escuchando ? "Detener dictado" : "Dictar por voz"}
-                      title={dictado.escuchando ? "Tocá para parar" : "Hablá y lo escribo por vos"}
+                      title={dictado.escuchando ? "Toca para parar" : "Habla y lo escribo por ti"}
                       className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition ${
                         dictado.escuchando
                           ? "animate-pulse bg-brasa text-carta ring-4 ring-brasa/30"
@@ -957,7 +957,7 @@ export default function ConversacionesPanel() {
             </>
           ) : estadoLead === "ok" ? (
             <div className="flex flex-1 items-center justify-center p-6 text-center text-frio">
-              Elegí un lead de la lista para ver la conversación.
+              Elige un lead de la lista para ver la conversación.
             </div>
           ) : null}
         </div>
@@ -994,7 +994,7 @@ export default function ConversacionesPanel() {
               </div>
 
               {/* Etapa del embudo (las del NEGOCIO, personalizables en
-                  Configuración → Tu negocio). Mover acá sincroniza el motor.
+                  Configuración → Tu negocio). Mover aquí sincroniza el motor.
 
                   Solo donde hay embudo: quien pide comida no pasa por uno, y
                   el selector invitaba a mover a "Ganado"/"Perdido" a alguien

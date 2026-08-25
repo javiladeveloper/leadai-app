@@ -58,7 +58,7 @@ function TarjetaSaldo({ uso, cargando, error }: { uso: Uso | null; cargando: boo
   if (error || !uso) {
     return (
       <p className="text-sm text-arena/80">
-        No pudimos cargar tu saldo. Recargá la página para intentar de nuevo.
+        No pudimos cargar tu saldo. Recarga la página para intentar de nuevo.
       </p>
     );
   }
@@ -202,8 +202,8 @@ function TarjetaPedidos({
         {ilimitado
           ? "Tu plan no tiene tope de pedidos."
           : pasado
-            ? `Pasaste los ${limite.toLocaleString("es-PE")} de tu plan y seguimos tomando todos. Subí cuando quieras.`
-            : `Te quedan ${(limite - usados).toLocaleString("es-PE")} este mes. Si te pasás, seguís vendiendo igual.`}
+            ? `Pasaste los ${limite.toLocaleString("es-PE")} de tu plan y seguimos tomando todos. Sube cuando quieras.`
+            : `Te quedan ${(limite - usados).toLocaleString("es-PE")} este mes. Si te pasas, sigues vendiendo igual.`}
       </p>
     </div>
   );
@@ -248,7 +248,7 @@ function TarjetaComprar({
   if (!catalogo) {
     return (
       <p className="text-sm text-brasa-texto">
-        No pudimos cargar los precios. Recargá la página para intentar de nuevo.
+        No pudimos cargar los precios. Recarga la página para intentar de nuevo.
       </p>
     );
   }
@@ -298,7 +298,7 @@ function TarjetaComprar({
 
       <div>
         <label htmlFor="clientes-libres" className="mb-1 block text-[0.82rem] font-semibold text-tinta-2">
-          O elegí una cantidad
+          O elige una cantidad
         </label>
         <input
           id="clientes-libres"
@@ -321,7 +321,7 @@ function TarjetaComprar({
         <p className="text-[0.78rem] text-frio">
           {soles(centavosPorCliente)} por cliente
           {hayAhorro && (
-            <span className="ml-1 font-semibold text-ok">· Ahorrás {soles(ahorro)}</span>
+            <span className="ml-1 font-semibold text-ok">· Ahorras {soles(ahorro)}</span>
           )}
         </p>
       </div>
@@ -375,7 +375,7 @@ function TarjetaSwitch({
   if (error) {
     return (
       <p className="text-sm text-brasa-texto">
-        No pudimos cargar tu configuración. Recargá la página para intentar de nuevo.
+        No pudimos cargar tu configuración. Recarga la página para intentar de nuevo.
       </p>
     );
   }
@@ -488,7 +488,7 @@ function TarjetaInsistencia({
   if (error) {
     return (
       <p className="text-sm text-brasa-texto">
-        No pudimos cargar tu configuración. Recargá la página para intentar de nuevo.
+        No pudimos cargar tu configuración. Recarga la página para intentar de nuevo.
       </p>
     );
   }
@@ -617,14 +617,14 @@ export function PlanConsumo() {
           abajo. El `esRestaurante` viene de capacidades, ya cacheadas, así que
           se sabe si va antes de tener el dato. */}
       {esRestaurante && cargandoUso && (
-        <Seccion titulo="Pedidos de este mes" bajada="Lo que llevás vendido contra lo que incluye tu plan." tono="hondo">
+        <Seccion titulo="Pedidos de este mes" bajada="Lo que llevas vendido contra lo que incluye tu plan." tono="hondo">
           <div className="h-24 animate-pulse rounded-tarjeta bg-arena-2/60" />
         </Seccion>
       )}
       {!cargandoUso && uso?.pedidos && (
         <Seccion
           titulo="Pedidos de este mes"
-          bajada="Lo que llevás vendido contra lo que incluye tu plan."
+          bajada="Lo que llevas vendido contra lo que incluye tu plan."
           tono="hondo"
         >
           <TarjetaPedidos pedidos={uso.pedidos} plan={uso.plan} seResetea={uso.bolsa.seResetea} />
@@ -640,14 +640,14 @@ export function PlanConsumo() {
 
       {/* "Clientes atendidos por la IA" y "comprar clientes extra" son de los
           planes de CAPTACIÓN. En un plan de restaurante la unidad es el pedido
-          —ya está arriba— y no se compran clientes sueltos: si te pasás del
-          cupo seguís vendiendo y subís de plan. Mostrarlas acá sería pedirle al
+          —ya está arriba— y no se compran clientes sueltos: si te pasas del
+          cupo sigues vendiendo y subes de plan. Mostrarlas aquí sería pedirle al
           dueño que ignore dos tarjetas cada vez que entra. */}
       {!esRestaurante && (
         <>
           <Seccion
             titulo="Tu saldo"
-            bajada="Cuántos clientes podés atender este mes y cuándo se renueva."
+            bajada="Cuántos clientes puedes atender este mes y cuándo se renueva."
             tono="hondo"
           >
             <TarjetaSaldo uso={uso} cargando={cargandoUso} error={errorUso} />
@@ -655,7 +655,7 @@ export function PlanConsumo() {
 
           <Seccion
             titulo="Comprar más clientes"
-            bajada="Sumá clientes extra que no vencen con el mes. Cuantos más comprás, más barato sale."
+            bajada="Suma clientes extra que no vencen con el mes. Cuantos más compras, más barato sale."
           >
             <TarjetaComprar catalogo={catalogo} cargando={cargandoCatalogo} onExito={recargarSaldo} />
           </Seccion>
@@ -664,21 +664,21 @@ export function PlanConsumo() {
 
       <Seccion
         titulo="¿El bot está atendiendo?"
-        bajada="El interruptor principal: prendé o apagá al bot cuando quieras."
+        bajada="El interruptor principal: prende o apaga al bot cuando quieras."
       >
         <TarjetaSwitch
           cargando={cargandoPlan} valorInicial={botActivoInicial} error={errorPlan} campo="botActivo"
           aria="¿El bot está atendiendo?"
           textoOn="Activo — el bot responde a tus clientes"
-          textoOff="Pausado — el bot no responde (atendés vos)"
-          subtextoOn="Apagalo un momento si querés atender vos mismo, sin que el bot conteste."
+          textoOff="Pausado — el bot no responde (atiendes tú)"
+          subtextoOn="Apágalo un momento si quieres atender tú mismo, sin que el bot conteste."
           subtextoOff="Los mensajes se siguen guardando; el bot no va a contestar hasta que lo actives de nuevo."
         />
       </Seccion>
 
       <Seccion
-        titulo="¿Hasta dónde querés que el bot insista?"
-        bajada="Definí cuánto conversa el bot con cada cliente antes de avisarte que necesita atención tuya."
+        titulo="¿Hasta dónde quieres que el bot insista?"
+        bajada="Define cuánto conversa el bot con cada cliente antes de avisarte que necesita atención tuya."
       >
         <TarjetaInsistencia
           cargando={cargandoPlan}

@@ -31,7 +31,7 @@ export default function AdminNegocios() {
       {estado === "cargando" && <SkeletonLista filas={4} />}
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar los negocios. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar los negocios. Recarga.</p>
         </div>
       )}
 

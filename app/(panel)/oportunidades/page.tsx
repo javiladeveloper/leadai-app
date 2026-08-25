@@ -74,7 +74,7 @@ export default function OportunidadesPanel() {
         <p className="eyebrow">Red LeadAI</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Oportunidades</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
-          Negocios que buscan vendedores. Tomá las que te interesen y traéles clientes con tu red + la IA.
+          Negocios que buscan vendedores. Toma las que te interesen y traéles clientes con tu red + la IA.
         </p>
       </header>
 
@@ -104,7 +104,7 @@ export default function OportunidadesPanel() {
       {estado === "cargando" && <SkeletonLista filas={4} />}
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar las oportunidades. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar las oportunidades. Recarga.</p>
         </div>
       )}
       {estado === "ok" && visibles.length === 0 && (
@@ -112,7 +112,7 @@ export default function OportunidadesPanel() {
           <p className="text-[1.05rem] font-bold text-tinta">
             {soloMias ? "Todavía no tomaste ninguna oportunidad" : "No hay oportunidades por ahora"}
           </p>
-          <p className="mt-1 text-[0.9rem] text-frio">Volvé pronto — se publican nuevas seguido.</p>
+          <p className="mt-1 text-[0.9rem] text-frio">Vuelve pronto — se publican nuevas seguido.</p>
         </div>
       )}
 

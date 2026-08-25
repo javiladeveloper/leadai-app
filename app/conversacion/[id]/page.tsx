@@ -162,7 +162,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
     if (enviando) return;
     const monto = Number(montoVenta);
     if (!montoVenta || Number.isNaN(monto) || monto <= 0) {
-      setAccionError("Ingresá un monto válido.");
+      setAccionError("Ingresa un monto válido.");
       return;
     }
     setEnviando(true);
@@ -264,7 +264,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
   const composicion = (
     <div className="space-y-2">
       {/* Respuestas de un toque: tocá una y se pone en el mensaje, listo para
-          enviar o editar. Se aprenden de lo que más usás. */}
+          enviar o editar. Se aprenden de lo que más usas. */}
       {frases.length > 0 && !texto.trim() && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {frases.map((f) => (
@@ -291,7 +291,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           }
         }}
         rows={1}
-        placeholder={dictado.soportado ? "Escribí o tocá 🎤 para hablar…" : "Escribí tu mensaje…"}
+        placeholder={dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
         className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
       />
       {/* Botón de dictado por voz (hablar en vez de escribir). Solo si el
@@ -301,7 +301,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           type="button"
           onClick={dictado.escuchando ? dictado.parar : dictado.empezar}
           aria-label={dictado.escuchando ? "Detener dictado" : "Dictar por voz"}
-          title={dictado.escuchando ? "Tocá para parar" : "Hablá y lo escribo por vos"}
+          title={dictado.escuchando ? "Toca para parar" : "Habla y lo escribo por ti"}
           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition ${
             dictado.escuchando
               ? "animate-pulse bg-brasa text-carta ring-4 ring-brasa/30"
@@ -393,7 +393,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
                 {lead.borradorIA}
               </button>
               <div className="mt-2 flex items-center justify-between gap-2">
-                <p className="text-[0.72rem] text-frio">Tocá el texto para editarlo abajo antes de enviar</p>
+                <p className="text-[0.72rem] text-frio">Toca el texto para editarlo abajo antes de enviar</p>
                 <button
                   onClick={aprobarBorrador}
                   disabled={enviando}
@@ -472,7 +472,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
         {/* Lo que ofrecés */}
         {catalogo.length > 0 ? (
           <div className="rounded-tarjeta bg-carta p-3.5 ring-1 ring-linea">
-            <p className="mb-2 text-[0.78rem] font-bold uppercase tracking-wide text-frio">Lo que ofrecés</p>
+            <p className="mb-2 text-[0.78rem] font-bold uppercase tracking-wide text-frio">Lo que ofreces</p>
             <ul className="flex flex-col gap-2">
               {catalogo.map((item, i) => (
                 <li key={i} className="flex items-baseline justify-between gap-2 text-[0.88rem]">
@@ -484,7 +484,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           </div>
         ) : (
           <div className="rounded-tarjeta bg-carta p-3.5 ring-1 ring-linea">
-            <p className="mb-1 text-[0.78rem] font-bold uppercase tracking-wide text-frio">Lo que ofrecés</p>
+            <p className="mb-1 text-[0.78rem] font-bold uppercase tracking-wide text-frio">Lo que ofreces</p>
             <p className="text-[0.85rem] text-frio">Sin productos cargados</p>
           </div>
         )}

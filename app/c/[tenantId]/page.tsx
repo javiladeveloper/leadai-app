@@ -635,7 +635,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     >
       <Cabecera negocio={carta.negocio} />
       {/* LA MESA, DICHA DE ENTRADA (2026-08-23). Quien escaneó el QR tiene
-          que ver al instante que este link ES su mesa: pide desde acá, llega
+          que ver al instante que este link ES su mesa: pide desde aquí, llega
           a cocina con su número y paga al final — sin WhatsApp de por medio. */}
       {mesaQR && (
         <div className="mx-4 mt-3 rounded-tarjeta bg-brasa/10 px-4 py-3 text-center text-[0.9rem] font-semibold text-brasa-texto ring-1 ring-brasa/30">
@@ -1824,7 +1824,7 @@ function ConfirmarPedido({
       style={estiloTema}
     >
       {/* La cabecera del negocio, compacta: logo y nombre. No es decoración —
-          es lo que dice "seguís en el mismo lugar donde armaste tu pedido". */}
+          es lo que dice "sigues en el mismo lugar donde armaste tu pedido". */}
       <header className="flex items-center gap-3 border-b border-linea bg-carta px-5 py-3">
         {negocio.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

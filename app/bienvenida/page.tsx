@@ -335,7 +335,7 @@ export default function BienvenidaPanel() {
         {paso === 1 && (
           <div className="entra">
             <h1 className="text-[1.8rem] font-bold leading-tight text-tinta">
-              {agregar ? "Agregá otro negocio" : `¡Bienvenido${primerNombre ? `, ${primerNombre}` : ""}! 👋`}
+              {agregar ? "Agrega otro negocio" : `¡Bienvenido${primerNombre ? `, ${primerNombre}` : ""}! 👋`}
             </h1>
             <p className="mt-2 text-[1.02rem] text-tinta-2">
               Empecemos por lo básico: cómo se llama y a qué se dedica.
@@ -434,14 +434,14 @@ export default function BienvenidaPanel() {
         {paso === 6 && (
           <div className="entra">
             <h1 className="text-[1.8rem] font-bold leading-tight text-tinta">
-              ¿Cómo trabajás?
+              ¿Cómo trabajas?
             </h1>
             <p className="mt-2 text-[1.02rem] text-tinta-2">
               Con esto tu bot sabe qué ofrecerle a cada cliente.
             </p>
 
             <div className="mt-7 space-y-5">
-              <Campo etiqueta="¿Tenés local para comer ahí?">
+              <Campo etiqueta="¿Tienes local para comer ahí?">
                 <div className="flex flex-wrap gap-2">
                   {([
                     { v: true, txt: "🍽️ Sí, tengo local" },
@@ -466,7 +466,7 @@ export default function BienvenidaPanel() {
               {/* Sin local no hay mesa que reservar: la pregunta desaparece en
                   vez de quedar en gris pidiendo una decisión imposible. */}
               {tieneLocal && (
-                <Campo etiqueta="¿Tomás reservas de mesa?">
+                <Campo etiqueta="¿Tomas reservas de mesa?">
                   <div className="flex flex-wrap gap-2">
                     {([
                       { v: true, txt: "Sí" },
@@ -554,7 +554,7 @@ export default function BienvenidaPanel() {
         {paso === 2 && (
           <div className="entra">
             <h1 className="text-[1.8rem] font-bold leading-tight text-tinta">
-              ¿Dónde y cuándo atendés?
+              ¿Dónde y cuándo atiendes?
             </h1>
             <p className="mt-2 text-[1.02rem] text-tinta-2">
               Tus clientes lo van a ver en tu carta.
@@ -609,19 +609,19 @@ export default function BienvenidaPanel() {
         {paso === 3 && (
           <div className="entra">
             <h1 className="text-[1.8rem] font-bold leading-tight text-tinta">
-              Cargá tu carta en segundos
+              Carga tu carta en segundos
             </h1>
             <p className="mt-2 text-[1.02rem] text-tinta-2">
               {modoCarta === "sugerida"
-                ? "Elegí qué vendés y te armamos la carta. Después corregís precios y borrás lo que no tengas."
+                ? "Elige qué vendes y te armamos la carta. Después corriges precios y borras lo que no tengas."
                 : modoCarta === "archivo"
-                  ? "Subí una foto, un PDF o un Excel. Nosotros sacamos los platos y los precios."
+                  ? "Sube una foto, un PDF o un Excel. Nosotros sacamos los platos y los precios."
                   : importados.length > 0
                     // Con platos ya cargados, lo que importa es que REVISE los
                     // precios: son de referencia y publicar los nuestros sería
                     // vender al precio equivocado.
-                    ? "Revisá los precios y borrá lo que no vendas. Podés sumar tus platos acá abajo."
-                    : "Escribí tus platos con su precio. Con los más pedidos alcanza para empezar."}
+                    ? "Revisa los precios y borra lo que no vendas. Puedes sumar tus platos aquí abajo."
+                    : "Escribe tus platos con su precio. Con los más pedidos alcanza para empezar."}
             </p>
 
             {/* LAS DOS FORMAS, A LA VISTA (2026-08-25). Antes solo se podía
@@ -632,7 +632,7 @@ export default function BienvenidaPanel() {
                 {([
                   { id: "sugerida", txt: "Empezar con una base" },
                   { id: "archivo", txt: "Subir un archivo" },
-                  { id: "mano", txt: "Escribirla acá" },
+                  { id: "mano", txt: "Escribirla aquí" },
                 ] as const).map((o) => (
                   <button
                     key={o.id}
@@ -705,7 +705,7 @@ export default function BienvenidaPanel() {
                   ) : (
                     <>
                       <p className="text-[2rem]">📄</p>
-                      <p className="mt-2 font-semibold text-tinta">Subí tu carta</p>
+                      <p className="mt-2 font-semibold text-tinta">Sube tu carta</p>
                       <p className="mt-1 text-[0.85rem] text-frio">Foto, PDF o Excel</p>
                     </>
                   )}
@@ -715,7 +715,7 @@ export default function BienvenidaPanel() {
                   onClick={() => descargarPlantilla()}
                   className="mt-3 w-full text-center text-[0.85rem] font-semibold text-brasa-texto hover:underline"
                 >
-                  ¿No tenés tu carta en archivo? Descargá la plantilla de Excel
+                  ¿No tienes tu carta en archivo? Descarga la plantilla de Excel
                 </button>
               </>
             ) : (
@@ -729,7 +729,7 @@ export default function BienvenidaPanel() {
                   <p className="mb-3 rounded-lg bg-orbita/10 px-3 py-2 text-[0.85rem] text-calor ring-1 ring-orbita/25">
                     {erroresArchivo.length}{" "}
                     {erroresArchivo.length === 1 ? "fila no se pudo leer" : "filas no se pudieron leer"} —
-                    las podés cargar a mano después.
+                    las puedes cargar a mano después.
                   </p>
                 )}
                 <div className="scroll-fino max-h-72 space-y-1.5 overflow-y-auto rounded-tarjeta bg-carta p-3 ring-1 ring-linea">

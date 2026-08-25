@@ -191,7 +191,7 @@ function LeadsPanelInner() {
             <p className="text-[1.1rem] font-bold leading-tight">
               {calientes} {calientes === 1 ? "lead caliente" : "leads calientes"} sin atender
             </p>
-            <p className="text-[0.85rem] text-carta/85">Tocá para verlos — están listos para cerrar</p>
+            <p className="text-[0.85rem] text-carta/85">Toca para verlos — están listos para cerrar</p>
           </div>
         </button>
       )}
@@ -233,14 +233,14 @@ function LeadsPanelInner() {
 
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar los leads. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar los leads. Recarga.</p>
         </div>
       )}
 
       {estado === "ok" && visibles.length === 0 && (
         <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="text-[1.05rem] font-bold text-tinta">
-            Aún no tenés leads. Conectá WhatsApp para empezar
+            Aún no tienes leads. Conecta WhatsApp para empezar
           </p>
           <Link
             href="/configuracion"

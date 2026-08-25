@@ -146,7 +146,7 @@ export function PlanRestaurante() {
   if (!datos) {
     return (
       <Seccion titulo="Tu plan" bajada="No pudimos cargar tu plan.">
-        <p className="text-sm text-brasa-texto">Recargá la página para intentar de nuevo.</p>
+        <p className="text-sm text-brasa-texto">Recarga la página para intentar de nuevo.</p>
       </Seccion>
     );
   }
@@ -451,8 +451,8 @@ export function PlanRestaurante() {
                   ¿Damos de baja tu plan {NOMBRE[s.plan] ?? s.plan}?
                 </p>
                 <p className="mt-0.5 text-[0.82rem] text-tinta-2">
-                  Seguís con todo hasta el {fecha(s.vigenteHasta)} — ya lo pagaste. Después
-                  pasás al plan gratis.
+                  Sigues con todo hasta el {fecha(s.vigenteHasta)} — ya lo pagaste. Después
+                  pasas al plan gratis.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
@@ -506,7 +506,7 @@ function PlanActual({ s }: { s: NonNullable<RespuestaSuscripcion["suscripcion"]>
   return (
     <Seccion
       titulo="Tu plan"
-      bajada={enGracia ? undefined : "Lo que tenés contratado y hasta cuándo."}
+      bajada={enGracia ? undefined : "Lo que tienes contratado y hasta cuándo."}
       tono="hondo"
     >
       <div className="space-y-3">
@@ -534,7 +534,7 @@ function PlanActual({ s }: { s: NonNullable<RespuestaSuscripcion["suscripcion"]>
             <p className="text-[0.9rem] font-bold text-orbita">No pudimos cobrarte</p>
             <p className="mt-0.5 text-[0.82rem] text-arena/85">
               Tu tarjeta{s.tarjetaUltimos4 ? ` terminada en ${s.tarjetaUltimos4}` : ""} necesita
-              una revisada. Mientras tanto seguís trabajando normal — cargá otra tarjeta abajo
+              una revisada. Mientras tanto sigues trabajando normal — carga otra tarjeta abajo
               cuando puedas.
             </p>
           </div>
@@ -638,7 +638,7 @@ function TarjetaPlan({
       </p>
       <p className={`mt-1 text-[0.75rem] ${secundario}`}>
         {anual
-          ? `${soles(anual.precioCentavos)} al año · ahorrás ${soles(anual.ahorroCentavos)}`
+          ? `${soles(anual.precioCentavos)} al año · ahorras ${soles(anual.ahorroCentavos)}`
           : unidadDelPlan(plan)}
       </p>
       {anual && (

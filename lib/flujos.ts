@@ -7,13 +7,13 @@ export const PLANTILLA_FLUJO: GrafoFlujo = {
     { id: "inicio", tipo: "inicio", pos: { x: 300, y: 20 }, datos: {} },
     { id: "nodo-1", tipo: "mensaje", pos: { x: 280, y: 120 }, datos: { texto: "¡Hola! 👋 ¿En qué te puedo ayudar?" } },
     { id: "nodo-2", tipo: "opciones", pos: { x: 280, y: 240 }, datos: {
-      pregunta: "Elegí una opción:",
+      pregunta: "Elige una opción:",
       opciones: [
         { id: "op1", etiqueta: "Ver precios" },
         { id: "op2", etiqueta: "Hablar con alguien" },
       ],
     } },
-    { id: "nodo-3", tipo: "fija", pos: { x: 120, y: 400 }, datos: { texto: "Nuestros precios son… (editá este texto)" } },
+    { id: "nodo-3", tipo: "fija", pos: { x: 120, y: 400 }, datos: { texto: "Nuestros precios son… (edita este texto)" } },
     { id: "nodo-4", tipo: "ia", pos: { x: 440, y: 400 }, datos: {} },
   ],
   conexiones: [
@@ -36,7 +36,7 @@ export function validarGrafoUI(nodes: Node[], edges: Edge[]): string | null {
     (n) => (n.data as { tipo?: string })?.tipo !== "inicio" && !conEntrada.has(n.id),
   );
   if (sueltos.length > 0) {
-    return `Hay ${sueltos.length} paso(s) sin conectar. Conectá cada paso al flujo antes de guardar.`;
+    return `Hay ${sueltos.length} paso(s) sin conectar. Conecta cada paso al flujo antes de guardar.`;
   }
   return null;
 }

@@ -78,7 +78,7 @@ export function motivoLegible(motivo: string | null): string {
     case 'receptor': return 'El número o el nombre no son los tuyos';
     case 'fecha': return 'La fecha no es de hoy';
     case 'sin_operacion': return 'No se ve el número de operación';
-    case 'metodo': return 'Pagó por una billetera que no aceptás';
+    case 'metodo': return 'Pagó por una billetera que no aceptas';
     default: return 'No se pudo validar';
   }
 }

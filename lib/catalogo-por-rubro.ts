@@ -36,7 +36,7 @@ const CATALOGOS: Record<string, CatalogoRubro> = {
   gastronomia: {
     nombre: "Carta",
     titulo: "Carta y precios",
-    bajada: "Lo que cargues acá es lo que ve tu cliente y lo que el bot usa para tomar pedidos.",
+    bajada: "Lo que cargues aquí es lo que ve tu cliente y lo que el bot usa para tomar pedidos.",
     cosa: "plato",
     agrupacion: "sección",
     conCocina: true,

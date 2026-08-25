@@ -213,7 +213,7 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
         {cupo && (
           <div className="rounded-tarjeta bg-carta px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
             {/* EL TOPE ES EL DEL PLAN (2026-08-24). Meta le cobra directo a la
-                tarjeta del negocio, así que acá solo se cuenta cuántos envíos
+                tarjeta del negocio, así que aquí solo se cuenta cuántos envíos
                 le quedan del mes. */}
             {cupo.incluido
               ? <>📨 <b className="text-tinta">{cupo.restante.toLocaleString()}</b> envíos disponibles este mes (de {cupo.tope.toLocaleString()} del plan). No consumen tu cuota de clientes.</>
@@ -248,7 +248,7 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
             dentro de Marketing, bajo una pestaña que YA se llama Campañas.
             Repetir la palabra un nivel más abajo hacía que dos controles
             distintos parecieran el mismo. Y "Envíos" describe mejor lo que
-            hay acá: la lista de lo que se mandó. */}
+            hay aquí: la lista de lo que se mandó. */}
         {([["campanias", "Envíos"], ["plantillas", "Plantillas"]] as const).map(([id, label]) => (
           <button
             key={id}

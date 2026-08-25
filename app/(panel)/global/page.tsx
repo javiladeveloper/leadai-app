@@ -142,7 +142,7 @@ function GlobalPanelInner() {
         <p className="eyebrow">Todos tus negocios</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Tu operación</h1>
         <p className="mt-1 text-[0.9rem] text-frio">
-          Tus leads y ventas, todos juntos. Filtrá por negocio cuando quieras enfocarte.
+          Tus leads y ventas, todos juntos. Filtra por negocio cuando quieras enfocarte.
         </p>
       </header>
 
@@ -246,7 +246,7 @@ function GlobalPanelInner() {
 
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar la vista global. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar la vista global. Recarga.</p>
         </div>
       )}
 
@@ -256,7 +256,7 @@ function GlobalPanelInner() {
             Aún no hay leads en tus negocios de captación
           </p>
           <p className="mt-1 text-[0.88rem] text-frio">
-            Cuando lleguen mensajes a cualquiera de tus negocios, aparecerán acá.
+            Cuando lleguen mensajes a cualquiera de tus negocios, aparecerán aquí.
           </p>
         </div>
       )}

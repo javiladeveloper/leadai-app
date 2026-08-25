@@ -67,7 +67,7 @@ function ProbarBotPanel() {
       // Avisamos al contador del sidebar que el consumo pudo cambiar (refresca en vivo).
       window.dispatchEvent(new Event("leadai:uso-cambio"));
     } catch {
-      setMensajes((m) => [...m, { direccion: "saliente", texto: "⚠️ No pudimos procesar el mensaje. Esperá unos segundos y probá de nuevo." }]);
+      setMensajes((m) => [...m, { direccion: "saliente", texto: "⚠️ No pudimos procesar el mensaje. Espera unos segundos y prueba de nuevo." }]);
     } finally {
       setEnviando(false);
     }
@@ -86,9 +86,9 @@ function ProbarBotPanel() {
       <header className="mb-3 flex items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Simulador</p>
-          <h1 className="mt-1 text-[1.5rem] font-bold text-tinta">Probá tu bot</h1>
+          <h1 className="mt-1 text-[1.5rem] font-bold text-tinta">Prueba tu bot</h1>
           <p className="mt-0.5 text-[0.85rem] text-frio">
-            Escribí como si fueras un cliente y mirá cómo responde la IA. No usa WhatsApp real.
+            Escribe como si fueras un cliente y mira cómo responde la IA. No usa WhatsApp real.
           </p>
         </div>
         <button
@@ -114,7 +114,7 @@ function ProbarBotPanel() {
           <div className="grid h-full place-items-center text-center">
             <div>
               <p className="text-4xl">💬</p>
-              <p className="mt-2 text-[0.9rem] font-semibold text-tinta">Escribí tu primer mensaje</p>
+              <p className="mt-2 text-[0.9rem] font-semibold text-tinta">Escribe tu primer mensaje</p>
               <p className="mt-1 text-[0.82rem] text-frio">Ej: &ldquo;Hola, ¿cuánto cuesta?&rdquo;</p>
             </div>
           </div>
@@ -178,7 +178,7 @@ function ProbarBotPanel() {
           onChange={(e) => setTexto(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
           rows={1}
-          placeholder="Escribí como si fueras el cliente…"
+          placeholder="Escribe como si fueras el cliente…"
           className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
         />
         <button

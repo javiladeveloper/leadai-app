@@ -37,7 +37,7 @@ export function ConfigComision() {
   return (
     <Seccion
       titulo="Comisión por venta"
-      bajada="Configurala una vez y, al cerrar una venta, se calcula sola. Podés cambiarla en cualquier momento."
+      bajada="Configúrala una vez y, al cerrar una venta, se calcula sola. Puedes cambiarla en cualquier momento."
     >
       <div className="flex flex-wrap items-end gap-3">
         {/* Tipo */}
@@ -89,9 +89,9 @@ export function ConfigComision() {
 
       <p className="mt-3 text-[0.78rem] text-frio">
         Ejemplo: {tipo === "porcentaje"
-          ? `si vendés S/1,000, tu comisión sería S/${((Number(valor) || 0) * 10).toFixed(0)}.`
+          ? `si vendes S/1,000, tu comisión sería S/${((Number(valor) || 0) * 10).toFixed(0)}.`
           : `cada venta cerrada suma S/${Number(valor) || 0} de comisión.`}
-        {" "}Dejá el valor en 0 para ingresar la comisión a mano cada vez.
+        {" "}Deja el valor en 0 para ingresar la comisión a mano cada vez.
       </p>
     </Seccion>
   );

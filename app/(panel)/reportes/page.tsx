@@ -63,7 +63,7 @@ function ReportesPanel() {
       setRep(r);
       setGlobal(g);
     } catch (err) {
-      setError("No pudimos cargar los reportes. Recargá.");
+      setError("No pudimos cargar los reportes. Recarga.");
       console.error(err);
     } finally {
       setCargando(false);
@@ -107,7 +107,7 @@ function ReportesPanel() {
                 Tasa de cierre, evolución mensual y comisiones por negocio están desde el plan Emprende.
               </p>
               <Link href="/configuracion" className="mt-4 inline-flex rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo">
-                Mejorá tu plan
+                Mejora tu plan
               </Link>
             </div>
           )}
@@ -283,8 +283,8 @@ function ReportesPanel() {
           {/* Tabla de comisiones del negocio actual */}
           {comisiones.length === 0 ? (
             <div className="rounded-tarjeta bg-carta p-8 text-center ring-1 ring-linea">
-              <p className="text-[1.1rem] font-semibold text-tinta">Aún no tenés ventas registradas</p>
-              <p className="mt-2 text-[0.95rem] text-tinta-2">Cuando cierres tu primer lead, vas a ver tus comisiones acá.</p>
+              <p className="text-[1.1rem] font-semibold text-tinta">Aún no tienes ventas registradas</p>
+              <p className="mt-2 text-[0.95rem] text-tinta-2">Cuando cierres tu primer lead, vas a ver tus comisiones aquí.</p>
             </div>
           ) : (
             <div className="rounded-tarjeta bg-carta ring-1 ring-linea">

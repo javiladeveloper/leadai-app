@@ -493,7 +493,7 @@ export function MarcaCarta() {
           {/* EL NÚMERO CONECTADO ES LA VERDAD (2026-08-22, reporte de
               Jonathan: este campo mostraba OTRO número que el canal
               conectado). Cuando hay WhatsApp conectado, la carta usa ESE —
-              acá se dice claro, y el campo manual queda como respaldo. */}
+              aquí se dice claro, y el campo manual queda como respaldo. */}
           {negocio?.whatsappConectado && (
             <div className="sm:col-span-2 rounded-tarjeta bg-ok/10 px-3.5 py-2.5 ring-1 ring-ok/25">
               <p className="text-[0.85rem] font-semibold text-ok">

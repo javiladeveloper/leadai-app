@@ -65,7 +65,7 @@ export default function CartaDeNegocio() {
       <div className="mx-auto max-w-md px-5 py-16 text-center">
         <p className="text-[1.05rem] font-bold text-tinta">Ese negocio no es tuyo</p>
         <p className="mt-1 text-[0.9rem] text-frio">
-          Entrá con la cuenta que lo administra, o elegí otro desde el panel.
+          Entra con la cuenta que lo administra, o elige otro desde el panel.
         </p>
         <button
           onClick={() => router.replace("/inicio")}

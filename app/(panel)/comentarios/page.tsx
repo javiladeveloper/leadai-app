@@ -78,7 +78,7 @@ export default function ComentariosPanel() {
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Comentarios</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
           Cuando alguien comenta tu publicación con intención de compra, la IA le responde
-          e invita al privado. Acá ves todo lo que captó.
+          e invita al privado. Aquí ves todo lo que captó.
         </p>
       </header>
 
@@ -89,7 +89,7 @@ export default function ComentariosPanel() {
       {/* Aviso: conexión real pendiente de Meta */}
       <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
         📸 La captación automática de comentarios de Instagram/Facebook se activa cuando conectes
-        tus redes (requiere la aprobación de Meta). Mientras tanto, probá cómo responde la IA acá abajo.
+        tus redes (requiere la aprobación de Meta). Mientras tanto, prueba cómo responde la IA aquí abajo.
       </div>
 
       {/* Ajustes: activar/desactivar + mensaje personalizado */}
@@ -97,9 +97,9 @@ export default function ComentariosPanel() {
 
       {/* Simulador: probar el flujo sin Meta */}
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-        <h2 className="text-[1.05rem] font-bold text-tinta">Probá la respuesta de la IA</h2>
+        <h2 className="text-[1.05rem] font-bold text-tinta">Prueba la respuesta de la IA</h2>
         <p className="mt-1 text-[0.82rem] text-frio">
-          Escribí un comentario como lo haría un cliente y mirá cómo lo clasifica y responde.
+          Escribe un comentario como lo haría un cliente y mira cómo lo clasifica y responde.
         </p>
         <div className="mt-3 flex gap-2">
           <input
@@ -163,14 +163,14 @@ export default function ComentariosPanel() {
         {estado === "cargando" && <SkeletonLista filas={3} />}
         {estado === "error" && (
           <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-            <p className="font-semibold text-tinta">No pudimos cargar los comentarios. Recargá.</p>
+            <p className="font-semibold text-tinta">No pudimos cargar los comentarios. Recarga.</p>
           </div>
         )}
         {estado === "ok" && comentarios.length === 0 && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Todavía no hay comentarios captados</p>
             <p className="mt-1 text-[0.88rem] text-frio">
-              Cuando conectes tus redes, los comentarios con intención van a aparecer acá.
+              Cuando conectes tus redes, los comentarios con intención van a aparecer aquí.
             </p>
           </div>
         )}

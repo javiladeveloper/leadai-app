@@ -110,7 +110,7 @@ export function CampanaAlertas() {
               <div className="border-b border-linea bg-calor-suave px-4 py-3">
                 <p className="text-[0.9rem] font-bold text-calor-hondo">⚠️ Llegaste al tope de clientes del mes</p>
                 <p className="mt-0.5 text-[0.82rem] text-tinta-2">
-                  El bot dejó de atender nuevos clientes. Ampliá tu plan para reactivarlo.
+                  El bot dejó de atender nuevos clientes. Amplía tu plan para reactivarlo.
                 </p>
                 <button
                   onClick={() => { setAbierto(false); router.push("/configuracion"); }}
@@ -174,7 +174,7 @@ export function CampanaAlertas() {
 
             {/* Nada */}
             {!hay && !alertas.find((a) => a.tipo === "umbral") && (
-              <p className="px-4 py-6 text-center text-[0.85rem] text-frio">No tenés avisos por ahora 👌</p>
+              <p className="px-4 py-6 text-center text-[0.85rem] text-frio">No tienes avisos por ahora 👌</p>
             )}
           </div>
         </>

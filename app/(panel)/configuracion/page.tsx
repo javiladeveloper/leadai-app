@@ -33,9 +33,9 @@ type Tab = "negocio" | "canales" | "plan" | "perfil";
 // La BAJADA cambia con la pestaña (2026-08-18): una sola frase genérica no
 // dice nada, y "Mi perfil" traía la suya en un segundo encabezado propio.
 const TABS: { id: Tab; label: string; bajada: string; requiere?: keyof Capacidades }[] = [
-  { id: "negocio", label: "Tu negocio", bajada: "Lo que el bot necesita saber para responder por vos." },
-  { id: "canales", label: "Canales", bajada: "Conectá tus redes para que LeadAI atienda en cada una." },
-  { id: "plan", label: "Plan y consumo", bajada: "Qué incluye tu plan, cuánto llevás usado y cómo atiende el bot." },
+  { id: "negocio", label: "Tu negocio", bajada: "Lo que el bot necesita saber para responder por ti." },
+  { id: "canales", label: "Canales", bajada: "Conecta tus redes para que LeadAI atienda en cada una." },
+  { id: "plan", label: "Plan y consumo", bajada: "Qué incluye tu plan, cuánto llevas usado y cómo atiende el bot." },
   // "Mi perfil" es el CV del VENDEDOR del marketplace —foto, años de
   // experiencia, ventas cerradas, rubros en los que sos bueno, experiencia
   // profesional— y su propia bajada lo dice: "así te ven los negocios que
@@ -206,7 +206,7 @@ function ConfiguracionInner() {
 
               {/* LOS LOCALES, JUNTO A LOS NÚMEROS (2026-08-25). Es donde el
                   dueño llega cuando quiere conectar el WhatsApp de su segundo
-                  local — el aviso de arriba lo manda acá. Solo para negocios
+                  local — el aviso de arriba lo manda aquí. Solo para negocios
                   con cocina: una clínica no tiene locales que despachen. */}
               {caps.tieneCocina && (
                 <Seccion

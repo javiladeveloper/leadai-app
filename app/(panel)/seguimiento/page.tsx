@@ -33,7 +33,7 @@ const ETAPAS: {
 }[] = [
   { estado: "nuevo", titulo: "Nuevos", ayuda: "Recién llegaron", acento: "bg-brasa" },
   { estado: "nutriendo", titulo: "En seguimiento", ayuda: "El bot los está trabajando", acento: "bg-tibio" },
-  { estado: "escalado", titulo: "Para atender", ayuda: "Listos para que entres vos", acento: "bg-brasa-hondo" },
+  { estado: "escalado", titulo: "Para atender", ayuda: "Listos para que entres tú", acento: "bg-brasa-hondo" },
   { estado: "ganado", titulo: "Ganados", ayuda: "Cerraste la venta", acento: "bg-ok" },
   { estado: "perdido", titulo: "Perdidos", ayuda: "No avanzaron", acento: "bg-frio" },
 ];
@@ -192,7 +192,7 @@ export default function SeguimientoPanel() {
           <p className="eyebrow">Tu pipeline</p>
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Seguimiento</h1>
           <p className="mt-1 text-[0.92rem] text-frio">
-            Mirá en qué etapa está cada venta y movela cuando cierres o descartes.
+            Mira en qué etapa está cada venta y muévela cuando cierres o descartes.
           </p>
         </div>
         <button
@@ -225,7 +225,7 @@ export default function SeguimientoPanel() {
 
       {estado === "error" && (
         <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar tu pipeline. Recargá.</p>
+          <p className="font-semibold text-tinta">No pudimos cargar tu pipeline. Recarga.</p>
         </div>
       )}
 
@@ -235,7 +235,7 @@ export default function SeguimientoPanel() {
             Todavía no hay ventas en tu pipeline
           </p>
           <p className="mt-1 text-[0.9rem] text-frio">
-            Cuando lleguen leads por WhatsApp, van a ir apareciendo acá por etapa.
+            Cuando lleguen leads por WhatsApp, van a ir apareciendo aquí por etapa.
           </p>
           <Link
             href="/configuracion"

@@ -74,7 +74,7 @@ export default function ConectarWhatsApp({
     s.defer = true;
     s.onerror = () => {
       setEstado("error");
-      setError("No se pudo cargar el conector de Meta. Revisá tu conexión y recargá.");
+      setError("No se pudo cargar el conector de Meta. Revisa tu conexión y recarga.");
     };
     document.body.appendChild(s);
 
@@ -101,7 +101,7 @@ export default function ConectarWhatsApp({
   // SIN borrarla (featureType whatsapp_business_app_onboarding — el asistente
   // pide escanear un QR desde la app; el número sigue funcionando en ambos).
   function conectar(modo: "nuevo" | "coexistencia" = "nuevo") {
-    if (!window.FB) { setEstado("error"); setError("El conector de Meta aún no cargó. Recargá la página."); return; }
+    if (!window.FB) { setEstado("error"); setError("El conector de Meta aún no cargó. Recarga la página."); return; }
     if (!CONFIG_ID) { setEstado("error"); setError("Falta configurar el conector de WhatsApp."); return; }
     setEstado("abriendo");
     setError("");
@@ -162,7 +162,7 @@ export default function ConectarWhatsApp({
       // traduce a la acción concreta.
       setError(
         !sesionES.current.wabaId
-          ? "La conexión no llegó a completarse en la ventana de Meta. Probá de nuevo y completá todos los pasos sin cerrarla."
+          ? "La conexión no llegó a completarse en la ventana de Meta. Prueba de nuevo y completa todos los pasos sin cerrarla."
           : (res.error ?? "No se pudo conectar."),
       );
     }
@@ -182,7 +182,7 @@ export default function ConectarWhatsApp({
           Conectar WhatsApp todavía no está habilitado
         </p>
         <p className="mt-0.5 text-[0.82rem] text-tinta-2">
-          Nos falta terminar la configuración con Meta. Escribinos y lo activamos.
+          Nos falta terminar la configuración con Meta. Escríbenos y lo activamos.
         </p>
         {/* El detalle técnico solo en desarrollo: al dueño no le sirve, y a
             quien está integrando le ahorra media hora de adivinar. */}
@@ -227,7 +227,7 @@ export default function ConectarWhatsApp({
         disabled={estado === "abriendo" || estado === "conectando"}
         className="block text-left text-sm text-frio underline underline-offset-2 transition hover:text-tinta disabled:opacity-60"
       >
-        ¿Ya usás WhatsApp Business en tu celular? Conectalo sin borrar la app →
+        ¿Ya usas WhatsApp Business en tu celular? Conéctalo sin borrar la app →
       </button>
       {estado === "cancelado" && <p className="text-sm text-frio">Conexión cancelada.</p>}
       {estado === "error" && <p className="text-sm text-brasa-texto">{error}</p>}

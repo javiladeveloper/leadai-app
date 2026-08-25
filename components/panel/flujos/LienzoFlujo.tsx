@@ -59,7 +59,7 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
       return [...ns.map((n) => ({ ...n, selected: false })), nuevo];
     });
     setSelId(id);
-    setAviso("Paso agregado. Editalo a la derecha y conectalo arrastrando desde el punto de otro paso.");
+    setAviso("Paso agregado. Edítalo a la derecha y conéctalo arrastrando desde el punto de otro paso.");
     window.setTimeout(() => setAviso(null), 4000);
   }, []);
 

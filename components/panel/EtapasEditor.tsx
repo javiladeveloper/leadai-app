@@ -91,7 +91,7 @@ export function EtapasEditor() {
     // bloque de Configuración las armaba a su manera y no había dos iguales.
     <Seccion
       titulo="Etapas de tu embudo"
-      bajada={'Ponéles los nombres de TU proceso de venta (ej. "Visita agendada", "Cotización enviada"). Cada etapa se conecta a un comportamiento del bot — eso no cambia, solo cómo la ves en tu bandeja.'}
+      bajada={'Ponles los nombres de TU proceso de venta (ej. "Visita agendada", "Cotización enviada"). Cada etapa se conecta a un comportamiento del bot — eso no cambia, solo cómo la ves en tu bandeja.'}
     >
       <div className="space-y-2">
         {etapas.map((e, i) => (

@@ -48,14 +48,14 @@ export function RitmoSeguimiento() {
     setGuardando(null);
     if (!r.ok) {
       setRitmo(previo); // revertir
-      setError(r.error ?? "No se pudo guardar. Probá de nuevo.");
+      setError(r.error ?? "No se pudo guardar. Prueba de nuevo.");
     }
   }
 
   return (
     <Seccion
       titulo="Ritmo de seguimiento"
-      bajada="Cuando un cliente queda interesado pero no cierra, el bot le manda hasta 3 recordatorios automáticos. Elegí cada cuánto."
+      bajada="Cuando un cliente queda interesado pero no cierra, el bot le manda hasta 3 recordatorios automáticos. Elige cada cuánto."
     >
       <div className="grid gap-2.5 sm:grid-cols-3">
         {OPCIONES.map((o) => {

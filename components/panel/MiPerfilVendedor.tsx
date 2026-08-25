@@ -105,9 +105,9 @@ export function MiPerfilVendedorPanel() {
     <div className="space-y-5">
 
       {/* La CABECERA del perfil, en verde hondo (2026-08-18): es lo que otro
-          negocio ve de vos, así que la foto, el nombre y las métricas van
+          negocio ve de ti, así que la foto, el nombre y las métricas van
           arriba y juntos. Antes la foto estaba enterrada en el medio del
-          formulario, entre "Sobre vos" y los años de experiencia. */}
+          formulario, entre "Sobre ti" y los años de experiencia. */}
       <Seccion
         titulo="Así te ven los negocios"
         bajada="Tu foto, tu experiencia y cómo contactarte. Un perfil completo te consigue más oportunidades."
@@ -159,7 +159,7 @@ export function MiPerfilVendedorPanel() {
               todo lo de abajo lo ve alguien o no. */}
           {/* El mismo interruptor que usa el resto del panel (el bot, la IA):
               el checkbox nativo se veía como una caja blanca cuadrada, ajena
-              a todo lo demás — y encima acá va sobre fondo oscuro. */}
+              a todo lo demás — y encima aquí va sobre fondo oscuro. */}
           <div className="flex items-center justify-between gap-4 rounded-tarjeta bg-arena/10 px-4 py-3 ring-1 ring-arena/15">
             <div className="min-w-0">
               <p className="text-[0.92rem] font-semibold text-arena">Aparecer en el marketplace</p>
@@ -192,7 +192,7 @@ export function MiPerfilVendedorPanel() {
       <Seccion titulo="Tus datos" bajada="Lo que un negocio lee antes de escribirte.">
         <div className="space-y-4">
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-tinta">Sobre vos</span>
+          <span className="mb-1 block text-sm font-medium text-tinta">Sobre ti</span>
           <textarea value={perfil.bio} onChange={(e) => set("bio", e.target.value)} rows={3}
             placeholder="Ej: Vendedora con experiencia promocionando servicios contables. Consigo clientes por WhatsApp e Instagram."
             className={inputCls} />
@@ -205,7 +205,7 @@ export function MiPerfilVendedorPanel() {
         </label>
 
         <div>
-          <span className="mb-2 block text-sm font-medium text-tinta">Rubros en los que sos bueno/a</span>
+          <span className="mb-2 block text-sm font-medium text-tinta">Rubros en los que eres bueno/a</span>
           <div className="flex flex-wrap gap-2">
             {RUBROS.filter((r) => r.id !== "otro").map((r) => {
               const activo = perfil.rubros.includes(r.id);
@@ -272,7 +272,7 @@ export function MiPerfilVendedorPanel() {
         <div className="space-y-3">
         {perfil.experiencia.length === 0 && (
           <p className="rounded-tarjeta bg-arena/40 px-4 py-3 text-[0.85rem] text-frio">
-            Todavía no agregaste experiencia. Tocá “+ Agregar”.
+            Todavía no agregaste experiencia. Toca “+ Agregar”.
           </p>
         )}
 

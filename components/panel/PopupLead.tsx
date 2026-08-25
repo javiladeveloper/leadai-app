@@ -77,7 +77,7 @@ export default function PopupLead({ lead, onCerrar, onCambio, tenant }: Props) {
       );
       setTexto("");
     } else {
-      setError(r.error ?? "No se pudo enviar. Probá de nuevo.");
+      setError(r.error ?? "No se pudo enviar. Prueba de nuevo.");
     }
   }
 
@@ -147,7 +147,7 @@ export default function PopupLead({ lead, onCerrar, onCambio, tenant }: Props) {
                   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); responder(); }
                 }}
                 rows={1}
-                placeholder="Escribí una respuesta…"
+                placeholder="Escribe una respuesta…"
                 className="max-h-24 min-h-[2.5rem] flex-1 resize-none rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.88rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
               />
               <button

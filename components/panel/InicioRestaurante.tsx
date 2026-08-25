@@ -111,7 +111,7 @@ export function InicioRestaurante() {
         </div>
 
         {/* El cupo del plan, solo si el plan lo tiene. Es el mismo dato que en
-            Configuración, pero acá le sirve para saber cómo viene el mes. */}
+            Configuración, pero aquí le sirve para saber cómo viene el mes. */}
         {cupo && cupo.limite > 0 && (
           <div className="mt-4">
             <div className="flex items-baseline justify-between text-[0.8rem] text-arena/70">
@@ -150,7 +150,7 @@ export function InicioRestaurante() {
 
         {enCurso === 0 ? (
           <p className="mt-3 text-[0.9rem] text-frio">
-            No hay pedidos en curso. Cuando entre uno, aparece acá.
+            No hay pedidos en curso. Cuando entre uno, aparece aquí.
           </p>
         ) : (
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -198,7 +198,7 @@ export function InicioRestaurante() {
             <p className="mt-3 rounded-tarjeta bg-calor-suave px-4 py-3 text-[0.82rem] text-calor-hondo">
               Todavía no configuraste a qué WhatsApp llegan los pedidos.{" "}
               <Link href="/carta" className="font-semibold underline underline-offset-2">
-                Configuralo acá
+                Configúralo aquí
               </Link>
             </p>
           )}

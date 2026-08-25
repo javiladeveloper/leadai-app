@@ -25,6 +25,7 @@ import {
 } from "@/lib/carta";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 import { PasosOnboarding, Preparando } from "@/components/panel/PasosOnboarding";
+import { CartaAMano } from "@/components/panel/CartaAMano";
 
 const TOTAL_PASOS = 5;
 
@@ -64,6 +65,14 @@ export default function BienvenidaPanel() {
   // Paso 3 — la carta
   const [leyendo, setLeyendo] = useState(false);
   const [importados, setImportados] = useState<ItemImportado[]>([]);
+  /**
+   * CÓMO CARGA SU CARTA (2026-08-25). Hasta hoy los dos caminos exigían un
+   * ARCHIVO —subir uno, o bajar una plantilla para volver con uno—, y el dueño
+   * que tiene la carta en la cabeza quedaba trabado en el paso más importante.
+   * Su única salida era "Saltar": un negocio sin carta, que es lo que hace
+   * inútil al bot.
+   */
+  const [modoCarta, setModoCarta] = useState<"archivo" | "mano">("archivo");
   const [erroresArchivo, setErroresArchivo] = useState<{ fila: number; motivo: string }[]>([]);
 
   // Paso 4 — la marca
@@ -383,13 +392,46 @@ export default function BienvenidaPanel() {
               Cargá tu carta en segundos
             </h1>
             <p className="mt-2 text-[1.02rem] text-tinta-2">
-              Subí una foto, un PDF o un Excel. Nosotros sacamos los platos y
-              los precios.
+              {modoCarta === "archivo"
+                ? "Subí una foto, un PDF o un Excel. Nosotros sacamos los platos y los precios."
+                : "Escribí tus platos con su precio. Con los más pedidos alcanza para empezar."}
             </p>
 
-            {importados.length === 0 ? (
+            {/* LAS DOS FORMAS, A LA VISTA (2026-08-25). Antes solo se podía
+                subir un archivo, y quien no tenía uno solo podía saltear el
+                paso — quedando sin carta, que es lo que hace inútil al bot. */}
+            {(modoCarta === "mano" || importados.length === 0) && (
+              <div className="mt-5 flex gap-1.5" role="tablist">
+                {([
+                  { id: "archivo", txt: "Subir un archivo" },
+                  { id: "mano", txt: "Escribirla acá" },
+                ] as const).map((o) => (
+                  <button
+                    key={o.id}
+                    role="tab"
+                    aria-selected={modoCarta === o.id}
+                    onClick={() => setModoCarta(o.id)}
+                    className={`rounded-chip px-4 py-2 text-[0.88rem] font-semibold transition ${
+                      modoCarta === o.id
+                        ? "bg-brasa text-sobre-brasa"
+                        : "text-tinta-2 ring-1 ring-linea hover:bg-arena"
+                    }`}
+                  >
+                    {o.txt}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {modoCarta === "mano" ? (
+              /* SIEMPRE, no solo con la lista vacía (bug 2026-08-25): al
+                 agregar el primer plato el formulario desaparecía y no se
+                 podía cargar el segundo. `CartaAMano` ya muestra lo cargado,
+                 así que no necesita el bloque de revisión del archivo. */
+              <CartaAMano items={importados} onCambio={setImportados} />
+            ) : importados.length === 0 ? (
               <>
-                <label className="mt-7 block cursor-pointer rounded-tarjeta border-2 border-dashed border-linea bg-carta px-6 py-10 text-center transition hover:border-orbita">
+                <label className="mt-5 block cursor-pointer rounded-tarjeta border-2 border-dashed border-linea bg-carta px-6 py-10 text-center transition hover:border-orbita">
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,application/pdf,.xlsx,.xls"

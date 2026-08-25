@@ -197,11 +197,24 @@ export function PanelCanales() {
                   con un numero ya conectado — antes de eso no hay decision que
                   tomar. */}
               {!cargando && conexiones.length > 0 && (
-                <p className="rounded-lg bg-tibio-suave/50 px-3.5 py-2.5 text-[0.82rem] text-tinta-2 ring-1 ring-tibio/30">
-                  <b className="text-tinta">¿El otro número es de otro negocio?</b> Conviene crearle
-                  su propia empresa: así la IA responde distinto en cada una y los clientes no se
-                  mezclan. Puedes cambiar de empresa desde el selector de arriba.
-                </p>
+                <div className="space-y-1.5 rounded-lg bg-tibio-suave/50 px-3.5 py-2.5 text-[0.82rem] text-tinta-2 ring-1 ring-tibio/30">
+                  <p>
+                    <b className="text-tinta">¿Es de otro negocio?</b> Conviene crearle su propia
+                    empresa: así la IA responde distinto en cada una y los clientes no se mezclan.
+                    Puedes cambiar de empresa desde el selector de arriba.
+                  </p>
+                  {/* SUCURSALES NO SE MANDAN SOLAS A OTRA EMPRESA (2026-08-25).
+                      Con el mismo negocio en varios locales, "creá otra
+                      empresa" es el consejo CARO: carga la carta de nuevo,
+                      paga otro plan y pierde las ventas juntas. Todavía no hay
+                      soporte real de sucursales, así que se les pide que
+                      escriban en vez de empujarlos a un camino que les sale
+                      peor y encima nos hace ver mal. */}
+                  <p>
+                    <b className="text-tinta">¿Es otro local del mismo negocio?</b> Escríbenos antes
+                    de conectarlo — lo configuramos contigo para que no cargues la carta dos veces.
+                  </p>
+                </div>
               )}
               {/* Tampoco antes de saber: `otroNumero` cambia el texto del
                   botón ("conectar otro" vs "conectar"), y con la lista vacía

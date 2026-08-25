@@ -687,3 +687,35 @@ export async function descargarPlantilla(tenant?: string): Promise<boolean> {
     return false;
   }
 }
+
+// ── Cartas base por especialidad (2026-08-25) ─────────────────────────
+//
+// Un restaurante recién registrado se queda en la pared de cargar treinta
+// platos a mano el mismo día. Si sabemos QUÉ vende, le damos una carta armada
+// para que la EDITE: corregir es mucho más fácil que crear.
+
+export interface Especialidad {
+  id: string;
+  etiqueta: string;
+  emoji: string;
+  platos: number;
+}
+
+export async function listarEspecialidades(): Promise<Especialidad[]> {
+  try {
+    const r = await api<{ especialidades: Especialidad[] }>("/carta/especialidades");
+    return r.especialidades ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Los platos de una especialidad, para MOSTRARLOS antes de aplicarlos. */
+export async function platosDeEspecialidad(id: string): Promise<ItemImportado[]> {
+  try {
+    const r = await api<{ platos: ItemImportado[] }>(`/carta/especialidades/${id}`);
+    return r.platos ?? [];
+  } catch {
+    return [];
+  }
+}

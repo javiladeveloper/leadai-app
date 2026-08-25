@@ -21,7 +21,8 @@ import { RUBROS_DISPONIBLES } from "@/lib/rubros";
 import {
   guardarNegocio, subirImagenNegocio, leerFoto,
   leerExcel, leerFotoOPdf, importarCarta, descargarPlantilla,
-  precioTexto, type ItemImportado,
+  precioTexto, listarEspecialidades, platosDeEspecialidad,
+  type ItemImportado, type Especialidad,
 } from "@/lib/carta";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 import { PasosOnboarding, Preparando } from "@/components/panel/PasosOnboarding";
@@ -72,7 +73,10 @@ export default function BienvenidaPanel() {
    * Su única salida era "Saltar": un negocio sin carta, que es lo que hace
    * inútil al bot.
    */
-  const [modoCarta, setModoCarta] = useState<"archivo" | "mano">("archivo");
+  const [modoCarta, setModoCarta] = useState<"sugerida" | "archivo" | "mano">("sugerida");
+  /** Las especialidades para prepoblar la carta (2026-08-25). */
+  const [especialidades, setEspecialidades] = useState<Especialidad[]>([]);
+  const [cargandoSugerida, setCargandoSugerida] = useState("");
   const [erroresArchivo, setErroresArchivo] = useState<{ fila: number; motivo: string }[]>([]);
 
   // Paso 4 — la marca
@@ -124,6 +128,14 @@ export default function BienvenidaPanel() {
     })();
     return () => { vivo = false; };
   }, [paso]);
+
+  // Las especialidades se piden UNA vez, al llegar al paso de la carta: antes
+  // sería una consulta que la mayoría no usa (quien no es restaurante nunca
+  // llega acá).
+  useEffect(() => {
+    if (paso !== 3 || !esComida || especialidades.length > 0) return;
+    void listarEspecialidades().then(setEspecialidades);
+  }, [paso, esComida, especialidades.length]);
 
   if (!listo) return null;
   const primerNombre = leerSesion()?.usuario.nombre?.split(" ")[0] ?? "";
@@ -210,6 +222,18 @@ export default function BienvenidaPanel() {
     if (banner) await subirImagenNegocio("banner", banner);
     setGuardando(false);
     setPaso(5);
+  }
+
+  /** Trae los platos de una especialidad y los deja listos para editar. */
+  async function usarEspecialidad(id: string) {
+    setCargandoSugerida(id);
+    const platos = await platosDeEspecialidad(id);
+    setCargandoSugerida("");
+    if (platos.length === 0) return;
+    // Se pasan al modo "mano": ahí ya se pueden borrar los que no vende y
+    // sumar los suyos. La carta sugerida es un punto de partida, no un molde.
+    setImportados(platos);
+    setModoCarta("mano");
   }
 
   const resumen = [
@@ -411,9 +435,16 @@ export default function BienvenidaPanel() {
               Cargá tu carta en segundos
             </h1>
             <p className="mt-2 text-[1.02rem] text-tinta-2">
-              {modoCarta === "archivo"
-                ? "Subí una foto, un PDF o un Excel. Nosotros sacamos los platos y los precios."
-                : "Escribí tus platos con su precio. Con los más pedidos alcanza para empezar."}
+              {modoCarta === "sugerida"
+                ? "Elegí qué vendés y te armamos la carta. Después corregís precios y borrás lo que no tengas."
+                : modoCarta === "archivo"
+                  ? "Subí una foto, un PDF o un Excel. Nosotros sacamos los platos y los precios."
+                  : importados.length > 0
+                    // Con platos ya cargados, lo que importa es que REVISE los
+                    // precios: son de referencia y publicar los nuestros sería
+                    // vender al precio equivocado.
+                    ? "Revisá los precios y borrá lo que no vendas. Podés sumar tus platos acá abajo."
+                    : "Escribí tus platos con su precio. Con los más pedidos alcanza para empezar."}
             </p>
 
             {/* LAS DOS FORMAS, A LA VISTA (2026-08-25). Antes solo se podía
@@ -422,6 +453,7 @@ export default function BienvenidaPanel() {
             {(modoCarta === "mano" || importados.length === 0) && (
               <div className="mt-5 flex gap-1.5" role="tablist">
                 {([
+                  { id: "sugerida", txt: "Empezar con una base" },
                   { id: "archivo", txt: "Subir un archivo" },
                   { id: "mano", txt: "Escribirla acá" },
                 ] as const).map((o) => (
@@ -442,7 +474,33 @@ export default function BienvenidaPanel() {
               </div>
             )}
 
-            {modoCarta === "mano" ? (
+            {modoCarta === "sugerida" && importados.length === 0 ? (
+              /* LOS PRECIOS SON DE REFERENCIA y se dicen así: un dueño que
+                 cree que son los suyos publica mal. Corregirlos mirándolos es
+                 mucho más rápido que escribir treinta platos de cero. */
+              <div className="mt-5">
+                <div className="flex flex-wrap gap-2">
+                  {especialidades.map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      onClick={() => usarEspecialidad(e.id)}
+                      disabled={cargandoSugerida !== ""}
+                      className="rounded-tarjeta bg-carta px-4 py-3 text-left ring-1 ring-linea transition hover:ring-brasa/50 disabled:opacity-50"
+                    >
+                      <span className="text-[1.3rem]">{e.emoji}</span>
+                      <span className="ml-2 text-[0.92rem] font-semibold text-tinta">{e.etiqueta}</span>
+                      <span className="block text-[0.78rem] text-frio">
+                        {cargandoSugerida === e.id ? "Armando tu carta…" : `${e.platos} platos para empezar`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {especialidades.length === 0 && (
+                  <p className="text-[0.88rem] text-frio">Cargando opciones…</p>
+                )}
+              </div>
+            ) : modoCarta === "mano" || (modoCarta === "sugerida" && importados.length > 0) ? (
               /* SIEMPRE, no solo con la lista vacía (bug 2026-08-25): al
                  agregar el primer plato el formulario desaparecía y no se
                  podía cargar el segundo. `CartaAMano` ya muestra lo cargado,

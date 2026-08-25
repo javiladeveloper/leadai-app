@@ -217,7 +217,22 @@ export default function BienvenidaPanel() {
     ...(whatsapp.trim() ? [{ clave: "whatsapp", emoji: "💬", titulo: "WhatsApp", detalle: `+${whatsapp}` }] : []),
     ...(direccion.trim() ? [{ clave: "direccion", emoji: "📍", titulo: "Dirección", detalle: direccion }] : []),
     ...(esComida ? [{ clave: "horario", emoji: "🕐", titulo: "Horario", detalle: `${horaAbre}:00 a ${horaCierra}:00` }] : []),
-    ...(importados.length > 0 ? [{ clave: "carta", emoji: "🍔", titulo: "Tu carta", detalle: `${importados.length} platos cargados` }] : []),
+    // LA CARTA SIEMPRE APARECE, cargada o no (2026-08-25). Antes solo salía si
+    // la había cargado: quien la salteaba terminaba viendo "¡Todo listo!" sin
+    // carta — y sin carta el bot no puede vender, que es todo el producto.
+    // Marcarla como pendiente es lo único que le avisa que le falta.
+    ...(esComida
+      ? [{
+          clave: "carta",
+          emoji: "🍔",
+          titulo: "Tu carta",
+          detalle: importados.length > 0
+            ? `${importados.length} platos cargados`
+            // Corto a propósito: el detalle se trunca en una línea, y "no
+            // pued…" no le dice nada a nadie.
+            : "Falta — sin ella el bot no vende",
+        }]
+      : []),
     ...(logo || banner ? [{ clave: "marca", emoji: "🎨", titulo: "Logo y banner", detalle: "Tu carta con tu marca" }] : []),
   ];
 
@@ -288,7 +303,11 @@ export default function BienvenidaPanel() {
                       setWhatsapp(`${nuevo}${local}`);
                     }}
                     aria-label="País"
-                    className={`${ENTRADA} w-28 shrink-0`}
+                    // `!w-28` con `!`: ENTRADA trae `w-full` y sin forzarlo el
+                    // selector se estiraba a 512px dejando el campo del número
+                    // en 34px — no entraba ni un dígito visible. Es el campo
+                    // más importante del alta: sin WhatsApp no hay producto.
+                    className={`${ENTRADA} !w-28 shrink-0`}
                   >
                     {PAISES.map((p) => (
                       <option key={p.code} value={p.code}>
@@ -303,7 +322,7 @@ export default function BienvenidaPanel() {
                     }
                     inputMode="tel"
                     placeholder="987 654 321"
-                    className={ENTRADA}
+                    className={`${ENTRADA} min-w-0 flex-1`}
                   />
                 </div>
               </Campo>

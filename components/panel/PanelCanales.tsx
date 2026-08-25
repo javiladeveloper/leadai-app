@@ -6,6 +6,7 @@ import {
   type Canal, type TipoCanal,
 } from "@/lib/api";
 import { leerSesion, leerEmpresaActiva } from "@/lib/auth";
+import { listarSucursales, type Sucursal } from "@/lib/cocina";
 import { IconoWhatsApp, IconoInstagram, IconoMessenger, IconoTikTok } from "@/components/Iconos";
 import ConectarWhatsApp from "@/components/ConectarWhatsApp";
 
@@ -30,11 +31,24 @@ export function PanelCanales() {
   const [cargando, setCargando] = useState(true);
   const [seleccion, setSeleccion] = useState<TipoCanal>("whatsapp");
   const [conectando, setConectando] = useState(false);
+  /**
+   * LOS LOCALES DEL NEGOCIO (2026-08-25). Solo hacen falta si hay más de uno:
+   * con un solo local no hay nada que elegir y el selector sería ruido.
+   */
+  const [locales, setLocales] = useState<Sucursal[]>([]);
 
   async function cargar() {
     setCargando(true);
-    setCanales(await listarCanales());
+    const [cs, ls] = await Promise.all([listarCanales(), listarSucursales()]);
+    setCanales(cs);
+    setLocales(ls);
     setCargando(false);
+  }
+
+  /** A qué local atiende este número. `''` = a toda la cadena. */
+  async function asignarLocal(c: Canal, sucursalId: string) {
+    await actualizarCanal(c.id, { sucursalId: sucursalId || null });
+    await cargar();
   }
   useEffect(() => { cargar(); }, []);
 
@@ -177,6 +191,28 @@ export function PanelCanales() {
                           </button>
                         </div>
                       </div>
+                      {/* A QUÉ LOCAL ATIENDE ESTE NÚMERO (2026-08-25).
+                          Solo con más de un local: con uno solo no hay nada
+                          que elegir y el selector sería ruido.
+
+                          "Todos los locales" es una opción válida, no un
+                          error: un negocio puede tener un único WhatsApp para
+                          toda la cadena. */}
+                      {locales.length > 1 && (
+                        <label className="flex flex-wrap items-center gap-2 text-[0.8rem] text-tinta-2">
+                          <span>Atiende a:</span>
+                          <select
+                            value={c.sucursalId ?? ""}
+                            onChange={(e) => asignarLocal(c, e.target.value)}
+                            className="rounded-chip bg-carta px-2.5 py-1 text-[0.8rem] text-tinta ring-1 ring-linea focus:ring-2 focus:ring-brasa"
+                          >
+                            <option value="">Todos los locales</option>
+                            {locales.map((l) => (
+                              <option key={l.id} value={l.id}>{l.nombre}</option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
                       <CompartirCanal canal={c} onGuardado={cargar} />
                     </div>
                   ))}

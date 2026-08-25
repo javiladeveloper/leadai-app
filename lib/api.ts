@@ -1084,6 +1084,14 @@ export interface Canal {
   // Canal COMPARTIDO: ids de otros negocios del dueño que atienden por este
   // mismo número (vacío = dedicado a este negocio).
   compartirCon: string[];
+  /**
+   * DE QUÉ LOCAL ES ESTE NÚMERO (2026-08-25).
+   *
+   * `null` = de toda la cadena: el pedido que entre por acá no sabe de qué
+   * local es hasta que se resuelva. Con un local puesto, el pedido nace ahí y
+   * el bot responde siempre por este número.
+   */
+  sucursalId?: string | null;
 }
 
 export async function listarCanales(): Promise<Canal[]> {
@@ -1100,7 +1108,8 @@ export async function obtenerUrlOAuth(tipo: TipoCanal): Promise<string | null> {
 
 // Activar/desactivar, renombrar o compartir un canal conectado.
 export async function actualizarCanal(
-  id: string, cambios: { activo?: boolean; nombre?: string; compartirCon?: string[] },
+  id: string,
+  cambios: { activo?: boolean; nombre?: string; compartirCon?: string[]; sucursalId?: string | null },
 ): Promise<{ ok: boolean }> {
   try { await api(`/canales/${id}`, { method: "PATCH", body: cambios }); return { ok: true }; }
   catch { return { ok: false }; }

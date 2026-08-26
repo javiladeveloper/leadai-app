@@ -320,13 +320,19 @@ export function PanelCanales() {
                 <p className="text-[0.85rem] text-frio">Todavía no conectaste ninguna cuenta de {red.nombre}.</p>
               )}
 
-              {/* Botón para conectar una cuenta nueva */}
+              {/* Botón para conectar una cuenta nueva. Con cuentas ya
+                  conectadas dice "otra cuenta" (2026-08-26, Jonathan: "si ya
+                  estoy conectado, ¿por qué me sale Conectar otra vez?"). */}
               <button
                 onClick={() => conectarOAuth(red.tipo)}
                 disabled={conectando}
                 className="mt-4 inline-flex items-center gap-2 rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.92rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
               >
-                {conectando ? "Abriendo…" : `Conectar ${red.nombre}`}
+                {conectando
+                  ? "Abriendo…"
+                  : conexiones.length > 0
+                    ? "Conectar otra cuenta"
+                    : `Conectar ${red.nombre}`}
               </button>
               <p className="mt-2 text-[0.75rem] text-frio">
                 Se abre una ventana para que autorices con {red.nombre}.

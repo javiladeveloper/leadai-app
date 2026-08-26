@@ -106,6 +106,10 @@ export default function PublicarPanel() {
   const [cargandoMas, setCargandoMas] = useState(false);
   const [plantillas, setPlantillas] = useState<PlantillaPost[]>([]);
   const [conectadas, setConectadas] = useState<Set<string> | null>(null);
+  // Negocios SIN redes publicables (tenantId → "sin redes"): sus chips quedan
+  // bloqueados en la barra (2026-08-26, Jonathan: "si no tengo conectores en
+  // las otras empresas, debería bloquearme poder cambiar de empresa").
+  const [negociosSinRedes, setNegociosSinRedes] = useState<Record<string, string>>({});
 
   // Editor
   const [texto, setTexto] = useState("");
@@ -160,6 +164,34 @@ export default function PublicarPanel() {
     if (!listo || !g.listaLista) return;
     cargar();
   }, [listo, g.listaLista, cargar]);
+
+  // Mapear qué negocios tienen al menos una red PUBLICABLE conectada, para
+  // apagar los chips de los que no (y no entrar a un Publicar vacío).
+  const negociosClave = g.negocios.map((n) => n.tenantId).join(",");
+  useEffect(() => {
+    if (!g.modoGlobal || g.negocios.length < 2) return;
+    let vivo = true;
+    (async () => {
+      const publicables = new Set(["instagram", "messenger", "tiktok"]);
+      const listas = await Promise.all(
+        g.negocios.map(async (n) => {
+          const cs = await listarCanales(n.tenantId);
+          return [n.tenantId, cs.some((c) => c.activo && publicables.has(c.tipo))] as const;
+        }),
+      );
+      if (!vivo) return;
+      const sin: Record<string, string> = {};
+      for (const [tenantId, tiene] of listas) if (!tiene) sin[tenantId] = "sin redes";
+      setNegociosSinRedes(sin);
+      // Si el negocio enfocado quedó bloqueado, saltar al primero con redes.
+      if (sin[g.enfocado]) {
+        const primero = g.negocios.find((n) => !sin[n.tenantId]);
+        if (primero) g.setEnfocado(primero.tenantId);
+      }
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [g.modoGlobal, negociosClave]);
 
   async function cargarMas() {
     if (!siguiente || cargandoMas) return;
@@ -305,7 +337,12 @@ export default function PublicarPanel() {
       </header>
 
       {g.modoGlobal && (
-        <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
+        <BarraNegociosGlobal
+          negocios={g.negocios}
+          enfocado={g.enfocado}
+          onElegir={g.setEnfocado}
+          deshabilitados={negociosSinRedes}
+        />
       )}
 
       {sinRedes ? (

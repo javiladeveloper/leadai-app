@@ -70,6 +70,7 @@ export function BarraNegociosGlobal({
   enfocado,
   onElegir,
   todosLabel,
+  deshabilitados,
 }: {
   negocios: NegocioBandeja[];
   enfocado: string;
@@ -77,6 +78,10 @@ export function BarraNegociosGlobal({
   // Si viene, se antepone un chip "Todos" (tenantId = "") — para vistas que
   // pueden mostrar TODO junto (Seguimiento) además de enfocar un negocio.
   todosLabel?: string;
+  // Negocios NO elegibles en esta vista (tenantId → pista corta, ej. "sin
+  // redes"). Publicar los usa para bloquear negocios sin redes conectadas
+  // (2026-08-26): el chip se ve apagado y el clic no hace nada.
+  deshabilitados?: Record<string, string>;
 }) {
   // Con 0 o 1 negocio no hay nada que filtrar: la barra sería ruido.
   if (negocios.length < 2) return null;
@@ -96,17 +101,26 @@ export function BarraNegociosGlobal({
             {todosLabel}
           </button>
         )}
-        {negocios.map((n) => (
-          <button
-            key={n.tenantId}
-            onClick={() => onElegir(n.tenantId)}
-            className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
-              enfocado === n.tenantId ? "bg-brasa text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
-            }`}
-          >
-            {n.nombre}
-          </button>
-        ))}
+        {negocios.map((n) => {
+          const pista = deshabilitados?.[n.tenantId];
+          return (
+            <button
+              key={n.tenantId}
+              onClick={() => { if (!pista) onElegir(n.tenantId); }}
+              title={pista ? `${n.nombre}: ${pista}` : undefined}
+              className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
+                enfocado === n.tenantId
+                  ? "bg-brasa text-carta"
+                  : pista
+                    ? "cursor-not-allowed bg-carta/60 text-frio/60 ring-1 ring-linea"
+                    : "bg-carta text-tinta-2 ring-1 ring-linea"
+              }`}
+            >
+              {n.nombre}
+              {pista && <span className="ml-1.5 text-[0.7rem] font-semibold">· {pista}</span>}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

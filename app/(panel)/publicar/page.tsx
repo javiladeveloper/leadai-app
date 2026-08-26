@@ -17,6 +17,11 @@ const REDES = [
   // "messenger" = una Página de Facebook (Meta solo permite publicar en Páginas,
   // no en perfiles personales). El label lo deja claro para el negocio.
   { id: "messenger", label: "Página de Facebook" },
+  // TikTok publica DE VERDAD (2026-08-26): necesita la cuenta conectada en
+  // Configuración → Canales y un VIDEO en la publicación. Mientras la app de
+  // TikTok no pase su revisión, el video queda PRIVADO en el perfil (solo lo
+  // ve el dueño; puede hacerlo público a mano) — límite de TikTok, no nuestro.
+  { id: "tiktok", label: "TikTok (video)" },
 ];
 
 const ESTADO_POST: Record<string, { texto: string; clase: string }> = {
@@ -313,7 +318,7 @@ export default function PublicarPanel() {
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[0.74rem] text-frio">
                       {p.destinos.map((d) => (
                         <span key={d.id} className="rounded-full bg-arena px-2 py-0.5 font-semibold">
-                          {d.canal === "instagram" ? "Instagram" : "Página de FB"}
+                          {d.canal === "instagram" ? "Instagram" : d.canal === "tiktok" ? "TikTok" : "Página de FB"}
                           {d.estado === "publicada" ? " ✓" : d.estado === "fallida" ? " ✕" : ""}
                         </span>
                       ))}

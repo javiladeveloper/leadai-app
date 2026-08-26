@@ -23,7 +23,7 @@ const REDES: {
   { tipo: "whatsapp", nombre: "WhatsApp", Icono: IconoWhatsApp, color: "#25D366", descripcion: "Tu número de WhatsApp Business", metodo: "whatsapp" },
   { tipo: "instagram", nombre: "Instagram", Icono: IconoInstagram, color: "#C13584", descripcion: "Mensajes directos de tu cuenta de Instagram", metodo: "oauth" },
   { tipo: "messenger", nombre: "Messenger", Icono: IconoMessenger, color: "#0084FF", descripcion: "Mensajes de tu página de Facebook", metodo: "oauth" },
-  { tipo: "tiktok", nombre: "TikTok", Icono: IconoTikTok, color: "#010101", descripcion: "Mensajes de tu cuenta de TikTok", metodo: "oauth" },
+  { tipo: "tiktok", nombre: "TikTok", Icono: IconoTikTok, color: "#010101", descripcion: "Publica tus videos y promos en tu cuenta", metodo: "oauth" },
 ];
 
 export function PanelCanales() {

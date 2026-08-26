@@ -331,6 +331,17 @@ export function PanelCanales() {
               <p className="mt-2 text-[0.75rem] text-frio">
                 Se abre una ventana para que autorices con {red.nombre}.
               </p>
+              {/* TikTok NO trae mensajes (2026-08-26, Jonathan esperó un DM
+                  que nunca podía llegar): TikTok no abre su API de mensajes
+                  al público — esta conexión es SOLO para publicar. Decirlo
+                  acá evita que cada dueño espere una bandeja que no existe. */}
+              {red.tipo === "tiktok" && (
+                <p className="mt-3 rounded-xl bg-arena px-3.5 py-2.5 text-[0.8rem] text-tinta-2">
+                  📌 TikTok solo permite <b>publicar videos</b> desde apps como LeadAI — sus
+                  mensajes directos no llegan al panel (TikTok aún no lo permite a nadie).
+                  Tus conversaciones siguen por WhatsApp, Instagram y Messenger.
+                </p>
+              )}
             </>
           )}
         </div>

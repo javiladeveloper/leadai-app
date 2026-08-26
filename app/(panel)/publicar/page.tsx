@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { haySesion, leerSesion, leerEmpresaActiva } from "@/lib/auth";
 import {
   listarPublicaciones, plantillasPost, sugerirCopyPost, subirMediaPost, crearPublicacion,
-  listarCanales,
+  listarCanales, borrarPublicacion,
   type Publicacion, type PlantillaPost,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -149,6 +149,13 @@ export default function PublicarPanel() {
       }
     };
     reader.readAsDataURL(file);
+  }
+
+  async function borrar(p: Publicacion) {
+    // El post ya publicado en la red NO se toca — solo sale del historial.
+    if (!window.confirm("¿Borrar esta publicación del historial? Si ya salió en la red, allá se queda.")) return;
+    const r = await borrarPublicacion(p.id, g.tenantLista);
+    if (r.ok) setPosts((prev) => prev.filter((x) => x.id !== p.id));
   }
 
   async function publicar() {
@@ -379,9 +386,19 @@ export default function PublicarPanel() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className="line-clamp-2 text-[0.9rem] text-tinta">{p.texto}</p>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${et.clase}`}>
-                        {et.texto}
-                      </span>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <span className={`rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${et.clase}`}>
+                          {et.texto}
+                        </span>
+                        <button
+                          onClick={() => borrar(p)}
+                          title="Borrar del historial"
+                          aria-label="Borrar del historial"
+                          className="rounded-full px-1.5 py-0.5 text-[0.78rem] text-frio transition hover:bg-alerta/10 hover:text-alerta"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[0.74rem] text-frio">
                       {p.destinos.map((d) => (

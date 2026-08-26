@@ -320,23 +320,27 @@ export function PanelCanales() {
                 <p className="text-[0.85rem] text-frio">Todavía no conectaste ninguna cuenta de {red.nombre}.</p>
               )}
 
-              {/* Botón para conectar una cuenta nueva. Con cuentas ya
-                  conectadas dice "otra cuenta" (2026-08-26, Jonathan: "si ya
-                  estoy conectado, ¿por qué me sale Conectar otra vez?"). */}
-              <button
-                onClick={() => conectarOAuth(red.tipo)}
-                disabled={conectando}
-                className="mt-4 inline-flex items-center gap-2 rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.92rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
-              >
-                {conectando
-                  ? "Abriendo…"
-                  : conexiones.length > 0
-                    ? "Conectar otra cuenta"
-                    : `Conectar ${red.nombre}`}
-              </button>
-              <p className="mt-2 text-[0.75rem] text-frio">
-                Se abre una ventana para que autorices con {red.nombre}.
-              </p>
+              {/* UNA cuenta por red por empresa (acuerdo con Jonathan,
+                  reafirmado 2026-08-26): con una ya conectada, el botón de
+                  conectar desaparece — para cambiar, se desconecta primero. */}
+              {conexiones.length > 0 ? (
+                <p className="mt-3 text-[0.78rem] text-frio">
+                  Para usar otra cuenta de {red.nombre}, primero desconecta la actual.
+                </p>
+              ) : (
+                <>
+                  <button
+                    onClick={() => conectarOAuth(red.tipo)}
+                    disabled={conectando}
+                    className="mt-4 inline-flex items-center gap-2 rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.92rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
+                  >
+                    {conectando ? "Abriendo…" : `Conectar ${red.nombre}`}
+                  </button>
+                  <p className="mt-2 text-[0.75rem] text-frio">
+                    Se abre una ventana para que autorices con {red.nombre}.
+                  </p>
+                </>
+              )}
               {/* TikTok NO trae mensajes (2026-08-26, Jonathan esperó un DM
                   que nunca podía llegar): TikTok no abre su API de mensajes
                   al público — esta conexión es SOLO para publicar. Decirlo

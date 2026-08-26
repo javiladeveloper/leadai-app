@@ -1251,6 +1251,12 @@ export async function crearPublicacion(input: {
   }
 }
 
+// Borra una publicación del historial (el post ya publicado en la red no se toca).
+export async function borrarPublicacion(id: string, tenant?: string): Promise<{ ok: boolean }> {
+  try { await api(`/publicaciones/${id}`, { method: "DELETE", tenant }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
 // Calcula la comisión sugerida para un monto de venta, según la config del
 // negocio. Devuelve null si el negocio no configuró comisión.
 export async function calcularComision(monto: number, tenant?: string): Promise<number | null> {

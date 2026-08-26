@@ -52,6 +52,19 @@ export function PanelCanales() {
   }
   useEffect(() => { cargar(); }, []);
 
+  // EL POPUP AVISA CUANDO TERMINA (2026-08-26, feedback de Jonathan probando
+  // TikTok: la conexión abría otra pestaña y el panel no se enteraba hasta
+  // recargar). El callback del backend hace postMessage y se cierra solo; acá
+  // se escucha ese mensaje y la lista se refresca al instante.
+  useEffect(() => {
+    function alMensaje(e: MessageEvent) {
+      const d = e.data as { tipo?: string } | null;
+      if (d && d.tipo === "canal-oauth") void cargar();
+    }
+    window.addEventListener("message", alMensaje);
+    return () => window.removeEventListener("message", alMensaje);
+  }, []);
+
   // Cuántas cuentas hay conectadas de cada red.
   const cuenta = (tipo: TipoCanal) => canales.filter((c) => c.tipo === tipo).length;
 
@@ -63,8 +76,16 @@ export function PanelCanales() {
     const url = await obtenerUrlOAuth(tipo);
     setConectando(false);
     if (url) {
-      // Abre la autorización de la red en una pestaña nueva.
-      window.open(url, "_blank", "noopener");
+      // POPUP centrado, no pestaña (2026-08-26): el callback del backend hace
+      // postMessage al terminar y se cierra solo — el panel se refresca al
+      // instante (listener de arriba). OJO: sin "noopener", a propósito — el
+      // popup necesita window.opener para avisarnos. Si el navegador bloquea
+      // el popup, cae a pestaña nueva como antes.
+      const w = 520, h = 720;
+      const x = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
+      const y = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
+      const popup = window.open(url, "conectar-red", `popup=yes,width=${w},height=${h},left=${x},top=${y}`);
+      if (!popup) window.open(url, "_blank");
     }
   }
 

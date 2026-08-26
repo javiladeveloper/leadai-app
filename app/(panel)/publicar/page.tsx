@@ -121,7 +121,13 @@ export default function PublicarPanel() {
   }
 
   async function publicar() {
-    if (!texto.trim() || redes.length === 0 || publicando) return;
+    if (!texto.trim() || redes.length === 0 || publicando || subiendo) return;
+    // TikTok solo acepta video: avisar ANTES de publicar, no fallar después
+    // (2026-08-26: Jonathan publicó sin video y el destino quedó "Falló").
+    if (redes.includes("tiktok") && (!mediaUrl || tipoMedia !== "video")) {
+      setMsg("TikTok necesita un video: agrégalo antes de publicar.");
+      return;
+    }
     setPublicando(true);
     setMsg("");
     const r = await crearPublicacion({
@@ -275,7 +281,7 @@ export default function PublicarPanel() {
         <div className="mt-5 flex items-center gap-3">
           <button
             onClick={publicar}
-            disabled={publicando || !texto.trim() || redes.length === 0 || (programar && !fecha)}
+            disabled={publicando || subiendo || !texto.trim() || redes.length === 0 || (programar && !fecha)}
             className="rounded-chip bg-brasa px-6 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
           >
             {publicando ? "Guardando…" : programar ? "Programar post" : "Publicar ahora"}

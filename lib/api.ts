@@ -1182,6 +1182,7 @@ export interface PublicacionDestino {
   id: string;
   canal: string;
   estado: string; // pendiente | publicada | fallida
+  error?: string | null; // por qué falló (se muestra en el historial)
 }
 export interface Publicacion {
   id: string;
@@ -1196,14 +1197,19 @@ export interface Publicacion {
 export interface PlantillaPost {
   titulo: string;
   prompt: string;
+  // Texto listo para insertar y completar (sin IA — decisión 2026-08-26).
+  ejemplo?: string;
 }
 
-export async function listarPublicaciones(tenant?: string): Promise<Publicacion[]> {
+// Paginado por cursor: `siguiente` = pasarlo como cursor para la próxima página.
+export async function listarPublicaciones(
+  tenant?: string, cursor?: string, limit = 10,
+): Promise<{ items: Publicacion[]; siguiente: string | null }> {
   try {
-    const r = await api<{ items: Publicacion[] }>("/publicaciones", { tenant });
-    return r.items;
+    const q = `?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+    return await api<{ items: Publicacion[]; siguiente: string | null }>(`/publicaciones${q}`, { tenant });
   } catch {
-    return [];
+    return { items: [], siguiente: null };
   }
 }
 

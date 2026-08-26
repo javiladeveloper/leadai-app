@@ -1094,8 +1094,10 @@ export interface Canal {
   sucursalId?: string | null;
 }
 
-export async function listarCanales(): Promise<Canal[]> {
-  try { return await api<Canal[]>("/canales"); } catch { return []; }
+// `tenant` opcional: Publicar (vista global) consulta las redes del negocio
+// ENFOCADO sin cambiar la empresa activa.
+export async function listarCanales(tenant?: string): Promise<Canal[]> {
+  try { return await api<Canal[]>("/canales", { tenant }); } catch { return []; }
 }
 
 // URL de autorización OAuth para conectar una red (abre el popup de la red).

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { haySesion } from "@/lib/auth";
+import { haySesion, leerSesion, leerEmpresaActiva } from "@/lib/auth";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 import AnunciosPanel from "@/app/(panel)/anuncios/page";
@@ -64,6 +64,16 @@ export default function MarketingPanel() {
 
   if (!listo) return null;
 
+  // A qué negocio le está hablando esta pantalla (2026-08-26: mismo criterio
+  // que Publicar — que el usuario nunca dude sobre qué negocio va a operar).
+  const nombreNegocio = g.modoGlobal
+    ? g.negocios.find((n) => n.tenantId === g.enfocado)?.nombre ?? ""
+    : (() => {
+        const emp = leerSesion()?.empresas ?? [];
+        const activa = leerEmpresaActiva();
+        return (emp.find((e) => e.tenantId === activa) ?? emp[0])?.nombre ?? "";
+      })();
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">
       <header>
@@ -76,6 +86,12 @@ export default function MarketingPanel() {
 
       {g.modoGlobal && (
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
+      )}
+
+      {nombreNegocio && g.modoGlobal && (
+        <p className="rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.84rem] text-tinta-2">
+          📣 Estás haciendo marketing para <strong className="text-tinta">{nombreNegocio}</strong>.
+        </p>
       )}
 
       {/* LAS PESTAÑAS. Mismo patrón que las de Campañas por dentro, para que

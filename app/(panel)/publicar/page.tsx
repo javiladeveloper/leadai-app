@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion } from "@/lib/auth";
+import { haySesion, leerSesion, leerEmpresaActiva } from "@/lib/auth";
 import {
   listarPublicaciones, plantillasPost, sugerirCopyPost, subirMediaPost, crearPublicacion,
+  listarCanales,
   type Publicacion, type PlantillaPost,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -41,6 +42,10 @@ export default function PublicarPanel() {
   const [estado, setEstado] = useState<Estado>("cargando");
   const [posts, setPosts] = useState<Publicacion[]>([]);
   const [plantillas, setPlantillas] = useState<PlantillaPost[]>([]);
+  // Redes CONECTADAS del negocio enfocado (2026-08-26: Jonathan publicó a
+  // TikTok desde un negocio sin TikTok — cada chip debe decir su estado real).
+  // `null` = todavía cargando (no se marca nada como "sin conectar" en falso).
+  const [conectadas, setConectadas] = useState<Set<string> | null>(null);
 
   // Editor
   const [texto, setTexto] = useState("");
@@ -67,9 +72,18 @@ export default function PublicarPanel() {
   const cargar = useCallback(async () => {
     setEstado("cargando");
     try {
-      const [p, pl] = await Promise.all([listarPublicaciones(g.tenantLista), plantillasPost(g.tenantLista)]);
+      const [p, pl, cs] = await Promise.all([
+        listarPublicaciones(g.tenantLista),
+        plantillasPost(g.tenantLista),
+        listarCanales(g.tenantLista),
+      ]);
       setPosts(p);
       setPlantillas(pl);
+      const activas = new Set(cs.filter((c) => c.activo).map((c) => c.tipo as string));
+      setConectadas(activas);
+      // Al cambiar de negocio, una red marcada que acá no existe se desmarca
+      // sola: que no se pueda "arrastrar" TikTok a un negocio sin TikTok.
+      setRedes((prev) => prev.filter((r) => r !== "tiktok" || activas.has("tiktok")));
       setEstado("ok");
     } catch {
       setEstado("error");
@@ -81,7 +95,24 @@ export default function PublicarPanel() {
     cargar();
   }, [listo, g.listaLista, cargar]);
 
+  // Nombre del negocio al que le va a salir el post: en vista global es el
+  // enfocado en la barra; con un solo negocio, el de la sesión.
+  const nombreNegocio = g.modoGlobal
+    ? g.negocios.find((n) => n.tenantId === g.enfocado)?.nombre ?? ""
+    : (() => {
+        const emp = leerSesion()?.empresas ?? [];
+        const activa = leerEmpresaActiva();
+        return (emp.find((e) => e.tenantId === activa) ?? emp[0])?.nombre ?? "";
+      })();
+
   function toggleRed(id: string) {
+    // TikTok publica DE VERDAD: sin la cuenta conectada en este negocio, el
+    // chip no se deja marcar (fallaría sí o sí al publicar).
+    if (id === "tiktok" && conectadas && !conectadas.has("tiktok")) {
+      setMsg(`Este negocio no tiene TikTok conectado. Conéctalo en Configuración → Canales${nombreNegocio ? ` (negocio ${nombreNegocio})` : ""}.`);
+      return;
+    }
+    setMsg("");
     setRedes((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
   }
 
@@ -126,6 +157,10 @@ export default function PublicarPanel() {
     // (2026-08-26: Jonathan publicó sin video y el destino quedó "Falló").
     if (redes.includes("tiktok") && (!mediaUrl || tipoMedia !== "video")) {
       setMsg("TikTok necesita un video: agrégalo antes de publicar.");
+      return;
+    }
+    if (redes.includes("tiktok") && conectadas && !conectadas.has("tiktok")) {
+      setMsg("Este negocio no tiene TikTok conectado: conéctalo en Configuración → Canales.");
       return;
     }
     setPublicando(true);
@@ -240,21 +275,42 @@ export default function PublicarPanel() {
           )}
         </div>
 
-        {/* Redes */}
+        {/* Redes — cada chip dice si ESTE negocio la tiene conectada, para no
+            publicar a una red que no existe acá (pasó con TikTok el 26-ago). */}
         <div className="mt-4">
-          <p className="mb-2 text-[0.9rem] font-bold text-tinta">Publicar en</p>
+          <p className="mb-2 text-[0.9rem] font-bold text-tinta">
+            Publicar en
+            {nombreNegocio && (
+              <span className="ml-2 font-semibold text-frio">
+                · redes de <span className="text-brasa-texto">{nombreNegocio}</span>
+              </span>
+            )}
+          </p>
           <div className="flex flex-wrap gap-2">
             {REDES.map((r) => {
               const activo = redes.includes(r.id);
+              // `conectadas === null` = aún cargando: no acusar en falso.
+              const sinConectar = conectadas !== null && !conectadas.has(r.id);
+              const bloqueada = r.id === "tiktok" && sinConectar;
               return (
                 <button
                   key={r.id}
                   onClick={() => toggleRed(r.id)}
+                  title={bloqueada ? "Conecta TikTok en Configuración → Canales" : undefined}
                   className={`rounded-chip px-4 py-2 text-[0.85rem] font-semibold transition ${
-                    activo ? "bg-brasa text-carta" : "bg-arena/70 text-tinta-2 hover:bg-arena"
+                    activo
+                      ? "bg-brasa text-carta"
+                      : bloqueada
+                        ? "cursor-not-allowed bg-arena/40 text-frio/70"
+                        : "bg-arena/70 text-tinta-2 hover:bg-arena"
                   }`}
                 >
                   {activo ? "✓ " : ""}{r.label}
+                  {sinConectar && (
+                    <span className={`ml-1.5 text-[0.7rem] font-bold ${activo ? "text-carta/80" : "text-frio"}`}>
+                      · sin conectar
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -277,7 +333,13 @@ export default function PublicarPanel() {
           )}
         </div>
 
-        {/* Publicar */}
+        {/* Publicar — con el negocio DESTINO dicho ahí mismo, no solo arriba
+            en la barra: el error de hoy fue publicar mirando otro negocio. */}
+        {nombreNegocio && g.modoGlobal && (
+          <p className="mt-4 rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.84rem] text-tinta-2">
+            📣 Este post saldrá en las redes de <strong className="text-tinta">{nombreNegocio}</strong>.
+          </p>
+        )}
         <div className="mt-5 flex items-center gap-3">
           <button
             onClick={publicar}

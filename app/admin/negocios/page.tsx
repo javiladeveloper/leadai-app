@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ventasAdmin, type VentasNegocioAdmin } from "@/lib/api";
+import { ventasAdmin, type VentasNegocioAdmin, type SenalesNegocio } from "@/lib/api";
 import { soles } from "@/lib/precio";
 import { SkeletonLista } from "@/components/Skeletons";
 
@@ -21,6 +21,29 @@ const PLAN_LABEL: Record<string, string> = {
   pedidos: "Arranque", arranque: "Arranque", crecer: "Crecer", full: "Full",
   resto_gratis: "Gratis",
 };
+
+// La puesta en marcha en UNA celda: cada señal es un emoji que se apaga
+// (gris) si falta. Seis negocios se comparan de un vistazo sin leer nada;
+// el detalle de qué falta exactamente vive en la página del negocio.
+function Senales({ s }: { s: SenalesNegocio }) {
+  const items: { on: boolean; emoji: string; title: string }[] = [
+    { on: s.whatsapp, emoji: "📲", title: s.whatsapp ? "WhatsApp conectado" : "Sin WhatsApp" },
+    { on: s.platos > 0, emoji: "🧾", title: s.platos > 0 ? `Carta: ${s.platos} platos` : "Sin carta" },
+    { on: s.cartaWeb, emoji: "🌐", title: s.cartaWeb ? "Carta web con link" : "Sin carta web" },
+    { on: s.pagos, emoji: "💳", title: s.pagos ? "Cobros configurados" : "Sin forma de cobro" },
+    { on: s.mesas > 0, emoji: "🪑", title: s.mesas > 0 ? `${s.mesas} mesas (QR)` : "Sin mesas" },
+    { on: s.redes, emoji: "📣", title: s.redes ? "Redes en la carta" : "Sin redes" },
+  ];
+  return (
+    <span className="whitespace-nowrap text-[0.95rem]">
+      {items.map((i) => (
+        <span key={i.emoji} title={i.title} className={i.on ? "" : "opacity-20 grayscale"}>
+          {i.emoji}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 function Tramo({ t }: { t: { pedidos: number; solesCentavos: number } }) {
   if (t.pedidos === 0) return <span className="text-frio/50">—</span>;
@@ -70,6 +93,7 @@ export default function AdminNegocios() {
                 <th className="px-4 py-3 font-bold">Hoy</th>
                 <th className="px-4 py-3 font-bold">7 días</th>
                 <th className="px-4 py-3 font-bold">30 días</th>
+                <th className="px-4 py-3 font-bold">Puesta en marcha</th>
               </tr>
             </thead>
             <tbody>
@@ -90,10 +114,11 @@ export default function AdminNegocios() {
                   <td className="px-4 py-3"><Tramo t={n.hoy} /></td>
                   <td className="px-4 py-3"><Tramo t={n.dias7} /></td>
                   <td className="px-4 py-3"><Tramo t={n.dias30} /></td>
+                  <td className="px-4 py-3"><Senales s={n.senales} /></td>
                 </tr>
               ))}
               {negocios.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-frio">Todavía no hay negocios.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-frio">Todavía no hay negocios.</td></tr>
               )}
             </tbody>
           </table>

@@ -65,6 +65,27 @@ export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Refresca la sesión guardada contra el backend (GET /auth/yo): empresas al
+// día y, sobre todo, esSuperAdmin — la marca nace en el LOGIN, así que una
+// sesión guardada antes de que el usuario fuera super admin (o antes de que
+// existiera la marca) escondía el botón "Plataforma" para siempre. Devuelve
+// si algo cambió, para que el layout re-renderice los menús.
+export async function refrescarSesion(): Promise<boolean> {
+  const sesion = leerSesion();
+  if (!sesion) return false;
+  const r = await api<{ empresas: EmpresaResumen[]; esSuperAdmin: boolean }>(
+    "/auth/yo",
+    { conEmpresa: false },
+  );
+  const cambio =
+    r.esSuperAdmin !== (sesion.esSuperAdmin === true) ||
+    JSON.stringify(r.empresas) !== JSON.stringify(sesion.empresas);
+  if (cambio) {
+    guardarSesion({ ...sesion, empresas: r.empresas, esSuperAdmin: r.esSuperAdmin });
+  }
+  return cambio;
+}
+
 // Conecta WhatsApp por Embedded Signup: manda el code (+ ids) del popup de Meta
 // al backend, que hace el intercambio y registra el canal.
 export async function conectarWhatsAppEmbedded(args: {
@@ -1015,6 +1036,18 @@ export async function obtenerNegociosAdmin(): Promise<NegocioAdmin[]> {
 
 export interface TramoVentas { pedidos: number; solesCentavos: number }
 
+// Las señales de PUESTA EN MARCHA de un negocio: conectó WhatsApp, armó su
+// carta, puede cobrar... El super admin distingue de un vistazo al que vende
+// poco del que nunca arrancó.
+export interface SenalesNegocio {
+  whatsapp: boolean;
+  platos: number;
+  cartaWeb: boolean;
+  pagos: boolean;
+  mesas: number;
+  redes: boolean;
+}
+
 export interface VentasNegocioAdmin {
   tenantId: string;
   nombre: string;
@@ -1022,6 +1055,7 @@ export interface VentasNegocioAdmin {
   hoy: TramoVentas;
   dias7: TramoVentas;
   dias30: TramoVentas;
+  senales: SenalesNegocio;
 }
 
 export async function ventasAdmin(): Promise<VentasNegocioAdmin[]> {
@@ -1051,6 +1085,7 @@ export interface MovimientosNegocioAdmin {
   }[];
   suscripcion: { plan: string; estado: string; vigenteHasta: string; planSiguiente: string | null } | null;
   recargas: { mensajesUltimos90: number; adsCentavosUltimos90: number };
+  senales: SenalesNegocio;
 }
 
 export async function movimientosNegocioAdmin(id: string): Promise<MovimientosNegocioAdmin | null> {

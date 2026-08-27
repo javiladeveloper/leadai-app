@@ -92,6 +92,36 @@ export default function MovimientosNegocio({ params }: { params: Promise<{ id: s
         </p>
       </header>
 
+      {/* La puesta en marcha: qué le falta a este negocio para vender.
+          Solo aparece si falta algo — al que ya arrancó completo no hay que
+          decirle nada. */}
+      {(!datos.senales.whatsapp || datos.senales.platos === 0 || !datos.senales.cartaWeb ||
+        !datos.senales.pagos || datos.senales.mesas === 0 || !datos.senales.redes) && (
+        <div className="rounded-tarjeta bg-carta px-4 py-3 ring-1 ring-linea">
+          <p className="text-[0.72rem] font-bold uppercase tracking-wide text-frio">Puesta en marcha</p>
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[0.85rem]">
+            <span className={datos.senales.whatsapp ? "text-tinta-2" : "font-semibold text-brasa-texto"}>
+              {datos.senales.whatsapp ? "✓ WhatsApp conectado" : "✗ Sin WhatsApp"}
+            </span>
+            <span className={datos.senales.platos > 0 ? "text-tinta-2" : "font-semibold text-brasa-texto"}>
+              {datos.senales.platos > 0 ? `✓ Carta con ${datos.senales.platos} platos` : "✗ Sin carta"}
+            </span>
+            <span className={datos.senales.cartaWeb ? "text-tinta-2" : "font-semibold text-brasa-texto"}>
+              {datos.senales.cartaWeb ? "✓ Carta web con link" : "✗ Sin link de carta web"}
+            </span>
+            <span className={datos.senales.pagos ? "text-tinta-2" : "font-semibold text-brasa-texto"}>
+              {datos.senales.pagos ? "✓ Cobros configurados" : "✗ Sin forma de cobro"}
+            </span>
+            <span className={datos.senales.mesas > 0 ? "text-tinta-2" : "text-frio"}>
+              {datos.senales.mesas > 0 ? `✓ ${datos.senales.mesas} mesas con QR` : "— Sin mesas (solo delivery/recojo)"}
+            </span>
+            <span className={datos.senales.redes ? "text-tinta-2" : "text-frio"}>
+              {datos.senales.redes ? "✓ Redes en la carta" : "— Sin redes sociales"}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Las ventas primero: es la pregunta que trajo al super admin acá. */}
       <div className="grid gap-3 sm:grid-cols-3">
         <TarjetaTramo titulo="Hoy" t={datos.resumen.hoy} />

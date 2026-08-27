@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { haySesion, leerSesion, esSuperAdmin } from "@/lib/auth";
+import { refrescarSesion } from "@/lib/api";
 import { Sidebar } from "@/components/panel/Sidebar";
 import { HeaderPanel } from "@/components/panel/HeaderPanel";
 import { NavInferior } from "@/components/NavInferior";
@@ -13,8 +14,16 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   const ruta = usePathname();
   const router = useRouter();
   const [listo, setListo] = useState(false);
+  // Bump para re-renderizar los menús cuando el refresco de sesión cambia algo
+  // (ej. el usuario ahora es super admin y le aparece "Plataforma").
+  const [, setRefresco] = useState(0);
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
+    // En segundo plano: la sesión guardada puede estar vieja (la marca de
+    // super admin y las empresas nacen en el login). Si cambió, re-render.
+    refrescarSesion()
+      .then((cambio) => { if (cambio) setRefresco((n) => n + 1); })
+      .catch(() => {});
     // Red de seguridad: si el usuario no tiene ningún negocio, va al onboarding
     // — salvo que sea super admin, que va a su panel de plataforma.
     const sesion = leerSesion();

@@ -1011,6 +1011,54 @@ export async function obtenerNegociosAdmin(): Promise<NegocioAdmin[]> {
   catch { return []; }
 }
 
+// ── Ventas y movimientos por restaurante (super admin, 2026-08-24) ──
+
+export interface TramoVentas { pedidos: number; solesCentavos: number }
+
+export interface VentasNegocioAdmin {
+  tenantId: string;
+  nombre: string;
+  plan: string;
+  hoy: TramoVentas;
+  dias7: TramoVentas;
+  dias30: TramoVentas;
+}
+
+export async function ventasAdmin(): Promise<VentasNegocioAdmin[]> {
+  try {
+    const r = await api<{ negocios: VentasNegocioAdmin[] }>("/admin/ventas", { conEmpresa: false });
+    return r.negocios;
+  } catch { return []; }
+}
+
+export interface MovimientosNegocioAdmin {
+  tenantId: string;
+  nombre: string;
+  plan: string;
+  resumen: { hoy: TramoVentas; dias7: TramoVentas; dias30: TramoVentas };
+  porMetodo: { metodo: string; pedidos: number; solesCentavos: number }[];
+  pedidos: {
+    id: string;
+    creadoEn: string;
+    estado: string;
+    pago: string;
+    pagoMetodo: string | null;
+    modalidad: string;
+    mesa: string | null;
+    canal: string;
+    totalCentavos: number;
+    items: string;
+  }[];
+  suscripcion: { plan: string; estado: string; vigenteHasta: string; planSiguiente: string | null } | null;
+  recargas: { mensajesUltimos90: number; adsCentavosUltimos90: number };
+}
+
+export async function movimientosNegocioAdmin(id: string): Promise<MovimientosNegocioAdmin | null> {
+  try {
+    return await api<MovimientosNegocioAdmin>(`/admin/negocios/${id}/movimientos`, { conEmpresa: false });
+  } catch { return null; }
+}
+
 // ── Simulador de chat (probar la IA desde el panel) ─────────
 export interface RespuestaSimulador {
   nivelInteres: string;

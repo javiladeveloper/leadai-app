@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion, leerSesion, leerEmpresaActiva } from "@/lib/auth";
+import { haySesion, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import {
   listarPublicaciones, plantillasPost, subirMediaPost, crearPublicacion,
   listarCanales, borrarPublicacion,
@@ -207,7 +207,10 @@ export default function PublicarPanel() {
   const nombreNegocio = g.modoGlobal
     ? g.negocios.find((n) => n.tenantId === g.enfocado)?.nombre ?? ""
     : (() => {
-        const emp = leerSesion()?.empresas ?? [];
+        // `empresasVisibles` y no la sesión: en soporte el negocio ajeno no
+        // está en tus empresas, y el fallback a `[0]` pondría el nombre de TU
+        // primer negocio encima de los datos del cliente.
+        const emp = empresasVisibles();
         const activa = leerEmpresaActiva();
         return (emp.find((e) => e.tenantId === activa) ?? emp[0])?.nombre ?? "";
       })();

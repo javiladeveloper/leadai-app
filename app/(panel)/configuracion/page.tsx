@@ -17,7 +17,7 @@ import { ConfigComision } from "@/components/panel/ConfigComision";
 import { MiPerfilVendedorPanel } from "@/components/panel/MiPerfilVendedor";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
 import { useCapacidadesOptimista, type Capacidades } from "@/lib/modo-negocio";
-import { leerSesion } from "@/lib/auth";
+import { empresasVisibles } from "@/lib/auth";
 import type { NegocioBandeja } from "@/lib/api";
 
 // Configuración del panel unificado (decisión 2026-07-22): TODO lo
@@ -67,7 +67,7 @@ function ConfiguracionInner() {
 
   useEffect(() => {
     setNegocios(
-      (leerSesion()?.empresas ?? []).map((e) => ({ tenantId: e.tenantId, nombre: e.nombre })),
+      empresasVisibles().map((e) => ({ tenantId: e.tenantId, nombre: e.nombre })),
     );
   }, []);
 

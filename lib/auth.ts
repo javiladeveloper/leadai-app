@@ -72,8 +72,41 @@ export const EMPRESA_GLOBAL = "__global__";
 
 // ¿El usuario maneja más de un negocio? Es LO que decide si el panel muestra
 // bandejas cruzadas y chips de filtro (la vista unificada es la única vista).
+//
+// EN SOPORTE SIEMPRE ES `false` (2026-08-27). Jonathan entró a Shiro y el
+// panel le mostró "Tu operación · Todos tus negocios" con SUS leads y SUS
+// ventas: la barra decía Shiro y los datos eran suyos. La vista global agrega
+// las empresas de la SESIÓN e ignora la empresa activa, así que en soporte
+// contesta la pregunta equivocada — y encima es la más peligrosa de todas,
+// porque parece que estás viendo al cliente.
+//
+// Adentro de un negocio ajeno no hay "todos tus negocios": hay UNO.
 export function tieneVariosNegocios(): boolean {
+  if (leerModoSoporte()) return false;
   return (leerSesion()?.empresas.length ?? 0) > 1;
+}
+
+/**
+ * LAS EMPRESAS QUE EL PANEL PUEDE MOSTRAR AHORA (2026-08-27).
+ *
+ * Normalmente son las tuyas. EN SOPORTE es solo el negocio ajeno en el que
+ * estás: los chips de "elegí un negocio" leían la sesión directo, así que
+ * adentro de Shiro te ofrecían saltar a TUS negocios — y las pantallas que
+ * caen a `empresas[0]` te ponían el nombre de tu primer negocio encima de los
+ * datos del cliente.
+ *
+ * Usalo en vez de `leerSesion()?.empresas` en cualquier pantalla que liste o
+ * elija negocios.
+ */
+export function empresasVisibles(): EmpresaResumen[] {
+  const soporte = leerModoSoporte();
+  const propias = leerSesion()?.empresas ?? [];
+  if (!soporte) return propias;
+  // El nombre sale del modo soporte: el negocio ajeno NO está en tu sesión,
+  // así que no hay de dónde sacarlo si no.
+  // `admin` es el rol REAL con el que el backend te deja entrar: ni `owner`
+  // (las decisiones del dueño son suyas) ni el rol que tengas en lo tuyo.
+  return [{ tenantId: soporte.tenantId, nombre: soporte.nombre, rol: "admin" }];
 }
 
 // Compat: algunas pantallas viejas preguntaban por el "modo global". Hoy

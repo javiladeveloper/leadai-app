@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { guardarEmpresaActiva, leerEmpresaActiva, leerSesion, tieneVariosNegocios, EMPRESA_GLOBAL } from "@/lib/auth";
+import { guardarEmpresaActiva, leerEmpresaActiva, tieneVariosNegocios, empresasVisibles, EMPRESA_GLOBAL } from "@/lib/auth";
 import { negociosGlobal, type NegocioBandeja } from "@/lib/api";
 
 // Piezas del panel UNIFICADO (decisión 2026-07-22, iterada el mismo día): ya
@@ -144,7 +144,7 @@ export function SeccionPorNegocio({ children }: { children: React.ReactNode }) {
   const [tenant, setTenant] = useState("");
 
   useEffect(() => {
-    const lista = (leerSesion()?.empresas ?? []).map((e) => ({
+    const lista = empresasVisibles().map((e) => ({
       tenantId: e.tenantId,
       nombre: e.nombre,
     }));

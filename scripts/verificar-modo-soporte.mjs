@@ -44,6 +44,17 @@ function entrarComoSoporte(tenantId, nombre) {
   }));
   guardarEmpresaActiva(tenantId);
 }
+function tieneVariosNegocios() {
+  if (leerModoSoporte()) return false;
+  return (leerSesion()?.empresas.length ?? 0) > 1;
+}
+function empresasVisibles() {
+  const soporte = leerModoSoporte();
+  const propias = leerSesion()?.empresas ?? [];
+  if (!soporte) return propias;
+  return [{ tenantId: soporte.tenantId, nombre: soporte.nombre, rol: "admin" }];
+}
+
 function salirDeSoporte() {
   const d = leerModoSoporte();
   localStorage.removeItem(CLAVE_SOPORTE);
@@ -87,6 +98,28 @@ ok(leerModoSoporte() === null, "si ya no estás en el ajeno, no avisa de más");
 reset();
 localStorage.setItem(CLAVE_SOPORTE, "{roto");
 ok(leerModoSoporte() === null, "un dato corrupto no rompe el panel");
+
+console.log("");
+console.log("ADENTRO NO SE VE LO TUYO");
+// El bug que reporto Jonathan: entro a Shiro y el panel le mostro "Tu
+// operacion - Todos tus negocios" con SUS leads y SUS ventas. La vista global
+// agrega las empresas de la SESION e ignora la empresa activa.
+reset();
+localStorage.setItem(CLAVE_SESION, JSON.stringify({ empresas: [
+  { tenantId: "t-mio", nombre: "LeadAI" },
+  { tenantId: "t-otro", nombre: "Contadora" },
+] }));
+guardarEmpresaActiva("t-mio");
+ok(tieneVariosNegocios() === true, "con varios negocios propios, vista global");
+entrarComoSoporte("t-shiro", "Shiro");
+ok(tieneVariosNegocios() === false, "en soporte NO hay vista global: estas en UNO");
+const v = empresasVisibles();
+ok(v.length === 1 && v[0].tenantId === "t-shiro", "los chips solo ofrecen el negocio ajeno");
+ok(!v.some((e) => e.tenantId === "t-mio"), "no podes saltar a lo TUYO desde adentro del ajeno");
+ok(v[0].nombre === "Shiro", "el nombre es el del cliente, no el tuyo");
+salirDeSoporte();
+ok(tieneVariosNegocios() === true, "al salir vuelve tu vista global");
+ok(empresasVisibles().length === 2, "y vuelven tus negocios");
 
 console.log(fallos === 0 ? "\nTODO OK\n" : `\n${fallos} FALLOS\n`);
 process.exit(fallos ? 1 : 0);

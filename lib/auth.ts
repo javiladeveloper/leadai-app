@@ -23,8 +23,11 @@ const esNavegador = () => typeof window !== "undefined";
 export function guardarSesion(sesion: Sesion): void {
   if (!esNavegador()) return;
   localStorage.setItem(CLAVE_SESION, JSON.stringify(sesion));
-  // Si hay una sola empresa, la dejamos activa por defecto.
-  if (sesion.empresas.length === 1) {
+  // Si hay una sola empresa, la dejamos activa por defecto — SALVO en soporte:
+  // `refrescarSesion()` corre en cada carga del panel, y esto sacaría del
+  // negocio ajeno a un super admin con un solo negocio propio, en silencio y
+  // a mitad de la sesión de soporte.
+  if (sesion.empresas.length === 1 && !leerModoSoporte()) {
     guardarEmpresaActiva(sesion.empresas[0].tenantId);
   }
 }
@@ -199,6 +202,17 @@ export function salirDeSoporte(): void {
 export function rolEnEmpresaActiva(): string | undefined {
   const sesion = leerSesion();
   if (!sesion) return undefined;
+  // EN SOPORTE, `admin` (2026-08-27). El negocio ajeno NO está en tus
+  // membresías, así que el `?? empresas[0]` de abajo te daba el rol que tenés
+  // en TU primer negocio. Jonathan entró a Shiro —un restaurante— y el menú
+  // le salió de captación: Leads y Oportunidades en vez de Carta y Cocina,
+  // porque su primera empresa es de captación y ese rol filtraba las
+  // secciones.
+  //
+  // `admin` es el rol REAL con el que el backend te deja entrar: ni `owner`
+  // —las decisiones del dueño son suyas— ni el que tengas en lo tuyo.
+  const soporte = leerModoSoporte();
+  if (soporte) return "admin";
   const activa = leerEmpresaActiva();
   const empresa = sesion.empresas?.find((e) => e.tenantId === activa) ?? sesion.empresas?.[0];
   return empresa?.rol;

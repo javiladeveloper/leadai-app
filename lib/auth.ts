@@ -51,6 +51,17 @@ export function cerrarSesion(): void {
 
 export function guardarEmpresaActiva(tenantId: string): void {
   if (!esNavegador()) return;
+  // EN SOPORTE SOLO SE PUEDE FIJAR EL NEGOCIO AJENO (2026-08-27).
+  //
+  // Media docena de pantallas "corrigen" la empresa activa al montar: si no
+  // la encuentran entre tus negocios, la pisan con `lista[0]` — el tuyo. Con
+  // el modo soporte eso te saca del negocio del cliente en silencio, y el
+  // panel sigue mostrando la barra de "estás en Shiro" con TUS datos debajo.
+  //
+  // La salida legítima es `salirDeSoporte()`, que borra el modo primero y por
+  // eso pasa esta guarda sin problema.
+  const soporte = leerModoSoporte();
+  if (soporte && tenantId !== soporte.tenantId) return;
   localStorage.setItem(CLAVE_EMPRESA, tenantId);
 }
 
@@ -158,8 +169,13 @@ export function entrarComoSoporte(tenantId: string, nombre: string): void {
     nombre,
     volverA: yaEstaba ? yaEstaba.volverA : previa,
   };
+  // LAS DOS CLAVES SE ESCRIBEN DIRECTO, y en este orden importa el porqué:
+  // `guardarEmpresaActiva` ahora rechaza cualquier tenant que no sea el del
+  // soporte, y `leerModoSoporte` exige que la empresa activa YA sea la del
+  // soporte. Pasar por esos helpers acá es circular: cada uno espera que el
+  // otro haya escrito primero, y el modo se borraba solo al entrar.
+  localStorage.setItem(CLAVE_EMPRESA, tenantId);
   localStorage.setItem(CLAVE_SOPORTE, JSON.stringify(dato));
-  guardarEmpresaActiva(tenantId);
 }
 
 export function leerModoSoporte(): ModoSoporte | null {

@@ -23,7 +23,11 @@ const CLAVE_SOPORTE = "leadai.soporte";
 const CLAVE_SESION = "leadai.sesion";
 
 const leerEmpresaActiva = () => localStorage.getItem(CLAVE_EMPRESA);
-const guardarEmpresaActiva = (t) => localStorage.setItem(CLAVE_EMPRESA, t);
+function guardarEmpresaActiva(t) {
+  const soporte = leerModoSoporte();
+  if (soporte && t !== soporte.tenantId) return;
+  localStorage.setItem(CLAVE_EMPRESA, t);
+}
 const leerSesion = () => { const r = localStorage.getItem(CLAVE_SESION); return r ? JSON.parse(r) : null; };
 
 function leerModoSoporte() {
@@ -39,10 +43,10 @@ function leerModoSoporte() {
 function entrarComoSoporte(tenantId, nombre) {
   const previa = leerEmpresaActiva();
   const yaEstaba = leerModoSoporte();
+  localStorage.setItem(CLAVE_EMPRESA, tenantId);
   localStorage.setItem(CLAVE_SOPORTE, JSON.stringify({
     tenantId, nombre, volverA: yaEstaba ? yaEstaba.volverA : previa,
   }));
-  guardarEmpresaActiva(tenantId);
 }
 function tieneVariosNegocios() {
   if (leerModoSoporte()) return false;
@@ -108,8 +112,16 @@ ok(leerEmpresaActiva() === "t-mio", "cae a tu primera empresa, no queda sin empr
 console.log("\nEL AVISO NO MIENTE");
 reset(); guardarEmpresaActiva("t-mio");
 entrarComoSoporte("t-ajeno", "Shiro");
-guardarEmpresaActiva("t-mio");                    // cambiaste por otro camino
-ok(leerModoSoporte() === null, "si ya no estás en el ajeno, no avisa de más");
+// Ya NO se puede cambiar la empresa por otro camino: `guardarEmpresaActiva`
+// rechaza cualquier tenant que no sea el del soporte. Lo que se cuida acá es
+// que el aviso y la empresa activa no puedan quedar diciendo cosas distintas.
+guardarEmpresaActiva("t-mio");
+ok(leerModoSoporte()?.tenantId === leerEmpresaActiva(),
+   "el aviso y la empresa activa nunca se contradicen");
+// Y si alguien borra la clave a mano (DevTools), el aviso se apaga solo en
+// vez de mentir sobre dónde estás.
+localStorage.setItem(CLAVE_EMPRESA, "t-mio");
+ok(leerModoSoporte() === null, "sin la empresa del soporte, no avisa de más");
 
 reset();
 localStorage.setItem(CLAVE_SOPORTE, "{roto");
@@ -165,6 +177,28 @@ ok(leerEmpresaActiva() === "t-unico", "con un solo negocio queda activo");
 entrarComoSoporte("t-shiro", "Shiro");
 guardarSesion({ empresas: [{ tenantId: "t-unico", nombre: "Mio", rol: "owner" }] });
 ok(leerEmpresaActiva() === "t-shiro", "el refresco NO te saca del negocio ajeno");
+
+console.log("");
+console.log("NADA TE SACA DEL NEGOCIO AJENO POR ATRAS");
+// Jonathan: "primero carga bien, pone Carta, Cocina... pero luego cuando
+// carga toda la data vuelve a aparecer todo lo de ventas". Media docena de
+// pantallas "corrigen" la empresa activa al montar: si no la encuentran entre
+// tus negocios la pisan con lista[0] — el tuyo. El primer render era correcto
+// y el efecto lo deshacia.
+reset();
+localStorage.setItem(CLAVE_SESION, JSON.stringify({ empresas: [
+  { tenantId: "t-mio", nombre: "LeadAI", rol: "owner" },
+] }));
+guardarEmpresaActiva("t-mio");
+entrarComoSoporte("t-shiro", "Shiro");
+ok(leerEmpresaActiva() === "t-shiro", "entraste a Shiro");
+guardarEmpresaActiva("t-mio");
+ok(leerEmpresaActiva() === "t-shiro", "un efecto NO te devuelve a tu negocio");
+ok(leerModoSoporte()?.tenantId === "t-shiro", "y el modo soporte sigue en pie");
+guardarEmpresaActiva("t-shiro");
+ok(leerEmpresaActiva() === "t-shiro", "fijar el MISMO negocio ajeno si se permite");
+salirDeSoporte();
+ok(leerEmpresaActiva() === "t-mio", "y salir sigue devolviendote a lo tuyo");
 
 console.log(fallos === 0 ? "\nTODO OK\n" : `\n${fallos} FALLOS\n`);
 process.exit(fallos ? 1 : 0);

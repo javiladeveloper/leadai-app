@@ -7,6 +7,7 @@ import { refrescarSesion } from "@/lib/api";
 import { Sidebar } from "@/components/panel/Sidebar";
 import { HeaderPanel } from "@/components/panel/HeaderPanel";
 import { NavInferior } from "@/components/NavInferior";
+import { BarraSoporte } from "@/components/panel/BarraSoporte";
 
 // Shell del panel de escritorio: Sidebar fijo (lg+) + Header, contenido ancho.
 // En mobile el sidebar se oculta y reaparece la NavInferior.
@@ -40,6 +41,9 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
     <div className="flex h-dvh bg-arena">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* Arriba de TODO: si estás en el negocio de otro, tenés que verlo
+            antes que cualquier dato de esa pantalla. */}
+        <BarraSoporte />
         <HeaderPanel />
         {/* `key={ruta}`: sin esto React reusa el nodo entre pantallas y la
             animación de entrada no vuelve a correr — el cambio se veria tan

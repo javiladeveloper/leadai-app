@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { movimientosNegocioAdmin, type MovimientosNegocioAdmin } from "@/lib/api";
+import { entrarComoSoporte } from "@/lib/auth";
 import { soles } from "@/lib/precio";
 import { SkeletonLista } from "@/components/Skeletons";
 
@@ -14,6 +15,14 @@ import { SkeletonLista } from "@/components/Skeletons";
  * pedidos con estado y pago, y su relación con nosotros (plan y recargas).
  * Todo LECTURA — operar el negocio sigue siendo del negocio.
  */
+
+// El nombre que se lee, no la clave interna: la lista ya lo traduce y ver
+// "resto_gratis" acá delata el detrás de escena sin aportar nada.
+const PLAN_LABEL: Record<string, string> = {
+  free: "Free", flujos: "Flujos", light: "Emprende", pro: "Pro", business: "Business",
+  pedidos: "Arranque", arranque: "Arranque", crecer: "Crecer", full: "Full",
+  resto_gratis: "Gratis",
+};
 
 const ESTADO_EMOJI: Record<string, string> = {
   esperando_pago: "🕐", pagado: "🟢", preparando: "👨‍🍳", listo: "📦",
@@ -71,9 +80,27 @@ export default function MovimientosNegocio({ params }: { params: Promise<{ id: s
         <Link href="/admin/negocios" className="text-[0.85rem] font-semibold text-frio hover:text-tinta">
           ← Negocios
         </Link>
-        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">{datos.nombre}</h1>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-[1.8rem] font-bold text-tinta">{datos.nombre}</h1>
+          {/* ENTRAR ES DISTINTO DE MIRAR: esta ficha es lectura, y para
+              arreglarle algo por teléfono hace falta ver su panel como lo ve
+              él. El backend ya lo permite (entra como `admin`, y queda en el
+              log); esto es la puerta. */}
+          <button
+            type="button"
+            onClick={() => {
+              entrarComoSoporte(datos.tenantId, datos.nombre);
+              // Recarga entera: el panel lee la empresa activa al montar, y
+              // un push dejaría las pantallas con los datos del negocio viejo.
+              window.location.href = "/inicio";
+            }}
+            className="rounded-chip bg-tinta px-3.5 py-2 text-[0.82rem] font-bold text-carta transition hover:opacity-90"
+          >
+            Entrar como soporte
+          </button>
+        </div>
         <p className="mt-0.5 text-[0.88rem] text-frio">
-          Plan <b className="text-tinta-2">{datos.plan}</b>
+          Plan <b className="text-tinta-2">{PLAN_LABEL[datos.plan] ?? datos.plan}</b>
           {datos.suscripcion && (
             <>
               {" · "}suscripción {datos.suscripcion.estado} hasta el{" "}

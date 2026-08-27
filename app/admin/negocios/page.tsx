@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ventasAdmin, type VentasNegocioAdmin, type SenalesNegocio } from "@/lib/api";
+import { ventasAdmin, type VentasNegocioAdmin, type SenalesNegocio, type ProductoDelNegocio } from "@/lib/api";
 import { soles } from "@/lib/precio";
 import { SkeletonLista } from "@/components/Skeletons";
 
@@ -45,6 +45,32 @@ function Senales({ s }: { s: SenalesNegocio }) {
   );
 }
 
+/**
+ * DE QUÉ PRODUCTO ES CADA NEGOCIO (2026-08-27).
+ *
+ * Jonathan, mirando esta tabla: "estas clínicas como DALU que tienen a Sania,
+ * ¿sí o sí tienen que aparecer? no están usando LeadAI web, estamos usando
+ * solo LeadAI core".
+ *
+ * Tienen que existir: el tenant es la unidad del BOT, y sin él un mensaje a
+ * DALU no sabría contra qué Sania agendar. Pero no son clientes del panel, y
+ * mezclarlos acá hacía leer mal la plata — de los 255 leads de la plataforma,
+ * 193 eran de los 4 tenants de Sania.
+ *
+ * SE SEPARAN, NO SE ESCONDEN: arranca en LeadAI porque es la pregunta de
+ * todos los días, y los otros siguen a un clic.
+ */
+const PRODUCTOS: { id: ProductoDelNegocio; etiqueta: string }[] = [
+  { id: "leadai", etiqueta: "LeadAI" },
+  { id: "sania", etiqueta: "Sania" },
+  { id: "fitcore", etiqueta: "FitCore" },
+];
+
+/** Un backend viejo no manda `producto`: se asume LeadAI, que no esconde a nadie. */
+function productoDe(n: VentasNegocioAdmin): ProductoDelNegocio {
+  return n.producto ?? "leadai";
+}
+
 function Tramo({ t }: { t: { pedidos: number; solesCentavos: number } }) {
   if (t.pedidos === 0) return <span className="text-frio/50">—</span>;
   return (
@@ -58,6 +84,7 @@ function Tramo({ t }: { t: { pedidos: number; solesCentavos: number } }) {
 export default function AdminNegocios() {
   const [negocios, setNegocios] = useState<VentasNegocioAdmin[]>([]);
   const [estado, setEstado] = useState<"cargando" | "ok" | "error">("cargando");
+  const [filtro, setFiltro] = useState<ProductoDelNegocio | "todos">("leadai");
 
   useEffect(() => {
     ventasAdmin()
@@ -65,14 +92,26 @@ export default function AdminNegocios() {
       .catch(() => setEstado("error"));
   }, []);
 
+  const conteos = useMemo(() => {
+    const c: Record<string, number> = { leadai: 0, sania: 0, fitcore: 0 };
+    for (const n of negocios) c[productoDe(n)] = (c[productoDe(n)] ?? 0) + 1;
+    return c;
+  }, [negocios]);
+
+  const visibles = useMemo(
+    () => (filtro === "todos" ? negocios : negocios.filter((n) => productoDe(n) === filtro)),
+    [negocios, filtro],
+  );
+
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-5 py-6 lg:px-8">
       <header>
         <p className="eyebrow">Plataforma LeadAI</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Negocios y ventas</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
-          Cuánto vende cada negocio{estado === "ok" ? ` · ${negocios.length} negocios` : ""}. Toca
-          uno para ver sus movimientos.
+          {estado === "ok"
+            ? `Cuánto vende cada negocio · ${conteos.leadai} usan el panel de LeadAI. Sania y FitCore usan el bot, no el panel.`
+            : "Cuánto vende cada negocio. Toca uno para ver sus movimientos."}
         </p>
       </header>
 
@@ -84,6 +123,33 @@ export default function AdminNegocios() {
       )}
 
       {estado === "ok" && (
+        <>
+        <div className="flex flex-wrap gap-2">
+          {PRODUCTOS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setFiltro(p.id)}
+              aria-pressed={filtro === p.id}
+              className={`rounded-chip px-3 py-1.5 text-[0.8rem] font-bold transition ${
+                filtro === p.id ? "bg-tinta text-carta" : "bg-arena text-tinta-2 hover:bg-linea"
+              }`}
+            >
+              {p.etiqueta} · {conteos[p.id] ?? 0}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setFiltro("todos")}
+            aria-pressed={filtro === "todos"}
+            className={`rounded-chip px-3 py-1.5 text-[0.8rem] font-bold transition ${
+              filtro === "todos" ? "bg-tinta text-carta" : "bg-arena text-tinta-2 hover:bg-linea"
+            }`}
+          >
+            Todos · {negocios.length}
+          </button>
+        </div>
+
         <div className="overflow-x-auto rounded-tarjeta bg-carta ring-1 ring-linea">
           <table className="w-full text-left text-[0.9rem]">
             <thead>
@@ -97,13 +163,20 @@ export default function AdminNegocios() {
               </tr>
             </thead>
             <tbody>
-              {negocios.map((n) => (
+              {visibles.map((n) => (
                 <tr key={n.tenantId} className="border-b border-linea/60 transition last:border-0 hover:bg-arena/40">
                   <td className="px-4 py-3">
                     {/* El nombre ES el link: toda la fila invita, el nombre lleva. */}
                     <Link href={`/admin/negocios/${n.tenantId}`} className="font-semibold text-tinta hover:text-brasa-texto">
                       {n.nombre}
                     </Link>
+                    {/* La marca solo aparece cuando NO es LeadAI: en la vista
+                        de todos los días sería ruido en cada fila. */}
+                    {productoDe(n) !== "leadai" && (
+                      <span className="ml-2 rounded-chip bg-arena px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-wide text-frio">
+                        {PRODUCTOS.find((p) => p.id === productoDe(n))?.etiqueta}
+                      </span>
+                    )}
                     <p className="text-[0.72rem] text-frio">{n.tenantId}</p>
                   </td>
                   <td className="px-4 py-3">
@@ -117,12 +190,15 @@ export default function AdminNegocios() {
                   <td className="px-4 py-3"><Senales s={n.senales} /></td>
                 </tr>
               ))}
-              {negocios.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-frio">Todavía no hay negocios.</td></tr>
+              {visibles.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-frio">
+                  {negocios.length === 0 ? "Todavía no hay negocios." : "Ninguno en este grupo."}
+                </td></tr>
               )}
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

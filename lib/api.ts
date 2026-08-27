@@ -1048,6 +1048,9 @@ export interface SenalesNegocio {
   redes: boolean;
 }
 
+/** `leadai` | `sania` | `fitcore`. Ver `productoDe` en el backend. */
+export type ProductoDelNegocio = "leadai" | "sania" | "fitcore";
+
 export interface VentasNegocioAdmin {
   tenantId: string;
   nombre: string;
@@ -1056,6 +1059,17 @@ export interface VentasNegocioAdmin {
   dias7: TramoVentas;
   dias30: TramoVentas;
   senales: SenalesNegocio;
+  /**
+   * De qué producto es este negocio (2026-08-27).
+   *
+   * Las clínicas con Sania tienen que existir como tenant —es la unidad del
+   * bot— pero no son clientes del panel. Sin esto, sus pedidos y leads se
+   * sumaban a los de LeadAI y el tablero contestaba otra pregunta.
+   *
+   * OPCIONAL A PROPÓSITO: un backend viejo no lo manda y la tabla tiene que
+   * seguir funcionando; se asume `leadai`, que es no esconder a nadie.
+   */
+  producto?: ProductoDelNegocio;
 }
 
 export async function ventasAdmin(): Promise<VentasNegocioAdmin[]> {

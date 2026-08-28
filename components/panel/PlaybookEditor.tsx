@@ -120,25 +120,41 @@ export function PlaybookEditor() {
           chips y cuatro listas pensadas para fondo claro, y un formulario largo
           sobre oscuro se lee peor. El verde hondo enmarca; aquí se escribe. */}
       <div className="space-y-5 rounded-tarjeta bg-carta p-5">
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* EL RUBRO NO SE ELIGE ACÁ EN PEDIDOS (2026-08-27, Jonathan: "el
+          rubro no es necesario que aparezca... para el tema de ventas sí es
+          necesario porque cambia el rubro de cada negocio con el que
+          trabaje").
+
+          Además de duplicar el alta, acá MIENTE sobre lo que hace: este es el
+          `rubro` del PERFIL, que solo escribe una línea del prompt ("un
+          negocio del rubro X"). El que decide si el negocio ve Carta y Cocina
+          es `Tenant.objetivo`, y este selector no lo toca — se podía elegir
+          "Salud" y seguía siendo un restaurante.
+
+          En captación se queda: una agencia cambia de rubro según el cliente
+          para el que capta, y ahí esa línea del prompt sí pesa (el bot
+          conversa de verdad, no manda textos fijos). */}
+      <div className={caps.tieneCarta ? "" : "grid gap-4 lg:grid-cols-2"}>
         <Campo
           label="Nombre del negocio"
           value={perfil.nombreNegocio}
           onChange={(v) => setPerfil({ ...perfil, nombreNegocio: v })}
         />
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-tinta">A qué te dedicas</span>
-          <select
-            value={perfil.rubro}
-            onChange={(e) => setPerfil({ ...perfil, rubro: e.target.value })}
-            className="w-full rounded-tarjeta border border-linea bg-carta px-3.5 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa"
-          >
-            <option value="">Elige tu rubro…</option>
-            {RUBROS.map((r) => (
-              <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>
-            ))}
-          </select>
-        </label>
+        {!caps.tieneCarta && (
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-tinta">A qué te dedicas</span>
+            <select
+              value={perfil.rubro}
+              onChange={(e) => setPerfil({ ...perfil, rubro: e.target.value })}
+              className="w-full rounded-tarjeta border border-linea bg-carta px-3.5 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa"
+            >
+              <option value="">Elige tu rubro…</option>
+              {RUBROS.map((r) => (
+                <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       {/* EL TONO NO APLICA A PEDIDOS (2026-08-27, Jonathan: "¿de verdad

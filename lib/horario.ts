@@ -37,6 +37,18 @@ export interface ConfigHorario {
   /** ¿Cobra en efectivo al entregar? Enciende el botón 💵 del chat (2026-08-22). */
   aceptaEfectivo: boolean;
 
+  // ── Presencia en Google (2026-08-27) ────────────────────────────────
+  /** Identidad del local en Google. Vacío = no lo conectó. */
+  googlePlaceId: string;
+  /**
+   * Link DIRECTO a dejar reseña. Vacío = el bot no la pide.
+   *
+   * Se lo manda solo a quien calificó con 4 o 5 estrellas: llevar a Google a
+   * un cliente enojado es regalarle una reseña mala al negocio, y eso queda
+   * público para siempre.
+   */
+  googleReviewUrl: string;
+
   // ── Cuánto puede la cocina ──────────────────────────────────────────
   //
   // Alimentan el tiempo de espera que ve el cliente ("listo en 35-50 min").
@@ -81,6 +93,10 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       // pintaría "cerrado todos los días" sobre un negocio que abre siempre.
       diasCerrado: r.config.diasCerrado ?? [],
       minimoDeliveryCentavos: r.config.minimoDeliveryCentavos ?? 0,
+      // `?? ''`: un backend viejo no los manda. Vacío = sin conectar, que es
+      // el estado correcto — el bot no pide reseña sin link a dónde mandarla.
+      googlePlaceId: r.config.googlePlaceId ?? "",
+      googleReviewUrl: r.config.googleReviewUrl ?? "",
       yapeNumero: r.config.yapeNumero ?? "",
       yapeNombre: r.config.yapeNombre ?? "",
       // `?? true`: es lo que el backend devuelve para los negocios ya

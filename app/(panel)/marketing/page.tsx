@@ -7,6 +7,7 @@ import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/Global
 import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 import AnunciosPanel from "@/app/(panel)/anuncios/page";
 import CampaniasPanel from "@/app/(panel)/campanias/page";
+import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
 
 /**
  * MARKETING: TRAER CLIENTES Y HACERLOS VOLVER (2026-08-24).
@@ -26,7 +27,7 @@ import CampaniasPanel from "@/app/(panel)/campanias/page";
  * historial del navegador no puede terminar en 404.
  */
 
-type Pestania = "anuncios" | "campanias";
+type Pestania = "anuncios" | "campanias" | "presencia";
 
 export default function MarketingPanel() {
   const router = useRouter();
@@ -41,7 +42,9 @@ export default function MarketingPanel() {
 
   // La pestaña viaja en la URL para que se pueda compartir y para que el botón
   // "atrás" del navegador vuelva a la que estaba, no a la sección anterior.
-  const inicial: Pestania = params.get("t") === "campanias" ? "campanias" : "anuncios";
+  const t = params.get("t");
+  const inicial: Pestania =
+    t === "campanias" ? "campanias" : t === "presencia" ? "presencia" : "anuncios";
   const [pestania, setPestania] = useState<Pestania>(inicial);
 
   useEffect(() => {
@@ -57,6 +60,8 @@ export default function MarketingPanel() {
   }
 
   // Cual se muestra de verdad: la elegida, salvo que este negocio no la tenga.
+  // `presencia` no tiene capacidad: Google Maps le sirve a cualquier negocio
+  // con dirección, sea restaurante o consultorio. Por eso nunca cae de ella.
   const mostrar: Pestania =
     pestania === "anuncios" && !caps.tieneAnuncios ? "campanias"
     : pestania === "campanias" && !caps.tieneCampanias ? "anuncios"
@@ -103,7 +108,10 @@ export default function MarketingPanel() {
         {([
           { id: "anuncios", label: "Anuncios", ayuda: "Traer clientes nuevos", cap: "tieneAnuncios" },
           { id: "campanias", label: "Campañas", ayuda: "Hacer volver a los que ya vinieron", cap: "tieneCampanias" },
-        ] as const).filter((p) => caps[p.cap]).map((p) => {
+          // Sin `cap`: no depende del rubro. Un negocio con dirección quiere
+          // reseñas, venda comida o dé consultas.
+          { id: "presencia", label: "Presencia", ayuda: "Tu negocio en Google", cap: null },
+        ] as const).filter((p) => p.cap === null || caps[p.cap]).map((p) => {
           const activa = mostrar === p.id;
           return (
             <button
@@ -130,7 +138,13 @@ export default function MarketingPanel() {
       {/* Si la pestania de la URL no aplica a este negocio —un link viejo, o
           un rubro sin esa capacidad— se muestra la otra en vez de una pantalla
           en blanco. */}
-      {mostrar === "anuncios" ? <AnunciosPanel embebido /> : <CampaniasPanel embebido />}
+      {mostrar === "presencia" ? (
+        <PresenciaEditor />
+      ) : mostrar === "anuncios" ? (
+        <AnunciosPanel embebido />
+      ) : (
+        <CampaniasPanel embebido />
+      )}
     </div>
   );
 }

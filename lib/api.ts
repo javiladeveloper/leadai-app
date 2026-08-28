@@ -24,12 +24,14 @@ interface Opciones {
   // fuerza un X-Tenant-Id distinto de la empresa activa (bandeja global: crear
   // un lead manual en el negocio elegido sin cambiar la empresa activa).
   tenant?: string;
+  // manda/acepta cookies del backend (solo la activación de placas lo usa).
+  conCookies?: boolean;
 }
 
 // Llamada genérica al backend. Arma headers de auth y empresa, parsea el error
 // del backend y lo levanta como ApiError con el status real.
 export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
-  const { method = "GET", body, conEmpresa = true, conAuth = true, tenant } = opts;
+  const { method = "GET", body, conEmpresa = true, conAuth = true, tenant, conCookies = false } = opts;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
   if (conAuth) {
@@ -51,6 +53,9 @@ export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      // Solo la activación de placas lo usa: acepta la cookie de dueño que
+      // planta el backend (reconoce este navegador al tocar su propia placa).
+      credentials: conCookies ? "include" : "same-origin",
     });
   } catch {
     throw new ApiError(0, "No pudimos conectar con el servidor. Revisa tu conexión.");
@@ -1397,7 +1402,9 @@ export async function activarPlaca(
   input: { uid: string; pin: string; placeId: string }, tenant?: string,
 ): Promise<{ ok: boolean; reviewUrl?: string; error?: string }> {
   try {
-    const r = await api<{ reviewUrl: string }>("/placas/activar", { method: "POST", body: input, tenant });
+    const r = await api<{ reviewUrl: string }>("/placas/activar", {
+      method: "POST", body: input, tenant, conCookies: true,
+    });
     return { ok: true, reviewUrl: r.reviewUrl };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo activar" };

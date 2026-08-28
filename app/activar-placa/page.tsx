@@ -53,10 +53,14 @@ export default function ActivarPlaca() {
     setPaso("negocio");
   }, []);
 
-  // Pedir GPS y listar los negocios alrededor apenas se llega al paso.
-  useEffect(() => {
-    if (paso !== "negocio" || negocios.length > 0 || gpsFallo) return;
+  // El permiso de ubicación se pide RECIÉN cuando el dueño toca el botón
+  // (feedback de Jonathan 26-ago probando: un prompt de golpe al cargar, sin
+  // contexto, se bloquea por reflejo — y un permiso bloqueado no se recupera
+  // fácil). El botón explica para qué y ahí sí se dispara el prompt.
+  const [pidioGps, setPidioGps] = useState(false);
+  function usarMiUbicacion() {
     if (!("geolocation" in navigator)) { setGpsFallo(true); return; }
+    setPidioGps(true);
     setBuscando(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -70,8 +74,7 @@ export default function ActivarPlaca() {
       () => { setGpsFallo(true); setBuscando(false); },
       { timeout: 8000, maximumAge: 60000 },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paso]);
+  }
 
   function irALogin() {
     // El login ya sabe volver a una pantalla puntual (patrón `volver_a`).
@@ -153,10 +156,28 @@ export default function ActivarPlaca() {
             </div>
           )}
 
+          {!pidioGps && !gpsFallo && negocios.length === 0 && (
+            <div className="space-y-2">
+              <button
+                onClick={usarMiUbicacion}
+                className="w-full rounded-chip bg-brasa px-6 py-3 text-[0.95rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
+              >
+                📍 Buscar los negocios a mi alrededor
+              </button>
+              <p className="text-center text-[0.78rem] text-frio">
+                Te pediremos permiso de ubicación solo para esto. Si estás parado en tu
+                negocio, aparecerá en la lista.
+              </p>
+            </div>
+          )}
+
           {buscando && <p className="text-[0.88rem] text-frio">Buscando negocios cerca de ti…</p>}
 
           {negocios.length > 0 && (
             <div className="space-y-2">
+              <p className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">
+                A menos de 150 m de ti
+              </p>
               {negocios.map((n) => (
                 <button
                   key={n.placeId}
@@ -170,12 +191,14 @@ export default function ActivarPlaca() {
             </div>
           )}
 
-          {(gpsFallo || negocios.length > 0) && !buscando && (
+          {!buscando && (
             <div className="space-y-2">
               <p className="text-[0.84rem] text-frio">
                 {gpsFallo && negocios.length === 0
                   ? "No pudimos usar tu ubicación. Busca tu negocio por nombre:"
-                  : "¿No aparece? Búscalo por nombre:"}
+                  : negocios.length > 0
+                    ? "¿No aparece? Búscalo por nombre:"
+                    : "O búscalo por nombre:"}
               </p>
               <div className="flex gap-2">
                 <input

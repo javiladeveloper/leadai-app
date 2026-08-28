@@ -62,15 +62,49 @@ export function PagosEditor() {
   if (cargando) return <div className="h-40 animate-pulse rounded-tarjeta bg-arena-2/70" />;
   if (!cfg) return null;
 
+  /**
+   * CUÁNDO LE PAGAN: LA PREGUNTA QUE FALTABA (2026-08-27).
+   *
+   * Jonathan: "esos 2, acepto Yape o Plin, no es intuitivo para el cliente...
+   * debe haber una sección PAGO CONTRA ENTREGA O PAGO ANTICIPADO, y ahí
+   * separamos, porque así no se comprende nada".
+   *
+   * Tenía razón: eran tres chips sueltos y el dueño tenía que DEDUCIR su
+   * modelo de negocio a partir de ellos. La pregunta real —"¿cobro antes o al
+   * entregar?"— solo se hacía en el alta y después no había forma de volver a
+   * ella.
+   *
+   * El momento NO es un campo nuevo: se DERIVA de los flags que ya existen,
+   * así que no hay migración ni un dato que pueda contradecir al otro.
+   */
+  const momento: "antes" | "entrega" | "ambos" =
+    cfg.aceptaEfectivo && (cfg.aceptaYape || cfg.aceptaPlin)
+      ? "ambos"
+      : cfg.aceptaEfectivo
+        ? "entrega"
+        : "antes";
+
+  /**
+   * CONTRA ENTREGA NO PREGUNTA POR EL MEDIO (decisión de Jonathan): "si es
+   * pago contra entrega no nos importa el medio de pago, porque a final de
+   * cuentas pasará por el motorizado". El que entrega cobra como pueda —
+   * efectivo, Yape en la puerta— y eso no es algo que el bot deba validar.
+   *
+   * Por eso Yape/Plin y el número solo aparecen cuando hay pago ANTICIPADO:
+   * es el único caso en que el bot manda a pagar y valida una captura.
+   */
+  const cobraAntes = momento !== "entrega";
   const sinNumero = !cfg.yapeNumero.trim();
 
   return (
     <Seccion
       titulo="Cómo te pagan"
       bajada={
-        sinNumero
-          ? "Falta tu número: el bot no puede cobrarle a nadie."
-          : `Te pagan al ${cfg.yapeNumero}${cfg.yapeNombre ? ` · ${cfg.yapeNombre}` : ""}`
+        momento === "entrega"
+          ? "Cobras al entregar: el pedido entra a cocina sin pagar por adelantado."
+          : sinNumero
+            ? "Falta tu número: el bot no puede cobrarle a nadie."
+            : `Te pagan al ${cfg.yapeNumero}${cfg.yapeNombre ? ` · ${cfg.yapeNombre}` : ""}`
       }
       tono="claro"
       acento
@@ -78,13 +112,70 @@ export function PagosEditor() {
       <div className="space-y-4">
         {/* EL AVISO. Sin número, cada pedido llega hasta el pago y se cae —y el
             dueño no se entera porque el cliente simplemente no vuelve. */}
-        {sinNumero && (
+        {/* LA PREGUNTA PRINCIPAL, ARRIBA DE TODO. Lo demás depende de esta. */}
+        <div>
+          <span className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+            ¿Cuándo te pagan?
+          </span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {([
+              { v: "antes", txt: "Por adelantado", ayuda: "Paga antes de que cocines" },
+              { v: "entrega", txt: "Contra entrega", ayuda: "Paga cuando recibe el pedido" },
+              { v: "ambos", txt: "Las dos", ayuda: "El cliente elige" },
+            ] as const).map((o) => (
+              <button
+                key={o.v}
+                type="button"
+                aria-pressed={momento === o.v}
+                title={o.ayuda}
+                onClick={() => {
+                  // Se traduce a los flags de siempre. `aceptaYape/Plin` solo
+                  // se encienden con número cargado: sin él, el bot mandaría a
+                  // pagar a un Yape que no existe (pasó con la carta de Shiro).
+                  const hayNumero = numero.trim().length > 0 || cfg.yapeNumero.trim().length > 0;
+                  if (o.v === "entrega") {
+                    void aplicar({ aceptaEfectivo: true, aceptaYape: false, aceptaPlin: false });
+                  } else if (o.v === "antes") {
+                    void aplicar({ aceptaEfectivo: false, aceptaYape: hayNumero, aceptaPlin: hayNumero });
+                  } else {
+                    void aplicar({ aceptaEfectivo: true, aceptaYape: hayNumero, aceptaPlin: hayNumero });
+                  }
+                }}
+                className={`rounded-chip px-4 py-2.5 text-[0.88rem] font-bold transition ${
+                  momento === o.v
+                    ? "bg-brasa text-sobre-brasa"
+                    : "bg-arena text-frio ring-1 ring-linea hover:bg-arena-2"
+                }`}
+              >
+                {o.txt}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[0.84rem] text-frio">
+            {momento === "entrega"
+              ? "El pedido entra a cocina sin captura y quien entrega cobra. La tarjeta en Cocina lo marca con 💵 para que nadie lo suelte sin cobrar. Cómo te pague en la puerta lo arreglas con tu motorizado."
+              : momento === "ambos"
+                ? "El cliente elige: paga por adelantado o al recibir. Los que pagan en la puerta salen marcados con 💵 en Cocina."
+                : "El bot le pide la captura antes de mandar el pedido a cocina."}
+          </p>
+        </div>
+
+        {/* EL AVISO. Sin número, cada pedido llega hasta el pago y se cae —y el
+            dueño no se entera porque el cliente simplemente no vuelve.
+            Solo cuando cobra por adelantado: contra entrega no usa el número. */}
+        {cobraAntes && sinNumero && (
           <p className="rounded-tarjeta bg-calor-suave px-4 py-3 text-[0.86rem] font-semibold text-calor-hondo">
             Sin tu número, el bot le pide al cliente que coordine el pago contigo por
             chat. Cárgalo y cobra solo.
           </p>
         )}
 
+        {/* SOLO SI COBRA POR ADELANTADO. Con pago contra entrega puro no hay
+            captura que validar ni número a dónde mandar: el que entrega cobra
+            como pueda, y preguntarlo acá son tres campos que no le dicen nada
+            al dueño. */}
+        {cobraAntes && (
+        <>
         <label className="block">
           <span className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
             Número donde te pagan
@@ -122,7 +213,8 @@ export function PagosEditor() {
         </label>
 
         {/* En Perú hay locales que solo reciben una de las dos apps. El bot
-            manda al cliente a la correcta y rechaza la captura de la otra. */}
+            manda al cliente a la correcta y rechaza la captura de la otra.
+            Solo importa con pago adelantado: es cuando el bot manda a pagar. */}
         <div className="flex flex-wrap gap-2">
           <Chip
             activo={cfg.aceptaYape}
@@ -134,26 +226,15 @@ export function PagosEditor() {
             onClick={() => aplicar({ aceptaPlin: !cfg.aceptaPlin })}
             label="Acepto Plin"
           />
-          <Chip
-            activo={cfg.aceptaEfectivo}
-            onClick={() => aplicar({ aceptaEfectivo: !cfg.aceptaEfectivo })}
-            label="Acepto efectivo al entregar"
-          />
         </div>
-
-        {cfg.aceptaEfectivo && (
-          <p className="text-[0.84rem] text-frio">
-            El cliente puede elegir pagar en la puerta: el pedido entra a
-            cocina sin captura y quien entrega cobra. La tarjeta en Cocina lo
-            marca con 💵 para que nadie lo suelte sin cobrar.
-          </p>
-        )}
 
         {!cfg.aceptaYape && !cfg.aceptaPlin && (
           <p className="text-[0.84rem] text-frio">
             Sin ninguna marcada, el bot nombra las dos: es preferible a dejar al
             cliente sin saber a dónde pagar.
           </p>
+        )}
+        </>
         )}
 
         <div className="min-h-[1.2rem] text-[0.84rem]">

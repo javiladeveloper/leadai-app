@@ -15,6 +15,7 @@ import {
   calcularComision,
   obtenerEtapas,
   obtenerEquipo,
+  listarCanales,
   etapaVisibleDe,
   ETAPAS_DEFAULT,
   type MiembroEquipo,
@@ -195,6 +196,35 @@ export default function ConversacionesPanel() {
     }
     setListo(true);
   }, [router]);
+
+  // ¿YA HAY UN WHATSAPP CONECTADO? (2026-08-27, Jonathan: "en mi
+  // configuración ya tengo un WhatsApp conectado, ¿por qué cuando voy a
+  // conversaciones me aparece nuevamente conectar WhatsApp?").
+  //
+  // El estado vacío ofrecía conectar SIEMPRE que no hubiera chats, sin mirar
+  // si ya había canal. A un negocio recién conectado —que es justo cuando la
+  // bandeja está vacía— le decía que le faltaba el paso que acababa de hacer.
+  //
+  // `null` = todavía no se sabe: hasta que responda no se muestra ningún
+  // botón, que es mejor que ofrecer conectar de más y desaparecer después.
+  //
+  // Sigue al FILTRO DE NEGOCIO: la bandeja cruza varios, y preguntar siempre
+  // por la empresa activa contestaría por un negocio que no es el que se está
+  // mirando. Sin filtro (todos), la empresa activa es la respuesta correcta.
+  const [tieneCanal, setTieneCanal] = useState<boolean | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    // No se resetea a `null` al cambiar de filtro: el valor viejo sigue
+    // siendo el correcto hasta que llegue el nuevo, y volver a "no se sabe"
+    // haría parpadear el bloque entero por un instante.
+    listarCanales(filtroNegocio || undefined)
+      .then((cs) => { if (vivo) setTieneCanal(cs.some((c) => c.activo)); })
+      // Si falla, se asume que SÍ tiene: ofrecerle conectar a quien ya conectó
+      // es peor que no mostrarle el botón a quien de verdad le falta — ese lo
+      // encuentra igual en Configuración.
+      .catch(() => { if (vivo) setTieneCanal(true); });
+    return () => { vivo = false; };
+  }, [filtroNegocio]);
 
   const cargarLista = useCallback(async () => {
     try {
@@ -550,14 +580,23 @@ export default function ConversacionesPanel() {
       {listaVacia && (
         <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="text-[0.95rem] font-bold text-tinta">
-            Aún no tienes conversaciones. Conecta WhatsApp para empezar
+            {tieneCanal === false
+              ? "Aún no tienes conversaciones. Conecta WhatsApp para empezar"
+              : "Aún no tienes conversaciones."}
           </p>
+          {tieneCanal === true && (
+            <p className="mt-1 text-[0.85rem] text-frio">
+              Tu WhatsApp está conectado: los chats aparecen acá cuando te escriban.
+            </p>
+          )}
+          {tieneCanal === false && (
           <Link
             href="/configuracion"
             className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-sobre-brasa transition active:scale-[0.99]"
           >
             Conectar WhatsApp
           </Link>
+          )}
         </div>
       )}
       {estadoLista === "ok" && !listaVacia && leadsVisibles.length === 0 && (
@@ -687,12 +726,20 @@ export default function ConversacionesPanel() {
                   <p className="text-[0.9rem] font-bold text-tinta">
                     Aún no tienes conversaciones.
                   </p>
+                  {tieneCanal === true && (
+                    <p className="mt-1 text-[0.82rem] text-frio">
+                      Tu WhatsApp está conectado: los chats aparecen acá cuando
+                      te escriban.
+                    </p>
+                  )}
+                  {tieneCanal === false && (
                   <Link
                     href="/configuracion"
                     className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-4 py-2 text-[0.85rem] font-semibold text-sobre-brasa"
                   >
                     Conectar WhatsApp
                   </Link>
+                  )}
                 </div>
               )}
               {estadoLista === "ok" && !listaVacia && leadsVisibles.length === 0 && (

@@ -78,6 +78,9 @@ export const SECCIONES: Seccion[] = [
   // vendió hoy en su Inicio y casi siempre lo maneja una sola persona.
   { href: "/reportes", label: "Reportes", Icono: IconoReportes, requiere: "calificaLeads", grupo: "Tu negocio" },
   { href: "/equipo", label: "Equipo", Icono: IconoConversaciones, requiere: "calificaLeads", grupo: "Tu negocio" },
+  // Placas NFC de reseñas (2026-08-26): SIN `requiere` a propósito — un
+  // restaurante quiere reseñas de Google igual que una contadora.
+  { href: "/placas", label: "Placas", Icono: IconoRayo, grupo: "Tu negocio" },
 
   // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona,
   // no de un negocio; decisión 2026-07-22). Ajustes entra a la barra de móvil

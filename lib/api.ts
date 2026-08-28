@@ -1360,6 +1360,65 @@ export async function borrarPublicacion(id: string, tenant?: string): Promise<{ 
   catch { return { ok: false }; }
 }
 
+// ── Placas NFC de reseñas (2026-08-26) ──────────────────────────
+export interface NegocioGooglePlaca {
+  placeId: string;
+  nombre: string;
+  direccion: string;
+}
+
+export interface PlacaMia {
+  uid: string;
+  placeId: string | null;
+  reviewUrl: string | null;
+  estado: string; // libre | activa | bloqueada
+  escaneos: number;
+  activadaEn: string | null;
+  porMes: Record<string, number>; // "2026-08" → escaneos
+}
+
+// Negocios de Google para elegir al activar: por GPS (lat/lng) o texto (q).
+export async function negociosParaPlaca(
+  params: { lat?: number; lng?: number; q?: string }, tenant?: string,
+): Promise<NegocioGooglePlaca[]> {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set("q", params.q);
+  if (params.lat != null && params.lng != null) {
+    qs.set("lat", String(params.lat));
+    qs.set("lng", String(params.lng));
+  }
+  try {
+    const r = await api<{ negocios: NegocioGooglePlaca[] }>(`/placas/cercanos?${qs}`, { tenant });
+    return r.negocios;
+  } catch { return []; }
+}
+
+export async function activarPlaca(
+  input: { uid: string; pin: string; placeId: string }, tenant?: string,
+): Promise<{ ok: boolean; reviewUrl?: string; error?: string }> {
+  try {
+    const r = await api<{ reviewUrl: string }>("/placas/activar", { method: "POST", body: input, tenant });
+    return { ok: true, reviewUrl: r.reviewUrl };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo activar" };
+  }
+}
+
+export async function misPlacas(tenant?: string): Promise<PlacaMia[]> {
+  try { return (await api<{ placas: PlacaMia[] }>("/placas", { tenant })).placas; }
+  catch { return []; }
+}
+
+export async function cambiarDestinoPlaca(uid: string, placeId: string, tenant?: string): Promise<{ ok: boolean }> {
+  try { await api(`/placas/${uid}`, { method: "PATCH", body: { placeId }, tenant }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
+export async function bajaPlaca(uid: string, tenant?: string): Promise<{ ok: boolean }> {
+  try { await api(`/placas/${uid}/baja`, { method: "POST", tenant }); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
 // Calcula la comisión sugerida para un monto de venta, según la config del
 // negocio. Devuelve null si el negocio no configuró comisión.
 export async function calcularComision(monto: number, tenant?: string): Promise<number | null> {

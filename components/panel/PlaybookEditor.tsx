@@ -111,7 +111,7 @@ export function PlaybookEditor() {
       titulo="Cómo atiende tu bot"
       bajada={
         caps.tieneCarta
-          ? "Cómo saluda y responde tu bot: tono, tu saludo y tus horarios y formas de pago. Tu carta se edita en su propia sección."
+          ? "El saludo con el que tu bot recibe a cada cliente. Tus horarios, pagos y mínimo de delivery se configuran en Ajustes; tu carta, en su sección."
           : "El playbook que usa la IA para responder por ti: tono, qué vendes, preguntas clave y objeciones."
       }
       tono="hondo"
@@ -141,11 +141,20 @@ export function PlaybookEditor() {
         </label>
       </div>
 
-      {/* Tono CURADO (2026-07-22, mismo criterio que la app): opciones
+      {/* EL TONO NO APLICA A PEDIDOS (2026-08-27, Jonathan: "¿de verdad
+          funciona esto? si todo es determinístico").
+          Tenía razón, y con números: el flujo de pedidos manda 69 mensajes
+          FIJOS contra 2 llamadas al LLM, y `tono` no aparece ni una vez en
+          `pedidos-conversacion.ts`. El cliente de un restaurante lee textos
+          que escribimos nosotros; el selector prometía algo que no pasa.
+          En captación SÍ manda: ahí el bot conversa de verdad.
+
+          Tono CURADO (2026-07-22, mismo criterio que la app): opciones
           predeterminadas en vez de texto libre — un tono arbitrario puede
           alterar el comportamiento del bot. Un tono legacy (texto libre de
           antes) se muestra como "Actual" y se respeta hasta que elijan uno
           curado (el backend valida con la misma lista). */}
+      {!caps.tieneCarta && (
       <div>
         <span className="mb-2 block text-sm font-medium text-tinta">Cómo quieres que hable el bot</span>
         <div className="flex flex-wrap gap-2">
@@ -172,12 +181,17 @@ export function PlaybookEditor() {
           })}
         </div>
       </div>
-      <CampoArea
-        label="Por qué elegirte"
-        value={perfil.propuestaValor}
-        onChange={(v) => setPerfil({ ...perfil, propuestaValor: v })}
-        placeholder="Ej: 20 años de experiencia, atención el mismo día"
-      />
+      )}
+      {/* "Por qué elegirte" alimenta el prompt de CALIFICACIÓN de leads, que
+          un restaurante no usa: no califica a quien pide comida, le cobra. */}
+      {!caps.tieneCarta && (
+        <CampoArea
+          label="Por qué elegirte"
+          value={perfil.propuestaValor}
+          onChange={(v) => setPerfil({ ...perfil, propuestaValor: v })}
+          placeholder="Ej: 20 años de experiencia, atención el mismo día"
+        />
+      )}
 
       {caps.calificaLeads && (
         <>
@@ -238,12 +252,23 @@ export function PlaybookEditor() {
         />
       )}
 
-      <CampoArea
-        label="Cómo trabajas (envíos, horarios, pagos)"
-        value={perfil.politicas}
-        onChange={(v) => setPerfil({ ...perfil, politicas: v })}
-        placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
-      />
+      {/* "CÓMO TRABAJAS" DUPLICA CONFIGURACIÓN QUE YA FUNCIONA MEJOR
+          (2026-08-27, Jonathan: "ya hay secciones de configuración donde
+          tenemos los días que abre, horario, métodos de pago, si es en local
+          o delivery... ¿para qué necesitamos este campo?").
+          Horarios, mínimo de delivery, Yape y efectivo son campos
+          ESTRUCTURADOS: el bot los hace cumplir. Escritos acá, solo los
+          menciona — un mínimo de S/20 en texto no frena un pedido de S/12.
+          En captación no hay esos campos, así que ahí sigue siendo el lugar
+          donde se cuentan las condiciones del servicio. */}
+      {!caps.tieneCarta && (
+        <CampoArea
+          label="Cómo trabajas (envíos, horarios, pagos)"
+          value={perfil.politicas}
+          onChange={(v) => setPerfil({ ...perfil, politicas: v })}
+          placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
+        />
+      )}
       {caps.calificaLeads && (
         <CampoArea
           label="Qué quieres que hagan"

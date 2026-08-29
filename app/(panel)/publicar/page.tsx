@@ -11,6 +11,7 @@ import {
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, CabeceraFormulario, PublicarIlustracion } from "@/components/panel/HeroSeccion";
+import { PreviewRedes } from "@/components/panel/PreviewRedes";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -448,50 +449,41 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
           </p>
         </div>
 
-        {/* VISTA PREVIA: cómo se verá el post (pedido de Jonathan 26-ago) */}
+        {/* VISTA PREVIA POR RED (2026-08-27, Jonathan: "un preview de cómo
+            quedará en cada plataforma al hacer el post, cosa que el cliente lo
+            vea antes").
+            Antes había UNA tarjeta genérica: servía para ver que la foto cargó,
+            no para lo que importa — cada red recorta y corta el texto distinto,
+            y el dueño se enteraba después de publicar. */}
         {(texto.trim() || mediaUrl) && (
           <div className="mt-4">
-            <p className="mb-2 text-[0.8rem] font-bold uppercase tracking-wide text-frio">Vista previa</p>
-            <div className="max-w-sm overflow-hidden rounded-tarjeta ring-1 ring-linea">
-              <div className="flex items-center gap-2.5 px-3.5 py-2.5">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brasa text-[0.85rem] font-bold text-sobre-brasa">
-                  {(nombreNegocio || "N")[0].toUpperCase()}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-[0.85rem] font-bold text-tinta">{nombreNegocio || "Tu negocio"}</p>
-                  <p className="text-[0.7rem] text-frio">
-                    {programar && fecha
-                      ? `Se publicará el ${new Date(fecha).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })}`
-                      : "Ahora"}
-                  </p>
-                </div>
-              </div>
-              {mediaUrl && (
-                <div className="relative bg-tinta/5">
-                  {tipoMedia === "video" ? (
-                    <video src={mediaUrl} controls muted playsInline className="max-h-80 w-full object-contain" />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={mediaUrl} alt="preview" className="max-h-80 w-full object-contain" />
-                  )}
-                  <button
-                    onClick={quitarMedia}
-                    className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-tinta/80 text-carta text-sm"
-                    aria-label="Quitar archivo"
-                  >
-                    ✕
-                  </button>
-                  {meta && tipoMedia === "video" && meta.duracionSeg != null && (
-                    <span className="absolute bottom-2 right-2 rounded-full bg-tinta/70 px-2 py-0.5 text-[0.7rem] font-semibold text-carta">
-                      {Math.round(meta.duracionSeg)}s · {meta.pesoMB.toFixed(1)}MB
-                    </span>
-                  )}
-                </div>
-              )}
-              {texto.trim() && (
-                <p className="whitespace-pre-wrap px-3.5 py-3 text-[0.88rem] leading-relaxed text-tinta">{texto}</p>
-              )}
-            </div>
+            <PreviewRedes
+              redes={redes}
+              negocio={nombreNegocio}
+              texto={texto}
+              mediaUrl={mediaUrl}
+              tipoMedia={tipoMedia}
+              cuando={
+                programar && fecha
+                  ? new Date(fecha).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })
+                  : "Ahora"
+              }
+            />
+            {/* Quitar el archivo vivía sobre la imagen del preview viejo. Acá
+                va aparte: los previews imitan cada red y un botón nuestro
+                encima rompería la ilusión de "así se va a ver". */}
+            {mediaUrl && (
+              <button
+                type="button"
+                onClick={quitarMedia}
+                className="mt-2 text-[0.82rem] font-semibold text-frio underline transition hover:text-tinta"
+              >
+                Quitar {tipoMedia === "video" ? "el video" : "la foto"}
+                {meta && tipoMedia === "video" && meta.duracionSeg != null
+                  ? ` (${Math.round(meta.duracionSeg)}s · ${meta.pesoMB.toFixed(1)}MB)`
+                  : ""}
+              </button>
+            )}
           </div>
         )}
 

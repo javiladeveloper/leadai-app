@@ -1966,20 +1966,15 @@ function PedidoEnChat({ whatsapp, estiloTema }: { whatsapp: string | null; estil
     // Por eso se comprueba: si a los 900ms seguimos vivos, no cerró, y ahí sí
     // se muestra la salida manual. Sin esto, ese cliente se quedaría mirando
     // una pantalla en blanco sin saber qué hacer.
-    const revisar = setTimeout(() => setSigueAbierta(true), 900);
+    // 350ms Y NO 900 (2026-08-29, reporte de Jonathan: "se quedó pegada en
+    // pedido enviado y aparece el botón volver al chat").
+    //
+    // Si `close()` iba a funcionar, ya funcionó: es síncrono. Los 900ms eran
+    // margen de más, y quien NO cierra —el caso que ve esta pantalla— los
+    // pasaba mirando un fondo vacío antes de que le apareciera la salida.
+    const revisar = setTimeout(() => setSigueAbierta(true), 350);
     return () => { clearTimeout(cerrar); clearTimeout(revisar); };
   }, []);
-
-  // Si cerrar no funcionó, DE VUELTA AL CHAT SOLO (2026-08-21, Jonathan:
-  // "cuando termino debe redireccionarme al WhatsApp donde estaba"). El wa.me
-  // sin texto abre la conversación que ya existe — el bot ya escribió ahí.
-  // La pantalla queda visible mientras navega, y el botón como último recurso
-  // si el navegador bloquea también esto.
-  useEffect(() => {
-    if (!sigueAbierta || !whatsapp) return;
-    const t = setTimeout(() => { window.location.href = `https://wa.me/${whatsapp}`; }, 700);
-    return () => clearTimeout(t);
-  }, [sigueAbierta, whatsapp]);
 
   // Todavía intentando cerrar: nada en pantalla, solo el fondo del negocio.
   if (!sigueAbierta) {
@@ -1992,8 +1987,15 @@ function PedidoEnChat({ whatsapp, estiloTema }: { whatsapp: string | null; estil
     <main className="aparece mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-5 bg-arena p-6 text-center" style={estiloTema}>
       <div className="text-[3rem]">✅</div>
       <h1 className="text-[1.5rem] font-bold text-tinta">¡Pedido enviado!</h1>
+      {/*
+        NO SE PROMETE UN REDIRECT (2026-08-29). Antes decía "te llevamos de
+        vuelta al chat…" y después intentaba navegar solo — pero el navegador
+        bloquea esa navegación si no la pidió el usuario, así que la frase
+        quedaba mintiendo mientras el cliente esperaba algo que no iba a pasar.
+        Ahora el texto dice dónde está el detalle y el botón hace el resto.
+      */}
       <p className="text-tinta-2">
-        Te escribimos por WhatsApp con el detalle. Te llevamos de vuelta al chat… 🙌
+        Te escribimos por WhatsApp con el detalle 🙌
       </p>
       {whatsapp && (
         <a

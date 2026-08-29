@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
+import { HeroSeccion, CampaniaIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -181,6 +182,14 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
 
   return (
     <div className={embebido ? "space-y-6" : "mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8"}>
+      {embebido && (
+        <HeroSeccion
+          titulo="Hazle acordar a los que ya te compraron"
+          bajada={<>Un mensaje por WhatsApp a tus clientes de siempre: la promo del día, un plato nuevo, o que hace rato no vienen.</>}
+          nota="Es la venta más barata: ya te conocen y ya te compraron una vez."
+          dibujo={<CampaniaIlustracion />}
+        />
+      )}
       <header className="flex flex-wrap items-end justify-between gap-3">
         {!embebido && (
           <div>

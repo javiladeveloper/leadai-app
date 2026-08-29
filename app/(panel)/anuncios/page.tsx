@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
+import { HeroSeccion, AnuncioIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -202,6 +203,17 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
 
   return (
     <div className={embebido ? "space-y-6" : "mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8"}>
+      {/* EL HERO (2026-08-27, Jonathan: "lo mismo haz para campañas y
+          anuncios"). Antes abría con un título y una línea gris: alguien que
+          nunca pautó no sabe qué gana ni en qué se diferencia de Campañas. */}
+      {embebido && (
+        <HeroSeccion
+          titulo="Que te conozca gente que nunca te compró"
+          bajada={<>Pagas para que tu carta aparezca en Instagram y Facebook frente a personas de tu zona que todavía no te conocen.</>}
+          nota="La IA arma el anuncio contigo. Tú decides cuánto gastar."
+          dibujo={<AnuncioIlustracion />}
+        />
+      )}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           {!embebido && (

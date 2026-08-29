@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
+import { HeroSeccion, PublicarIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -97,7 +98,12 @@ function leerMetaVideo(file: File): Promise<{ duracionSeg: number; ancho: number
 // CONECTADAS, ver el preview y las validaciones por red, publicar o programar.
 // SIN IA (decisión 2026-08-26): las plantillas insertan texto listo para
 // completar — más rápido para el dueño y costo cero.
-export default function PublicarPanel() {
+/**
+ * `embebido`: se monta DENTRO de /marketing, que ya puso el título y la barra
+ * de negocios. Mismo patrón que Anuncios y Campañas — la pantalla no se
+ * reescribe, solo deja de repetir lo que ya está arriba.
+ */
+export default function PublicarPanel({ embebido = false }: { embebido?: boolean } = {}) {
   const router = useRouter();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
@@ -330,16 +336,26 @@ export default function PublicarPanel() {
   const sinRedes = conectadas !== null && conectadas.size === 0;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">
-      <header>
-        <p className="eyebrow">Tu embudo</p>
-        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Publicar</h1>
-        <p className="mt-1 text-[0.92rem] text-frio">
-          Crea un post una vez y publícalo en las redes que tengas conectadas.
-        </p>
-      </header>
+    <div className={embebido ? "space-y-6" : "mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8"}>
+      {embebido && (
+        <HeroSeccion
+          titulo="Un post, todas tus redes, una sola vez"
+          bajada={<>Sube tu foto o tu video una vez y sale en Instagram, Facebook y TikTok al mismo tiempo. Sin abrir tres apps.</>}
+          nota="Solo aparecen las redes que tengas conectadas."
+          dibujo={<PublicarIlustracion />}
+        />
+      )}
+      {!embebido && (
+        <header>
+          <p className="eyebrow">Tu embudo</p>
+          <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Publicar</h1>
+          <p className="mt-1 text-[0.92rem] text-frio">
+            Crea un post una vez y publícalo en las redes que tengas conectadas.
+          </p>
+        </header>
+      )}
 
-      {g.modoGlobal && (
+      {!embebido && g.modoGlobal && (
         <BarraNegociosGlobal
           negocios={g.negocios}
           enfocado={g.enfocado}

@@ -8,6 +8,7 @@ import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 import AnunciosPanel from "@/app/(panel)/anuncios/page";
 import CampaniasPanel from "@/app/(panel)/campanias/page";
 import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
+import PublicarPanel from "@/app/(panel)/publicar/page";
 
 /**
  * MARKETING: TRAER CLIENTES Y HACERLOS VOLVER (2026-08-24).
@@ -27,7 +28,7 @@ import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
  * historial del navegador no puede terminar en 404.
  */
 
-type Pestania = "anuncios" | "campanias" | "presencia";
+type Pestania = "anuncios" | "campanias" | "presencia" | "publicar";
 
 export default function MarketingPanel() {
   const router = useRouter();
@@ -44,7 +45,10 @@ export default function MarketingPanel() {
   // "atrás" del navegador vuelva a la que estaba, no a la sección anterior.
   const t = params.get("t");
   const inicial: Pestania =
-    t === "campanias" ? "campanias" : t === "presencia" ? "presencia" : "anuncios";
+    t === "campanias" ? "campanias"
+    : t === "presencia" ? "presencia"
+    : t === "publicar" ? "publicar"
+    : "anuncios";
   const [pestania, setPestania] = useState<Pestania>(inicial);
 
   useEffect(() => {
@@ -104,13 +108,24 @@ export default function MarketingPanel() {
 
       {/* LAS PESTAÑAS. Mismo patrón que las de Campañas por dentro, para que
           quien ya usó esa pantalla no tenga que aprender otro control. */}
-      <div className="flex gap-1.5" role="tablist">
+      {/* LAS PESTAÑAS COMO TARJETAS (2026-08-27, Jonathan: "este diseño de la
+          parte de los selectores, TRISTE Y POBRE").
+          Eran cuatro chips de texto: "Anuncios", "Campañas"… nombres que no
+          dicen qué hace cada uno. Ahora cada una lleva su icono y su frase, así
+          se elige por lo que se quiere LOGRAR y no por adivinar el nombre. */}
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4" role="tablist">
         {([
-          { id: "anuncios", label: "Anuncios", ayuda: "Traer clientes nuevos", cap: "tieneAnuncios" },
-          { id: "campanias", label: "Campañas", ayuda: "Hacer volver a los que ya vinieron", cap: "tieneCampanias" },
+          { id: "anuncios", label: "Anuncios", ayuda: "Traer gente nueva", icono: <IconoMegafono />, cap: "tieneAnuncios" },
+          { id: "campanias", label: "Campañas", ayuda: "Hacer que vuelvan", icono: <IconoRepetir />, cap: "tieneCampanias" },
+          // PUBLICAR entra a Marketing (2026-08-27, Jonathan: "lo que tenemos
+          // en la aplicación que irá para Guisela, poder publicar videos e
+          // imágenes en todas las plataformas... eso también les ayudaría").
+          // Es marketing igual que anunciar: la diferencia es que esto es
+          // orgánico y aquello se paga.
+          { id: "publicar", label: "Publicar", ayuda: "Un post, todas tus redes", icono: <IconoCamara />, cap: null },
           // Sin `cap`: no depende del rubro. Un negocio con dirección quiere
-          // reseñas, venda comida o dé consultas.
-          { id: "presencia", label: "Presencia", ayuda: "Tu negocio en Google", cap: null },
+          // que lo encuentren, venda comida o dé consultas.
+          { id: "presencia", label: "Presencia", ayuda: "Que te encuentren", icono: <IconoUbicacion />, cap: null },
         ] as const).filter((p) => p.cap === null || caps[p.cap]).map((p) => {
           const activa = mostrar === p.id;
           return (
@@ -119,14 +134,28 @@ export default function MarketingPanel() {
               role="tab"
               aria-selected={activa}
               onClick={() => elegir(p.id)}
-              title={p.ayuda}
-              className={`rounded-chip px-4 py-2 text-sm font-semibold transition ${
+              className={`flex flex-col items-start gap-2 rounded-tarjeta p-3.5 text-left transition ${
                 activa
-                  ? "bg-brasa text-sobre-brasa"
-                  : "text-tinta-2 ring-1 ring-linea hover:bg-arena"
+                  ? "bg-superficie-honda text-arena shadow-[var(--sombra-tarjeta)]"
+                  : "bg-carta text-tinta-2 ring-1 ring-linea hover:bg-arena/60"
               }`}
             >
-              {p.label}
+              <span
+                className={`grid h-9 w-9 place-items-center rounded-full ${
+                  activa ? "bg-arena/15 text-arena" : "bg-brasa/12 text-brasa-texto"
+                }`}
+                aria-hidden
+              >
+                {p.icono}
+              </span>
+              <span className="min-w-0">
+                <span className={`block text-[0.92rem] font-bold ${activa ? "text-arena" : "text-tinta"}`}>
+                  {p.label}
+                </span>
+                <span className={`mt-0.5 block text-[0.78rem] ${activa ? "text-arena/70" : "text-frio"}`}>
+                  {p.ayuda}
+                </span>
+              </span>
             </button>
           );
         })}
@@ -140,11 +169,58 @@ export default function MarketingPanel() {
           en blanco. */}
       {mostrar === "presencia" ? (
         <PresenciaEditor />
+      ) : mostrar === "publicar" ? (
+        <PublicarPanel embebido />
       ) : mostrar === "anuncios" ? (
         <AnunciosPanel embebido />
       ) : (
         <CampaniasPanel embebido />
       )}
     </div>
+  );
+}
+
+/* ── LOS ICONOS DE LAS PESTAÑAS ──
+   En SVG y no emoji: los emoji se ven distinto en cada teléfono y no toman el
+   color del tema. Estos heredan `currentColor`, así que cambian con la
+   pestaña activa sin duplicar clases. */
+
+function IconoMegafono() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 11v2a1 1 0 001 1h2l4 4V6L6 10H4a1 1 0 00-1 1z" />
+      <path d="M15 8a5 5 0 010 8" />
+      <path d="M18.5 5a9 9 0 010 14" />
+    </svg>
+  );
+}
+
+function IconoRepetir() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 0115-6.7L21 8" />
+      <path d="M21 4v4h-4" />
+      <path d="M21 12a9 9 0 01-15 6.7L3 16" />
+      <path d="M3 20v-4h4" />
+    </svg>
+  );
+}
+
+function IconoCamara() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2.5" y="6" width="19" height="13" rx="2.5" />
+      <path d="M8.5 6l1.4-2.2h4.2L15.5 6" />
+      <circle cx="12" cy="12.5" r="3.2" />
+    </svg>
+  );
+}
+
+function IconoUbicacion() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z" />
+      <circle cx="12" cy="10" r="2.6" />
+    </svg>
   );
 }

@@ -8,6 +8,7 @@ import {
   type ConfigHorario,
 } from "@/lib/horario";
 import { guardarNegocio } from "@/lib/carta";
+import { HeroSeccion } from "@/components/panel/HeroSeccion";
 
 /**
  * TU NEGOCIO EN INTERNET (2026-08-27, pedido de Jonathan).
@@ -134,30 +135,15 @@ export function PresenciaEditor() {
 
   return (
     <div className="space-y-5">
-      {/* ── EL HERO: PRIMERO EL PORQUÉ ──
-          Antes esta pantalla arrancaba con un "0 de 5" gris. Nadie configura
-          algo que no sabe para qué sirve: primero se entiende qué gana. */}
-      <div className="overflow-hidden rounded-tarjeta bg-superficie-honda text-arena">
-        <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:p-7">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[1.45rem] font-bold leading-tight sm:text-[1.7rem]">
-              Haz que te encuentren en Google y gana clientes de tu zona
-            </h2>
-            <p className="mt-2.5 text-[0.95rem] text-arena/80">
-              Cuando alguien busca <em>&ldquo;pollería cerca de mí&rdquo;</em>,
-              ¿aparece tu negocio? Si estás en Google Maps y tienes buenas
-              reseñas, sí.
-            </p>
-            <p className="mt-2 text-[0.9rem] text-arena/70">
-              Aquí lo configuras todo, sin salir de esta página.
-            </p>
-          </div>
-          {/* La ilustración: un teléfono con la ficha de Google. Dibujada en
-              SVG y no una imagen — pesa nada y se ve nítida en cualquier
-              pantalla. */}
-          <FichaGoogleIlustracion />
-        </div>
-      </div>
+      {/* El hero, con el mismo componente que Anuncios, Campañas y Publicar:
+          las cuatro secciones de Marketing tienen que verse hermanas, y cuatro
+          copias del mismo bloque divergen a la primera edición. */}
+      <HeroSeccion
+        titulo="Haz que te encuentren en Google y gana clientes de tu zona"
+        bajada={<>Cuando alguien busca <em>&ldquo;pollería cerca de mí&rdquo;</em>, ¿aparece tu negocio? Si estás en Google Maps y tienes buenas reseñas, sí.</>}
+        nota="Aquí lo configuras todo, sin salir de esta página."
+        dibujo={<FichaGoogleIlustracion />}
+      />
 
       {/* ── 1. GOOGLE ── */}
       <Bloque

@@ -153,6 +153,29 @@ export default function PlacasPanel() {
               })}
             </div>
 
+            {/* Radar de reseñas: lo que la placa le está sumando a su ficha */}
+            {p.estado === "activa" && p.resenas && (
+              <div className="mt-4 rounded-tarjeta bg-arena/40 px-4 py-3">
+                {p.resenas.ganadas > 0 ? (
+                  <p className="text-[0.9rem] text-tinta">
+                    <span className="font-bold">⭐ {p.resenas.base.total} → {p.resenas.ultimo.total} reseñas</span>{" "}
+                    en Google
+                    <span className="ml-1.5 rounded-full bg-ok/12 px-2 py-0.5 text-[0.76rem] font-bold text-ok">
+                      +{p.resenas.ganadas} desde tu placa
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-[0.9rem] text-tinta">
+                    <span className="font-bold">⭐ {p.resenas.ultimo.total} reseñas</span> en Google
+                    {typeof p.resenas.ultimo.rating === "number" && (
+                      <span className="ml-1.5 text-[0.84rem] text-tinta-2">· {p.resenas.ultimo.rating.toFixed(1)}</span>
+                    )}
+                    <span className="ml-1.5 text-[0.8rem] text-frio">— seguimos tu progreso semana a semana</span>
+                  </p>
+                )}
+              </div>
+            )}
+
             {p.estado === "activa" && (
               <div className="mt-4 flex flex-wrap items-center gap-3 text-[0.84rem]">
                 {p.reviewUrl && (

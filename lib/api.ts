@@ -1380,6 +1380,12 @@ export interface PlacaMia {
   escaneos: number;
   activadaEn: string | null;
   porMes: Record<string, number>; // "2026-08" → escaneos
+  // Radar de reseñas: foto al activar (base) y la última semanal (ultimo).
+  resenas: {
+    base: { rating: number | null; total: number; fecha: string };
+    ultimo: { rating: number | null; total: number; fecha: string };
+    ganadas: number;
+  } | null;
 }
 
 // Negocios de Google para elegir al activar: por GPS (lat/lng) o texto (q).

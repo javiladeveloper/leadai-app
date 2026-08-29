@@ -117,6 +117,16 @@ function ConfiguracionInner() {
   if (!listo) return null;
 
   const tabDeNegocio = tab !== "perfil";
+  /**
+   * LOS CHIPS DE NEGOCIO NO VAN EN PLAN (2026-08-27, Jonathan: "si estoy en
+   * plan y consumo no debería aparecerme elige tu negocio").
+   *
+   * Tiene razón: el consumo es de la CUENTA —el panorama de arriba suma todas
+   * sus empresas— así que pedirle que elija una antes de mostrárselo contesta
+   * la pregunta equivocada. El detalle por negocio de abajo trae su propio
+   * selector, que es donde sí corresponde elegir.
+   */
+  const eligeNegocioArriba = tabDeNegocio && tab !== "plan";
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-5 py-6 lg:px-8">
@@ -179,8 +189,8 @@ function ConfiguracionInner() {
         })}
       </div>
 
-      {/* Chips de negocio — solo en pestañas de negocio y con 2+ negocios */}
-      {tabDeNegocio && (
+      {/* Chips de negocio — solo donde la pantalla es DE un negocio. */}
+      {eligeNegocioArriba && (
         <BarraNegociosGlobal negocios={negocios} enfocado={tenantCfg} onElegir={elegirNegocio} />
       )}
 
@@ -227,15 +237,26 @@ function ConfiguracionInner() {
           )}
           {tab === "negocio" && (
             <>
-              {/* Un restaurante no mueve contactos por etapas ni hace
-                  seguimiento de tibios — sus pedidos avanzan solos (armando →
-                  pagado → cocina). Mostrárselos era ruido (2026-08-19).
+              {/* EL PLAYBOOK VUELVE ACÁ (2026-08-27). Lo había mandado entero
+                  al Bot y "Tu negocio" quedó VACÍO para un negocio de
+                  captación: horarios y pagos son solo de restaurante, así que
+                  no le quedaba nada.
 
-                  Se preguntan POR SEPARADO (2026-08-19) porque no son la misma
-                  cosa: una clínica NUTRE —recordatorios de cita— pero no tiene
-                  embudo, porque el estado real del paciente es su cita y no una
-                  etapa que alguien arrastra. Con un solo `if` se le escondían
-                  las dos. */}
+                  Y mirándolo bien, es el lugar correcto: adentro están el
+                  NOMBRE y el RUBRO, que son datos del negocio, no del bot. Lo
+                  que sí es del bot —qué responde, etapas, seguimiento— vive en
+                  su pestaña. */}
+              <PlaybookEditor />
+              {/* LAS ETAPAS NO SON DEL BOT (2026-08-27, Jonathan: "etapas del
+                  embudo yo creo que no iría en el bot").
+                  Tiene razón, y la auditoría lo confirma: `etapasEmbudo` solo
+                  lo leen el panel y los reportes — el motor sigue con sus 5
+                  estados internos. Renombrar o recolorear una etapa no cambia
+                  NADA de lo que el bot dice. Es cómo se ve TU tablero.
+
+                  Un restaurante no las usa: sus pedidos avanzan solos
+                  (armando → pagado → cocina), y mostrárselas era ruido. */}
+              {caps.tieneEmbudo && <EtapasEditor />}
               {/* El horario solo existía en la app móvil: un dueño en la
                   computadora no podía cerrar su cocina sin buscar el celular
                   (2026-08-19). Va detrás de `tieneCocina` porque un negocio de
@@ -250,7 +271,6 @@ function ConfiguracionInner() {
 
           {tab === "bot" && (
             <>
-              <PlaybookEditor />
               {/* "QUÉ RESPONDE TU BOT" SE MUDÓ DE CANALES (2026-08-27). Estaba
                   ahí porque se agregó pensando en el momento de conectar el
                   WhatsApp, pero es lo que MÁS habla del bot: buscarlo en la
@@ -264,15 +284,10 @@ function ConfiguracionInner() {
                   <QueRespondeElBot />
                 </Seccion>
               )}
-              {/* Un restaurante no mueve contactos por etapas ni hace
-                  seguimiento de tibios — sus pedidos avanzan solos (armando →
-                  pagado → cocina). Mostrárselos era ruido (2026-08-19).
-
-                  Se preguntan POR SEPARADO porque no son la misma cosa: una
-                  clínica NUTRE —recordatorios de cita— pero no tiene embudo,
-                  porque el estado real del paciente es su cita y no una etapa
-                  que alguien arrastra. */}
-              {caps.tieneEmbudo && <EtapasEditor />}
+              {/* CUÁNDO INSISTE, sí es del bot: el ritmo decide cada
+                  cuánto vuelve a escribirle a un lead que no contestó.
+                  (Las ETAPAS no están acá — ver el comentario en "Tu
+                  negocio".) */}
               {caps.nutreLeads && <RitmoSeguimiento />}
             </>
           )}
@@ -309,6 +324,23 @@ function ConfiguracionInner() {
                   llevo usado?" es una pregunta de la CUENTA, no de una empresa.
                   Con una sola empresa no se muestra — repetiría lo de abajo. */}
               <ConsumoDeCuenta />
+
+              {/* Y RECIÉN ACÁ EL DETALLE de UN negocio, con su propio selector.
+                  Los chips salieron de arriba (contestaban la pregunta
+                  equivocada), pero sin nada que diga de cuál se está hablando,
+                  las tarjetas de abajo son números sin dueño. */}
+              {negocios.length > 1 && (
+                <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+                  <p className="mb-2.5 text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+                    El detalle de un negocio
+                  </p>
+                  <BarraNegociosGlobal
+                    negocios={negocios}
+                    enfocado={tenantCfg}
+                    onElegir={elegirNegocio}
+                  />
+                </div>
+              )}
               <PlanConsumo />
               <ConfigComision />
             </>

@@ -38,6 +38,10 @@ export function PresenciaEditor() {
   const [error, setError] = useState("");
   const [guardado, setGuardado] = useState(false);
   const [pidiendo, setPidiendo] = useState(false);
+  // El error de ESTE botón va aparte del general: el mensaje de abajo queda a
+  // media pantalla de distancia y el dueño no lo ve — le parece que el botón
+  // "no hace nada", que es justo lo que reportó Jonathan.
+  const [errorFicha, setErrorFicha] = useState("");
   const [copiado, setCopiado] = useState(false);
 
   // Se guardan al SALIR del campo, no por tecla: un enlace a medio pegar
@@ -116,10 +120,13 @@ export function PresenciaEditor() {
 
   async function pedirAyuda() {
     setPidiendo(true);
-    setError("");
+    setErrorFicha("");
     const r = await pedirFichaGoogle();
     setPidiendo(false);
-    if (!r.ok) { setError(r.error ?? "No se pudo enviar"); return; }
+    if (!r.ok) {
+      setErrorFicha(r.error ?? "No pudimos enviar tu pedido. Intenta de nuevo.");
+      return;
+    }
     setCfg((c) => (c ? { ...c, googleFichaPedidaEn: new Date().toISOString() } : c));
   }
 
@@ -211,6 +218,11 @@ export function PresenciaEditor() {
                 >
                   {pidiendo ? "Enviando…" : "Créenla por mí"}
                 </button>
+                {errorFicha && (
+                  <p className="fila-entra mt-2 text-[0.84rem] font-semibold text-alerta">
+                    {errorFicha}
+                  </p>
+                )}
               </>
             )}
           </div>

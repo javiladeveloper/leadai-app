@@ -1429,6 +1429,28 @@ export interface PlacaAdmin {
   tenant: { nombre: string } | null;
 }
 
+// Torre de control Norac (super admin): MRR real, cuentas, placas por marca
+// y conexiones del ecosistema.
+export interface ResumenNorac {
+  mrr: {
+    centavos: number;
+    suscripciones: number;
+    enGracia: number;
+    porPlan: Record<string, { cuentas: number; centavos: number }>;
+  };
+  cuentas: { total: number; nuevas30d: number; porPlan: Record<string, number> };
+  placas: Record<string, {
+    total: number; activas: number; libres: number; bloqueadas: number;
+    activadas30d: number; escaneos30d: number;
+  }>;
+  ecosistema: { conSania: number; conFitcore: number };
+}
+
+export async function adminResumenNorac(): Promise<ResumenNorac | null> {
+  try { return await api("/admin/norac", { conEmpresa: false }); }
+  catch { return null; }
+}
+
 export async function adminResumenPlacas(): Promise<{
   total: number; libres: number; activas: number; bloqueadas: number; placas: PlacaAdmin[];
 } | null> {

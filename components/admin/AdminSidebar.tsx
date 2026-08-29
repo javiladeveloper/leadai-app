@@ -12,6 +12,9 @@ const SECCIONES = [
   // Operación de placas NFC (2026-08-29): alta de lotes con PINs, inventario,
   // reset de PIN y liberar para reventa.
   { href: "/admin/placas", label: "Placas", Icono: IconoBandeja },
+  // Torre de control Norac (2026-08-29): MRR real, cuentas, placas por marca
+  // y conexiones del ecosistema — la vista de dueño de grupo.
+  { href: "/admin/norac", label: "Norac", Icono: IconoReportes },
 ];
 
 // Sidebar del panel de super admin. Marca distinta (badge "ADMIN") para dejar

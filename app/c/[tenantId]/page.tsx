@@ -239,7 +239,10 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   const [enMesa, setEnMesa] = useState<{ mesa: string; total: number } | null>(null);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    setRefLead(q.get("ref"));
+    // `?r=` es el código corto (2026-08-29, el link del bot pasó de 87 a 49
+    // caracteres) y `?ref=` el firmado de antes: los links viejos siguen en
+    // los chats de la gente y tienen que traer su pedido igual.
+    setRefLead(q.get("r") ?? q.get("ref"));
     setMesaQR(q.get("mesa"));
   }, []);
 
@@ -261,7 +264,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   useEffect(() => {
     if (!carta || !refLead) return;
     let vivo = true;
-    fetch(`${API_URL}/c/${tenantId}/carrito-actual?ref=${encodeURIComponent(refLead)}`)
+    fetch(`${API_URL}/c/${tenantId}/carrito-actual?r=${encodeURIComponent(refLead)}`)
       .then(async (r) => (r.ok ? r.json() : { items: [] }))
       .then((prev: { modalidad?: "delivery" | "recojo"; items: { productoId: string | null; nombre: string; cantidad: number; opciones: string[] }[] }) => {
         if (!vivo || !prev.items?.length) return;
@@ -492,7 +495,10 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           ...bodyDelPedido(),
           // Con ref (el link lo mandó el bot) el pedido aparece DIRECTO en el
           // chat del cliente: nada de card para compartir ni código a mano.
-          ...(refLead ? { ref: refLead } : {}),
+          // `r` y no `ref`: el backend acepta los dos, pero éste es el que
+          // manda el link de hoy. Un `?ref=` viejo llega igual por acá y se
+          // resuelve por su firma.
+          ...(refLead ? { r: refLead } : {}),
         }),
       });
       const data = await res.json();

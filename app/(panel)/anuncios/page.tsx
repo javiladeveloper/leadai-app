@@ -11,7 +11,7 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
-import { HeroSeccion, AnuncioIlustracion } from "@/components/panel/HeroSeccion";
+import { HeroSeccion, CabeceraFormulario, AnuncioIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -271,7 +271,21 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
 
       {/* Wizard de creación */}
       {creando && (
-        <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+        <div className="space-y-4 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+          {/* El wizard ya tenía barra de pasos, pero arrancaba en frío: sin
+              decir qué se está por hacer ni que se puede salir. */}
+          <CabeceraFormulario
+            icono={
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 11v2a1 1 0 001 1h2l4 4V6L6 10H4a1 1 0 00-1 1z" />
+                <path d="M15 8a5 5 0 010 8" />
+                <path d="M18.5 5a9 9 0 010 14" />
+              </svg>
+            }
+            titulo="Vamos a armar tu anuncio"
+            bajada="Cuatro pasos: qué quieres lograr, qué mostrar, a quién y cuánto gastar. Puedes volver atrás en cualquiera."
+            onCerrar={() => setCreando(false)}
+          />
           {/* Progreso */}
           <div className="mb-4 flex items-center gap-1.5">
             {["Objetivo", "Contenido", "Público", "Presupuesto", "Resumen"].map((t, i) => (

@@ -42,6 +42,59 @@ export function HeroSeccion({
   );
 }
 
+/**
+ * EL ENCABEZADO DE UN FORMULARIO DE CREACIÓN (2026-08-27, pedido de Jonathan).
+ *
+ * "Hay un botón crear nueva campaña, nuevo anuncio, etc... ten el mismo
+ * cuidado que tuviste en Presencia... están bien planos, aburridos y feos".
+ *
+ * Los formularios abrían con un título suelto —"Nueva campaña"— y campos
+ * debajo. El dueño no sabe qué va a pasar cuando termine, ni cuánto le va a
+ * tomar, ni si puede arrepentirse.
+ *
+ * Este encabezado contesta eso antes del primer campo: qué está por hacer, en
+ * su idioma, con su icono para que se distinga de las otras secciones.
+ */
+export function CabeceraFormulario({
+  icono,
+  titulo,
+  bajada,
+  onCerrar,
+}: {
+  icono: React.ReactNode;
+  titulo: string;
+  bajada: React.ReactNode;
+  /** Volver atrás sin crear nada. Poder salir es parte de animarse a entrar. */
+  onCerrar?: () => void;
+}) {
+  return (
+    <div className="flex items-start gap-3.5 border-b border-linea pb-4">
+      <span
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brasa/12 text-brasa-texto"
+        aria-hidden
+      >
+        {icono}
+      </span>
+      <div className="min-w-0 flex-1">
+        <h2 className="text-[1.1rem] font-bold text-tinta">{titulo}</h2>
+        <p className="mt-1 text-[0.86rem] text-frio">{bajada}</p>
+      </div>
+      {onCerrar && (
+        <button
+          type="button"
+          onClick={onCerrar}
+          aria-label="Cerrar"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-frio transition hover:bg-arena hover:text-tinta"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ── LAS ILUSTRACIONES ──
    SVG y no imágenes: pesan casi nada, se ven nítidas en cualquier pantalla y
    no hay que subir archivos. Son esquemáticas a propósito — muestran la IDEA

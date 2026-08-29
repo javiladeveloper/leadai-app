@@ -10,7 +10,7 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
-import { HeroSeccion, PublicarIlustracion } from "@/components/panel/HeroSeccion";
+import { HeroSeccion, CabeceraFormulario, PublicarIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -380,7 +380,21 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
       )}
 
       {/* Editor */}
-      <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+      <div className="space-y-4 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+        {/* Sin cabecera, el editor arrancaba directo en el campo de texto: no
+            decía qué se está armando. No lleva botón de cerrar porque acá el
+            formulario ES la pantalla — no hay a dónde volver. */}
+        <CabeceraFormulario
+          icono={
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2.5" y="6" width="19" height="13" rx="2.5" />
+              <path d="M8.5 6l1.4-2.2h4.2L15.5 6" />
+              <circle cx="12" cy="12.5" r="3.2" />
+            </svg>
+          }
+          titulo="Arma tu publicación"
+          bajada="Sube tu foto o video, escribe el texto y elige a qué redes va. Antes de publicar ves cómo va a quedar."
+        />
         {/* Plantillas: texto listo para completar (sin IA, costo cero) */}
         {plantillas.length > 0 && (
           <div className="mb-4">

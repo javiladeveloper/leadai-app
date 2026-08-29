@@ -11,7 +11,7 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
-import { HeroSeccion, CampaniaIlustracion } from "@/components/panel/HeroSeccion";
+import { HeroSeccion, CabeceraFormulario, CampaniaIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -274,7 +274,22 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
       {/* ── Nueva campaña ── */}
       {pestania === "campanias" && creando && (
         <div className="space-y-4 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <h2 className="text-[1.05rem] font-bold text-tinta">Nueva campaña</h2>
+          {/* Antes: un "Nueva campaña" suelto y campos debajo. No decía qué
+              iba a pasar al terminar, que es lo que frena a alguien que nunca
+              mandó una. */}
+          <CabeceraFormulario
+            icono={
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 0115-6.7L21 8" />
+                <path d="M21 4v4h-4" />
+                <path d="M21 12a9 9 0 01-15 6.7L3 16" />
+                <path d="M3 20v-4h4" />
+              </svg>
+            }
+            titulo="Escríbeles a tus clientes de siempre"
+            bajada="Eliges a quiénes y qué decirles. Los mensajes salen de a poco para cuidar tu número."
+            onCerrar={() => setCreando(false)}
+          />
 
           <div>
             <label className="text-[0.85rem] font-bold text-tinta">Nombre (interno, para reconocerla)</label>

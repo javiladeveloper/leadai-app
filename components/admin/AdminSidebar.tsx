@@ -9,6 +9,9 @@ const SECCIONES = [
   { href: "/admin", label: "Métricas", Icono: IconoReportes },
   { href: "/admin/negocios", label: "Negocios", Icono: IconoBandeja },
   { href: "/admin/aprendizaje", label: "Aprendizaje", Icono: IconoRayo },
+  // Operación de placas NFC (2026-08-29): alta de lotes con PINs, inventario,
+  // reset de PIN y liberar para reventa.
+  { href: "/admin/placas", label: "Placas", Icono: IconoBandeja },
 ];
 
 // Sidebar del panel de super admin. Marca distinta (badge "ADMIN") para dejar

@@ -1400,15 +1400,55 @@ export async function negociosParaPlaca(
 
 export async function activarPlaca(
   input: { uid: string; pin: string; placeId: string }, tenant?: string,
-): Promise<{ ok: boolean; reviewUrl?: string; error?: string }> {
+): Promise<{ ok: boolean; reviewUrl?: string; marca?: string | null; error?: string }> {
   try {
-    const r = await api<{ reviewUrl: string }>("/placas/activar", {
+    const r = await api<{ reviewUrl: string; marca?: string | null }>("/placas/activar", {
       method: "POST", body: input, tenant, conCookies: true,
     });
-    return { ok: true, reviewUrl: r.reviewUrl };
+    return { ok: true, reviewUrl: r.reviewUrl, marca: r.marca ?? null };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo activar" };
   }
+}
+
+// ── Placas: operación del super admin (alta de lote, PINs) ──────
+export interface PlacaAdmin {
+  uid: string;
+  estado: string;
+  lote: string | null;
+  marca: string | null;
+  escaneos: number;
+  activadaEn: string | null;
+  creadoEn: string;
+  tenant: { nombre: string } | null;
+}
+
+export async function adminResumenPlacas(): Promise<{
+  total: number; libres: number; activas: number; bloqueadas: number; placas: PlacaAdmin[];
+} | null> {
+  try { return await api("/admin/placas", { conEmpresa: false }); }
+  catch { return null; }
+}
+
+export async function adminAltaLotePlacas(input: {
+  uids: string[]; lote?: string; marca?: string;
+}): Promise<{ registradas: { uid: string; pin: string }[]; invalidas: string[]; yaExistian: string[] } | null> {
+  try { return await api("/admin/placas/lote", { method: "POST", body: input, conEmpresa: false }); }
+  catch { return null; }
+}
+
+export async function adminResetPinPlaca(uid: string): Promise<{ ok: boolean; pin?: string; error?: string }> {
+  try {
+    const r = await api<{ pin: string }>(`/admin/placas/${uid}/reset-pin`, { method: "POST", conEmpresa: false });
+    return { ok: true, pin: r.pin };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo" }; }
+}
+
+export async function adminLiberarPlaca(uid: string): Promise<{ ok: boolean; pin?: string; error?: string }> {
+  try {
+    const r = await api<{ pin: string }>(`/admin/placas/${uid}/liberar`, { method: "POST", conEmpresa: false });
+    return { ok: true, pin: r.pin };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo" }; }
 }
 
 export async function misPlacas(tenant?: string): Promise<PlacaMia[]> {

@@ -40,6 +40,9 @@ export default function ActivarPlaca() {
   const [activando, setActivando] = useState(false);
   const [error, setError] = useState("");
   const [reviewUrl, setReviewUrl] = useState("");
+  // La MARCA de la placa (leadai/sania/fitcore) decide qué producto invita la
+  // pantalla de éxito — publicidad en el momento de máxima atención.
+  const [marca, setMarca] = useState<string | null>(null);
 
   useEffect(() => {
     // El uid viene en la URL (?uid=04A2...). Se lee acá y no con
@@ -100,11 +103,20 @@ export default function ActivarPlaca() {
     setActivando(false);
     if (r.ok && r.reviewUrl) {
       setReviewUrl(r.reviewUrl);
+      setMarca(r.marca ?? null);
       setPaso("listo");
     } else {
       setError(r.error ?? "No se pudo activar. Intenta de nuevo.");
     }
   }
+
+  // La invitación de la pantalla de éxito, según el diseño impreso de la placa.
+  const invitacion =
+    marca === "sania"
+      ? { titulo: "¿Tu clínica todavía agenda a mano?", texto: "Sania agenda las citas, les confirma a tus pacientes y organiza tu día.", url: "https://www.saniape.com/?utm_source=placa&utm_medium=activacion", cta: "Conoce Sania" }
+      : marca === "fitcore"
+        ? { titulo: "¿Manejas un gimnasio?", texto: "FitCore controla socios, pagos y accesos en una sola pantalla.", url: "https://www.fitcorecenter.com/?utm_source=placa&utm_medium=activacion", cta: "Conoce FitCore" }
+        : { titulo: "¿Sabías que tu cuenta puede más?", texto: "LeadAI puede responder el WhatsApp de tu negocio con IA — ya tienes cuenta, solo actívalo.", url: "https://leadai-pe.com/?utm_source=placa&utm_medium=activacion", cta: "Descubre LeadAI" };
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-5 px-5 py-8">
@@ -277,6 +289,21 @@ export default function ActivarPlaca() {
           <button onClick={() => router.push("/placas")} className="text-[0.88rem] font-semibold text-brasa-texto">
             Ir a mi panel →
           </button>
+
+          {/* La invitación según la MARCA impresa en la placa: el momento de
+              máxima atención es publicidad gratis del producto correcto. */}
+          <div className="mt-2 rounded-tarjeta bg-arena/50 p-4 text-left ring-1 ring-linea">
+            <p className="text-[0.92rem] font-bold text-tinta">{invitacion.titulo}</p>
+            <p className="mt-1 text-[0.84rem] text-tinta-2">{invitacion.texto}</p>
+            <a
+              href={invitacion.url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-[0.86rem] font-semibold text-brasa-texto"
+            >
+              {invitacion.cta} →
+            </a>
+          </div>
         </div>
       )}
     </main>

@@ -12,6 +12,7 @@ import {
 import { SkeletonReportes } from "@/components/Skeletons";
 import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
 import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
+import { HeroSeccion, ReportesIlustracion } from "@/components/panel/HeroSeccion";
 
 const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
 
@@ -86,6 +87,12 @@ function ReportesPanel() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 lg:px-8">
+      <HeroSeccion
+        titulo="Cómo te fue, en números"
+        bajada={<>Cuánto entró, de dónde vinieron tus clientes y qué días vendes más. Sin planillas ni cuentas a mano.</>}
+        dibujo={<ReportesIlustracion />}
+      />
+
       <header>
         <p className="eyebrow">Tus ventas</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Reportes</h1>

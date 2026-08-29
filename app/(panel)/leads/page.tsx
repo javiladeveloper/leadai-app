@@ -8,6 +8,7 @@ import { listarLeads, crearLeadManual, type Lead, type NivelInteres, type Estado
 import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { IconoRayo } from "@/components/Iconos";
 import { SkeletonLista } from "@/components/Skeletons";
+import { HeroSeccion, LeadsIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 type FiltroNivel = "todos" | NivelInteres;
@@ -157,6 +158,16 @@ function LeadsPanelInner() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-5 py-6 lg:px-8">
+      {/* EL HERO (2026-08-27, Jonathan: "el mismo esfuerzo que metimos para
+          marketing... deberíamos tenerlo para cada sección"). Un título de una
+          palabra no le dice a nadie qué hace acá ni por dónde empezar. */}
+      <HeroSeccion
+        titulo="Todos los que te escribieron, en un solo lugar"
+        bajada={<>Cada persona que te contactó por WhatsApp queda acá, con lo que la IA entendió de su mensaje.</>}
+        nota="Los marcados como calientes son a los que conviene escribirles hoy."
+        dibujo={<LeadsIlustracion />}
+      />
+
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Tu bandeja</p>

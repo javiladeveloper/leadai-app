@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { useNegociosGlobal } from "@/components/panel/GlobalNegocios";
+import { HeroSeccion, OportunidadesIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -70,6 +71,13 @@ export default function OportunidadesPanel() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-5 py-6 lg:px-8">
+      <HeroSeccion
+        titulo="Vende para otros negocios y cobra comisión"
+        bajada={<>Empresas que buscan vendedores publican acá lo que pagan por cada cliente. Tomas la que te interesa y trabajas con tu red.</>}
+        nota="Tú pones los contactos; la IA atiende los chats por ti."
+        dibujo={<OportunidadesIlustracion />}
+      />
+
       <header>
         <p className="eyebrow">Red LeadAI</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Oportunidades</h1>

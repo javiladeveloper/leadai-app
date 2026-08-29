@@ -14,6 +14,8 @@ import type { Capacidades } from "./modo-negocio";
  */
 
 export interface Seccion {
+  /** Solo se muestra si el negocio activó al menos una placa NFC. */
+  soloConPlacas?: boolean;
   href: string;
   label: string;
   /** Nombre corto para la barra de móvil, donde no entra el largo. */
@@ -104,10 +106,19 @@ export function seccionesDe(
   secciones: readonly Seccion[],
   caps: Capacidades,
   rol?: string,
+  /**
+   * Estado del negocio que NO es una capacidad del rubro (2026-08-27).
+   *
+   * `tienePlacas` es el primero: casi ningún negocio tiene placas NFC, así que
+   * el ítem era una puerta a una pantalla vacía. Aparece el día que activa la
+   * primera.
+   */
+  estado?: { tienePlacas?: boolean },
 ): Seccion[] {
   const porCapacidad = secciones.filter((s) => {
     if (s.requiere && !caps[s.requiere]) return false;
     if (s.requiereAlguna && !s.requiereAlguna.some((c) => caps[c])) return false;
+    if (s.soloConPlacas && !estado?.tienePlacas) return false;
     return true;
   });
   if (rol !== "mozo") return porCapacidad;

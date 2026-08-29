@@ -59,7 +59,13 @@ export const SECCIONES: Seccion[] = [
   // Publicar y Comentarios son la otra mitad del mismo trabajo (las redes
   // del negocio), así que el bloque junta a los tres.
   { href: "/marketing", label: "Marketing", Icono: IconoRayo, requiereAlguna: ["tieneAnuncios", "tieneCampanias"], grupo: "Marketing" },
-  { href: "/publicar", label: "Publicar", Icono: IconoOportunidades, requiere: "calificaLeads", grupo: "Marketing" },
+  // PUBLICAR SALIÓ DEL MENÚ (2026-08-27, Jonathan: "sacar del menú publicar,
+  // porque ya no va"). Vive dentro de Marketing como pestaña, junto a
+  // Anuncios, Campañas y Presencia — tenerlo en los dos lados hacía que el
+  // mismo destino se viera como dos cosas distintas.
+  //
+  // La RUTA /publicar sigue existiendo: un link guardado o el historial del
+  // navegador no puede terminar en 404.
   { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones, requiere: "calificaLeads", grupo: "Marketing" },
 
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos, requiere: "redactaRespuestas" },
@@ -80,7 +86,9 @@ export const SECCIONES: Seccion[] = [
   { href: "/equipo", label: "Equipo", Icono: IconoConversaciones, requiere: "calificaLeads", grupo: "Tu negocio" },
   // Placas NFC de reseñas (2026-08-26): SIN `requiere` a propósito — un
   // restaurante quiere reseñas de Google igual que una contadora.
-  { href: "/placas", label: "Placas", Icono: IconoRayo, grupo: "Tu negocio" },
+  // PLACAS SOLO SI TIENE UNA (2026-08-27, Jonathan: "cuando activen una placa
+  // recién debe aparecer la opción; si no activan ninguna, que no aparezca").
+  { href: "/placas", label: "Placas", Icono: IconoRayo, grupo: "Tu negocio", soloConPlacas: true },
 
   // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona,
   // no de un negocio; decisión 2026-07-22). Ajustes entra a la barra de móvil
@@ -110,7 +118,9 @@ export function Sidebar() {
   // Carta, nada más. El backend igual lo bloquea con 403 — esto existe para no
   // mostrarle puertas que al abrirlas dan error.
   const rol = rolEnEmpresaActiva();
-  const secciones = negocio === null ? [] : seccionesDe(SECCIONES, negocio.capacidades, rol);
+  const secciones = negocio === null
+    ? []
+    : seccionesDe(SECCIONES, negocio.capacidades, rol, { tienePlacas: negocio.tienePlacas });
   const nombre = sesion?.usuario?.nombre ?? sesion?.usuario?.email ?? "Mi cuenta";
   const inicial = nombre.trim().charAt(0).toUpperCase() || "?";
 

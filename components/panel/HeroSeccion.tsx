@@ -207,4 +207,116 @@ export function PublicarIlustracion() {
   );
 }
 
+
+/* ── ILUSTRACIONES DE LAS SECCIONES DEL EMBUDO (2026-08-27) ──
+   Jonathan: "el mismo esfuerzo que metimos para marketing... deberíamos
+   tenerlo para cada sección, para que se vea amigable, intuitivo".
+   Mismo criterio que las de arriba: esquemáticas, en SVG, mostrando la IDEA
+   de la sección y no una captura. */
+
+/** Una lista de contactos con su temperatura: el que llega y hay que atender. */
+export function LeadsIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      <rect x="16" y="12" width="118" height="106" rx="10" fill="#fff" opacity=".95" />
+      {[
+        { y: 30, c: "#e8895f", t: "🔥" },
+        { y: 58, c: "#f0c9a8", t: "" },
+        { y: 86, c: "#c8ddd4", t: "" },
+      ].map((f, i) => (
+        <g key={i}>
+          <circle cx={36} cy={f.y} r="9" fill={f.c} />
+          <rect x={52} y={f.y - 7} width="44" height="5" rx="2.5" fill="#3c4043" />
+          <rect x={52} y={f.y + 2} width="30" height="4" rx="2" fill="#c8ccd0" />
+          {/* La temperatura: lo que decide a quién llamar primero */}
+          <rect x={104} y={f.y - 6} width="18" height="11" rx="5.5" fill={i === 0 ? "#e8895f" : "#eef2f5"} />
+          {i === 0 && (
+            <text x={113} y={f.y + 2} textAnchor="middle" fontSize="7" fill="#fff" fontWeight="700">
+              ●
+            </text>
+          )}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** Un negocio ofreciendo trabajo a un vendedor: el marketplace. */
+export function OportunidadesIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      {/* El maletín del negocio que busca */}
+      <rect x="14" y="42" width="52" height="42" rx="7" fill="#fff" opacity=".95" />
+      <path d="M32 42v-5a4 4 0 014-4h8a4 4 0 014 4v5" fill="none" stroke="#fff" strokeWidth="3" opacity=".95" />
+      <rect x="24" y="56" width="32" height="4" rx="2" fill="#3c4043" />
+      <rect x="24" y="65" width="22" height="3.5" rx="1.75" fill="#c8ccd0" />
+      {/* El apretón: se toma la oportunidad */}
+      <path d="M70 63h14" stroke="#fff" strokeWidth="2" strokeDasharray="3 3" opacity=".5" />
+      <circle cx="112" cy="63" r="23" fill="#fff" opacity=".95" />
+      <circle cx="112" cy="55" r="7.5" fill="#f0c9a8" />
+      <path d="M100 79a12 12 0 0124 0z" fill="#f0c9a8" />
+      <circle cx="130" cy="46" r="10" fill="#e8895f" />
+      <path d="M126 46l3 3 6-6" stroke="#fff" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** El embudo por etapas: dónde está cada venta. */
+export function SeguimientoIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <rect x={12 + i * 44} y="20" width="38" height="92" rx="7" fill="#fff" opacity={0.95 - i * 0.18} />
+          <rect x={18 + i * 44} y="28" width="20" height="4" rx="2" fill="#9aa0a6" />
+          {Array.from({ length: 3 - i }).map((_, j) => (
+            <g key={j}>
+              <rect x={18 + i * 44} y={40 + j * 22} width="26" height="16" rx="4" fill="#eef2f5" />
+              <rect x={22 + i * 44} y={45 + j * 22} width="18" height="3" rx="1.5" fill="#c8ccd0" />
+            </g>
+          ))}
+        </g>
+      ))}
+      {/* La que se mueve a la siguiente etapa */}
+      <path d="M46 48h14" stroke="#e8895f" strokeWidth="2" fill="none" markerEnd="url(#f)" />
+      <defs>
+        <marker id="f" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+          <path d="M0 0l5 2.5L0 5z" fill="#e8895f" />
+        </marker>
+      </defs>
+    </svg>
+  );
+}
+
+/** Un gráfico que sube: cómo va el negocio. */
+export function ReportesIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      <rect x="14" y="16" width="122" height="98" rx="10" fill="#fff" opacity=".95" />
+      {/* Las barras */}
+      {[
+        { x: 30, h: 26 },
+        { x: 52, h: 40 },
+        { x: 74, h: 34 },
+        { x: 96, h: 56 },
+      ].map((b, i) => (
+        <rect
+          key={i}
+          x={b.x}
+          y={96 - b.h}
+          width="14"
+          height={b.h}
+          rx="3.5"
+          fill={i === 3 ? "#e8895f" : "#d8e3dd"}
+        />
+      ))}
+      <path d="M26 96h100" stroke="#e8eaed" strokeWidth="2" />
+      {/* La línea de tendencia, que es lo que se mira */}
+      <path d="M37 74l22-12 22 6 22-20" stroke="#e8895f" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="103" cy="48" r="4.5" fill="#e8895f" />
+      <rect x="30" y="26" width="34" height="5" rx="2.5" fill="#3c4043" />
+    </svg>
+  );
+}
+
 export default HeroSeccion;

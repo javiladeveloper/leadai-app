@@ -56,6 +56,16 @@ export interface EstadoNegocio {
   vocabulario: Vocabulario;
   /** Derivado en el backend. Sigue viajando para el código que aún lo usa. */
   modoPedidos: boolean;
+  /**
+   * ¿Tiene alguna placa NFC activa? (2026-08-27)
+   *
+   * Va APARTE de `capacidades`: esas son del RUBRO y no cambian solas; esta es
+   * un estado del negocio que cambia el día que activa su primera placa.
+   *
+   * Opcional: un backend viejo no lo manda, y ahí se asume `false` — esconder
+   * un ítem de más es mejor que mostrar una pantalla vacía a todos.
+   */
+  tienePlacas?: boolean;
 }
 
 /**
@@ -78,6 +88,9 @@ const TODO_ENCENDIDO: EstadoNegocio = {
   },
   vocabulario: { contacto: "lead", contactos: "Leads", buscar: "Buscar leads o mensajes…" },
   modoPedidos: false,
+  // Sin saber, NO se muestra Placas: casi ningún negocio tiene, y la pantalla
+  // vacía confunde más que la ausencia del ítem.
+  tienePlacas: false,
 };
 
 /**

@@ -16,6 +16,7 @@ import { BadgeCanal } from "@/components/BadgeCanal";
 import PopupLead from "@/components/panel/PopupLead";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
 import type { NegocioBandeja } from "@/lib/api";
+import { HeroSeccion, SeguimientoIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -187,6 +188,13 @@ export default function SeguimientoPanel() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 lg:px-8">
+      <HeroSeccion
+        titulo="En qué va cada venta, sin anotarlo aparte"
+        bajada={<>Cada cliente avanza por etapas —nuevo, en conversación, ganado— y lo mueves arrastrándolo cuando cierras o descartas.</>}
+        nota="La IA lo va moviendo sola según lo que responde el cliente."
+        dibujo={<SeguimientoIlustracion />}
+      />
+
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Tu pipeline</p>

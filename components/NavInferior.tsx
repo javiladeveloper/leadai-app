@@ -36,8 +36,15 @@ export function NavInferior() {
   const caps = negocio?.capacidades ?? null;
   // El rol filtra encima de las capacidades: un mozo no ve Inicio ni Ajustes.
   const rol = rolEnEmpresaActiva();
+  // Placas solo si el negocio activó una (2026-08-27). Va aparte de `caps`:
+  // no es una capacidad del rubro sino un estado que cambia con el tiempo.
+  const estado = { tienePlacas: negocio?.tienePlacas };
   const rapidos = caps ? rapidosDe(SECCIONES, caps, rol) : SECCIONES.filter((s) => s.rapido !== undefined).slice(0, 4);
-  const todas = caps ? seccionesDe(SECCIONES, caps, rol) : SECCIONES;
+  const todas = caps
+    ? seccionesDe(SECCIONES, caps, rol, estado)
+    // Sin saber, se muestra el menú completo MENOS Placas: el resto de las
+    // secciones existen para casi todos, esta casi para nadie.
+    : SECCIONES.filter((s) => !s.soloConPlacas);
 
   return (
     <>

@@ -144,6 +144,30 @@ export interface PerfilNegocio {
   respuestasFijas?: { palabra: string; respuesta: string }[];
 }
 
+/**
+ * LO TÍPICO DE SU RUBRO (2026-08-27, Jonathan: "tantas opciones de texto
+ * libre, una persona no puede saber qué escribir").
+ *
+ * Los negocios nuevos ya nacen con el playbook lleno; esto es para que el
+ * panel ofrezca las mismas sugerencias como chips a los que ya existen.
+ */
+export interface SugerenciasPlaybook {
+  preguntasClave: string[];
+  senalesCaliente: string[];
+  senalesFrio: string[];
+  objeciones: { objecion: string; respuesta: string }[];
+}
+
+export async function obtenerSugerenciasPlaybook(): Promise<SugerenciasPlaybook | null> {
+  try {
+    const r = await api<{ sugerencias: SugerenciasPlaybook }>("/perfil/sugerencias");
+    return r.sugerencias;
+  } catch {
+    // Sin sugerencias la pantalla funciona igual: son ayuda, no requisito.
+    return null;
+  }
+}
+
 export async function obtenerPerfil(): Promise<PerfilNegocio | null> {
   try {
     const r = await api<{ perfil: PerfilNegocio } | PerfilNegocio>("/perfil");

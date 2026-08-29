@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
+import {
+  obtenerPerfil, guardarPerfil, obtenerSugerenciasPlaybook,
+  type PerfilNegocio, type SugerenciasPlaybook,
+} from "@/lib/api";
 import { RUBROS } from "@/lib/rubros";
 import { Seccion } from "@/components/panel/Seccion";
 import { useCapacidadesOptimista } from "@/lib/modo-negocio";
@@ -62,6 +65,15 @@ export function PlaybookEditor() {
   // llegar la respuesta, justo lo contrario de lo que decía el comentario de
   // arriba. Reportado por Jonathan: "carga una cosa y al ratito otra".
   const caps = useCapacidadesOptimista();
+  // Los ejemplos de su rubro, para los chips. `null` mientras cargan o si
+  // falla: son ayuda, y sin ellos la pantalla funciona igual que siempre.
+  const [sug, setSug] = useState<SugerenciasPlaybook | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    void obtenerSugerenciasPlaybook().then((r) => { if (vivo) setSug(r); });
+    return () => { vivo = false; };
+  }, []);
 
   useEffect(() => {
     let cancelado = false;
@@ -211,6 +223,44 @@ export function PlaybookEditor() {
 
       {caps.calificaLeads && (
         <>
+          {/* "COMPLETAR CON LO TÍPICO DE MI RUBRO" (2026-08-27).
+              Los negocios NUEVOS ya nacen con el playbook lleno, pero los que
+              ya existían lo tienen vacío — y son la mayoría. Los chips ayudan
+              de a uno; esto lo deja andando de una.
+
+              Solo aparece si TODO está vacío: con algo escrito, los chips
+              alcanzan y un botón que llena cuatro listas de golpe da miedo. */}
+          {sug &&
+            perfil.preguntasClave.length === 0 &&
+            perfil.senalesCaliente.length === 0 &&
+            perfil.senalesFrio.length === 0 &&
+            perfil.objeciones.length === 0 && (
+              <div className="rounded-tarjeta bg-arena/60 p-4">
+                <p className="text-[0.88rem] font-bold text-tinta">
+                  ¿Empezamos con lo típico de tu rubro?
+                </p>
+                <p className="mt-1 text-[0.84rem] text-frio">
+                  Llenamos las listas de abajo con lo que suele funcionar en
+                  negocios como el tuyo. Después borras o cambias lo que quieras
+                  — nada se publica hasta que guardes.
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPerfil({
+                      ...perfil,
+                      preguntasClave: sug.preguntasClave,
+                      senalesCaliente: sug.senalesCaliente,
+                      senalesFrio: sug.senalesFrio,
+                      objeciones: sug.objeciones,
+                    })
+                  }
+                  className="mt-3 rounded-tarjeta bg-brasa px-4 py-2.5 text-[0.85rem] font-bold text-sobre-brasa transition active:scale-[0.99]"
+                >
+                  Completar con lo típico de mi rubro
+                </button>
+              </div>
+            )}
           <ListaCatalogo
             catalogo={perfil.catalogo}
             onChange={(catalogo) => setPerfil({ ...perfil, catalogo })}
@@ -221,6 +271,7 @@ export function PlaybookEditor() {
             placeholder="¿Para cuándo lo necesitas?"
             valores={perfil.preguntasClave}
             onChange={(preguntasClave) => setPerfil({ ...perfil, preguntasClave })}
+            sugerencias={sug?.preguntasClave}
           />
           <ListaSimple
             titulo="Señales de que un cliente está listo para comprar"
@@ -228,6 +279,7 @@ export function PlaybookEditor() {
             placeholder="Ej: pregunta por precios y disponibilidad"
             valores={perfil.senalesCaliente}
             onChange={(senalesCaliente) => setPerfil({ ...perfil, senalesCaliente })}
+            sugerencias={sug?.senalesCaliente}
           />
           <ListaSimple
             titulo="Señales de que un cliente todavía no está listo"
@@ -235,6 +287,7 @@ export function PlaybookEditor() {
             placeholder="Ej: solo pregunta info general, sin urgencia"
             valores={perfil.senalesFrio}
             onChange={(senalesFrio) => setPerfil({ ...perfil, senalesFrio })}
+            sugerencias={sug?.senalesFrio}
           />
           <ListaObjeciones
             objeciones={perfil.objeciones}
@@ -367,12 +420,21 @@ function ListaSimple({
   placeholder,
   valores,
   onChange,
+  sugerencias = [],
 }: {
   titulo: string;
   descripcion?: string;
   placeholder?: string;
   valores: string[];
   onChange: (v: string[]) => void;
+  /**
+   * Ejemplos de su rubro, para tocar y agregar (2026-08-27, Jonathan: "tantas
+   * opciones de texto libre, una persona no puede saber qué escribir").
+   *
+   * Un placeholder con UN ejemplo en gris no alcanza: hay que entender para
+   * qué sirve la lista antes de inventar la primera línea.
+   */
+  sugerencias?: string[];
 }) {
   function actualizar(i: number, v: string) {
     const copia = [...valores];
@@ -393,6 +455,29 @@ function ListaSimple({
     <div className="border-t border-linea pt-4">
       <p className="text-[0.88rem] font-bold text-tinta">{titulo}</p>
       {descripcion && <p className="mb-2.5 mt-0.5 text-[0.78rem] text-frio">{descripcion}</p>}
+
+      {/* LOS CHIPS. Solo los que TODAVÍA NO agregó: ofrecerle algo que ya
+          tiene lo haría dudar de si se guardó. */}
+      {(() => {
+        const yaEstan = new Set(valores.map((v) => v.trim().toLowerCase()));
+        const libres = sugerencias.filter((x) => !yaEstan.has(x.trim().toLowerCase()));
+        if (libres.length === 0) return null;
+        return (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {libres.map((x) => (
+              <button
+                key={x}
+                type="button"
+                onClick={() => onChange([...valores.filter((v) => v.trim()), x])}
+                className="rounded-chip bg-arena px-2.5 py-1 text-[0.78rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-linea"
+              >
+                + {x}
+              </button>
+            ))}
+          </div>
+        );
+      })()}
+
       <div className="space-y-2">
         {valores.map((v, i) => (
           <div key={i} className="flex items-center gap-2">

@@ -319,4 +319,142 @@ export function ReportesIlustracion() {
   );
 }
 
+
+/* ── ILUSTRACIONES DE CONFIGURACIÓN (2026-08-27) ──
+   Jonathan: "esa ventana se ve horrible, plana, sin vida... pon animaciones,
+   imágenes, sé más creativo, para cada uno: canales, plan y consumo, perfil". */
+
+/** El bot con su cerebro de instrucciones: lo que sabe para responder. */
+export function BotIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      {/* La cabeza del bot */}
+      <rect x="38" y="34" width="74" height="60" rx="16" fill="#fff" opacity=".95" />
+      <rect x="70" y="20" width="10" height="16" rx="5" fill="#fff" opacity=".7" />
+      <circle cx="75" cy="18" r="6" fill="#e8895f">
+        {/* La antena late: el bot está despierto y atendiendo */}
+        <animate attributeName="opacity" values="1;.35;1" dur="2.4s" repeatCount="indefinite" />
+      </circle>
+      {/* Los ojos */}
+      <circle cx="61" cy="58" r="6.5" fill="#3c4043" />
+      <circle cx="89" cy="58" r="6.5" fill="#3c4043" />
+      <circle cx="63" cy="56" r="2.2" fill="#fff" />
+      <circle cx="91" cy="56" r="2.2" fill="#fff" />
+      {/* La sonrisa */}
+      <path d="M63 76q12 9 24 0" stroke="#3c4043" strokeWidth="3" fill="none" strokeLinecap="round" />
+      {/* Las instrucciones que lee, entrando por los costados */}
+      {[
+        { x: 8, y: 44 }, { x: 8, y: 66 }, { x: 118, y: 44 }, { x: 118, y: 66 },
+      ].map((c, i) => (
+        <g key={i}>
+          <rect x={c.x} y={c.y} width="24" height="15" rx="4" fill="#fff" opacity=".55" />
+          <rect x={c.x + 4} y={c.y + 4} width="16" height="2.5" rx="1.25" fill="#3c4043" opacity=".45" />
+          <rect x={c.x + 4} y={c.y + 9} width="11" height="2.5" rx="1.25" fill="#3c4043" opacity=".3" />
+        </g>
+      ))}
+      <rect x="52" y="102" width="46" height="6" rx="3" fill="#fff" opacity=".35" />
+    </svg>
+  );
+}
+
+/** Las apps por donde le escriben, entrando a un mismo lugar. */
+export function CanalesIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      {/* WhatsApp, Instagram y Facebook */}
+      {[
+        { y: 16, fill: "#25d366", d: "M15 8a7 7 0 00-6 10.6L8 22l3.5-1a7 7 0 103.5-13z" },
+        { y: 52, fill: "#e1306c", d: "" },
+        { y: 88, fill: "#1877f2", d: "" },
+      ].map((r, i) => (
+        <g key={i}>
+          <rect x="8" y={r.y} width="30" height="30" rx="9" fill={r.fill} />
+          {i === 0 && <path d="M16 24a8 8 0 116.5 3.4L15 30l1.4-3.4A8 8 0 0116 24z" fill="#fff" />}
+          {i === 1 && (
+            <>
+              <rect x="16" y={r.y + 8} width="14" height="14" rx="4.5" fill="none" stroke="#fff" strokeWidth="2" />
+              <circle cx="23" cy={r.y + 15} r="3.4" fill="none" stroke="#fff" strokeWidth="2" />
+            </>
+          )}
+          {i === 2 && (
+            <path
+              d={`M26 ${r.y + 11}h-3v-2.2c0-.9.6-1.1 1-1.1h2V4.3h-2.8c-3.1 0-3.8 2.3-3.8 3.8v3H17v3.5h2.4V${r.y + 24}h3.6v-9.5h2.6z`}
+              fill="#fff"
+              transform={`translate(0 ${r.y - 4})`}
+            />
+          )}
+          {/* La línea que entra a la bandeja */}
+          <path
+            d={`M42 ${r.y + 15}h24`}
+            stroke="#fff"
+            strokeWidth="1.8"
+            strokeDasharray="3 3"
+            opacity=".55"
+          />
+        </g>
+      ))}
+      {/* La bandeja única donde caen todos */}
+      <rect x="72" y="30" width="66" height="66" rx="12" fill="#fff" opacity=".95" />
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <circle cx={87} cy={46 + i * 20} r="6" fill="#f0c9a8" />
+          <rect x={98} y={42 + i * 20} width="28" height="4" rx="2" fill="#3c4043" />
+          <rect x={98} y={50 + i * 20} width="18" height="3" rx="1.5" fill="#c8ccd0" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** El medidor del consumo del mes: cuánto va usado del plan. */
+export function PlanIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      {/* El arco del medidor */}
+      <path d="M32 96a43 43 0 0186 0" fill="none" stroke="#fff" strokeWidth="12" strokeLinecap="round" opacity=".28" />
+      <path d="M32 96a43 43 0 0158-40" fill="none" stroke="#e8895f" strokeWidth="12" strokeLinecap="round">
+        {/* Se llena al entrar: el consumo del mes avanzando */}
+        <animate attributeName="stroke-dasharray" values="0 200;92 200" dur="1.1s" fill="freeze" />
+      </path>
+      <text x="75" y="88" textAnchor="middle" fill="#fff" fontSize="22" fontWeight="700">
+        68
+      </text>
+      <text x="75" y="102" textAnchor="middle" fill="#fff" fontSize="8" opacity=".7">
+        de 400
+      </text>
+      {/* Las monedas del plan */}
+      <ellipse cx="122" cy="34" rx="13" ry="4.5" fill="#fff" opacity=".9" />
+      <path d="M109 34v9c0 2.5 5.8 4.5 13 4.5s13-2 13-4.5v-9" fill="#fff" opacity=".75" />
+      <ellipse cx="122" cy="43" rx="13" ry="4.5" fill="#fff" opacity=".9" />
+    </svg>
+  );
+}
+
+/** El CV del vendedor: cómo lo ven los negocios que buscan quién venda. */
+export function PerfilIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      <rect x="26" y="12" width="98" height="106" rx="12" fill="#fff" opacity=".95" />
+      <circle cx="75" cy="42" r="16" fill="#f0c9a8" />
+      <path d="M55 70a20 20 0 0140 0z" fill="#f0c9a8" />
+      <rect x="52" y="78" width="46" height="5" rx="2.5" fill="#3c4043" />
+      <rect x="60" y="88" width="30" height="4" rx="2" fill="#c8ccd0" />
+      {/* Las estrellas de su reputación */}
+      <g fill="#e8895f">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <circle key={i} cx={53 + i * 11} cy={102} r="3.4">
+            <animate
+              attributeName="opacity"
+              values="0;1"
+              dur="0.35s"
+              begin={`${0.15 * i}s`}
+              fill="freeze"
+            />
+          </circle>
+        ))}
+      </g>
+    </svg>
+  );
+}
+
 export default HeroSeccion;

@@ -12,6 +12,10 @@ import { LocalesEditor } from "@/components/panel/LocalesEditor";
 import { PanelCanales } from "@/components/panel/PanelCanales";
 import { QueRespondeElBot } from "@/components/panel/QueRespondeElBot";
 import { Seccion } from "@/components/panel/Seccion";
+import { ConsumoDeCuenta } from "@/components/panel/ConsumoDeCuenta";
+import {
+  HeroSeccion, BotIlustracion, CanalesIlustracion, PlanIlustracion, PerfilIlustracion,
+} from "@/components/panel/HeroSeccion";
 import { PlanConsumo } from "@/components/panel/PlanConsumo";
 import { ConfigComision } from "@/components/panel/ConfigComision";
 import { MiPerfilVendedorPanel } from "@/components/panel/MiPerfilVendedor";
@@ -28,14 +32,24 @@ import type { NegocioBandeja } from "@/lib/api";
 // La pestaña "Mi perfil" es de la PERSONA (dueña de la cuenta): sin chips.
 // El "＋ Agregar otro negocio" también vive acá (antes estaba en el selector
 // del header, que ya no existe).
-type Tab = "negocio" | "canales" | "plan" | "perfil";
+type Tab = "negocio" | "bot" | "canales" | "plan" | "perfil";
 
 // La BAJADA cambia con la pestaña (2026-08-18): una sola frase genérica no
 // dice nada, y "Mi perfil" traía la suya en un segundo encabezado propio.
-const TABS: { id: Tab; label: string; bajada: string; requiere?: keyof Capacidades }[] = [
-  { id: "negocio", label: "Tu negocio", bajada: "Lo que el bot necesita saber para responder por ti." },
-  { id: "canales", label: "Canales", bajada: "Conecta tus redes para que LeadAI atienda en cada una." },
-  { id: "plan", label: "Plan y consumo", bajada: "Qué incluye tu plan, cuánto llevas usado y cómo atiende el bot." },
+// EL BOT TIENE SU PROPIA ZONA (2026-08-27, Jonathan: "siento que el bot tiene
+// demasiadas configuraciones... podríamos agregar una zona específica para
+// configuración del BOT, cosa que no mezclemos todo en TU NEGOCIO").
+//
+// Estaba todo junto y peor: "Qué responde tu bot" vivía en CANALES, así que
+// para entender cómo contesta había que mirar en dos pestañas distintas.
+//
+// Ahora: "Tu negocio" son los DATOS (horarios, pagos, locales) y "El bot" es
+// CÓMO ATIENDE (playbook, qué responde, etapas, seguimiento).
+const TABS: { id: Tab; label: string; corta: string; bajada: string; requiere?: keyof Capacidades }[] = [
+  { id: "negocio", label: "Tu negocio", corta: "Horarios y pagos", bajada: "Los datos de tu negocio: horarios, cómo cobras y tus locales." },
+  { id: "bot", label: "El bot", corta: "Cómo atiende", bajada: "Cómo atiende, qué responde y cuándo hace seguimiento." },
+  { id: "canales", label: "Canales", corta: "Por dónde te escriben", bajada: "Conecta tus redes para que LeadAI atienda en cada una." },
+  { id: "plan", label: "Plan y consumo", corta: "Cuánto llevas usado", bajada: "Cuánto llevas usado este mes y qué empresa consume más." },
   // "Mi perfil" es el CV del VENDEDOR del marketplace —foto, años de
   // experiencia, ventas cerradas, rubros en los que sos bueno, experiencia
   // profesional— y su propia bajada lo dice: "así te ven los negocios que
@@ -45,7 +59,7 @@ const TABS: { id: Tab; label: string; bajada: string; requiere?: keyof Capacidad
   // Jonathan: "tiene cosas que no vienen al caso"). De sus 16 campos le
   // servirían cinco, y el resto —LinkedIn, portfolio, mini-CV— es ruido en la
   // pantalla donde configura su negocio.
-  { id: "perfil", label: "Mi perfil", bajada: "Así te ven los negocios que buscan vendedores.", requiere: "calificaLeads" },
+  { id: "perfil", label: "Mi perfil", corta: "Tu CV de vendedora", bajada: "Así te ven los negocios que buscan vendedores.", requiere: "calificaLeads" },
 ];
 
 function ConfiguracionInner() {
@@ -123,30 +137,47 @@ function ConfiguracionInner() {
         </button>
       </header>
 
-      {/* Pestañas como SEGMENTOS, el mismo control que usa Carta (2026-08-18):
-          el subrayado fino que había antes no se leía como algo tocable, y en
-          celular obligaba a adivinar cuál estaba activa. */}
-      {/* En celular las cuatro no entran: hacen scroll y un degradado al borde
-          derecho avisa que hay más (si no, "Mi perfil" simplemente no existe
-          para quien no se le ocurra deslizar). */}
-      <nav className="relative flex gap-1 overflow-x-auto rounded-tarjeta bg-carta p-1 ring-1 ring-linea [scrollbar-width:none] after:pointer-events-none after:sticky after:right-0 after:-ml-8 after:h-9 after:w-8 after:shrink-0 after:bg-gradient-to-l after:from-carta after:to-transparent sm:after:hidden [&::-webkit-scrollbar]:hidden">
+      {/* PESTAÑAS COMO TARJETAS (2026-08-27, mismo criterio que Marketing).
+          Eran cinco chips de texto en una fila con scroll: en celular había
+          que adivinar que existían las de la derecha, y "Tu negocio" vs "El
+          bot" no se distinguen por el nombre. Con icono y una frase, se elige
+          por lo que se busca hacer. */}
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-5" role="tablist">
         {TABS.filter((x) => !x.requiere || caps[x.requiere]).map((t) => {
           const activa = tab === t.id;
           return (
             <button
               key={t.id}
               type="button"
+              role="tab"
+              aria-selected={activa}
               onClick={() => setTab(t.id)}
-              className={`flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-[0.9rem] font-semibold transition ${
-                activa ? "bg-brasa text-sobre-brasa" : "text-tinta-2 hover:bg-arena"
+              className={`flex flex-col items-start gap-2 rounded-tarjeta p-3.5 text-left transition ${
+                activa
+                  ? "bg-superficie-honda text-arena shadow-[var(--sombra-tarjeta)]"
+                  : "bg-carta text-tinta-2 ring-1 ring-linea hover:bg-arena/60"
               }`}
-              aria-current={activa ? "page" : undefined}
             >
-              {t.label}
+              <span
+                className={`grid h-9 w-9 place-items-center rounded-full ${
+                  activa ? "bg-arena/15 text-arena" : "bg-brasa/12 text-brasa-texto"
+                }`}
+                aria-hidden
+              >
+                <IconoTab id={t.id} />
+              </span>
+              <span className="min-w-0">
+                <span className={`block text-[0.92rem] font-bold ${activa ? "text-arena" : "text-tinta"}`}>
+                  {t.label}
+                </span>
+                <span className={`mt-0.5 block text-[0.78rem] ${activa ? "text-arena/70" : "text-frio"}`}>
+                  {t.corta}
+                </span>
+              </span>
             </button>
           );
         })}
-      </nav>
+      </div>
 
       {/* Chips de negocio — solo en pestañas de negocio y con 2+ negocios */}
       {tabDeNegocio && (
@@ -168,9 +199,34 @@ function ConfiguracionInner() {
         // animación corre de nuevo. Sin eso, cambiar de pestaña es un corte
         // seco y no se ve que el contenido es OTRO.
         <div key={`${tenantCfg}-${tab}`} className="surge space-y-5">
+          {/* EL HERO DE CADA PESTAÑA (2026-08-27, Jonathan: "esa ventana se ve
+              horrible, plana, sin vida... pon animaciones, imágenes, sé más
+              creativo, para cada uno: canales, plan y consumo, perfil"). */}
+          {tab === "bot" && (
+            <HeroSeccion
+              titulo="Tu bot ya sabe atender: dile cómo hacerlo"
+              bajada={<>Lee todo lo que pongas acá para responder por ti a cualquier hora, en tus palabras y con tus reglas.</>}
+              nota="Lo que no le digas, no lo inventa: prefiere derivarte la consulta."
+              dibujo={<BotIlustracion />}
+            />
+          )}
+          {tab === "canales" && (
+            <HeroSeccion
+              titulo="Todo lo que te escriben, en una sola bandeja"
+              bajada={<>Conecta WhatsApp, Instagram o Facebook y los mensajes de las tres caen en el mismo lugar, atendidos por tu bot.</>}
+              nota="Cada red se conecta una vez y queda andando."
+              dibujo={<CanalesIlustracion />}
+            />
+          )}
+          {tab === "plan" && (
+            <HeroSeccion
+              titulo="Cuánto llevas usado este mes"
+              bajada={<>Tu plan alcanza para todas tus empresas juntas. Acá ves cuánto va y cuál de ellas consume más.</>}
+              dibujo={<PlanIlustracion />}
+            />
+          )}
           {tab === "negocio" && (
             <>
-              <PlaybookEditor />
               {/* Un restaurante no mueve contactos por etapas ni hace
                   seguimiento de tibios — sus pedidos avanzan solos (armando →
                   pagado → cocina). Mostrárselos era ruido (2026-08-19).
@@ -180,8 +236,6 @@ function ConfiguracionInner() {
                   embudo, porque el estado real del paciente es su cita y no una
                   etapa que alguien arrastra. Con un solo `if` se le escondían
                   las dos. */}
-              {caps.tieneEmbudo && <EtapasEditor />}
-              {caps.nutreLeads && <RitmoSeguimiento />}
               {/* El horario solo existía en la app móvil: un dueño en la
                   computadora no podía cerrar su cocina sin buscar el celular
                   (2026-08-19). Va detrás de `tieneCocina` porque un negocio de
@@ -191,6 +245,35 @@ function ConfiguracionInner() {
                   cargado el bot no puede cobrarle a nadie: el pedido llega al
                   pago y muere ahí (2026-08-19). */}
               {caps.validaPagos && <PagosEditor />}
+            </>
+          )}
+
+          {tab === "bot" && (
+            <>
+              <PlaybookEditor />
+              {/* "QUÉ RESPONDE TU BOT" SE MUDÓ DE CANALES (2026-08-27). Estaba
+                  ahí porque se agregó pensando en el momento de conectar el
+                  WhatsApp, pero es lo que MÁS habla del bot: buscarlo en la
+                  pestaña de las redes no se le ocurre a nadie. */}
+              {caps.tieneCarta && (
+                <Seccion
+                  titulo="Qué responde tu bot"
+                  bajada="Todo esto lo contesta solo, con los datos de tu negocio."
+                  tono="hondo"
+                >
+                  <QueRespondeElBot />
+                </Seccion>
+              )}
+              {/* Un restaurante no mueve contactos por etapas ni hace
+                  seguimiento de tibios — sus pedidos avanzan solos (armando →
+                  pagado → cocina). Mostrárselos era ruido (2026-08-19).
+
+                  Se preguntan POR SEPARADO porque no son la misma cosa: una
+                  clínica NUTRE —recordatorios de cita— pero no tiene embudo,
+                  porque el estado real del paciente es su cita y no una etapa
+                  que alguien arrastra. */}
+              {caps.tieneEmbudo && <EtapasEditor />}
+              {caps.nutreLeads && <RitmoSeguimiento />}
             </>
           )}
 
@@ -217,28 +300,15 @@ function ConfiguracionInner() {
                 </Seccion>
               )}
 
-              {/* DEBAJO DE LA VINCULACIÓN (2026-08-20, pedido de Jonathan
-                  mirando la pantalla de ola.click): quien acaba de conectar su
-                  WhatsApp no sabe qué va a pasar después. Sin esto, o desconfía
-                  y contesta a mano —perdiendo lo que paga— o descubre los
-                  mensajes de a uno por el reclamo de un cliente.
-
-                  Solo para quien tiene carta: los mensajes que lista son los
-                  del bot de PEDIDOS. */}
-              {caps.tieneCarta && (
-                <Seccion
-                  titulo="Qué responde tu bot"
-                  bajada="Todo esto lo contesta solo, con los datos de tu negocio."
-                  tono="hondo"
-                >
-                  <QueRespondeElBot />
-                </Seccion>
-              )}
             </>
           )}
 
           {tab === "plan" && (
             <>
+              {/* PRIMERO EL PANORAMA (2026-08-27): con varios negocios, "¿cuánto
+                  llevo usado?" es una pregunta de la CUENTA, no de una empresa.
+                  Con una sola empresa no se muestra — repetiría lo de abajo. */}
+              <ConsumoDeCuenta />
               <PlanConsumo />
               <ConfigComision />
             </>
@@ -246,9 +316,21 @@ function ConfiguracionInner() {
         </div>
       )}
 
-      {/* El gate también acá: entrar por `?tab=perfil` a mano no puede
-              saltear lo que la pestaña esconde. */}
-          {tab === "perfil" && caps.calificaLeads && <MiPerfilVendedorPanel />}
+      {/* El gate también acá: entrar por `?tab=perfil` a mano no puede saltear
+          lo que la pestaña esconde.
+
+          El hero va en ESTE bloque y no arriba con los otros: aquel es solo
+          para las pestañas de NEGOCIO, y "Mi perfil" es de la persona. */}
+      {tab === "perfil" && caps.calificaLeads && (
+        <div className="surge space-y-5">
+          <HeroSeccion
+            titulo="Así te ven los negocios que buscan vendedores"
+            bajada={<>Tu experiencia, los rubros que manejas y lo que has cerrado. Es lo que mira una empresa antes de darte sus clientes.</>}
+            dibujo={<PerfilIlustracion />}
+          />
+          <MiPerfilVendedorPanel />
+        </div>
+      )}
     </div>
   );
 }
@@ -259,5 +341,56 @@ export default function ConfiguracionPanel() {
     <Suspense fallback={null}>
       <ConfiguracionInner />
     </Suspense>
+  );
+}
+
+/**
+ * El icono de cada pestaña.
+ *
+ * SVG y no emoji: los emoji se ven distinto en cada teléfono y no toman el
+ * color del tema. Estos heredan `currentColor`, así que cambian solos cuando
+ * la pestaña queda activa.
+ */
+function IconoTab({ id }: { id: Tab }) {
+  const c = "h-[18px] w-[18px]";
+  const p = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (id === "negocio") {
+    return (
+      <svg viewBox="0 0 24 24" className={c} {...p}>
+        <path d="M3 21h18" />
+        <path d="M5 21V8l7-5 7 5v13" />
+        <path d="M10 21v-6h4v6" />
+      </svg>
+    );
+  }
+  if (id === "bot") {
+    return (
+      <svg viewBox="0 0 24 24" className={c} {...p}>
+        <rect x="4" y="8" width="16" height="12" rx="4" />
+        <path d="M12 8V4" />
+        <circle cx="12" cy="3" r="1.4" />
+        <path d="M9.5 13.5h.01M14.5 13.5h.01" />
+      </svg>
+    );
+  }
+  if (id === "canales") {
+    return (
+      <svg viewBox="0 0 24 24" className={c} {...p}>
+        <path d="M21 11.5a8.5 8.5 0 01-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1121 11.5z" />
+      </svg>
+    );
+  }
+  if (id === "plan") {
+    return (
+      <svg viewBox="0 0 24 24" className={c} {...p}>
+        <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className={c} {...p}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0116 0" />
+    </svg>
   );
 }

@@ -52,8 +52,6 @@ export interface ConfigHorario {
   metaPixelId: string;
   /** GA4: "G-XXXXXXX". */
   googleAnalyticsId: string;
-  /** Cuándo pidió que le creemos la ficha de Google. null = nunca pidió. */
-  googleFichaPedidaEn: string | null;
   // Para el diagnóstico de presencia: qué tiene ya y qué le falta.
   direccion?: string | null;
   instagramUrl?: string | null;
@@ -111,7 +109,6 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       googleReviewUrl: r.config.googleReviewUrl ?? "",
       metaPixelId: r.config.metaPixelId ?? "",
       googleAnalyticsId: r.config.googleAnalyticsId ?? "",
-      googleFichaPedidaEn: r.config.googleFichaPedidaEn ?? null,
       direccion: r.config.direccion ?? null,
       instagramUrl: r.config.instagramUrl ?? null,
       facebookUrl: r.config.facebookUrl ?? null,
@@ -154,22 +151,6 @@ export async function guardarHorario(
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
-  }
-}
-
-/**
- * "CRÉENME LA FICHA DE GOOGLE" (2026-08-27).
- *
- * La API de Google Business Profile no está abierta —hay que pedirle acceso a
- * Google y puede tardar semanas o no salir— así que el dueño lo pide desde el
- * panel y alguien del equipo se la crea a mano.
- */
-export async function pedirFichaGoogle(): Promise<{ ok: boolean; error?: string }> {
-  try {
-    await api("/presencia/pedir-ficha-google", { method: "POST" });
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "No se pudo enviar" };
   }
 }
 

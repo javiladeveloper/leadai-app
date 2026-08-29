@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import {
   obtenerHorario,
   guardarHorario,
-  pedirFichaGoogle,
   type ConfigHorario,
 } from "@/lib/horario";
 import { guardarNegocio } from "@/lib/carta";
@@ -37,11 +36,6 @@ export function PresenciaEditor() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [guardado, setGuardado] = useState(false);
-  const [pidiendo, setPidiendo] = useState(false);
-  // El error de ESTE botón va aparte del general: el mensaje de abajo queda a
-  // media pantalla de distancia y el dueño no lo ve — le parece que el botón
-  // "no hace nada", que es justo lo que reportó Jonathan.
-  const [errorFicha, setErrorFicha] = useState("");
   const [copiado, setCopiado] = useState(false);
 
   // Se guardan al SALIR del campo, no por tecla: un enlace a medio pegar
@@ -118,23 +112,10 @@ export function PresenciaEditor() {
     avisarOk();
   }
 
-  async function pedirAyuda() {
-    setPidiendo(true);
-    setErrorFicha("");
-    const r = await pedirFichaGoogle();
-    setPidiendo(false);
-    if (!r.ok) {
-      setErrorFicha(r.error ?? "No pudimos enviar tu pedido. Intenta de nuevo.");
-      return;
-    }
-    setCfg((c) => (c ? { ...c, googleFichaPedidaEn: new Date().toISOString() } : c));
-  }
-
   if (cargando) return <div className="h-64 animate-pulse rounded-tarjeta bg-arena-2/70" />;
   if (!cfg) return null;
 
   const enGoogle = (cfg.googleReviewUrl ?? "").trim().length > 0;
-  const yaPidio = Boolean(cfg.googleFichaPedidaEn);
   const conRedes = Boolean(cfg.instagramUrl?.trim() || cfg.facebookUrl?.trim());
   const conCarta = Boolean(cfg.slug?.trim());
   const midiendo = Boolean((cfg.metaPixelId ?? "").trim() || (cfg.googleAnalyticsId ?? "").trim());
@@ -195,36 +176,81 @@ export function PresenciaEditor() {
           </p>
         )}
 
+        {/* SI TODAVÍA NO TIENE FICHA: LA GUÍA, NO SOPORTE (2026-08-27).
+            Jonathan: "no quiero que se apoye en soporte para crear su ficha,
+            ellos deben crearla".
+
+            Y no hay atajo técnico: Google EXIGE que el dueño verifique que el
+            local existe —video del local, postal o llamada— en su propia
+            cuenta. Es su defensa contra fichas falsas en direcciones ajenas,
+            así que ninguna API lo puede hacer por él. Ni siquiera OlaClick:
+            su botón conecta fichas que YA existen.
+
+            Lo que sí es nuestro es que no tenga que buscar cómo se hace. */}
         {!enGoogle && (
           <div className="mt-4 rounded-tarjeta bg-arena/60 p-4">
-            {yaPidio ? (
-              <p className="text-[0.86rem] font-semibold text-ok">
-                Recibimos tu pedido ✓ Te contactamos para crear tu ficha.
+            <p className="text-[0.88rem] font-bold text-tinta">
+              ¿Tu negocio todavía no está en Google?
+            </p>
+            <p className="mt-1 text-[0.84rem] text-frio">
+              Crearlo es <strong className="text-tinta">gratis</strong> y lo
+              haces tú en unos minutos. Google pide que seas tú quien confirme
+              que el local existe, así que este paso no lo puede hacer nadie
+              por ti.
+            </p>
+
+            <a
+              href="https://g.co/minegocio/peru"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-2 rounded-tarjeta bg-brasa px-4 py-2.5 text-[0.85rem] font-bold text-sobre-brasa transition active:scale-[0.99]"
+            >
+              Crear mi ficha en Google
+              <span aria-hidden>↗</span>
+            </a>
+
+            <ol className="mt-4 space-y-2.5">
+              {[
+                <>Entra con tu <strong className="text-tinta">correo de Gmail</strong> y escribe el nombre de tu negocio.</>,
+                <>Elige la categoría (<em>Restaurante</em>, <em>Pollería</em>…), tu dirección y tu teléfono.</>,
+                <>Ubica el punto exacto en el mapa y envía.</>,
+                <>Google te pide <strong className="text-tinta">verificar</strong> que el local existe. Lo más común hoy es un video.</>,
+              ].map((t, i) => (
+                <li key={i} className="flex gap-2.5 text-[0.85rem] text-tinta-2">
+                  <span
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-carta text-[0.72rem] font-bold text-frio ring-1 ring-linea"
+                    aria-hidden
+                  >
+                    {i + 1}
+                  </span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ol>
+
+            {/* EL VIDEO ES DONDE MÁS SE TRABA LA GENTE: se graba en vivo, sin
+                cortes, y si falta el cartel o la prueba de que el local es
+                suyo, Google lo rechaza y hay que esperar de nuevo. */}
+            <details className="mt-4">
+              <summary className="cursor-pointer text-[0.85rem] font-semibold text-brasa-texto">
+                Cómo es el video que pide Google
+              </summary>
+              <div className="mt-2.5 flex flex-col gap-4 sm:flex-row sm:items-start">
+                <ul className="min-w-0 flex-1 space-y-1.5 text-[0.84rem] text-frio">
+                  <li>• Se graba <strong className="text-tinta">en el momento</strong>, desde tu celular y sin cortar: uno ya grabado no sirve.</li>
+                  <li>• Dura al menos <strong className="text-tinta">30 segundos</strong>.</li>
+                  <li>• Muestra el <strong className="text-tinta">cartel con el nombre</strong> y la fachada desde afuera.</li>
+                  <li>• Entra al local (que se vea que tienes la llave) y muestra el interior.</li>
+                  <li>• Muestra algo que pruebe que es tuyo: un recibo de luz, tu licencia, o a ti atendiendo.</li>
+                  <li>• Sin caras de clientes y sin DNI ni papeles con datos personales.</li>
+                </ul>
+                <VideoIlustracion />
+              </div>
+              <p className="mt-2.5 text-[0.82rem] text-frio">
+                Google lo revisa a mano: puede tardar unos días. Cuando te
+                aprueben, vuelve aquí y pega tu link arriba.
               </p>
-            ) : (
-              <>
-                <p className="text-[0.86rem] font-semibold text-tinta">
-                  ¿Tu negocio todavía no está en Google?
-                </p>
-                <p className="mt-1 text-[0.84rem] text-frio">
-                  Es gratis y la creamos nosotros con tus datos. Tú solo
-                  confirmas cuando Google te llame o te mande la postal.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void pedirAyuda()}
-                  disabled={pidiendo}
-                  className="mt-3 rounded-tarjeta bg-brasa px-4 py-2.5 text-[0.85rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-60"
-                >
-                  {pidiendo ? "Enviando…" : "Créenla por mí"}
-                </button>
-                {errorFicha && (
-                  <p className="fila-entra mt-2 text-[0.84rem] font-semibold text-alerta">
-                    {errorFicha}
-                  </p>
-                )}
-              </>
-            )}
+            </details>
           </div>
         )}
       </Bloque>
@@ -532,6 +558,47 @@ function CompartirMapsIlustracion() {
       ))}
       {/* El anillo marca cuál es: el que hay que tocar. */}
       <circle cx="92" cy="48" r="16" fill="none" stroke="#1a73e8" strokeWidth="2" strokeDasharray="3 3" />
+    </svg>
+  );
+}
+
+/**
+ * El video de verificación: fachada con cartel, y grabando en vivo.
+ *
+ * Es el paso donde más se traba la gente —si falta el cartel o la prueba de
+ * que el local es suyo, Google lo rechaza y hay que esperar de nuevo— así que
+ * el dibujo muestra justo eso: el letrero a la vista.
+ */
+function VideoIlustracion() {
+  return (
+    <svg viewBox="0 0 110 92" className="h-[92px] w-auto shrink-0" aria-hidden>
+      {/* El celular grabando */}
+      <rect x="1" y="1" width="52" height="90" rx="8" fill="#fff" stroke="#e8eaed" />
+      {/* Lo que se ve en pantalla: el local con su cartel */}
+      <rect x="7" y="9" width="40" height="66" rx="4" fill="#eef2f5" />
+      <path d="M11 46h32v25H11z" fill="#d9e2e8" />
+      <rect x="14" y="33" width="26" height="9" rx="2" fill="#e8895f" />
+      <text x="27" y="40" textAnchor="middle" fill="#fff" fontSize="5.5" fontWeight="700">
+        MI LOCAL
+      </text>
+      <rect x="22" y="55" width="10" height="16" rx="1.5" fill="#8a9ba5" />
+      <rect x="13" y="52" width="6" height="6" rx="1" fill="#b7c6ce" />
+      <rect x="35" y="52" width="6" height="6" rx="1" fill="#b7c6ce" />
+      {/* El punto rojo de "grabando" */}
+      <circle cx="14" cy="15" r="3" fill="#ea4335" />
+      <text x="21" y="17.5" fill="#ea4335" fontSize="5.5" fontWeight="700">
+        REC
+      </text>
+      <circle cx="27" cy="82" r="6" fill="none" stroke="#c8ccd0" strokeWidth="2" />
+      {/* Los 30 segundos mínimos */}
+      <circle cx="82" cy="46" r="21" fill="none" stroke="#e8eaed" strokeWidth="4" />
+      <path d="M82 25a21 21 0 0118 10" fill="none" stroke="#e8895f" strokeWidth="4" strokeLinecap="round" />
+      <text x="82" y="44" textAnchor="middle" fill="#3c4043" fontSize="13" fontWeight="700">
+        30
+      </text>
+      <text x="82" y="54" textAnchor="middle" fill="#9aa0a6" fontSize="6.5">
+        segundos
+      </text>
     </svg>
   );
 }

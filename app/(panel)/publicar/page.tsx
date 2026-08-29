@@ -172,6 +172,17 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
     cargar();
   }, [listo, g.listaLista, cargar]);
 
+  // Cambio de EMPRESA activa (bug de Jonathan 2026-08-29): las redes
+  // conectadas son POR empresa — sin esto, al cambiar de empresa los chips de
+  // Instagram/FB quedaban con las conexiones de la anterior y dejaban
+  // "publicar" en un negocio sin redes.
+  useEffect(() => {
+    if (!listo) return;
+    const alCambiar = () => cargar();
+    window.addEventListener("leadai:empresa-cambiada", alCambiar);
+    return () => window.removeEventListener("leadai:empresa-cambiada", alCambiar);
+  }, [listo, cargar]);
+
   // Mapear qué negocios tienen al menos una red PUBLICABLE conectada, para
   // apagar los chips de los que no (y no entrar a un Publicar vacío).
   const negociosClave = g.negocios.map((n) => n.tenantId).join(",");

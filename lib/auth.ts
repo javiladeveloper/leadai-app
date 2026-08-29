@@ -62,7 +62,15 @@ export function guardarEmpresaActiva(tenantId: string): void {
   // eso pasa esta guarda sin problema.
   const soporte = leerModoSoporte();
   if (soporte && tenantId !== soporte.tenantId) return;
+  const anterior = localStorage.getItem(CLAVE_EMPRESA);
   localStorage.setItem(CLAVE_EMPRESA, tenantId);
+  // AVISO DE CAMBIO DE EMPRESA (2026-08-29, bug de Jonathan): Publicar
+  // mostraba las redes conectadas de la empresa ANTERIOR al cambiar — cada
+  // pantalla que dependa de la empresa activa puede escuchar este evento y
+  // recargar, en vez de confiar en que su ruta se re-monte.
+  if (anterior !== tenantId) {
+    window.dispatchEvent(new CustomEvent("leadai:empresa-cambiada", { detail: { tenantId } }));
+  }
 }
 
 export function leerEmpresaActiva(): string | null {

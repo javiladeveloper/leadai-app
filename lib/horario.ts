@@ -54,6 +54,12 @@ export interface ConfigHorario {
   googleAnalyticsId: string;
   /** Cuándo pidió que le creemos la ficha de Google. null = nunca pidió. */
   googleFichaPedidaEn: string | null;
+  // Para el diagnóstico de presencia: qué tiene ya y qué le falta.
+  direccion?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  /** El link corto de su carta. Sin esto no tiene qué promocionar. */
+  slug?: string | null;
 
   // ── Cuánto puede la cocina ──────────────────────────────────────────
   //
@@ -106,6 +112,10 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       metaPixelId: r.config.metaPixelId ?? "",
       googleAnalyticsId: r.config.googleAnalyticsId ?? "",
       googleFichaPedidaEn: r.config.googleFichaPedidaEn ?? null,
+      direccion: r.config.direccion ?? null,
+      instagramUrl: r.config.instagramUrl ?? null,
+      facebookUrl: r.config.facebookUrl ?? null,
+      slug: r.config.slug ?? null,
       yapeNumero: r.config.yapeNumero ?? "",
       yapeNombre: r.config.yapeNombre ?? "",
       // `?? true`: es lo que el backend devuelve para los negocios ya

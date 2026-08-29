@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePixelesCarta, medirEvento } from "@/components/PixelesCarta";
 import { Playfair_Display, Quicksand } from "next/font/google";
 import { volarAlCarrito } from "@/lib/vuelo-carrito";
 import { usarNumeroAnimado } from "@/lib/usar-numero-animado";
@@ -65,6 +66,9 @@ interface Carta {
     nombre: string; abierto: boolean; horaAbre: number | null; horaCierra: number | null;
     /** Pedido mínimo para delivery, en céntimos. 0 = sin mínimo. */
     minimoDeliveryCentavos?: number;
+    /** Píxeles del dueño (2026-08-27). Vacíos = la carta no carga nada. */
+    metaPixelId?: string;
+    googleAnalyticsId?: string;
     logoUrl: string | null; bannerUrl: string | null;
     direccion: string | null; entregaMinutos: number | null;
     /** A dónde llega el pedido. null = el negocio no conectó WhatsApp. */
@@ -467,6 +471,12 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           return;
         }
         setEnMesa({ mesa: data.mesa ?? mesaQR, total: data.totalCentavos });
+        // El dueño paga anuncios para que pase ESTO: se mide acá, cuando el
+        // pedido ya está confirmado, no cuando el cliente toca el botón.
+        medirEvento('Purchase', {
+          value: (data.totalCentavos ?? cotizacion?.totalCentavos ?? 0) / 100,
+          currency: 'PEN',
+        });
       } catch {
         setError("No pudimos conectar. Revisa tu internet.");
       } finally {
@@ -490,6 +500,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
         setError(data.error ?? "No pudimos enviar tu pedido");
         return;
       }
+      medirEvento('Purchase', { value: (cotizacion?.totalCentavos ?? 0) / 100, currency: 'PEN' });
       if (data.directo) {
         setEnChat(true);
         return;
@@ -501,6 +512,13 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       setEnviando(false);
     }
   }
+
+  // Los píxeles del dueño, si los configuró. Va antes de los `return`
+  // tempranos: es un hook y tiene que correr siempre.
+  usePixelesCarta({
+    metaPixelId: carta?.negocio.metaPixelId,
+    googleAnalyticsId: carta?.negocio.googleAnalyticsId,
+  });
 
   if (error && !carta) {
     return (

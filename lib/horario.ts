@@ -48,6 +48,12 @@ export interface ConfigHorario {
    * público para siempre.
    */
   googleReviewUrl: string;
+  /** Píxel de Meta: solo el número. Vacío = la carta no lo carga. */
+  metaPixelId: string;
+  /** GA4: "G-XXXXXXX". */
+  googleAnalyticsId: string;
+  /** Cuándo pidió que le creemos la ficha de Google. null = nunca pidió. */
+  googleFichaPedidaEn: string | null;
 
   // ── Cuánto puede la cocina ──────────────────────────────────────────
   //
@@ -97,6 +103,9 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       // el estado correcto — el bot no pide reseña sin link a dónde mandarla.
       googlePlaceId: r.config.googlePlaceId ?? "",
       googleReviewUrl: r.config.googleReviewUrl ?? "",
+      metaPixelId: r.config.metaPixelId ?? "",
+      googleAnalyticsId: r.config.googleAnalyticsId ?? "",
+      googleFichaPedidaEn: r.config.googleFichaPedidaEn ?? null,
       yapeNumero: r.config.yapeNumero ?? "",
       yapeNombre: r.config.yapeNombre ?? "",
       // `?? true`: es lo que el backend devuelve para los negocios ya
@@ -135,6 +144,22 @@ export async function guardarHorario(
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
+}
+
+/**
+ * "CRÉENME LA FICHA DE GOOGLE" (2026-08-27).
+ *
+ * La API de Google Business Profile no está abierta —hay que pedirle acceso a
+ * Google y puede tardar semanas o no salir— así que el dueño lo pide desde el
+ * panel y alguien del equipo se la crea a mano.
+ */
+export async function pedirFichaGoogle(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/presencia/pedir-ficha-google", { method: "POST" });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo enviar" };
   }
 }
 

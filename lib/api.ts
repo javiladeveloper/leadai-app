@@ -1507,10 +1507,20 @@ export async function crearAnuncio(input: {
 // cuenta publicitaria del negocio, todo EN PAUSA (el dueño la enciende desde
 // su Ads Manager). El backend valida config y traduce los errores de Meta.
 export async function publicarAnuncioMeta(
-  id: string, tenant?: string,
+  id: string,
+  tenant?: string,
+  /**
+   * `true` = el anuncio nace ENCENDIDO y empieza a gastar (2026-08-27).
+   *
+   * Por defecto queda en pausa: el gasto va a la tarjeta del dueño en su
+   * cuenta de Meta, así que encenderlo tiene que ser una decisión suya.
+   */
+  encender = false,
 ): Promise<{ ok: boolean; aviso?: string; error?: string }> {
   try {
-    const r = await api<{ aviso?: string }>(`/anuncios/${id}/publicar`, { method: "POST", tenant });
+    const r = await api<{ aviso?: string }>(`/anuncios/${id}/publicar`, {
+      method: "POST", body: { encender }, tenant,
+    });
     return { ok: true, aviso: r.aviso };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo publicar el anuncio" };

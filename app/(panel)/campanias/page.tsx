@@ -190,6 +190,18 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
           dibujo={<CampaniaIlustracion />}
         />
       )}
+
+      {/* EL AVISO DEL GASTO (2026-08-27, Jonathan: "este mensaje de advertencia
+          también debería ir en campañas, más que todo la parte del gasto").
+          Tiene razón y es el mismo caso que los anuncios: cada mensaje de
+          plantilla tiene un peaje que Meta le cobra AL NEGOCIO, directo. No
+          sale de su plan ni de nuestra bolsa, y enterarse por la factura de
+          Meta es la peor forma de descubrirlo. */}
+      <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
+        💬 Cada mensaje que envías tiene un costo que <b>Meta le cobra a tu
+        cuenta de WhatsApp</b>, no a LeadAI. Tu plan limita cuántos puedes
+        mandar al mes; el precio por mensaje lo pone Meta.
+      </div>
       <header className="flex flex-wrap items-end justify-between gap-3">
         {!embebido && (
           <div>

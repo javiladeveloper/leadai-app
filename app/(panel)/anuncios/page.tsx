@@ -66,6 +66,10 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
   const [recom, setRecom] = useState<RecomPresupuesto | null>(null);
   const [sugiriendo, setSugiriendo] = useState(false);
   const [publicando, setPublicando] = useState(false);
+  // ENCENDERLO ES SUYO (2026-08-27, Jonathan: "¿no hay forma que lo creemos no
+  // en pausa?"). Meta sí lo permite; el default queda apagado porque el gasto
+  // va a SU tarjeta y un presupuesto mal puesto le cuesta plata antes de verlo.
+  const [encender, setEncender] = useState(false);
   const [publicandoId, setPublicandoId] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
   const [msg, setMsg] = useState("");
@@ -170,12 +174,14 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
     }
     // Publicación REAL: crea la campaña en Meta (en pausa). Si la cuenta aún no
     // está configurada, el anuncio queda como borrador re-publicable.
-    const p = await publicarAnuncioMeta(r.id, g.tenantLista);
+    const p = await publicarAnuncioMeta(r.id, g.tenantLista, encender);
     setPublicando(false);
     // Reset del wizard (el anuncio ya existe; el resultado se avisa arriba)
-    setCreando(false); setPaso(0); setCampania(""); setTexto(""); setMediaUrl(""); setPublico(null); setZona("Todo Perú"); setTotal("100"); setDias("7"); setRecom(null);
+    setCreando(false); setPaso(0); setCampania(""); setTexto(""); setMediaUrl(""); setPublico(null); setZona("Todo Perú"); setTotal("100"); setDias("7"); setRecom(null); setEncender(false);
     setAviso(p.ok
-      ? `✅ ${p.aviso ?? "Anuncio publicado en Meta. Quedó PAUSADO: enciéndelo desde tu Ads Manager."}`
+      ? `✅ ${p.aviso ?? (encender
+          ? "Anuncio publicado y ENCENDIDO en Meta: ya empezó a mostrarse."
+          : "Anuncio publicado en Meta. Quedó PAUSADO: enciéndelo desde tu Ads Manager.")}`
       : `⚠️ El anuncio quedó como borrador. ${p.error ?? ""}`);
     cargar();
   }
@@ -258,8 +264,9 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
       )}
 
       <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
-        📣 Tus anuncios se crean de verdad en tu cuenta publicitaria de Meta, siempre <b>en pausa</b>:
-        tú los revisas y enciendes desde tu Ads Manager. El gasto va a tu propio medio de pago.
+        📣 Tus anuncios se crean de verdad en tu cuenta publicitaria de Meta.{" "}
+        <b>El gasto va a tu propio medio de pago</b>, no a LeadAI. Por defecto quedan
+        en pausa y los enciendes tú.
       </div>
 
       {aviso && (
@@ -467,10 +474,31 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                 <p><b className="text-tinta">Público:</b> {zona} · {edadMin}–{edadMax} años</p>
                 <p className="text-brasa-hondo"><b>Vas a gastar hasta S/{total} en {dias} días</b> (S/{(Number(total) / Number(dias) || 0).toFixed(2)}/día).</p>
               </div>
+              {/* EL CHECK, APAGADO POR DEFECTO. Encenderlo empieza a gastar
+                  de su tarjeta, así que tiene que ser un acto deliberado — no
+                  algo que pase por no leer. */}
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-tarjeta bg-arena/50 p-3.5">
+                <input
+                  type="checkbox"
+                  checked={encender}
+                  onChange={(e) => setEncender(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brasa)]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[0.88rem] font-bold text-tinta">
+                    Encenderlo apenas se cree
+                  </span>
+                  <span className="mt-0.5 block text-[0.8rem] text-frio">
+                    {encender
+                      ? `Empieza a mostrarse y a gastar de tu medio de pago hoy mismo, hasta S/${total} en ${dias} días.`
+                      : "Si lo dejas sin marcar, se crea en pausa y no gasta nada hasta que lo enciendas en tu Ads Manager."}
+                  </span>
+                </span>
+              </label>
               <p className="text-[0.78rem] text-frio">
-                🔒 El anuncio se crea <b>en pausa</b> en tu cuenta de Meta: no gasta nada hasta que
-                lo enciendas en tu Ads Manager. ⏳ Y cuando lo actives, los primeros 3-7 días
-                "aprende" — no lo pauses ni edites en ese tiempo para que rinda mejor.
+                ⏳ Cuando el anuncio esté activo, los primeros 3-7 días
+                &ldquo;aprende&rdquo; — no lo pauses ni edites en ese tiempo
+                para que rinda mejor.
               </p>
               {msg && <p className="text-[0.84rem] font-semibold text-calor-hondo">{msg}</p>}
             </div>

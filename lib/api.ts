@@ -1222,6 +1222,40 @@ export interface Canal {
 
 // `tenant` opcional: Publicar (vista global) consulta las redes del negocio
 // ENFOCADO sin cambiar la empresa activa.
+/**
+ * LAS CUENTAS QUE AUTORIZÓ Y TODAVÍA NO ELIGIÓ (2026-08-27, bug de Jonathan).
+ *
+ * Meta devuelve todas las páginas que administra. Con más de una no se guarda
+ * ninguna: quedan pendientes 10 minutos para que él elija cuál conectar —
+ * antes se guardaban TODAS y le comían el cupo de canales de su plan.
+ */
+export interface CuentaPendiente {
+  cuentaExterna: string;
+  nombre: string | null;
+}
+
+export async function cuentasPendientes(tipo: TipoCanal): Promise<CuentaPendiente[]> {
+  try {
+    const r = await api<{ cuentas: CuentaPendiente[] }>(`/canales/${tipo}/pendientes`);
+    return r.cuentas;
+  } catch {
+    // Sin pendientes no hay nada que elegir: es el caso normal.
+    return [];
+  }
+}
+
+export async function elegirCuenta(
+  tipo: TipoCanal,
+  cuentaExterna: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/canales/${tipo}/elegir`, { method: "POST", body: { cuentaExterna } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo conectar" };
+  }
+}
+
 export async function listarCanales(tenant?: string): Promise<Canal[]> {
   try { return await api<Canal[]>("/canales", { tenant }); } catch { return []; }
 }

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   listarCanales, obtenerUrlOAuth, actualizarCanal, eliminarCanal,
-  type Canal, type TipoCanal,
+  cuentasPendientes, elegirCuenta,
+  type Canal, type TipoCanal, type CuentaPendiente,
 } from "@/lib/api";
 import { leerSesion, leerEmpresaActiva } from "@/lib/auth";
 import { listarSucursales, type Sucursal } from "@/lib/cocina";
@@ -36,6 +37,18 @@ export function PanelCanales() {
    * con un solo local no hay nada que elegir y el selector sería ruido.
    */
   const [locales, setLocales] = useState<Sucursal[]>([]);
+  /**
+   * LAS QUE AUTORIZÓ Y FALTA ELEGIR (2026-08-27, bug de Jonathan).
+   *
+   * Meta devuelve todas sus páginas. Con más de una el backend no guarda
+   * ninguna —antes las guardaba TODAS y le comían el cupo del plan— y quedan
+   * acá para que marque cuál conectar.
+   */
+  const [pendientes, setPendientes] = useState<CuentaPendiente[]>([]);
+  // Distinto del `conectando` de arriba (el que abre el popup de OAuth): este
+  // marca CUÁL de las cuentas pendientes se está guardando.
+  const [eligiendo, setEligiendo] = useState("");
+  const [errorElegir, setErrorElegir] = useState("");
 
   async function cargar() {
     setCargando(true);
@@ -43,6 +56,21 @@ export function PanelCanales() {
     setCanales(cs);
     setLocales(ls);
     setCargando(false);
+  }
+
+  /** Se revisa después de cada OAuth: si quedaron varias, hay que elegir. */
+  async function revisarPendientes(tipo: TipoCanal) {
+    setPendientes(await cuentasPendientes(tipo));
+  }
+
+  async function conectarElegida(tipo: TipoCanal, cuentaExterna: string) {
+    setEligiendo(cuentaExterna);
+    setErrorElegir("");
+    const r = await elegirCuenta(tipo, cuentaExterna);
+    setEligiendo("");
+    if (!r.ok) { setErrorElegir(r.error ?? "No se pudo conectar"); return; }
+    setPendientes([]);
+    await cargar();
   }
 
   /** A qué local atiende este número. `''` = a toda la cadena. */
@@ -59,11 +87,16 @@ export function PanelCanales() {
   useEffect(() => {
     function alMensaje(e: MessageEvent) {
       const d = e.data as { tipo?: string } | null;
-      if (d && d.tipo === "canal-oauth") void cargar();
+      if (d && d.tipo === "canal-oauth") {
+        void cargar();
+        // Si Meta devolvió varias cuentas, ninguna se guardó: hay que elegir.
+        void revisarPendientes(seleccion);
+      }
     }
     window.addEventListener("message", alMensaje);
     return () => window.removeEventListener("message", alMensaje);
-  }, []);
+    // `seleccion`: el popup avisa de la red que se estaba conectando.
+  }, [seleccion]);
 
   // Cuántas cuentas hay conectadas de cada red.
   const cuenta = (tipo: TipoCanal) => canales.filter((c) => c.tipo === tipo).length;
@@ -282,6 +315,47 @@ export function PanelCanales() {
             </div>
           ) : (
             <>
+              {/* ELIGE CUÁL CONECTAR (2026-08-27). Meta devolvió varias
+                  páginas y ninguna se guardó todavía: cada una contaría contra
+                  el límite de canales de su plan. */}
+              {pendientes.length > 0 && (
+                <div className="rounded-tarjeta bg-brasa-suave p-4">
+                  <p className="text-[0.9rem] font-bold text-tinta">
+                    Tienes {pendientes.length} cuentas. ¿Cuál quieres conectar?
+                  </p>
+                  <p className="mt-1 text-[0.82rem] text-tinta-2">
+                    Solo la que elijas se conecta y cuenta en tu plan. Las demás
+                    quedan como están.
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {pendientes.map((c) => (
+                      <div
+                        key={c.cuentaExterna}
+                        className="flex items-center justify-between gap-3 rounded-lg bg-carta px-3.5 py-2.5"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[0.88rem] font-semibold text-tinta">
+                            {c.nombre ?? c.cuentaExterna}
+                          </p>
+                          <p className="text-[0.72rem] text-frio tabular-nums">{c.cuentaExterna}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void conectarElegida(seleccion, c.cuentaExterna)}
+                          disabled={Boolean(eligiendo)}
+                          className="shrink-0 rounded-chip bg-brasa px-3.5 py-1.5 text-[0.8rem] font-bold text-sobre-brasa transition disabled:opacity-60"
+                        >
+                          {eligiendo === c.cuentaExterna ? "Conectando…" : "Conectar esta"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {errorElegir && (
+                    <p className="mt-2 text-[0.82rem] font-semibold text-alerta">{errorElegir}</p>
+                  )}
+                </div>
+              )}
+
               {/* Conexiones existentes de esta red */}
               {cargando ? (
                 <p className="text-[0.85rem] text-frio">Cargando…</p>

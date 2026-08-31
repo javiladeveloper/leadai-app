@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { conectarWhatsAppEmbedded } from "@/lib/api";
+import { traducirErrorMeta } from "@/lib/errores-meta";
 
 // Tipos mínimos del SDK de Facebook en window.
 declare global {
@@ -42,6 +43,25 @@ export default function ConectarWhatsApp({
 }) {
   const [estado, setEstado] = useState<Estado>("idle");
   const [error, setError] = useState("");
+  /**
+   * EN QUÉ PASO DEL FLUJO GUIADO ESTÁ (2026-08-30).
+   *
+   * `pregunta` averigua si su número ya vive en WhatsApp Business; `aviso` le
+   * cuenta qué va a pedirle Meta antes de abrirlo. Los dos existen porque el
+   * dueño NO es técnico: antes elegía a ciegas entre dos flujos y se topaba
+   * con pantallas de Meta que parecían errores nuestros.
+   */
+  const [paso, setPaso] = useState<"pregunta" | "aviso">("pregunta");
+  const [modo, setModo] = useState<"nuevo" | "coexistencia">("coexistencia");
+  /**
+   * El asistente de Meta anda mucho peor en el teléfono: abre ventanas, obliga
+   * a salir de la app para buscar el código y vence la sesión si uno se
+   * demora. No se bloquea — se avisa, que es distinto.
+   */
+  const [enCelular, setEnCelular] = useState(false);
+  useEffect(() => {
+    setEnCelular(/android|iphone|ipad|ipod/i.test(navigator.userAgent));
+  }, []);
   // Datos que el popup entrega vía postMessage (wabaId/phoneNumberId).
   /**
    * Los datos del Embedded Signup en una REF, no en estado (2026-08-18).
@@ -197,40 +217,138 @@ export default function ConectarWhatsApp({
     );
   }
 
+  // ── EL ERROR, TRADUCIDO Y CON LA SALIDA ─────────────────────────────────
+  if (estado === "error") {
+    const t = traducirErrorMeta(error);
+    return (
+      <div className="rounded-tarjeta bg-calor-suave px-4 py-3.5">
+        <p className="text-sm font-bold text-calor-hondo">{t.titulo}</p>
+        <ol className="mt-2 space-y-1.5">
+          {t.pasos.map((p, i) => (
+            <li key={p} className="flex gap-2 text-[0.84rem] text-tinta-2">
+              <span className="font-bold text-calor">{i + 1}.</span>
+              <span>{p}</span>
+            </li>
+          ))}
+        </ol>
+        {t.reintentable && (
+          <button
+            type="button"
+            onClick={() => { setEstado("idle"); setError(""); setPaso("pregunta"); }}
+            className="mt-3 rounded-full bg-orbita px-5 py-2 text-sm font-semibold text-sobre-orbita transition hover:bg-orbita-hondo"
+          >
+            Intentar de nuevo
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // ── PASO 1: ¿QUÉ NÚMERO ES? ─────────────────────────────────────────────
+  //
+  // ANTES SE ELEGÍA MAL Y NADIE SE ENTERABA (2026-08-30). El botón grande
+  // abría el flujo de números NUEVOS, y la coexistencia —el caso de casi todo
+  // negocio peruano, que ya usa WhatsApp Business en el celular— vivía abajo
+  // como un link gris subrayado. Una clienta tocó el grande y chocó con "el
+  // número ya está asociado a otra empresa", que en su cabeza significa que
+  // LeadAI está roto.
+  //
+  // Ahora se pregunta ANTES de abrir nada: nadie tiene que adivinar cuál de
+  // los dos flujos le toca.
+  if (paso === "pregunta") {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-tinta">
+          {otroNumero
+            ? "¿El otro número ya usa WhatsApp Business en el celular?"
+            : "¿Ya usas WhatsApp Business en tu celular con ese número?"}
+        </p>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => { setModo("coexistencia"); setPaso("aviso"); }}
+            className="block w-full rounded-tarjeta bg-carta px-4 py-3 text-left ring-1 ring-linea transition hover:ring-orbita"
+          >
+            <span className="block text-sm font-bold text-tinta">Sí, ya lo uso</span>
+            <span className="mt-0.5 block text-[0.82rem] text-frio">
+              Lo conectamos sin borrar la app ni perder tus chats
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setModo("nuevo"); setPaso("aviso"); }}
+            className="block w-full rounded-tarjeta bg-carta px-4 py-3 text-left ring-1 ring-linea transition hover:ring-orbita"
+          >
+            <span className="block text-sm font-bold text-tinta">Es un número nuevo</span>
+            <span className="mt-0.5 block text-[0.82rem] text-frio">
+              Todavía no está en WhatsApp Business
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PASO 2: QUÉ VA A PASAR ──────────────────────────────────────────────
+  //
+  // El asistente de Meta pide cuenta de Facebook, datos de empresa y verificar
+  // el número. Sin aviso, cada una de esas pantallas se siente un error del
+  // producto — y el dueño abandona en la primera que no entiende.
   return (
-    <div className="space-y-2">
-      <button
-        type="button"
-        onClick={() => conectar("nuevo")}
-        disabled={estado === "abriendo" || estado === "conectando"}
-        // NARANJA y no `bg-ok` (2026-08-18): conectar WhatsApp es LA acción de
-        // esta pantalla, y en la regla de los cuatro colores el naranja es
-        // "hacé esto". `ok` es el verde de venta cerrada — acá no cerró nada
-        // todavía, y además no es ninguno de los colores del logo.
-        className={
-          otroNumero
-            ? "rounded-full px-5 py-2 text-sm font-semibold text-calor ring-1 ring-orbita/40 transition hover:bg-orbita/10 disabled:opacity-60"
-            : "rounded-full bg-orbita px-5 py-2.5 text-sm font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
-        }
-      >
-        {estado === "conectando"
-          ? "Conectando…"
-          : estado === "abriendo"
-            ? "Abriendo Meta…"
-            : otroNumero
-              ? "＋ Conectar otro número"
-              : "Conectar WhatsApp"}
-      </button>
-      <button
-        type="button"
-        onClick={() => conectar("coexistencia")}
-        disabled={estado === "abriendo" || estado === "conectando"}
-        className="block text-left text-sm text-frio underline underline-offset-2 transition hover:text-tinta disabled:opacity-60"
-      >
-        ¿Ya usas WhatsApp Business en tu celular? Conéctalo sin borrar la app →
-      </button>
-      {estado === "cancelado" && <p className="text-sm text-frio">Conexión cancelada.</p>}
-      {estado === "error" && <p className="text-sm text-brasa-texto">{error}</p>}
+    <div className="space-y-3">
+      <div className="rounded-tarjeta bg-arena/60 px-4 py-3.5">
+        <p className="text-sm font-bold text-tinta">Ahora se abre el asistente de Meta</p>
+        <p className="mt-1 text-[0.84rem] text-tinta-2">
+          Es el trámite de WhatsApp, no de LeadAI. Te va a pedir:
+        </p>
+        <ul className="mt-2 space-y-1 text-[0.84rem] text-tinta-2">
+          <li>• Entrar con tu cuenta de Facebook</li>
+          <li>• Algunos datos de tu negocio</li>
+          <li>• Verificar tu número con un código</li>
+        </ul>
+        <p className="mt-2 text-[0.82rem] text-frio">
+          Toma un par de minutos y se hace una sola vez.
+          {modo === "coexistencia" && " Tu app del celular sigue funcionando igual."}
+        </p>
+      </div>
+
+      {/* EL CELULAR ES EL PEOR LUGAR PARA ESTO (2026-08-30): el asistente de
+          Meta abre ventanas, obliga a cambiar de app para buscar el código y
+          vence la sesión si uno se demora. No se bloquea a nadie: se avisa. */}
+      {enCelular && (
+        <p className="rounded-tarjeta bg-tibio-suave px-4 py-2.5 text-[0.82rem] text-tinta-2">
+          Estás en el celular. Si puedes, hazlo desde una computadora: el
+          asistente de Meta funciona mucho mejor ahí.
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => conectar(modo)}
+          disabled={estado === "abriendo" || estado === "conectando"}
+          className="rounded-full bg-orbita px-5 py-2.5 text-sm font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"
+        >
+          {estado === "conectando"
+            ? "Conectando…"
+            : estado === "abriendo"
+              ? "Abriendo Meta…"
+              : "Continuar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setPaso("pregunta")}
+          disabled={estado === "abriendo" || estado === "conectando"}
+          className="rounded-full px-4 py-2.5 text-sm font-semibold text-frio transition hover:text-tinta disabled:opacity-60"
+        >
+          Volver
+        </button>
+      </div>
+      {estado === "cancelado" && (
+        <p className="text-sm text-frio">
+          Se cerró la ventana de Meta sin terminar. Puedes intentar de nuevo cuando quieras.
+        </p>
+      )}
     </div>
   );
 }

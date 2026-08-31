@@ -140,6 +140,20 @@ check(
     (errores.match(/return GENERICO;/g) ?? []).length === 2,
   'un error sin traduccion tiene que caer al generico, no a pantalla vacia',
 );
+// EL "ESCRIBENOS" TIENE QUE TENER DONDE. Los pasos lo dicen desde el 30-ago,
+// pero hasta el 31 no habia numero, link ni correo en ningun lado: una
+// instruccion imposible de seguir justo para el que ya esta trabado.
+check(
+  'el error ofrece escribirnos por WhatsApp',
+  /wa\.me\/\$\{WHATSAPP_SOPORTE\}/.test(compCrudo),
+  'sin esto, "escribenos y lo resolvemos" no dice donde',
+);
+check(
+  'y el mensaje lleva el error adentro',
+  /Me aparece: \$\{t\.titulo\}/.test(compCrudo),
+  'un "no puedo conectar" pelado no nos deja ayudar sin pedir capturas',
+);
+
 check(
   'se puede reintentar desde el error',
   /Intentar de nuevo/.test(compCrudo) && /setPaso\("pregunta"\)/.test(comp),

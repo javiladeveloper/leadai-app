@@ -4,6 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { conectarWhatsAppEmbedded } from "@/lib/api";
 import { traducirErrorMeta } from "@/lib/errores-meta";
 
+/**
+ * El WhatsApp al que nos escriben cuando la conexión falla.
+ *
+ * Espejo de `WHATSAPP_SOPORTE` en el backend. Literal y no por env: es una
+ * página del panel y `NEXT_PUBLIC_*` obliga a rebuild igual.
+ */
+const WHATSAPP_SOPORTE = "51986110558";
+
 // Tipos mínimos del SDK de Facebook en window.
 declare global {
   interface Window {
@@ -231,15 +239,41 @@ export default function ConectarWhatsApp({
             </li>
           ))}
         </ol>
-        {t.reintentable && (
-          <button
-            type="button"
-            onClick={() => { setEstado("idle"); setError(""); setPaso("pregunta"); }}
-            className="mt-3 rounded-full bg-orbita px-5 py-2 text-sm font-semibold text-sobre-orbita transition hover:bg-orbita-hondo"
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {t.reintentable && (
+            <button
+              type="button"
+              onClick={() => { setEstado("idle"); setError(""); setPaso("pregunta"); }}
+              className="rounded-full bg-orbita px-5 py-2 text-sm font-semibold text-sobre-orbita transition hover:bg-orbita-hondo"
+            >
+              Intentar de nuevo
+            </button>
+          )}
+
+          {/* EL "ESCRÍBENOS" AHORA TIENE DÓNDE (2026-08-31).
+              Los pasos decían "escríbenos y lo resolvemos" sin dar número ni
+              link: quien se traba acá —el caso de una clienta real que perdió
+              dos días— quedaba leyendo una instrucción imposible de seguir.
+
+              EL ERROR VIAJA EN EL MENSAJE. Un "no puedo conectar" no nos deja
+              ayudar; con el código de Meta adentro sabemos qué pasó antes de
+              responder, y el dueño no tiene que explicar algo que no entiende
+              ni mandarnos una captura. */}
+          <a
+            href={`https://wa.me/${WHATSAPP_SOPORTE}?text=${encodeURIComponent(
+              `Hola, no puedo conectar mi WhatsApp a LeadAI.
+
+Me aparece: ${t.titulo}
+
+Detalle: ${error || "sin detalle"}`,
+            )}`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full bg-[#25d366] px-5 py-2 text-sm font-semibold text-white"
           >
-            Intentar de nuevo
-          </button>
-        )}
+            💬 Escríbenos
+          </a>
+        </div>
       </div>
     );
   }

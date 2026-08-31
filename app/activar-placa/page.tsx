@@ -21,6 +21,20 @@ import { LogoLeadAI } from "@/components/LogoLeadAI";
 
 type Paso = "cargando" | "sin-sesion" | "negocio" | "pin" | "listo";
 
+/**
+ * El WhatsApp de la empresa, para quien quiere que le expliquen.
+ *
+ * Literal y no por env: es una página del panel, y `NEXT_PUBLIC_*` obliga a
+ * rebuild igual. Si cambia, se cambia acá y en `WHATSAPP_SOPORTE` del backend.
+ */
+const WHATSAPP = "51986110558";
+
+/** Cómo se llama el producto según el diseño impreso de la placa. */
+const NOMBRE_MARCA: Record<string, string> = {
+  sania: "Sania",
+  fitcore: "FitCore",
+};
+
 export default function ActivarPlaca() {
   const router = useRouter();
   const [uid, setUid] = useState("");
@@ -302,6 +316,29 @@ export default function ActivarPlaca() {
               className="mt-2 inline-block text-[0.86rem] font-semibold text-brasa-texto"
             >
               {invitacion.cta} →
+            </a>
+
+            {/* HABLAR CON ALGUIEN, NO SOLO LEER UNA WEB (2026-08-31, pedido de
+                Jonathan: "deberíamos dirigir a un número para poder explicarles
+                si tienen alguna duda").
+
+                Quien acaba de activar su placa es el mejor prospecto que
+                tenemos: tiene el producto físico en la mano y ya probó que
+                funciona. Mandarlo solo a una landing lo deja leyendo solo, y la
+                duda que no se resuelve ahí no se resuelve nunca.
+
+                Va SEGUNDO y en tono menor: la web explica sin costo de
+                atención, y el WhatsApp es para quien realmente quiere hablar. Al
+                revés nos llenaríamos de consultas que la página ya responde. */}
+            <a
+              href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
+                `Hola, acabo de activar mi placa y quiero saber más sobre ${NOMBRE_MARCA[marca ?? ""] ?? "LeadAI"}`,
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 flex items-center justify-center gap-2 rounded-tarjeta bg-[#25d366] px-4 py-2.5 text-[0.86rem] font-semibold text-white"
+            >
+              💬 Escríbenos y te explicamos
             </a>
           </div>
         </div>

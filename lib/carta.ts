@@ -300,6 +300,36 @@ export function publicarMenuDia(
   );
 }
 
+export interface MenuProgramado {
+  dia: string;
+  precioCentavos: number;
+  nombre: string | null;
+  entradas: string[];
+  segundos: string[];
+}
+
+/** Los menús dejados listos para los próximos días (el barrido los publica a las 4am). */
+export async function obtenerMenusProgramados(tenant?: string): Promise<MenuProgramado[]> {
+  try {
+    const r = await api<{ programados: MenuProgramado[] }>("/carta/menu-dia/programados", { tenant });
+    return r.programados;
+  } catch {
+    return [];
+  }
+}
+
+/** Programa el menú de otro día. Si `dia` es HOY, el backend publica al instante. */
+export function programarMenuDia(
+  datos: { dia: string; precioCentavos: number; nombre?: string; entradas: string[]; segundos: string[] },
+  tenant?: string,
+) {
+  return escribir("/carta/menu-dia/programados", "PUT", datos, tenant);
+}
+
+export function borrarMenuProgramado(dia: string, tenant?: string) {
+  return escribir(`/carta/menu-dia/programados/${dia}`, "DELETE", undefined, tenant);
+}
+
 /** "Se acabó el tallarín": agota una OPCIÓN (vuelve sola mañana). */
 export function marcarOpcionDisponible(id: string, disponible: boolean, tenant?: string) {
   return escribir(`/carta/opciones/${id}/disponible`, "PATCH", { disponible }, tenant);

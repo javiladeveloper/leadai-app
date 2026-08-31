@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   obtenerMenuDia, publicarMenuDia, marcarDisponible, marcarOpcionDisponible,
-  type MenuDelDia, type OpcionMenuDia,
+  obtenerMenusProgramados, programarMenuDia, borrarMenuProgramado,
+  type MenuDelDia, type OpcionMenuDia, type MenuProgramado,
 } from "@/lib/carta";
 import { SkeletonLista } from "@/components/Skeletons";
 
@@ -31,6 +32,22 @@ function aCentavos(texto: string): number | null {
 
 const lineas = (t: string) => t.split("\n").map((x) => x.trim()).filter(Boolean);
 
+// Los próximos días como los ve un dueño peruano: "Hoy", "Mañana", "Mié 2".
+// El día se calcula en HORA DE LIMA (UTC-5 fijo) aunque el navegador esté en
+// otro huso: programar "para mañana" tiene que significar mañana EN EL LOCAL.
+const DIAS_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+function diasProximos(n: number): { dia: string; etiqueta: string }[] {
+  const ahoraLima = new Date(Date.now() - 5 * 3_600_000);
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(ahoraLima.getTime() + i * 86_400_000);
+    const iso = d.toISOString().slice(0, 10);
+    const etiqueta =
+      i === 0 ? "Hoy" : i === 1 ? "Mañana" : `${DIAS_CORTOS[d.getUTCDay()]} ${d.getUTCDate()}`;
+    return { dia: iso, etiqueta };
+  });
+}
+
 export function MenuDelDiaPanel() {
   const [estado, setEstado] = useState<"cargando" | "ok">("cargando");
   const [menu, setMenu] = useState<MenuDelDia | null>(null);
@@ -40,10 +57,16 @@ export function MenuDelDiaPanel() {
   const [editando, setEditando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
+  // "¿Para cuándo?": HOY publica al toque; otro día deja el menú PROGRAMADO
+  // y el sistema lo publica solo a las 4am de ese día.
+  const [dias] = useState(() => diasProximos(7));
+  const [diaElegido, setDiaElegido] = useState(() => diasProximos(7)[0].dia);
+  const [programados, setProgramados] = useState<MenuProgramado[]>([]);
 
   async function cargar() {
-    const m = await obtenerMenuDia();
+    const [m, progs] = await Promise.all([obtenerMenuDia(), obtenerMenusProgramados()]);
     setMenu(m);
+    setProgramados(progs);
     // El menú anterior es el mejor borrador del de hoy: la mayoría repite
     // media carta y cambia dos segundos.
     if (m) {
@@ -66,14 +89,33 @@ export function MenuDelDiaPanel() {
     if (segs.length === 0) { setError("Escribe al menos un segundo."); return; }
     setError("");
     setGuardando(true);
-    const r = await publicarMenuDia({
-      precioCentavos: centavos,
-      entradas: lineas(entradas),
-      segundos: segs,
-    });
+    const esHoy = diaElegido === dias[0].dia;
+    const r = esHoy
+      ? await publicarMenuDia({ precioCentavos: centavos, entradas: lineas(entradas), segundos: segs })
+      : await programarMenuDia({
+          dia: diaElegido, precioCentavos: centavos, entradas: lineas(entradas), segundos: segs,
+        });
     setGuardando(false);
-    if (!r.ok) { setError(r.error ?? "No se pudo publicar."); return; }
+    if (!r.ok) { setError(r.error ?? "No se pudo guardar."); return; }
     await cargar();
+  }
+
+  async function quitarProgramado(dia: string) {
+    await borrarMenuProgramado(dia);
+    await cargar();
+  }
+
+  // Al cambiar de día, el formulario carga lo YA programado para ese día (o
+  // deja el borrador actual, que suele ser la mejor base).
+  function elegirDia(dia: string) {
+    setDiaElegido(dia);
+    const prog = programados.find((x) => x.dia === dia);
+    if (prog) {
+      setPrecio((prog.precioCentavos / 100).toFixed(2).replace(/\.00$/, ""));
+      setEntradas(prog.entradas.join("\n"));
+      setSegundos(prog.segundos.join("\n"));
+    }
+    setEditando(true);
   }
 
   async function agotarMenu(disponible: boolean) {
@@ -179,8 +221,30 @@ export function MenuDelDiaPanel() {
       {editando && (
         <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
           <p className="text-[0.95rem] font-bold text-tinta">
-            {publicadoHoy ? "Corregir el menú de hoy" : "El menú de hoy"}
+            {diaElegido === dias[0].dia
+              ? (publicadoHoy ? "Corregir el menú de hoy" : "El menú de hoy")
+              : "Dejar programado el menú"}
           </p>
+          {/* ¿Para cuándo? Hoy publica al toque; otro día queda programado y
+              se publica solo a las 4am de ese día. */}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {dias.map((d) => {
+              const tiene = programados.some((x) => x.dia === d.dia);
+              return (
+                <button
+                  key={d.dia}
+                  onClick={() => elegirDia(d.dia)}
+                  className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold ring-1 transition ${
+                    diaElegido === d.dia
+                      ? "bg-brasa text-sobre-brasa ring-brasa"
+                      : "bg-arena text-tinta-2 ring-linea hover:ring-brasa/40"
+                  }`}
+                >
+                  {d.etiqueta}{tiene && " ✓"}
+                </button>
+              );
+            })}
+          </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="text-[0.8rem] font-semibold text-tinta-2">Precio del menú</label>
@@ -227,12 +291,55 @@ export function MenuDelDiaPanel() {
               disabled={guardando}
               className="rounded-chip bg-brasa px-4 py-2 text-[0.9rem] font-bold text-sobre-brasa hover:opacity-90 disabled:opacity-50"
             >
-              {guardando ? "Publicando…" : publicadoHoy ? "Guardar cambios" : "🍲 Publicar el menú de hoy"}
+              {guardando
+                ? "Guardando…"
+                : diaElegido !== dias[0].dia
+                  ? `📅 Dejar programado (${dias.find((d) => d.dia === diaElegido)?.etiqueta})`
+                  : publicadoHoy ? "Guardar cambios" : "🍲 Publicar el menú de hoy"}
             </button>
             <p className="text-[0.78rem] text-frio">
-              El cliente elige su entrada y su segundo en la carta — web, QR de mesa y chat.
+              {diaElegido === dias[0].dia
+                ? "El cliente elige su entrada y su segundo en la carta — web, QR de mesa y chat."
+                : "Se publica solo a las 4am de ese día. Puedes dejar armada toda la semana."}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* La semana dejada lista: qué días ya tienen menú esperando. */}
+      {programados.length > 0 && (
+        <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+          <p className="text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+            Menús programados
+          </p>
+          <div className="mt-2 space-y-2">
+            {programados.map((prog) => (
+              <div key={prog.dia} className="flex items-center justify-between gap-3">
+                <button
+                  onClick={() => elegirDia(prog.dia)}
+                  className="min-w-0 flex-1 text-left"
+                  title="Tócalo para editarlo"
+                >
+                  <span className="text-[0.88rem] font-semibold text-tinta">
+                    {dias.find((d) => d.dia === prog.dia)?.etiqueta ?? prog.dia}
+                    {" · "}{soles(prog.precioCentavos)}
+                  </span>
+                  <span className="block truncate text-[0.78rem] text-frio">
+                    {[...prog.entradas, ...prog.segundos].join(", ")}
+                  </span>
+                </button>
+                <button
+                  onClick={() => void quitarProgramado(prog.dia)}
+                  className="shrink-0 rounded-chip bg-arena px-2.5 py-1 text-[0.75rem] font-bold text-frio ring-1 ring-linea hover:bg-linea"
+                >
+                  Quitar
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[0.75rem] text-frio">
+            Cada uno se publica solo a las 4am de su día — no tienes que entrar todas las mañanas.
+          </p>
         </div>
       )}
     </div>

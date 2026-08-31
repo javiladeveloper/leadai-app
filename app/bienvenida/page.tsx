@@ -42,6 +42,30 @@ const TOTAL_PASOS = 7;
 const POSICION: Record<number, number> = { 1: 1, 6: 2, 2: 3, 3: 4, 4: 5, 7: 6, 5: 7 };
 
 /** Los países donde puede estar el negocio. Perú primero: es donde estamos. */
+/**
+ * A QUE PASO SE VUELVE (2026-08-31, pedido de Jonathan: "también se debe poder
+ * retroceder entre pasos").
+ *
+ * El alta no tenía vuelta atrás: quien se equivocaba en el horario o quería
+ * cambiar la carta ya cargada no tenía cómo, y su única salida era terminar y
+ * buscarlo en Configuración.
+ *
+ * Sale de `POSICION` y no de una lista escrita a mano: los números de paso no
+ * siguen el orden de pantalla (el 6 va segundo, el 7 anteúltimo), así que
+ * cualquier secuencia hardcodeada se desincroniza en cuanto se mueva un paso.
+ * `null` = es el primero y no hay a dónde volver.
+ */
+function pasoAnterior(actual: number, esComida: boolean): number | null {
+  const visibles = Object.entries(POSICION)
+    // Un negocio de captación no ve carta, marca ni conexión: volver a un paso
+    // que nunca vio lo dejaría en una pantalla que no le corresponde.
+    .filter(([num]) => esComida || ["1", "6", "5"].includes(num))
+    .sort((a, b) => a[1] - b[1])
+    .map(([num]) => Number(num));
+  const i = visibles.indexOf(actual);
+  return i > 0 ? visibles[i - 1] : null;
+}
+
 const PAISES = [
   { code: "51", bandera: "🇵🇪" },
   { code: "54", bandera: "🇦🇷" },
@@ -108,6 +132,15 @@ export default function BienvenidaPanel() {
 
   // Paso 7 — la conexion de WhatsApp
   const [conectoWhatsapp, setConectoWhatsapp] = useState(false);
+  /**
+   * ¿El horario se GUARDO, o el dueno salto ese paso? (2026-08-31)
+   *
+   * El resumen marcaba "Horario 11:00 a 23:00 ✓" tambien para quien tocaba
+   * Saltar — el check verde sobre un dato que quedo NULL en la base. Es el
+   * mismo bug que ya se arreglo por el camino de "Continuar", que se colaba
+   * por el otro lado.
+   */
+  const [guardoHorario, setGuardoHorario] = useState(false);
 
   // Paso 5 — el resumen
   const [hechos, setHechos] = useState<Record<string, boolean>>({});
@@ -149,8 +182,7 @@ export default function BienvenidaPanel() {
         // un `guardarNegocio({})` con el objeto VACÍO —un PATCH que no
         // escribía nada— y justo después se marcaba el check: por eso el
         // resumen decía "Horario 11:00 a 23:00 ✓" con la base en NULL.
-        await new Promise((r) => setTimeout(r, 250));
-        marcar("horario");
+        if (guardoHorario) { await new Promise((r) => setTimeout(r, 250)); marcar("horario"); }
         if (importados.length > 0) { await new Promise((r) => setTimeout(r, 250)); marcar("carta"); }
         if (conectoWhatsapp) { await new Promise((r) => setTimeout(r, 250)); marcar("whatsappConectado"); }
         if (logo || banner) { await new Promise((r) => setTimeout(r, 250)); marcar("marca"); }
@@ -249,6 +281,7 @@ export default function BienvenidaPanel() {
       horaAbre: Number(horaAbre),
       horaCierra: Number(horaCierra),
     });
+    setGuardoHorario(true);
     setGuardando(false);
     setPaso(3);
   }
@@ -317,7 +350,16 @@ export default function BienvenidaPanel() {
     { clave: "negocio", emoji: "🏪", titulo: "Tu negocio", detalle: nombre },
     ...(whatsapp.trim() ? [{ clave: "whatsapp", emoji: "💬", titulo: "WhatsApp", detalle: `+${whatsapp}` }] : []),
     ...(direccion.trim() ? [{ clave: "direccion", emoji: "📍", titulo: "Dirección", detalle: direccion }] : []),
-    ...(esComida ? [{ clave: "horario", emoji: "🕐", titulo: "Horario", detalle: `${horaAbre}:00 a ${horaCierra}:00` }] : []),
+    ...(esComida
+      ? [{
+          clave: "horario",
+          emoji: "🕐",
+          titulo: "Horario",
+          detalle: guardoHorario
+            ? `${horaAbre}:00 a ${horaCierra}:00`
+            : "Falta — tu cocina no sabe cuándo abre",
+        }]
+      : []),
     // LA CARTA SIEMPRE APARECE, cargada o no (2026-08-25). Antes solo salía si
     // la había cargado: quien la salteaba terminaba viendo "¡Todo listo!" sin
     // carta — y sin carta el bot no puede vender, que es todo el producto.
@@ -624,6 +666,14 @@ export default function BienvenidaPanel() {
             </div>
 
             <div className="mt-7 flex gap-2">
+              {pasoAnterior(6, esComida) !== null && (
+                <button
+                  onClick={() => setPaso(pasoAnterior(6, esComida)!)}
+                  className={BOTON_SECUNDARIO}
+                >
+                  ← Atrás
+                </button>
+              )}
               <button onClick={() => setPaso(2)} className={BOTON_SECUNDARIO}>Saltar</button>
               <button
                 onClick={guardarComoTrabaja}
@@ -682,6 +732,14 @@ export default function BienvenidaPanel() {
             </div>
 
             <div className="mt-7 flex gap-2">
+              {pasoAnterior(2, esComida) !== null && (
+                <button
+                  onClick={() => setPaso(pasoAnterior(2, esComida)!)}
+                  className={BOTON_SECUNDARIO}
+                >
+                  ← Atrás
+                </button>
+              )}
               <button onClick={() => setPaso(3)} className={BOTON_SECUNDARIO}>Saltar</button>
               <button onClick={guardarPaso2} disabled={guardando} className={`${BOTON} mt-0 flex-1`}>
                 {guardando ? "Guardando…" : "Continuar"}
@@ -840,6 +898,14 @@ export default function BienvenidaPanel() {
             )}
 
             <div className="mt-7 flex gap-2">
+              {pasoAnterior(3, esComida) !== null && (
+                <button
+                  onClick={() => setPaso(pasoAnterior(3, esComida)!)}
+                  className={BOTON_SECUNDARIO}
+                >
+                  ← Atrás
+                </button>
+              )}
               <button onClick={() => setPaso(4)} className={BOTON_SECUNDARIO}>
                 {importados.length > 0 ? "Descartar" : "Saltar"}
               </button>
@@ -920,6 +986,14 @@ export default function BienvenidaPanel() {
             </div>
 
             <div className="mt-7 flex gap-2">
+              {pasoAnterior(4, esComida) !== null && (
+                <button
+                  onClick={() => setPaso(pasoAnterior(4, esComida)!)}
+                  className={BOTON_SECUNDARIO}
+                >
+                  ← Atrás
+                </button>
+              )}
               <button onClick={() => setPaso(esComida ? 7 : 5)} className={BOTON_SECUNDARIO}>Saltar</button>
               <button onClick={guardarMarca} disabled={guardando} className={`${BOTON} mt-0 flex-1`}>
                 {guardando ? "Guardando…" : "Continuar"}
@@ -937,7 +1011,7 @@ export default function BienvenidaPanel() {
             Confuso ademas porque en el paso 1 SI se le pide su WhatsApp — pero
             eso es un dato de contacto, no conecta nada.
 
-            Va aca y no antes a proposito: recien ahora su carta y su horario
+            Va aca y no antes a propósito: recien ahora su carta y su horario
             estan cargados, asi que si un cliente escribe apenas conecta, el
             bot tiene con que responder. Y es SALTABLE — quien no tenga a mano
             su celular no puede quedar trabado en el ultimo paso. */}
@@ -957,7 +1031,7 @@ export default function BienvenidaPanel() {
 
             {conectoWhatsapp && (
               <p className="mt-3 rounded-tarjeta bg-brasa-suave px-4 py-3 text-[0.88rem] font-semibold text-tinta">
-                ¡Listo! Tu WhatsApp quedo conectado 🙌
+                ¡Listo! Tu WhatsApp quedó conectado 🙌
               </p>
             )}
 
@@ -967,14 +1041,22 @@ export default function BienvenidaPanel() {
                 responde, y concluye que no funciona. */}
             <p className="mt-4 text-[0.86rem] text-frio">
               Tu bot arranca <strong className="text-tinta-2">apagado</strong> a
-              proposito: asi nadie recibe respuestas mientras terminas de
-              configurarlo. Lo prendes desde Configuracion → El bot cuando
+              proposito: así nadie recibe respuestas mientras terminas de
+              configurarlo. Lo prendes desde Configuración → El bot cuando
               quieras.
             </p>
 
             <div className="mt-6 flex gap-3">
+              {pasoAnterior(7, esComida) !== null && (
+                <button
+                  onClick={() => setPaso(pasoAnterior(7, esComida)!)}
+                  className={BOTON_SECUNDARIO}
+                >
+                  ← Atrás
+                </button>
+              )}
               <button onClick={() => setPaso(5)} className={BOTON_SECUNDARIO}>
-                {conectoWhatsapp ? "Continuar" : "Lo hago despues"}
+                {conectoWhatsapp ? "Continuar" : "Lo hago después"}
               </button>
               {conectoWhatsapp && (
                 <button onClick={() => setPaso(5)} className={`${BOTON} mt-0 flex-1`}>

@@ -138,6 +138,15 @@ check(
   'para quien choco igual: es lo primero que tiene que revisar',
 );
 
+// "PORTFOLIO COMERCIAL" NO SIGNIFICA NADA PARA UN DUENO (2026-08-31). Meta se
+// lo pide en medio del asistente sin explicar que es. Crearlo SI se puede desde
+// ahi —es la primera opcion de la lista—, lo que falta es que sepa que es normal.
+check(
+  'se explica que es un portfolio comercial',
+  /portfolio/i.test(compCrudo) && /Crear uno nuevo/.test(compCrudo),
+  'sin esto se traba en una pantalla de Meta que no entiende',
+);
+
 // EL AVISO LLEGA ANTES DE CHOCAR. El error traducido es tarde: ya paso por el
 // dialogo de Meta y ya se frustro. Preguntarle antes es lo que lo evita.
 check(

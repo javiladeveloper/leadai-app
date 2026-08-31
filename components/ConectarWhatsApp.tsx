@@ -426,6 +426,28 @@ Detalle: ${error || "sin detalle"}`,
         — es gratis y toma dos minutos. No hace falta publicar nada.
       </div>
 
+      {/* EL "PORTFOLIO COMERCIAL" NO SIGNIFICA NADA PARA UN DUEÑO (2026-08-31).
+
+          Meta le pide elegir uno en medio del asistente, con esas dos palabras
+          y sin explicación. Quien nunca usó Facebook para empresas no sabe qué
+          es, si tiene uno, ni cuál elegir — y se traba en una pantalla que ni
+          siquiera es nuestra.
+
+          NO HAY QUE CONSTRUIR NADA para que pueda crearlo: el propio asistente
+          ofrece "Crea un portfolio comercial" como primera opción de la lista.
+          Lo que falta es que sepa que eso es normal y esperable.
+
+          Y LA TRAMPA QUE ESTO EVITA: un portfolio recién creado nace VACÍO, sin
+          página de Facebook. O sea que quien lo crea ahí mismo va derecho al
+          error del aviso de arriba — a menos que cree la página primero, que es
+          justo lo que este texto le dice. */}
+      <p className="px-1 text-[0.8rem] text-frio">
+        Si Meta te pide elegir un <strong className="text-tinta-2">portfolio
+        comercial</strong> y no tienes ninguno, elige “Crear uno nuevo”: es la
+        carpeta donde Meta guarda las cosas de tu negocio. Créala con el nombre
+        de tu negocio y sigue.
+      </p>
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"

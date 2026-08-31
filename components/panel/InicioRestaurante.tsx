@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { resumenPedidos, obtenerUso, type ResumenPedidos, type Uso } from "@/lib/api";
-import { obtenerNegocio, type NegocioCarta } from "@/lib/carta";
+import { resumenPedidos, obtenerUso, obtenerEquipo, type ResumenPedidos, type Uso } from "@/lib/api";
+import { obtenerNegocio, obtenerMenuDia, type NegocioCarta, type MenuDelDia } from "@/lib/carta";
 import { leerEmpresaActiva } from "@/lib/auth";
 import { soles } from "@/lib/precio";
 import { usarNumeroAnimado } from "@/lib/usar-numero-animado";
@@ -34,6 +34,8 @@ export function InicioRestaurante() {
   const [pedidos, setPedidos] = useState<ResumenPedidos | null>(null);
   const [uso, setUso] = useState<Uso | null>(null);
   const [negocio, setNegocio] = useState<NegocioCarta | null>(null);
+  const [menu, setMenu] = useState<MenuDelDia | null>(null);
+  const [estaSolo, setEstaSolo] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [copiado, setCopiado] = useState(false);
 
@@ -50,6 +52,12 @@ export function InicioRestaurante() {
         },
       );
     }
+    // Una sola vez (no cambian solos cada 30s): el estado del menú del día y
+    // si el dueño sigue trabajando SOLO — para el empujón de invitar equipo.
+    void obtenerMenuDia().then((m) => { if (vivo) setMenu(m); });
+    void obtenerEquipo().then((e) => {
+      if (vivo) setEstaSolo(e.miembros.length <= 1 && e.invitaciones.length === 0);
+    });
     traer();
     // La cocina cambia sola: si el dueño deja el panel abierto en el mostrador,
     // los contadores tienen que moverse sin que recargue.
@@ -110,6 +118,17 @@ export function InicioRestaurante() {
           </p>
         </div>
 
+        {/* EL EFECTIVO EN LA CALLE (2026-08-31): pedidos vivos que pagan al
+            entregar. Es lo que el motorizado o el salón le tienen que cuadrar
+            al final del turno — verlo acá evita sumar tickets a mano. */}
+        {(pedidos?.efectivoPorCobrarCentavos ?? 0) > 0 && (
+          <p className="mt-2 text-[0.88rem] text-arena/80">
+            💵 <b className="tabular-nums">{soles(pedidos!.efectivoPorCobrarCentavos!)}</b> por
+            cobrar en efectivo ({pedidos!.efectivoPorCobrarPedidos}{" "}
+            {pedidos!.efectivoPorCobrarPedidos === 1 ? "pedido" : "pedidos"} en curso)
+          </p>
+        )}
+
         {/* El cupo del plan, solo si el plan lo tiene. Es el mismo dato que en
             Configuración, pero aquí le sirve para saber cómo viene el mes. */}
         {cupo && cupo.limite > 0 && (
@@ -134,16 +153,62 @@ export function InicioRestaurante() {
         )}
       </section>
 
+      {/* EL MENÚ DE HOY (2026-08-31): el ritual diario, visible desde el
+          arranque. Solo aparece si el negocio USA el menú del día — al que
+          nunca publicó uno no se le mete una tarea que no es suya. */}
+      {menu && (
+        menu.esDeHoy ? (
+          <section className="entra flex flex-wrap items-center justify-between gap-3 rounded-tarjeta bg-carta px-5 py-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+            <div className="min-w-0">
+              <p className="text-[0.95rem] font-bold text-tinta">
+                🍲 Menú de hoy · {soles(menu.precioCentavos)}
+                {menu.disponible ? " · vendiéndose ✅" : " · se acabó 💤"}
+              </p>
+              <p className="mt-0.5 truncate text-[0.8rem] text-frio">
+                {menu.segundos.filter((o) => o.disponible).map((o) => o.nombre).join(", ") ||
+                  "Sin segundos disponibles"}
+              </p>
+            </div>
+            <Link
+              href="/carta"
+              className="shrink-0 rounded-chip px-3.5 py-1.5 text-[0.82rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
+            >
+              Ver el menú
+            </Link>
+          </section>
+        ) : (
+          <Link
+            href="/carta"
+            className="entra flex flex-wrap items-center justify-between gap-3 rounded-tarjeta bg-calor-suave px-5 py-4 ring-1 ring-calor/30 transition hover:ring-calor/60"
+          >
+            <div>
+              <p className="text-[0.95rem] font-bold text-calor-hondo">
+                🍲 Todavía no publicas el menú de hoy
+              </p>
+              <p className="mt-0.5 text-[0.8rem] text-calor-hondo/80">
+                El de {menu.dia ?? "ayer"} está apagado — publícalo y empieza a vender.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-chip bg-brasa px-3.5 py-1.5 text-[0.82rem] font-bold text-sobre-brasa">
+              Publicarlo
+            </span>
+          </Link>
+        )
+      )}
+
       {/* LA COCINA AHORA: lo único que exige que el dueño haga algo ya. */}
       <section className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea lg:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-[1.02rem] font-bold text-tinta">En este momento</h2>
           {enCurso > 0 && (
             <Link
-              href="/conversaciones"
+              // A COCINA, no a Conversaciones (2026-08-31): los pedidos en
+              // curso se trabajan en la Cocina — el link viejo dejaba al
+              // dueño en el chat, buscando dónde estaba lo que acababa de ver.
+              href="/cocina"
               className="rounded-chip bg-orbita px-3.5 py-1.5 text-[0.82rem] font-bold text-sobre-orbita transition hover:bg-orbita-hondo"
             >
-              Ver pedidos
+              Ver la cocina
             </Link>
           )}
         </div>
@@ -203,6 +268,25 @@ export function InicioRestaurante() {
             </p>
           )}
         </section>
+      )}
+
+      {/* EL EQUIPO (2026-08-31, pregunta de Jonathan sobre roles): si el dueño
+          sigue trabajando solo, un empujón — mozo, caja y cocina ya se pueden
+          invitar y cada uno ve SOLO lo suyo. Desaparece apenas invita a
+          alguien: no es una tarea pendiente eterna. */}
+      {estaSolo && (
+        <Link
+          href="/equipo"
+          className="entra flex flex-wrap items-center justify-between gap-3 rounded-tarjeta bg-carta px-5 py-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
+        >
+          <div>
+            <p className="text-[0.95rem] font-bold text-tinta">👥 Invita a tu equipo</p>
+            <p className="mt-0.5 text-[0.8rem] text-frio">
+              Mozo, caja y cocina: cada uno entra con su propia cuenta y ve solo lo que le toca — nunca tu plata.
+            </p>
+          </div>
+          <span className="shrink-0 text-xl leading-none text-frio">›</span>
+        </Link>
       )}
     </div>
   );

@@ -826,6 +826,9 @@ export interface ResumenPedidos {
   /** Vendido HOY, solo lo entregado. Céntimos. */
   hoyCentavos: number;
   hoyPedidos: number;
+  /** Plata que anda en la calle o en una mesa: pedidos vivos que pagan al entregar. */
+  efectivoPorCobrarCentavos?: number;
+  efectivoPorCobrarPedidos?: number;
 }
 
 export async function resumenPedidos(): Promise<ResumenPedidos | null> {

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 // MODO SOPORTE: ENTRAR AL NEGOCIO DE OTRO (2026-08-27).
 //
 // El panel no tiene runner de tests, y esta lógica no puede quedar sin red:
@@ -199,6 +200,52 @@ guardarEmpresaActiva("t-shiro");
 ok(leerEmpresaActiva() === "t-shiro", "fijar el MISMO negocio ajeno si se permite");
 salirDeSoporte();
 ok(leerEmpresaActiva() === "t-mio", "y salir sigue devolviendote a lo tuyo");
+
+// ── EL SUPER ADMIN SIN EMPRESAS PROPIAS (2026-08-31) ──────────────────────
+//
+// Jonathan: "puse la empresa que creo Guisella, puse entrar modo soporte y me
+// reboto".
+//
+// El layout del panel tenia una red de seguridad razonable: sin NINGUN negocio
+// vas al onboarding (o a /admin si sos super admin). Pero miraba las empresas
+// PROPIAS de la sesion — y un super admin no tiene ninguna. Entrar como
+// soporte activaba el modo bien y moria en el primer render.
+//
+// Es la segunda vez que el soporte se rompe por lo mismo: una pantalla que
+// consulta la sesion cruda en vez del helper que ya contempla el soporte.
+console.log("\nEL SUPER ADMIN NO TIENE EMPRESAS PROPIAS");
+reset();
+// Sesion de super admin: cero empresas.
+localStorage.setItem(CLAVE_SESION, JSON.stringify({ empresas: [] }));
+ok(empresasVisibles().length === 0, "sin soporte no ve ningun negocio");
+
+entrarComoSoporte("t-guisella", "Agencia Inmobiliaria M&I");
+// ESTO es lo que el layout consulta para decidir si te expulsa.
+ok(
+  empresasVisibles().length === 1,
+  "entrando como soporte SI ve el negocio ajeno (si no, el layout lo rebota)",
+);
+ok(empresasVisibles()[0].tenantId === "t-guisella", "y es el negocio correcto");
+ok(leerEmpresaActiva() === "t-guisella", "la empresa activa es la del cliente");
+
+salirDeSoporte();
+ok(empresasVisibles().length === 0, "al salir vuelve a no tener negocios propios");
+
+// Y QUE EL LAYOUT LA USE DE VERDAD. Lo de arriba prueba `empresasVisibles`,
+// pero el bug era que el layout NO la llamaba: miraba `sesion.empresas` y por
+// eso expulsaba al super admin. Sin este check, el arreglo se puede revertir
+// sin que nada se queje.
+const layout = readFileSync(
+  new URL("../app/(panel)/layout.tsx", import.meta.url), "utf8",
+).replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+ok(
+  /empresasVisibles\(\)\.length === 0/.test(layout),
+  "el layout decide con empresasVisibles(), no con las empresas propias",
+);
+ok(
+  !/sesion\.empresas\.length === 0/.test(layout),
+  "y ya no consulta sesion.empresas para expulsar",
+);
 
 console.log(fallos === 0 ? "\nTODO OK\n" : `\n${fallos} FALLOS\n`);
 process.exit(fallos ? 1 : 0);

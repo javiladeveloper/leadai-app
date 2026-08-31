@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { haySesion, leerSesion, esSuperAdmin } from "@/lib/auth";
+import { haySesion, leerSesion, esSuperAdmin, empresasVisibles } from "@/lib/auth";
 import { refrescarSesion } from "@/lib/api";
 import { Sidebar } from "@/components/panel/Sidebar";
 import { HeaderPanel } from "@/components/panel/HeaderPanel";
@@ -27,8 +27,16 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
       .catch(() => {});
     // Red de seguridad: si el usuario no tiene ningún negocio, va al onboarding
     // — salvo que sea super admin, que va a su panel de plataforma.
-    const sesion = leerSesion();
-    if (sesion && sesion.empresas.length === 0) {
+    //
+    // SE MIRA `empresasVisibles()`, NO `sesion.empresas` (2026-08-31, reporte
+    // de Jonathan: "puse entrar modo soporte y me reboto").
+    //
+    // El super admin no tiene empresas PROPIAS, así que `sesion.empresas`
+    // venía vacío y esta guarda lo devolvía a /admin apenas entraba al panel
+    // del negocio ajeno: el modo soporte se activaba bien y moría en el
+    // primer render. `empresasVisibles()` sí cuenta el negocio del soporte,
+    // que es justo el que está mirando.
+    if (leerSesion() && empresasVisibles().length === 0) {
       router.replace(esSuperAdmin() ? "/admin" : "/bienvenida");
       return;
     }

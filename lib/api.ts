@@ -158,9 +158,15 @@ export interface SugerenciasPlaybook {
   objeciones: { objecion: string; respuesta: string }[];
 }
 
-export async function obtenerSugerenciasPlaybook(): Promise<SugerenciasPlaybook | null> {
+export async function obtenerSugerenciasPlaybook(
+  // Con `rubro` se pide la plantilla de OTRO rubro, no la del perfil guardado
+  // (2026-08-30): al cambiar el selector hay que comparar contra la del rubro
+  // VIEJO para saber si el dueño editó sus listas o siguen siendo la plantilla.
+  rubro?: string,
+): Promise<SugerenciasPlaybook | null> {
   try {
-    const r = await api<{ sugerencias: SugerenciasPlaybook }>("/perfil/sugerencias");
+    const q = rubro ? `?rubro=${encodeURIComponent(rubro)}` : "";
+    const r = await api<{ sugerencias: SugerenciasPlaybook }>(`/perfil/sugerencias${q}`);
     return r.sugerencias;
   } catch {
     // Sin sugerencias la pantalla funciona igual: son ayuda, no requisito.

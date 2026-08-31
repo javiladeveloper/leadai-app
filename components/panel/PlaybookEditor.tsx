@@ -42,6 +42,39 @@ type Estado = "cargando" | "idle" | "guardando" | "ok" | "error" | "error-carga"
 // Editor real del Playbook: carga y guarda contra el backend (`/perfil`). Es
 // el "cerebro" que usa la IA para responder — nombre, tono, catálogo,
 // preguntas clave y objeciones que el negocio quiere que maneje.
+/**
+ * ¿Estas cuatro listas son TAL CUAL la plantilla, o el dueño las escribió?
+ *
+ * Es la pregunta que decide si se le puede ofrecer cambiarlas al cambiar de
+ * rubro (2026-08-30). Se compara el contenido completo y en orden: alcanza con
+ * que haya agregado, borrado o editado un ítem para que ya no sea la plantilla
+ * y nadie le toque nada.
+ *
+ * Se compara por texto y no por referencia porque las listas viajaron a la
+ * base y volvieron: son otros objetos con el mismo contenido.
+ */
+function esLaPlantilla(
+  perfil: {
+    preguntasClave: string[];
+    senalesCaliente: string[];
+    senalesFrio: string[];
+    objeciones: { objecion: string; respuesta: string }[];
+  },
+  plantilla: SugerenciasPlaybook,
+): boolean {
+  const igual = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((x, i) => x === b[i]);
+  return (
+    igual(perfil.preguntasClave, plantilla.preguntasClave) &&
+    igual(perfil.senalesCaliente, plantilla.senalesCaliente) &&
+    igual(perfil.senalesFrio, plantilla.senalesFrio) &&
+    igual(
+      perfil.objeciones.map((o) => `${o.objecion}→${o.respuesta}`),
+      plantilla.objeciones.map((o) => `${o.objecion}→${o.respuesta}`),
+    )
+  );
+}
+
 export function PlaybookEditor() {
   const [perfil, setPerfil] = useState<PerfilNegocio>(PERFIL_VACIO);
   const [estado, setEstado] = useState<Estado>("cargando");
@@ -68,6 +101,9 @@ export function PlaybookEditor() {
   // Los ejemplos de su rubro, para los chips. `null` mientras cargan o si
   // falla: son ayuda, y sin ellos la pantalla funciona igual que siempre.
   const [sug, setSug] = useState<SugerenciasPlaybook | null>(null);
+  // La plantilla del rubro NUEVO, cuando cambiar el selector nos deja
+  // ofrecerla (ver `cambiarRubro`). `null` = no hay nada que ofrecer.
+  const [oferta, setOferta] = useState<SugerenciasPlaybook | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -94,6 +130,46 @@ export function PlaybookEditor() {
       cancelado = true;
     };
   }, []);
+
+  /**
+   * CAMBIAR DE RUBRO PUEDE CAMBIAR EL PLAYBOOK (2026-08-30).
+   *
+   * Caso real, en vivo con Guisella: creó una inmobiliaria, eligió "Ventas /
+   * Comercio / Tienda" —donde cae casi todo— y el bot quedó preguntándole a
+   * quien busca casa "¿cuántas unidades necesita?". Al corregir el rubro NO
+   * pasaba nada: `completarConPlantilla` solo rellena listas VACÍAS (para no
+   * pisar lo que escribió el dueño) y el botón "Completar con lo típico de mi
+   * rubro" solo aparece si las cuatro están vacías. Las dos protecciones son
+   * correctas por separado; juntas dejaban al usuario ATRAPADO con la
+   * plantilla equivocada, sin más salida que borrar ítem por ítem.
+   *
+   * La regla: solo se ofrece si sus listas son EXACTAMENTE la plantilla del
+   * rubro viejo, o sea nadie las tocó. Si escribió algo propio —aunque sea
+   * cambiar una palabra— no se pregunta nada y sus textos quedan intactos.
+   */
+  async function cambiarRubro(nuevo: string) {
+    const anterior = perfil.rubro;
+    setPerfil({ ...perfil, rubro: nuevo });
+    setOferta(null);
+    if (!nuevo || nuevo === anterior) return;
+
+    // Las cuatro vacías: el bloque de "¿Empezamos con lo típico?" ya cubre ese
+    // caso más abajo, y mostrar dos ofrecimientos a la vez confunde.
+    const todoVacio =
+      perfil.preguntasClave.length === 0 && perfil.senalesCaliente.length === 0 &&
+      perfil.senalesFrio.length === 0 && perfil.objeciones.length === 0;
+    if (todoVacio) return;
+
+    const [vieja, nueva] = await Promise.all([
+      obtenerSugerenciasPlaybook(anterior || undefined),
+      obtenerSugerenciasPlaybook(nuevo),
+    ]);
+    // Sin plantillas no se ofrece nada: preferimos callar antes que proponer
+    // un reemplazo a ciegas sobre listas que quizá el dueño escribió.
+    if (!vieja || !nueva) return;
+    if (!esLaPlantilla(perfil, vieja)) return;
+    setOferta(nueva);
+  }
 
   async function guardar() {
     setEstado("guardando");
@@ -157,7 +233,7 @@ export function PlaybookEditor() {
             <span className="mb-1 block text-sm font-medium text-tinta">A qué te dedicas</span>
             <select
               value={perfil.rubro}
-              onChange={(e) => setPerfil({ ...perfil, rubro: e.target.value })}
+              onChange={(e) => cambiarRubro(e.target.value)}
               className="w-full rounded-tarjeta border border-linea bg-carta px-3.5 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa"
             >
               <option value="">Elige tu rubro…</option>
@@ -223,6 +299,48 @@ export function PlaybookEditor() {
 
       {caps.calificaLeads && (
         <>
+          {/* CAMBIÓ DE RUBRO Y SUS LISTAS SON LA PLANTILLA VIEJA (2026-08-30).
+              Ver `cambiarRubro`: solo aparece si no editó nada, así que aceptar
+              no puede borrarle trabajo propio. Se ofrece, no se aplica solo —
+              cambiar cuatro listas sin preguntar es lo que da miedo. */}
+          {oferta && (
+            <div className="rounded-tarjeta border border-brasa/30 bg-brasa-suave p-4">
+              <p className="text-[0.88rem] font-bold text-tinta">
+                Cambiaste de rubro: ¿actualizo las listas?
+              </p>
+              <p className="mt-1 text-[0.84rem] text-frio">
+                Las que tienes ahora son las que pusimos por tu rubro anterior
+                — no las editaste. Puedo reemplazarlas por las de tu rubro
+                nuevo. Nada se publica hasta que guardes.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPerfil({
+                      ...perfil,
+                      preguntasClave: oferta.preguntasClave,
+                      senalesCaliente: oferta.senalesCaliente,
+                      senalesFrio: oferta.senalesFrio,
+                      objeciones: oferta.objeciones,
+                    });
+                    setSug(oferta);
+                    setOferta(null);
+                  }}
+                  className="rounded-tarjeta bg-brasa px-4 py-2.5 text-[0.85rem] font-bold text-sobre-brasa transition active:scale-[0.99]"
+                >
+                  Sí, actualizar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOferta(null)}
+                  className="rounded-tarjeta bg-arena-2 px-4 py-2.5 text-[0.85rem] font-bold text-tinta-2 transition active:scale-[0.99]"
+                >
+                  Dejar las mías
+                </button>
+              </div>
+            </div>
+          )}
           {/* "COMPLETAR CON LO TÍPICO DE MI RUBRO" (2026-08-27).
               Los negocios NUEVOS ya nacen con el playbook lleno, pero los que
               ya existían lo tienen vacío — y son la mayoría. Los chips ayudan

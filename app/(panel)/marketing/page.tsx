@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { haySesion, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
+import { obtenerMiPlan } from "@/lib/api";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 import AnunciosPanel from "@/app/(panel)/anuncios/page";
@@ -51,9 +52,25 @@ export default function MarketingPanel() {
     : "anuncios";
   const [pestania, setPestania] = useState<Pestania>(inicial);
 
+  /**
+   * ¿SU PLAN INCLUYE MARKETING? (2026-08-31, plan Full.)
+   *
+   * `null` mientras carga y ante un error: se muestra todo. Esconderle la
+   * sección a quien SÍ la paga por un error de red es peor que mostrarla de
+   * más — el backend igual la corta con un 402, así que nadie se cuela.
+   *
+   * Va acá y NO en `capacidades`: ese es el eje RUBRO (qué hace el negocio) y
+   * este es el eje PLAN (qué está pago). Mezclarlos es lo que hace que después
+   * nadie sepa por qué una sección no aparece.
+   */
+  const [tieneMarketing, setTieneMarketing] = useState<boolean | null>(null);
+
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
+    obtenerMiPlan()
+      .then((p) => setTieneMarketing(p?.features?.marketing ?? true))
+      .catch(() => setTieneMarketing(true));
   }, [router]);
 
   function elegir(p: Pestania) {
@@ -85,6 +102,70 @@ export default function MarketingPanel() {
         const activa = leerEmpresaActiva();
         return (emp.find((e) => e.tenantId === activa) ?? emp[0])?.nombre ?? "";
       })();
+
+  /**
+   * EL CANDADO SE VE, NO SE ESCONDE (2026-08-31).
+   *
+   * La sección sigue en el menú y esta pantalla sigue abriendo: lo que cambia
+   * es que en vez de las pestañas se muestra QUÉ desbloquea el plan Full.
+   *
+   * Esconder el ítem sería peor de las dos maneras: el dueño no se entera de
+   * que existe (y entonces nunca lo compra), y si alguna vez lo vio, la
+   * desaparición se lee como que se rompió algo.
+   */
+  if (tieneMarketing === false) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">
+        <header>
+          <p className="eyebrow">Tu embudo</p>
+          <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Marketing</h1>
+          <p className="mt-1 text-[0.92rem] text-frio">
+            Trae clientes nuevos y haz volver a los que ya te compraron.
+          </p>
+        </header>
+
+        <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
+          <p className="text-[0.82rem] font-semibold uppercase tracking-wide text-frio">
+            Con el plan Full
+          </p>
+          <h2 className="mt-2 text-[1.25rem] font-bold text-tinta">
+            Vender más, sin que tengas que hacerlo vos
+          </h2>
+
+          {/* Cada línea dice lo que HACE, no cómo se llama la función: "campañas
+              masivas" no le dice nada a quien nunca mandó una. */}
+          <ul className="mt-4 space-y-3 text-[0.94rem] text-tinta-2">
+            <li>
+              <strong className="text-tinta">Escríbele a todos tus clientes de una.</strong>{" "}
+              La promo del viernes le llega a los que ya te compraron, desde tu
+              propio número.
+            </li>
+            <li>
+              <strong className="text-tinta">El bot trae de vuelta al que no volvió.</strong>{" "}
+              Le escribe solo al que hace rato no pide. Es la venta más barata
+              que existe: ya te conoce.
+            </li>
+            <li>
+              <strong className="text-tinta">Tus promos se ofrecen solas.</strong>{" "}
+              El bot cuenta lo del día antes de que el cliente elija, así pide
+              dos en vez de una.
+            </li>
+            <li>
+              <strong className="text-tinta">Anuncios en Facebook e Instagram.</strong>{" "}
+              Con lo que gastaste y cuánta gente llegó, en números reales.
+            </li>
+          </ul>
+
+          <a
+            href="/configuracion?t=plan"
+            className="mt-6 inline-flex rounded-full bg-tinta px-6 py-3 text-[0.95rem] font-semibold text-carta"
+          >
+            Ver el plan Full
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">

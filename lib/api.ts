@@ -618,6 +618,16 @@ export interface FeaturesPlan {
   nodosAvanzados: boolean;
   marketplace: boolean;
   maxFlujos: number;
+  /**
+   * El bloque de marketing: campañas, recompra automática, promos que el bot
+   * ofrece solo y anuncios (2026-08-31). Es lo que trae el plan Full.
+   *
+   * Opcional a propósito: si el backend todavía no lo manda, `undefined` se
+   * trata como "sí lo tiene" en las pantallas, y el corte real igual lo hace
+   * el backend con un 402. Al revés —asumir que NO— le escondería la sección
+   * a quien sí la paga cada vez que el panel salga antes que el backend.
+   */
+  marketing?: boolean;
 }
 
 export type RitmoSeguimiento = "suave" | "normal" | "insistente";

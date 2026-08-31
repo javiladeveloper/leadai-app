@@ -191,6 +191,16 @@ export interface FormaDeTrabajo {
   aceptaPlin: boolean;
   /** Cobra al entregar, además de (o en vez de) por adelantado. */
   aceptaEfectivo: boolean;
+  /**
+   * Desde y hasta qué hora atiende la cocina (2026-08-31).
+   *
+   * Faltaban acá, y el alta los preguntaba sin poder guardarlos:
+   * `/carta/negocio` no acepta esos campos —viven en `/pedidos-config`, que es
+   * esta ruta— así que el dueño terminaba el onboarding con un "Horario ✓" y
+   * la base en NULL. El bot le tomaba pedidos a las 4 de la mañana.
+   */
+  horaAbre: number;
+  horaCierra: number;
 }
 
 export async function guardarFormaDeTrabajo(

@@ -141,7 +141,10 @@ export default function BienvenidaPanel() {
       if (whatsapp.trim()) { await new Promise((r) => setTimeout(r, 250)); marcar("whatsapp"); }
       if (direccion.trim()) { await new Promise((r) => setTimeout(r, 250)); marcar("direccion"); }
       if (esComida) {
-        await guardarNegocio({});
+        // El horario YA se guardó en su paso (ver `guardarPaso2`). Acá había
+        // un `guardarNegocio({})` con el objeto VACÍO —un PATCH que no
+        // escribía nada— y justo después se marcaba el check: por eso el
+        // resumen decía "Horario 11:00 a 23:00 ✓" con la base en NULL.
         await new Promise((r) => setTimeout(r, 250));
         marcar("horario");
         if (importados.length > 0) { await new Promise((r) => setTimeout(r, 250)); marcar("carta"); }
@@ -165,7 +168,7 @@ export default function BienvenidaPanel() {
   /** Paso 1: crea el negocio de verdad. Sin esto no hay dónde guardar nada. */
   async function crearNegocio() {
     const limpio = nombre.trim();
-    if (!limpio) { setError("Ponele un nombre a tu negocio."); return; }
+    if (!limpio) { setError("Ponle un nombre a tu negocio."); return; }
     // EL RUBRO DE VENTAS ES OBLIGATORIO (2026-08-30): sin él el negocio nace
     // con el playbook genérico, y corregirlo después es el problema que ya nos
     // costó una sesión en vivo. Se pide acá y no se puede saltar.
@@ -227,6 +230,19 @@ export default function BienvenidaPanel() {
     await guardarNegocio({
       direccion: direccion.trim() || null,
       entregaMinutos: entrega ? Number(entrega) : null,
+    });
+    // EL HORARIO SE PREGUNTABA Y NO SE GUARDABA (2026-08-31, cazado probando
+    // el alta de punta a punta con una pollería de prueba).
+    //
+    // Este paso pide "¿desde qué hora hasta qué hora?" y el resumen final
+    // mostraba "Horario: 11:00 a 23:00 ✓" — pero `horaAbre`/`horaCierra`
+    // quedaban NULL en la base: `guardarNegocio` (PATCH /carta/negocio) no
+    // acepta esos campos, viven en `/pedidos-config`. El dueño terminaba el
+    // alta creyendo que su cocina cerraba a las 23:00 y el bot tomaba pedidos
+    // a las 4 de la mañana.
+    await guardarFormaDeTrabajo({
+      horaAbre: Number(horaAbre),
+      horaCierra: Number(horaCierra),
     });
     setGuardando(false);
     setPaso(3);
@@ -823,7 +839,7 @@ export default function BienvenidaPanel() {
         {paso === 4 && (
           <div className="entra">
             <h1 className="text-[1.8rem] font-bold leading-tight text-tinta">
-              Ponele tu cara
+              Ponle tu cara
             </h1>
             <p className="mt-2 text-[1.02rem] text-tinta-2">
               Tu logo y una foto de portada. Sin esto, tu carta parece un

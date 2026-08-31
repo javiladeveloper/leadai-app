@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion, leerSesion, guardarEmpresaActiva } from "@/lib/auth";
 import { crearEmpresa } from "@/lib/api";
-import { RUBROS_DISPONIBLES } from "@/lib/rubros";
+import { RUBROS_DISPONIBLES, RUBROS_CAPTACION } from "@/lib/rubros";
 import {
   guardarNegocio, subirImagenNegocio, leerFoto,
   leerExcel, leerFotoOPdf, importarCarta, descargarPlantilla,
@@ -63,6 +63,10 @@ export default function BienvenidaPanel() {
   // Paso 1 — el negocio
   const [nombre, setNombre] = useState("");
   const [rubro, setRubro] = useState("");
+  // La MODALIDAD del producto: gastronomía (carta + cocina) o ventas
+  // (captación). En gastronomía coincide con el rubro; en ventas el rubro real
+  // se pregunta aparte (2026-08-30).
+  const [modalidad, setModalidad] = useState("");
   const [codigoPais, setCodigoPais] = useState("51");
   const [whatsapp, setWhatsapp] = useState("");
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -162,6 +166,13 @@ export default function BienvenidaPanel() {
   async function crearNegocio() {
     const limpio = nombre.trim();
     if (!limpio) { setError("Ponele un nombre a tu negocio."); return; }
+    // EL RUBRO DE VENTAS ES OBLIGATORIO (2026-08-30): sin él el negocio nace
+    // con el playbook genérico, y corregirlo después es el problema que ya nos
+    // costó una sesión en vivo. Se pide acá y no se puede saltar.
+    if (modalidad === "ventas" && !rubro) {
+      setError("Elige de qué rubro es tu negocio.");
+      return;
+    }
     setError("");
     setGuardando(true);
     const r = await crearEmpresa(limpio, rubro || undefined);
@@ -353,13 +364,52 @@ export default function BienvenidaPanel() {
               </Campo>
 
               <Campo etiqueta="¿A qué se dedica?">
-                <select value={rubro} onChange={(e) => setRubro(e.target.value)} className={ENTRADA}>
+                <select
+                  value={modalidad}
+                  onChange={(e) => {
+                    const m = e.target.value;
+                    setModalidad(m);
+                    // En gastronomía la modalidad ES el rubro; en ventas se
+                    // pregunta abajo y hasta entonces queda vacío.
+                    setRubro(m === "gastronomia" ? "gastronomia" : "");
+                  }}
+                  className={ENTRADA}
+                >
                   <option value="">Elige tu rubro…</option>
                   {RUBROS_DISPONIBLES.map((r) => (
                     <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>
                   ))}
                 </select>
               </Campo>
+
+              {/* EL RUBRO REAL, DENTRO DE VENTAS (2026-08-30).
+                  Las dos opciones de arriba son las MODALIDADES del producto
+                  —gastronomía tiene carta, cocina y pedidos; ventas es el caso
+                  de captación— y eso está bien. El problema es que "Ventas /
+                  Comercio / Tienda" terminaba siendo también el RUBRO
+                  guardado, y de ahí sale el playbook del bot.
+
+                  Caso real, en vivo con Guisella: creó una inmobiliaria —la
+                  única opción posible era Ventas— y el bot quedó preguntándole
+                  a quien busca casa "¿cuántas unidades necesita?" y "¿hay
+                  stock?", ofreciendo descuento por volumen. */}
+              {modalidad === "ventas" && (
+                <Campo
+                  etiqueta="¿Y de qué rubro?"
+                  ayuda="Con esto el bot arranca sabiendo qué preguntar en tu negocio"
+                >
+                  <select
+                    value={rubro}
+                    onChange={(e) => setRubro(e.target.value)}
+                    className={ENTRADA}
+                  >
+                    <option value="">Elige tu rubro…</option>
+                    {RUBROS_CAPTACION.map((r) => (
+                      <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>
+                    ))}
+                  </select>
+                </Campo>
+              )}
 
               {/* OBLIGATORIO (2026-08-19): sin este número la carta no lleva a
                   ningún lado — el cliente arma su pedido y no tiene a dónde

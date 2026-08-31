@@ -124,5 +124,46 @@ check(
   'sin esto ambas llamadas devuelven la plantilla del perfil guardado',
 );
 
+// ── 6. El onboarding pide el rubro REAL dentro de Ventas ─────────────────
+//
+// La causa raiz del caso de Guisella: el alta ofrece dos opciones que son las
+// MODALIDADES del producto (gastronomia con carta y cocina, ventas que es
+// captacion). Eso esta bien. Pero "Ventas / Comercio / Tienda" terminaba
+// siendo tambien el RUBRO guardado, y de ahi sale el playbook: una
+// inmobiliaria no tenia forma de decir que lo era.
+const alta = readFileSync(new URL('../app/bienvenida/page.tsx', import.meta.url), 'utf8')
+  .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^\s*\/\/.*$/gm, '');
+
+check(
+  'el alta separa la MODALIDAD del rubro',
+  /const \[modalidad, setModalidad\]/.test(alta),
+);
+check(
+  'al elegir Ventas se pide el rubro real',
+  /modalidad === "ventas" &&/.test(alta) && /RUBROS_CAPTACION\.map/.test(alta),
+);
+check(
+  'en gastronomia la modalidad ES el rubro (no se pregunta dos veces)',
+  /m === "gastronomia" \? "gastronomia" : ""/.test(alta),
+  'sin esto un restaurante quedaria con el rubro vacio y perderia Carta y Cocina',
+);
+check(
+  'no se puede avanzar en Ventas sin elegir rubro',
+  /modalidad === "ventas" && !rubro/.test(alta),
+  'sin la guarda el negocio nace con el playbook generico, que es el bug original',
+);
+
+// La lista de captacion tiene que cubrir los rubros con plantilla propia: si
+// falta uno, ese negocio no puede elegirse a si mismo y cae en la generica.
+const rubros = readFileSync(new URL('../lib/rubros.ts', import.meta.url), 'utf8');
+check(
+  'los rubros con plantilla propia se pueden elegir en Ventas',
+  ['inmobiliaria', 'contable', 'legal', 'salud', 'automotriz', 'mascotas', 'eventos', 'seguros']
+    .every((r) => new RegExp(`'${r}'`).test(rubros.slice(rubros.indexOf('RUBROS_DE_VENTAS')))),
+  'un rubro con plantilla que no se puede elegir es una plantilla que nadie usa',
+);
+
 console.log(fallas === 0 ? '\nTodo ok.' : `\n${fallas} falla(s).`);
 process.exit(fallas === 0 ? 0 : 1);

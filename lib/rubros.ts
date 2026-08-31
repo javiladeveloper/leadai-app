@@ -57,6 +57,37 @@ const OFRECIDOS = ['gastronomia', 'ventas'];
 export const RUBROS_DISPONIBLES: Rubro[] = RUBROS.filter((r) => OFRECIDOS.includes(r.id));
 
 /**
+ * DENTRO DE "VENTAS", A QUÉ SE DEDICA DE VERDAD (2026-08-30).
+ *
+ * Las dos opciones de arriba NO son rubros: son las dos MODALIDADES del
+ * producto. Gastronomía tiene carta, cocina y pedidos; "Ventas" es el caso de
+ * captación, que abarca todo lo demás. Eso está bien y no se toca.
+ *
+ * El problema es que "Ventas / Comercio / Tienda" terminaba siendo también el
+ * RUBRO guardado, y de ahí sale el playbook. Caso real, en vivo con Guisella:
+ * creó una inmobiliaria —única opción posible era Ventas— y el bot le quedó
+ * preguntando a quien busca casa "¿cuántas unidades necesita?" y "¿hay stock?".
+ *
+ * Así que al elegir Ventas se pide el rubro real. Están los que tienen
+ * plantilla propia en el backend (`playbook-plantillas.ts`); el resto sigue
+ * cayendo en la genérica, que es correcto pero peor.
+ *
+ * Ninguno de estos habilita Carta ni Cocina: eso lo decide `capacidades` a
+ * partir del objetivo del tenant, no el rubro. Acá solo se elige con qué
+ * playbook arranca el bot.
+ */
+const RUBROS_DE_VENTAS = [
+  'ventas', 'inmobiliaria', 'contable', 'legal', 'salud', 'estetica',
+  'gimnasio', 'educacion', 'automotriz', 'turismo', 'eventos', 'mascotas',
+  'construccion', 'seguros', 'moda', 'hogar', 'tecnologia', 'marketing',
+  'logistica', 'otro',
+];
+
+export const RUBROS_CAPTACION: Rubro[] = RUBROS_DE_VENTAS
+  .map((id) => RUBROS.find((r) => r.id === id))
+  .filter((r): r is Rubro => r != null);
+
+/**
  * La etiqueta legible de un rubro. Busca en la lista COMPLETA, no en la de
  * ofrecidos: un negocio con rubro viejo tiene que seguir viéndose bien.
  */

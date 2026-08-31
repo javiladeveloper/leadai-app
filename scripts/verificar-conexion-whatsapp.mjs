@@ -93,9 +93,19 @@ check(
   /traducirErrorMeta\(error\)/.test(comp),
   'el texto de Meta ("#3441062") no le dice nada al dueno',
 );
+// EL CONSEJO CAMBIO (2026-08-31). Antes se le decia "desvincula el numero
+// desde tu app", correcto para el flujo de numeros NUEVOS. Investigando por
+// que el modo coexistencia nunca se activaba salio que es al reves: el numero
+// TIENE que seguir en la app del celular. Desvincularlo rompe el unico camino
+// corto que existe, asi que ese consejo ahora seria un tiro en el pie.
 check(
   'el caso de la clienta esta cubierto: numero ya vinculado',
-  /3441062/.test(errores) && /desvincular de la plataforma/.test(erroresCrudo),
+  /3441062/.test(errores) && /YA usas WhatsApp Business en tu celular/.test(erroresCrudo),
+);
+check(
+  'y NO le dice que desvincule (rompe la coexistencia)',
+  !/desvincular de la plataforma/.test(erroresCrudo),
+  'con coexistencia el numero debe seguir en su app: desvincular es lo contrario',
 );
 check(
   'cada error trae PASOS concretos, no "contacta soporte"',

@@ -301,14 +301,30 @@ export default function ConectarWhatsApp({
         <p className="mt-1 text-[0.84rem] text-tinta-2">
           Es el trámite de WhatsApp, no de LeadAI. Te va a pedir:
         </p>
+        {/* LOS DOS CAMINOS PIDEN COSAS DISTINTAS (2026-08-31). Coexistencia
+            —el número que ya vive en su app— NO pide perfil de empresa, ni
+            sitio web, ni verificación de negocio: solo el número, un código
+            que le llega por WhatsApp, y confirmar desde su propia app. Listar
+            los pasos del flujo largo para todos asustaba de más a quien iba a
+            hacer el corto. */}
         <ul className="mt-2 space-y-1 text-[0.84rem] text-tinta-2">
           <li>• Entrar con tu cuenta de Facebook</li>
-          <li>• Algunos datos de tu negocio</li>
-          <li>• Verificar tu número con un código</li>
+          {modo === "coexistencia" ? (
+            <>
+              <li>• Tu número de WhatsApp Business</li>
+              <li>• Confirmar desde tu app, con un código que te llega por WhatsApp</li>
+            </>
+          ) : (
+            <>
+              <li>• Algunos datos de tu negocio</li>
+              <li>• Verificar tu número con un código</li>
+            </>
+          )}
         </ul>
         <p className="mt-2 text-[0.82rem] text-frio">
-          Toma un par de minutos y se hace una sola vez.
-          {modo === "coexistencia" && " Tu app del celular sigue funcionando igual."}
+          {modo === "coexistencia"
+            ? "Son unos 2 minutos y se hace una sola vez. Tu app del celular sigue funcionando igual, con tus chats y tus contactos."
+            : "Toma unos minutos y se hace una sola vez."}
         </p>
       </div>
 

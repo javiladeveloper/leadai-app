@@ -39,12 +39,16 @@ const CONOCIDOS: { pistas: string[]; error: ErrorTraducido }[] = [
     // normalmente uno que se creó solo al configurar WhatsApp Business.
     pistas: ['no está asociado', 'not associated', '3441062', 'already', 'ya está registrado', 'desvincular'],
     error: {
-      titulo: 'Ese número ya está conectado a otra cuenta de Meta',
+      // OJO CON EL CONSEJO (revisado 2026-08-31). Antes decía "desvinculá el
+      // número desde tu app", que era correcto para el flujo de números
+      // NUEVOS. Con coexistencia es justo al revés: el número TIENE que
+      // seguir en la app del celular — desvincularlo rompe el único camino
+      // corto que existe.
+      titulo: 'Ese número ya está en otra cuenta de Meta',
       pasos: [
-        'Abre WhatsApp Business en tu celular',
-        'Entra a Configuración → Herramientas comerciales',
-        'Toca "desvincular de la plataforma"',
-        'Vuelve aquí y conecta de nuevo',
+        'Vuelve e indica que YA usas WhatsApp Business en tu celular',
+        'Ese camino conecta tu número sin sacarlo de tu app',
+        'Si ya lo elegiste y sigue fallando, escríbenos: es un permiso de Meta que resolvemos nosotros',
       ],
       reintentable: true,
     },

@@ -101,6 +101,29 @@ const CONOCIDOS: { pistas: string[]; error: ErrorTraducido }[] = [
     },
   },
   {
+    /**
+     * EL BACKEND YA PREGUNTÓ QUÉ FALTA (2026-08-31).
+     *
+     * Cuando la conexión muere sin resolver la WABA, el backend le consulta a
+     * Meta el portfolio del dueño con su propio token —el único momento en que
+     * lo tenemos— y devuelve la causa concreta en vez de un genérico.
+     *
+     * Este mensaje NO se reescribe: ya viene con el nombre del portfolio del
+     * dueño adentro ("tu portfolio X no tiene página"), que es más útil que
+     * cualquier texto fijo que pudiéramos poner acá.
+     */
+    pistas: ['página de facebook', 'pagina de facebook'],
+    error: {
+      titulo: 'Falta una página de Facebook en tu portfolio',
+      pasos: [
+        'Créala en facebook.com/pages/create — es gratis y no necesitas publicar nada',
+        'Ponle el nombre de tu negocio y elige la categoría que más se parezca',
+        'Vuelve acá y toca "Intentar de nuevo"',
+      ],
+      reintentable: true,
+    },
+  },
+  {
     pistas: ['url', 'sitio web', 'website'],
     error: {
       titulo: 'Meta pide un sitio web válido',

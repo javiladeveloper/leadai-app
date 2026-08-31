@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, EMPRESA_GLOBAL } from "@/lib/auth";
 import { EtapasEditor } from "@/components/panel/EtapasEditor";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
+import { AccionesDelBot } from "@/components/panel/AccionesDelBot";
 import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { HorarioEditor } from "@/components/panel/HorarioEditor";
 import { PagosEditor } from "@/components/panel/PagosEditor";
@@ -275,10 +276,21 @@ function ConfiguracionInner() {
 
           {tab === "bot" && (
             <>
-              {/* EL PLAYBOOK, QUE ES LO QUE EL BOT DICE (2026-08-30). Tono, por
-                  qué elegirte, qué vendes, preguntas clave, señales y
-                  objeciones. El nombre y el rubro se quedaron en "Tu negocio":
-                  son identidad, no guion. */}
+              {/* QUÉ HACE EL BOT, ANTES DE CÓMO LO DICE (2026-08-30, Jonathan:
+                  "te pueden escribir que agende citas... eso el bot no lo
+                  hace"). Lista cerrada y NO editable: las capacidades no
+                  pueden salir de un campo de texto, porque equivocarse ahí es
+                  prometerle al cliente algo que no va a pasar. */}
+              <Seccion
+                titulo="Qué hace tu bot"
+                bajada="Esto es lo que sabe hacer solo. Lo que todavía no, te lo pasa a ti."
+                tono="hondo"
+              >
+                <AccionesDelBot />
+              </Seccion>
+              {/* Y ACÁ, CÓMO LO DICE. Tono, por qué elegirte, qué vendes,
+                  preguntas clave, señales y objeciones. El nombre y el rubro se
+                  quedaron en "Tu negocio": son identidad, no guion. */}
               <PlaybookEditor parte="guion" />
               {/* "QUÉ RESPONDE TU BOT" SE MUDÓ DE CANALES (2026-08-27). Estaba
                   ahí porque se agregó pensando en el momento de conectar el

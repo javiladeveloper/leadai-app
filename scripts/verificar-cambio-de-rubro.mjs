@@ -206,5 +206,47 @@ check(
   'el PUT es full-replace: mandar media mitad borra la otra',
 );
 
+// ── 8. Lo que el bot HACE es lista cerrada, no texto libre ───────────────
+//
+// Jonathan (2026-08-30): "te pueden escribir que agende citas... eso el bot no
+// lo hace, lo que hacemos es escalar con una persona".
+//
+// La distincion: lo que el bot SABE puede ser texto libre (si se equivoca dice
+// un dato mal); lo que el bot HACE, nunca (si se equivoca le promete al
+// cliente algo que no va a pasar).
+const acciones = readFileSync(new URL('../components/panel/AccionesDelBot.tsx', import.meta.url), 'utf8');
+
+check(
+  'la lista de acciones se muestra en la pestana Bot',
+  /<AccionesDelBot \/>/.test(cfg),
+);
+check(
+  'las acciones NO se editan: no hay input ni textarea',
+  !/<input|<textarea|onChange/.test(acciones),
+  'si se puede escribir, vuelve el problema: el dueno promete lo que el bot no hace',
+);
+// ACOTADO A ESA ACCION: buscar `activa: false` suelto pasaba igual, porque hay
+// otras apagadas en la lista que lo hacian matchear. Se mira el bloque que
+// arranca en su titulo.
+const iAgendar = acciones.indexOf('Agendar citas');
+const bloqueAgendar = acciones.slice(
+  iAgendar,
+  // Hasta el cierre de ESA entrada. Un tope fijo de caracteres se pasaba a la
+  // accion siguiente —que tambien esta apagada— y la hacia pasar igual.
+  iAgendar === -1 ? 0 : acciones.indexOf('\n    },', iAgendar),
+);
+check(
+  'agendar citas figura APAGADA y dice que escala a una persona',
+  acciones.includes('Agendar citas') &&
+    /activa: false/.test(bloqueAgendar) &&
+    /te lo pasa a ti|pasa a ti para que lo agendes/.test(bloqueAgendar),
+  'es la que motivo todo esto: verla apagada responde la pregunta antes de que la hagan',
+);
+check(
+  'cada accion apagada dice que hace el bot en su lugar',
+  (acciones.match(/enSuLugar:/g) ?? []).length >= 3,
+  'una capacidad apagada sin alternativa deja al dueno sin saber que esperar',
+);
+
 console.log(fallas === 0 ? '\nTodo ok.' : `\n${fallas} falla(s).`);
 process.exit(fallas === 0 ? 0 : 1);

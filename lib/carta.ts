@@ -257,6 +257,54 @@ export function eliminarProducto(id: string, tenant?: string) {
   return escribir(`/carta/productos/${id}`, "DELETE", undefined, tenant);
 }
 
+// ── El menú del día (2026-08-31) ──────────────────────────────────────
+//
+// El ritual de cada mañana: precio + entradas + segundos en una pasada. Es un
+// producto normal por dentro (viaja por web, mesa, mostrador y chat), pero se
+// edita desde su propia pantalla porque cambia TODOS los días.
+
+export interface OpcionMenuDia {
+  id: string;
+  nombre: string;
+  disponible: boolean;
+}
+
+export interface MenuDelDia {
+  productoId: string;
+  nombre: string;
+  precioCentavos: number;
+  disponible: boolean;
+  dia: string | null;
+  /** `false` = lo que hay guardado es el menú de OTRO día (está apagado). */
+  esDeHoy: boolean;
+  entradas: OpcionMenuDia[];
+  segundos: OpcionMenuDia[];
+}
+
+export async function obtenerMenuDia(tenant?: string): Promise<MenuDelDia | null> {
+  try {
+    const r = await api<{ menu: MenuDelDia | null }>("/carta/menu-dia", { tenant });
+    return r.menu;
+  } catch {
+    return null;
+  }
+}
+
+export function publicarMenuDia(
+  datos: { precioCentavos: number; nombre?: string; entradas: string[]; segundos: string[] },
+  tenant?: string,
+) {
+  return escribir<MenuDelDia>(
+    "/carta/menu-dia", "PUT", datos, tenant,
+    (r) => (r as { menu: MenuDelDia }).menu,
+  );
+}
+
+/** "Se acabó el tallarín": agota una OPCIÓN (vuelve sola mañana). */
+export function marcarOpcionDisponible(id: string, disponible: boolean, tenant?: string) {
+  return escribir(`/carta/opciones/${id}/disponible`, "PATCH", { disponible }, tenant);
+}
+
 // ── Fotos de los platos ───────────────────────────────────────────────
 //
 // Una carta sin fotos vende menos: el cliente elige con los ojos.

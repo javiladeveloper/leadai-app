@@ -34,9 +34,10 @@ import {
 import { CampoFoto, useFoto } from "@/components/panel/CampoFoto";
 import { SkeletonLista } from "@/components/Skeletons";
 import { MarcaCarta } from "@/components/panel/MarcaCarta";
+import { MenuDelDiaPanel } from "@/components/panel/MenuDelDiaPanel";
 import { Seccion } from "@/components/panel/Seccion";
 
-type Pestana = "platos" | "extras" | "combos" | "promos" | "marca";
+type Pestana = "platos" | "menu" | "extras" | "combos" | "promos" | "marca";
 
 export default function CartaPanel() {
   const router = useRouter();
@@ -101,6 +102,10 @@ export default function CartaPanel() {
       <nav className="flex gap-1 overflow-x-auto rounded-tarjeta bg-carta p-1 ring-1 ring-linea [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {([
           ["platos", "Platos"],
+          // EL MENÚ DEL DÍA (2026-08-31): pestaña propia porque es el ritual
+          // de CADA mañana — precio, entradas y segundos en una pasada, y
+          // "se acabó" con un toque durante el servicio.
+          ["menu", "Menú del día"],
           ["extras", "Extras"],
           ["combos", "Combos"],
           ["promos", "Promos"],
@@ -167,6 +172,7 @@ export default function CartaPanel() {
           {pestana === "platos" && (
             <Platos carta={carta} recargar={cargar} avisar={setError} />
           )}
+          {pestana === "menu" && <MenuDelDiaPanel />}
           {pestana === "extras" && (
             <Extras carta={carta} recargar={cargar} avisar={setError} />
           )}
@@ -581,7 +587,9 @@ function Platos({
                 <span className="font-bold tabular-nums text-calor">{precioTexto(p.precioCentavos)}</span>
                 {!p.disponible && (
                   <span className="rounded-chip bg-arena px-2.5 py-1 text-[0.72rem] font-bold text-frio">
-                    Agotado
+                    {/* El toggle rápido agota POR HOY (2026-08-31): vuelve
+                        solo mañana, nadie tiene que acordarse de prenderlo. */}
+                    Agotado hoy
                   </span>
                 )}
                 <AccionFila onClick={() => agotar(p)}>

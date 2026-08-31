@@ -165,5 +165,46 @@ check(
   'un rubro con plantilla que no se puede elegir es una plantilla que nadie usa',
 );
 
+// ── 7. El playbook, partido en identidad y guion ─────────────────────────
+//
+// Jonathan (2026-08-30): "toooooda esta configuracion debe estar en la seccion
+// bot". El criterio: si cambiarlo cambia lo que el bot DICE, es del bot.
+//
+// El 27 se habia movido ENTERO y "Tu negocio" quedo vacio para captacion, asi
+// que volvio entero — y quedo peor, con el nombre del negocio conviviendo con
+// las objeciones del bot. Este bloque cuida que no se vuelva a ninguno de los
+// dos extremos.
+const cfg = readFileSync(new URL('../app/(panel)/configuracion/page.tsx', import.meta.url), 'utf8')
+  .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+
+check(
+  'la identidad se edita en "Tu negocio"',
+  /<PlaybookEditor parte="identidad" \/>/.test(cfg),
+  'sin esto "Tu negocio" queda vacio para captacion — ya paso el 27',
+);
+check(
+  'el guion del bot se edita en la pestana Bot',
+  /<PlaybookEditor parte="guion" \/>/.test(cfg),
+);
+check(
+  'el nombre y el rubro NO se muestran en la parte del guion',
+  /\{esIdentidad && \(/.test(codigo),
+  'duplicarlos deja al usuario sin saber cual manda',
+);
+check(
+  'los bloques del guion NO se muestran en la parte de identidad',
+  (codigo.match(/\{esGuion && /g) ?? []).length >= 5,
+  'si un bloque se escapa, "Tu negocio" vuelve a mezclar identidad con guion',
+);
+
+// LO QUE NO SE PUEDE ROMPER: el PUT de /perfil es full-replace, asi que cada
+// mitad tiene que mandar el perfil ENTERO. Si mandara solo lo suyo, guardar
+// desde Bot borraria el nombre del negocio.
+check(
+  'guardar manda el perfil completo, no solo la mitad visible',
+  /guardarPerfil\(perfil\.rubro \|\| "general", perfil\)/.test(codigo),
+  'el PUT es full-replace: mandar media mitad borra la otra',
+);
+
 console.log(fallas === 0 ? '\nTodo ok.' : `\n${fallas} falla(s).`);
 process.exit(fallas === 0 ? 0 : 1);

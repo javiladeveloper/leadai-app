@@ -75,7 +75,24 @@ function esLaPlantilla(
   );
 }
 
-export function PlaybookEditor() {
+/**
+ * QUÉ MITAD DEL PLAYBOOK SE EDITA (2026-08-30, pedido de Jonathan: "toooooda
+ * esta configuración debe estar en la sección bot").
+ *
+ * El criterio: **si cambiarlo cambia lo que el bot DICE, es del bot**. El
+ * nombre y el rubro son identidad del negocio y viven en "Tu negocio"; el
+ * tono, qué vende, las preguntas clave, las señales y las objeciones son su
+ * guion y viven en "Bot".
+ *
+ * Se parte con una prop y no en dos componentes porque el estado es UNO: el
+ * PUT de `/perfil` es full-replace, así que dos formularios separados que
+ * guardan por su cuenta se pisarían el trabajo mutuamente.
+ */
+export type ParteDelPlaybook = "identidad" | "guion";
+
+export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook } = {}) {
+  const esIdentidad = parte === "identidad";
+  const esGuion = parte === "guion";
   const [perfil, setPerfil] = useState<PerfilNegocio>(PERFIL_VACIO);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [error, setError] = useState("");
@@ -196,11 +213,13 @@ export function PlaybookEditor() {
     // El bloque PRINCIPAL de "Tu negocio": lleva la barrita naranja para que
     // se distinga de las secciones de abajo, que son ajustes de segundo orden.
     <Seccion
-      titulo="Cómo atiende tu bot"
+      titulo={esIdentidad ? "Tu negocio" : "Cómo atiende tu bot"}
       bajada={
-        caps.tieneCarta
-          ? "El saludo con el que tu bot recibe a cada cliente. Tus horarios, pagos y mínimo de delivery se configuran en Ajustes; tu carta, en su sección."
-          : "El playbook que usa la IA para responder por ti: tono, qué vendes, preguntas clave y objeciones."
+        esIdentidad
+          ? "El nombre y el rubro con los que se presenta. Lo que el bot dice se configura en la pestaña Bot."
+          : caps.tieneCarta
+            ? "El saludo con el que tu bot recibe a cada cliente. Tus horarios, pagos y mínimo de delivery se configuran en Ajustes; tu carta, en su sección."
+            : "El playbook que usa la IA para responder por ti: tono, qué vendes, preguntas clave y objeciones."
       }
       tono="hondo"
     >
@@ -222,6 +241,7 @@ export function PlaybookEditor() {
           En captación se queda: una agencia cambia de rubro según el cliente
           para el que capta, y ahí esa línea del prompt sí pesa (el bot
           conversa de verdad, no manda textos fijos). */}
+      {esIdentidad && (
       <div className={caps.tieneCarta ? "" : "grid gap-4 lg:grid-cols-2"}>
         <Campo
           label="Nombre del negocio"
@@ -244,6 +264,7 @@ export function PlaybookEditor() {
           </label>
         )}
       </div>
+      )}
 
       {/* EL TONO NO APLICA A PEDIDOS (2026-08-27, Jonathan: "¿de verdad
           funciona esto? si todo es determinístico").
@@ -258,7 +279,7 @@ export function PlaybookEditor() {
           alterar el comportamiento del bot. Un tono legacy (texto libre de
           antes) se muestra como "Actual" y se respeta hasta que elijan uno
           curado (el backend valida con la misma lista). */}
-      {!caps.tieneCarta && (
+      {esGuion && !caps.tieneCarta && (
       <div>
         <span className="mb-2 block text-sm font-medium text-tinta">Cómo quieres que hable el bot</span>
         <div className="flex flex-wrap gap-2">
@@ -288,7 +309,7 @@ export function PlaybookEditor() {
       )}
       {/* "Por qué elegirte" alimenta el prompt de CALIFICACIÓN de leads, que
           un restaurante no usa: no califica a quien pide comida, le cobra. */}
-      {!caps.tieneCarta && (
+      {esGuion && !caps.tieneCarta && (
         <CampoArea
           label="Por qué elegirte"
           value={perfil.propuestaValor}
@@ -297,7 +318,7 @@ export function PlaybookEditor() {
         />
       )}
 
-      {caps.calificaLeads && (
+      {esGuion && caps.calificaLeads && (
         <>
           {/* CAMBIÓ DE RUBRO Y SUS LISTAS SON LA PLANTILLA VIEJA (2026-08-30).
               Ver `cambiarRubro`: solo aparece si no editó nada, así que aceptar
@@ -432,7 +453,7 @@ export function PlaybookEditor() {
         />
       </div>
 
-      {caps.redactaRespuestas && (
+      {esGuion && caps.redactaRespuestas && (
         <ListaRespuestasFijas
           respuestasFijas={perfil.respuestasFijas ?? []}
           onChange={(respuestasFijas) => setPerfil({ ...perfil, respuestasFijas })}
@@ -448,7 +469,7 @@ export function PlaybookEditor() {
           menciona — un mínimo de S/20 en texto no frena un pedido de S/12.
           En captación no hay esos campos, así que ahí sigue siendo el lugar
           donde se cuentan las condiciones del servicio. */}
-      {!caps.tieneCarta && (
+      {esGuion && !caps.tieneCarta && (
         <CampoArea
           label="Cómo trabajas (envíos, horarios, pagos)"
           value={perfil.politicas}
@@ -456,7 +477,7 @@ export function PlaybookEditor() {
           placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
         />
       )}
-      {caps.calificaLeads && (
+      {esGuion && caps.calificaLeads && (
         <CampoArea
           label="Qué quieres que hagan"
           value={perfil.llamadaAccion}

@@ -237,16 +237,20 @@ function ConfiguracionInner() {
           )}
           {tab === "negocio" && (
             <>
-              {/* EL PLAYBOOK VUELVE ACÁ (2026-08-27). Lo había mandado entero
-                  al Bot y "Tu negocio" quedó VACÍO para un negocio de
-                  captación: horarios y pagos son solo de restaurante, así que
-                  no le quedaba nada.
+              {/* SOLO LA IDENTIDAD (2026-08-30, Jonathan: "toooooda esta
+                  configuración debe estar en la sección bot").
 
-                  Y mirándolo bien, es el lugar correcto: adentro están el
-                  NOMBRE y el RUBRO, que son datos del negocio, no del bot. Lo
-                  que sí es del bot —qué responde, etapas, seguimiento— vive en
-                  su pestaña. */}
-              <PlaybookEditor />
+                  Historia corta: el 27 mandé el playbook ENTERO al Bot y "Tu
+                  negocio" quedó vacío para captación, así que lo traje entero
+                  de vuelta — y quedó peor, porque adentro convivían el nombre
+                  del negocio con las objeciones del bot.
+
+                  El corte que faltaba: si cambiarlo cambia lo que el bot DICE,
+                  es del bot. Acá quedan el nombre y el rubro (identidad); el
+                  tono, qué vende, preguntas clave, señales y objeciones se
+                  editan en la pestaña Bot. Nada queda vacío y cada cosa está
+                  donde uno la busca. */}
+              <PlaybookEditor parte="identidad" />
               {/* LAS ETAPAS NO SON DEL BOT (2026-08-27, Jonathan: "etapas del
                   embudo yo creo que no iría en el bot").
                   Tiene razón, y la auditoría lo confirma: `etapasEmbudo` solo
@@ -271,6 +275,11 @@ function ConfiguracionInner() {
 
           {tab === "bot" && (
             <>
+              {/* EL PLAYBOOK, QUE ES LO QUE EL BOT DICE (2026-08-30). Tono, por
+                  qué elegirte, qué vendes, preguntas clave, señales y
+                  objeciones. El nombre y el rubro se quedaron en "Tu negocio":
+                  son identidad, no guion. */}
+              <PlaybookEditor parte="guion" />
               {/* "QUÉ RESPONDE TU BOT" SE MUDÓ DE CANALES (2026-08-27). Estaba
                   ahí porque se agregó pensando en el momento de conectar el
                   WhatsApp, pero es lo que MÁS habla del bot: buscarlo en la

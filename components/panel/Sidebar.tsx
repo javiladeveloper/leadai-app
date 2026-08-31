@@ -83,7 +83,12 @@ export const SECCIONES: Seccion[] = [
   // Reportes y Equipo son de CAPTACIÓN (2026-08-19): un restaurante ve lo que
   // vendió hoy en su Inicio y casi siempre lo maneja una sola persona.
   { href: "/reportes", label: "Reportes", Icono: IconoReportes, requiere: "calificaLeads", grupo: "Tu negocio" },
-  { href: "/equipo", label: "Equipo", Icono: IconoConversaciones, requiere: "calificaLeads", grupo: "Tu negocio" },
+  // EQUIPO ES DE TODOS LOS RUBROS (2026-08-31, Jonathan: "¿esa sección está
+  // en el panel?"). Estaba atada a `calificaLeads` — capacidad de CAPTACIÓN —
+  // así que justo el restaurante, que es quien invita mozos, caja y cocina,
+  // no la veía en su menú. El rol sí filtra (un mozo no la ve), y el plan lo
+  // exige el backend al invitar.
+  { href: "/equipo", label: "Equipo", Icono: IconoConversaciones, grupo: "Tu negocio" },
   // Placas NFC de reseñas (2026-08-26): SIN `requiere` a propósito — un
   // restaurante quiere reseñas de Google igual que una contadora.
   // PLACAS SOLO SI TIENE UNA (2026-08-27, Jonathan: "cuando activen una placa

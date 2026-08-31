@@ -98,9 +98,32 @@ check(
 // que el modo coexistencia nunca se activaba salio que es al reves: el numero
 // TIENE que seguir en la app del celular. Desvincularlo rompe el unico camino
 // corto que existe, asi que ese consejo ahora seria un tiro en el pie.
+// Y SE REESCRIBIO DE NUEVO tras investigar el caso de punta a punta:
+// revisamos el celular de la clienta (su app NO veia el numero conectado) y
+// los dos portfolios de Meta (los dos vacios). La causa esta en la doc: un
+// proveedor ANTERIOR retiene el numero, y no hay forma de averiguar cual —
+// la API no deja consultar el dueno de un numero ajeno. Por eso el consejo
+// apunta al proveedor, y la salida somos nosotros.
 check(
-  'el caso de la clienta esta cubierto: numero ya vinculado',
-  /3441062/.test(errores) && /YA usas WhatsApp Business en tu celular/.test(erroresCrudo),
+  'el caso de la clienta esta cubierto: numero tomado por otro servicio',
+  /3441062/.test(errores) && /Pídeles que lo liberen/.test(erroresCrudo),
+);
+check(
+  'y ofrece que lo resolvamos nosotros si no recuerda ninguno',
+  /abrimos el caso con Meta por ti/.test(erroresCrudo),
+  'es lo unico que el dueno no puede resolver solo',
+);
+check(
+  'y le dice que puede seguir configurando mientras tanto',
+  /seguir configurando tu negocio/.test(erroresCrudo),
+  'sin esto queda bloqueado creyendo que no puede avanzar en nada',
+);
+// EL AVISO LLEGA ANTES DE CHOCAR. El error traducido es tarde: ya paso por el
+// dialogo de Meta y ya se frustro. Preguntarle antes es lo que lo evita.
+check(
+  'se pregunta por el proveedor anterior antes de abrir Meta',
+  /otro chatbot o CRM/.test(compCrudo),
+  'es la causa mas comun y no hay forma de detectarla por API',
 );
 check(
   'y NO le dice que desvincule (rompe la coexistencia)',

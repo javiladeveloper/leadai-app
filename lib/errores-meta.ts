@@ -39,16 +39,26 @@ const CONOCIDOS: { pistas: string[]; error: ErrorTraducido }[] = [
     // normalmente uno que se creó solo al configurar WhatsApp Business.
     pistas: ['no está asociado', 'not associated', '3441062', 'already', 'ya está registrado', 'desvincular'],
     error: {
-      // OJO CON EL CONSEJO (revisado 2026-08-31). Antes decía "desvinculá el
-      // número desde tu app", que era correcto para el flujo de números
-      // NUEVOS. Con coexistencia es justo al revés: el número TIENE que
-      // seguir en la app del celular — desvincularlo rompe el único camino
-      // corto que existe.
-      titulo: 'Ese número ya está en otra cuenta de Meta',
+      // EL CONSEJO SE REESCRIBIÓ DOS VECES (2026-08-31), y esta versión sale
+      // de investigar un caso real de punta a punta.
+      //
+      // Primero decía "desvincula el número desde tu app". Comprobado en vivo:
+      // NO aplica. Revisamos el celular de la clienta y su app ni siquiera lo
+      // veía conectado — no había nada que desvincular. También revisamos los
+      // dos portfolios de Meta (el de ella y el nuestro): los dos vacíos.
+      //
+      // La causa está en la doc de Meta: un número con "credit line
+      // arrangements from previous partners" queda atado a ese proveedor
+      // aunque no aparezca en ningún portfolio visible. Y no hay forma de
+      // averiguar CUÁL — la API no deja consultar el dueño de un número ajeno.
+      //
+      // Por eso los pasos apuntan al proveedor anterior, y el último somos
+      // nosotros: es lo único que el dueño no puede resolver solo.
+      titulo: 'Ese número ya está tomado por otro servicio',
       pasos: [
-        'Vuelve e indica que YA usas WhatsApp Business en tu celular',
-        'Ese camino conecta tu número sin sacarlo de tu app',
-        'Si ya lo elegiste y sigue fallando, escríbenos: es un permiso de Meta que resolvemos nosotros',
+        '¿Usaste este número con otro chatbot, CRM o agencia? Pídeles que lo liberen',
+        'Si no recuerdas ninguno, escríbenos: abrimos el caso con Meta por ti',
+        'Mientras tanto puedes seguir configurando tu negocio con normalidad',
       ],
       reintentable: true,
     },

@@ -338,6 +338,25 @@ export default function ConectarWhatsApp({
         </p>
       )}
 
+      {/* EL AVISO DEL PROVEEDOR ANTERIOR (2026-08-31).
+          Caso real: una clienta quedó dos días trabada porque su número ya
+          estaba tomado por un servicio que había usado antes. Meta responde
+          "no está asociado con la empresa que seleccionaste" y NO hay forma
+          de averiguar cuál es —su API no deja consultar el dueño de un número
+          ajeno—, así que se pregunta ANTES de que choque.
+
+          Solo en coexistencia: un número nuevo no puede tener historia. */}
+      {modo === "coexistencia" && (
+        <p className="rounded-tarjeta bg-arena/60 px-4 py-2.5 text-[0.82rem] text-tinta-2">
+          <strong className="font-semibold text-tinta">
+            ¿Ya usaste este número con otro chatbot o CRM?
+          </strong>{" "}
+          Si contrataste antes un servicio de WhatsApp —aunque ya no lo
+          uses— tienes que pedirle a ese proveedor que libere el número.
+          Si no, Meta no nos deja conectarlo.
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"

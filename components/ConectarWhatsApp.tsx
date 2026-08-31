@@ -391,6 +391,41 @@ Detalle: ${error || "sin detalle"}`,
         </p>
       )}
 
+      {/* LA PÁGINA DE FACEBOOK ES REQUISITO, Y NADIE LO SABE (2026-08-31).
+
+          DIAGNOSTICADO CON DOS CASOS EN VIVO, mismo número: desde un portfolio
+          CON página llegó hasta el último paso; desde uno SIN página, Meta
+          cortó con un error genérico apenas puso el número. Se revisó el
+          portfolio que fallaba y tenía 0 páginas, 0 cuentas publicitarias, 0
+          WhatsApp.
+
+          Y NO ERA LA VERIFICACIÓN, que es lo primero que uno supone: el
+          portfolio que SÍ funcionó tampoco está verificado. Lo único que los
+          separaba era la página.
+
+          Meta lo documenta como prerrequisito de coexistencia, pero su error
+          no lo dice: habla de la empresa seleccionada, así que el dueño busca
+          el problema en su número —donde no está— y abandona.
+
+          POR QUÉ VA ANTES Y NO EN EL ERROR: crear la página toma dos minutos
+          si se sabe de antemano; descubrirlo después de fallar significa
+          volver a empezar el trámite entero. */}
+      <div className="rounded-tarjeta bg-arena/60 px-4 py-2.5 text-[0.82rem] text-tinta-2">
+        <strong className="font-semibold text-tinta">
+          ¿Tu negocio tiene página de Facebook?
+        </strong>{" "}
+        Meta la pide para conectar WhatsApp. Si no tienes,{" "}
+        <a
+          href="https://www.facebook.com/pages/create"
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-orbita underline"
+        >
+          créala acá
+        </a>{" "}
+        — es gratis y toma dos minutos. No hace falta publicar nada.
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"

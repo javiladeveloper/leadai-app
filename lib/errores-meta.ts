@@ -114,11 +114,26 @@ const CONOCIDOS: { pistas: string[]; error: ErrorTraducido }[] = [
   },
 ];
 
-/** El que se muestra cuando no reconocemos el error. */
+/**
+ * El que se muestra cuando no reconocemos el error.
+ *
+ * EL PRIMER PASO ES LA CAUSA MÁS COMÚN, NO UN "reintenta" (2026-08-31).
+ *
+ * Diagnosticado con dos casos en vivo y el MISMO número: desde un portfolio
+ * comercial con página de Facebook llegó hasta el último paso; desde uno sin
+ * página, Meta cortó con este genérico apenas puso el número. El portfolio que
+ * fallaba tenía 0 páginas. (Y no era la verificación: el que funcionó tampoco
+ * está verificado.)
+ *
+ * Meta no dice nada de la página en su error, así que el dueño busca el
+ * problema en su número —donde no está— y abandona. Nombrarlo acá es lo que
+ * convierte una pantalla muerta en algo que puede resolver solo.
+ */
 const GENERICO: ErrorTraducido = {
   titulo: 'No pudimos completar la conexión',
   pasos: [
-    'Vuelve a intentar en un momento',
+    '¿Tu negocio tiene página de Facebook? Meta la exige, y sin ella corta con este mismo mensaje. Créala en facebook.com/pages/create — es gratis y no necesitas publicar nada',
+    'Si ya tienes página, vuelve a intentar en un momento',
     'Si puedes, hazlo desde una computadora: el asistente de Meta funciona mejor ahí',
     'Si sigue fallando, escríbenos y lo resolvemos contigo',
   ],

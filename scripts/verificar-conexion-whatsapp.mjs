@@ -118,6 +118,26 @@ check(
   /seguir configurando tu negocio/.test(erroresCrudo),
   'sin esto queda bloqueado creyendo que no puede avanzar en nada',
 );
+// LA PAGINA DE FACEBOOK ES REQUISITO Y NADIE LO SABE (2026-08-31).
+// Diagnosticado con dos casos en vivo y el MISMO numero: con pagina llego al
+// ultimo paso, sin pagina Meta corto con un generico. Es la causa mas comun y
+// la que menos se adivina, porque el error de Meta no la menciona.
+check(
+  'se avisa que Meta pide pagina de Facebook',
+  /pagina de Facebook\?/i.test(compCrudo.normalize('NFD').replace(/[̀-ͯ]/g, '')),
+  'sin esto el dueno choca contra un error que no nombra la causa',
+);
+check(
+  'y se le da el link para crearla',
+  /facebook\.com\/pages\/create/.test(compCrudo),
+  'decirle que falta algo sin decirle donde conseguirlo no resuelve nada',
+);
+check(
+  'el error generico tambien nombra la pagina',
+  /pagina de Facebook/i.test(erroresCrudo.normalize('NFD').replace(/[̀-ͯ]/g, '')),
+  'para quien choco igual: es lo primero que tiene que revisar',
+);
+
 // EL AVISO LLEGA ANTES DE CHOCAR. El error traducido es tarde: ya paso por el
 // dialogo de Meta y ya se frustro. Preguntarle antes es lo que lo evita.
 check(

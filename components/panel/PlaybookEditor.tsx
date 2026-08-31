@@ -8,6 +8,7 @@ import {
 import { RUBROS } from "@/lib/rubros";
 import { Seccion } from "@/components/panel/Seccion";
 import { useCapacidadesOptimista } from "@/lib/modo-negocio";
+import { chipsDeCampo, avisoDeAccionImposible } from "@/lib/chips-playbook";
 
 // Tonos CURADOS del bot — lista canónica compartida con el backend
 // (TONOS_BOT en core/types.ts) y la app. Texto libre ya no se acepta.
@@ -115,6 +116,10 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
   // llegar la respuesta, justo lo contrario de lo que decía el comentario de
   // arriba. Reportado por Jonathan: "carga una cosa y al ratito otra".
   const caps = useCapacidadesOptimista();
+  // Los chips de los campos largos, según CÓMO vende el negocio (pedidos vs
+  // servicios): un contador y un abogado cierran igual aunque sus rubros no se
+  // parezcan.
+  const chips = chipsDeCampo(caps.tieneCarta);
   // Los ejemplos de su rubro, para los chips. `null` mientras cargan o si
   // falla: son ayuda, y sin ellos la pantalla funciona igual que siempre.
   const [sug, setSug] = useState<SugerenciasPlaybook | null>(null);
@@ -312,6 +317,8 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
       {esGuion && !caps.tieneCarta && (
         <CampoArea
           label="Por qué elegirte"
+          ayuda="Lo que te diferencia. El bot lo usa para convencer a quien duda."
+          chips={chips.propuestaValor}
           value={perfil.propuestaValor}
           onChange={(v) => setPerfil({ ...perfil, propuestaValor: v })}
           placeholder="Ej: 20 años de experiencia, atención el mismo día"
@@ -472,6 +479,8 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
       {esGuion && !caps.tieneCarta && (
         <CampoArea
           label="Cómo trabajas (envíos, horarios, pagos)"
+          ayuda="Tus reglas. El bot las responde tal cual cuando se las preguntan."
+          chips={chips.politicas}
           value={perfil.politicas}
           onChange={(v) => setPerfil({ ...perfil, politicas: v })}
           placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
@@ -479,10 +488,12 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
       )}
       {esGuion && caps.calificaLeads && (
         <CampoArea
-          label="Qué quieres que hagan"
+          label="Qué quieres que hagan tus clientes"
+          ayuda="Hacia dónde empuja el bot al cerrar. Tiene que ser algo que el CLIENTE hace."
+          chips={chips.llamadaAccion}
           value={perfil.llamadaAccion}
           onChange={(v) => setPerfil({ ...perfil, llamadaAccion: v })}
-          placeholder="Ej: Que agenden una llamada / que hagan el pedido"
+          placeholder="Ej: Que dejen su nombre y qué necesitan"
         />
       )}
 
@@ -527,20 +538,57 @@ function Campo({
   );
 }
 
+/**
+ * CON CHIPS Y AVISO (2026-08-30, Jonathan: "podríamos crear algunos chips más
+ * para ayudar a las personas a ser más claras... no son personas técnicas...
+ * mientras menos configuraciones libres queden, trabajará mejor el bot").
+ *
+ * Los CHIPS son para no arrancar de cero: la mayoría toca uno y ya. Se AGREGAN
+ * al texto en vez de reemplazarlo, así se pueden combinar dos.
+ *
+ * El AVISO es lo que más sirve: si escribe una acción que el bot no puede
+ * ejecutar ("que agende una cita"), se lo dice EN EL MOMENTO. Hoy lo escribe,
+ * no funciona y nunca se entera de por qué. No bloquea — puede que lo quiera
+ * igual para que el bot tome el dato, y el aviso ya le dijo qué va a pasar de
+ * verdad.
+ */
 function CampoArea({
   label,
   value,
   onChange,
   placeholder,
+  chips = [],
+  ayuda,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  chips?: string[];
+  ayuda?: string;
 }) {
+  const aviso = avisoDeAccionImposible(value);
+  // Solo los que todavía no puso: repetir uno ya usado es ruido.
+  const disponibles = chips.filter((c) => !value.includes(c));
+
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-tinta">{label}</span>
+      {ayuda && <span className="mb-2 block text-[0.82rem] text-frio">{ayuda}</span>}
+      {disponibles.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {disponibles.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onChange(value.trim() ? `${value.trim()} ${c}.` : `${c}.`)}
+              className="rounded-chip bg-arena px-2.5 py-1 text-[0.8rem] text-tinta-2 ring-1 ring-linea transition hover:bg-carta hover:ring-brasa"
+            >
+              + {c}
+            </button>
+          ))}
+        </div>
+      )}
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -548,6 +596,12 @@ function CampoArea({
         rows={3}
         className="w-full rounded-xl border border-linea bg-carta px-4 py-2.5 text-sm text-tinta outline-none focus:border-brasa"
       />
+      {aviso && (
+        <span className="mt-1.5 flex gap-1.5 rounded-tarjeta bg-calor-suave px-3 py-2 text-[0.82rem] text-calor-hondo">
+          <span aria-hidden>⚠</span>
+          <span>{aviso}</span>
+        </span>
+      )}
     </label>
   );
 }

@@ -97,22 +97,35 @@ export function AccionesDelBot() {
       {acciones.map((a) => (
         <div
           key={a.titulo}
+          // LAS APAGADAS TAMBIÉN SOBRE BLANCO (2026-08-30). Con `bg-arena/50`
+          // la tarjeta quedaba gris oscuro y su título se perdía: se leía como
+          // un error de render, no como "esto todavía no". Ahora la diferencia
+          // la hace el BORDE punteado y el ícono, no un fondo que apaga el
+          // texto.
           className={
             a.activa
               ? "flex gap-3 rounded-tarjeta bg-carta px-4 py-3 ring-1 ring-linea"
-              : "flex gap-3 rounded-tarjeta bg-arena/50 px-4 py-3"
+              : "flex gap-3 rounded-tarjeta border border-dashed border-linea bg-carta px-4 py-3"
           }
         >
           <span className={a.activa ? "text-ok" : "text-frio"} aria-hidden>
             {a.activa ? "✓" : "○"}
           </span>
           <div className="min-w-0">
-            <p className={a.activa ? "text-sm font-bold text-tinta" : "text-sm font-bold text-frio"}>
+            <p className={a.activa ? "text-sm font-bold text-tinta" : "text-sm font-bold text-tinta-2"}>
               {a.titulo}
             </p>
             <p className="mt-0.5 text-[0.82rem] text-tinta-2">{a.detalle}</p>
+            {/* EN SU PROPIA CÁPSULA, no como texto suelto (2026-08-30,
+                Jonathan: "usa otro color, ese naranja no se lee bien").
+                Naranja sobre el gris de la tarjeta apagada daba un contraste
+                pobre; con fondo propio claro y el naranja profundo se lee, y
+                además queda claro que es una aclaración y no parte del
+                detalle de arriba. */}
             {!a.activa && a.enSuLugar && (
-              <p className="mt-1 text-[0.8rem] font-medium text-calor">{a.enSuLugar}</p>
+              <p className="mt-1.5 inline-block rounded-chip bg-calor-suave px-2.5 py-1 text-[0.8rem] font-semibold text-calor-hondo">
+                {a.enSuLugar}
+              </p>
             )}
           </div>
         </div>

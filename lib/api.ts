@@ -711,6 +711,31 @@ export interface PlanDisponible {
     equivalenteMensualCentavos: number;
     mesesGratis: number;
   };
+  /**
+   * Lo que cuesta CADA local extra en este plan, y el total con los que el
+   * negocio ya tiene (2026-08-31).
+   *
+   * Sin esto el dueño de tres locales compara planes con un precio que no es
+   * el que va a pagar, y se entera del real recién en el checkout.
+   *
+   * Opcionales: un backend viejo no los manda y ahí no se muestra el bloque de
+   * locales — mejor eso que un "S/0 por local", que sería mentira.
+   */
+  porSedeExtraCentavos?: number;
+  precioConSedesCentavos?: number;
+}
+
+/** El desglose de locales del negocio (2026-08-31). */
+export interface SedesSuscripcion {
+  /** Los que tiene activos hoy. */
+  activas: number;
+  /**
+   * Los que se FACTURAN, que no es lo mismo: el primero va incluido y los que
+   * ya tenía antes de que esto saliera quedan gratis para siempre.
+   */
+  cobrables: number;
+  gratis: number;
+  porSedeExtraCentavos: number;
 }
 
 export interface EstadoSuscripcion {
@@ -742,6 +767,8 @@ export interface RespuestaSuscripcion {
   /** ¿Se cobra solo con tarjeta? Con `false` no hay renovación que cancelar. */
   cobroAutomatico?: boolean;
   disponibles: PlanDisponible[];
+  /** Los locales del negocio y lo que suman. Opcional: backend viejo no lo manda. */
+  sedes?: SedesSuscripcion;
   /** Sin esto el panel no puede tokenizar y no hay pago posible. */
   llavePublica: string | null;
 }

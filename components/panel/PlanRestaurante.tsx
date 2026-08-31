@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { leerSesion } from "@/lib/auth";
 import { soles } from "@/lib/precio";
+import type { SedesSuscripcion } from "@/lib/api";
 import { Seccion } from "@/components/panel/Seccion";
 import { useCheckoutCulqi, CONTENEDOR_CULQI } from "@/components/panel/useCheckoutCulqi";
 
@@ -91,12 +92,23 @@ export function PlanRestaurante() {
   const [programando, setProgramando] = useState(false);
   const [errorCambio, setErrorCambio] = useState<string | null>(null);
 
+  /**
+   * Locales del simulador. `null` hasta que llegan los datos, para arrancar en
+   * los que el negocio YA TIENE y no en 1: si arrancara en 1, el dueño de tres
+   * locales vería un precio que no es el suyo justo en la pantalla donde
+   * decide, y el número correcto aparecería recién si toca el control.
+   */
+  const [locales, setLocales] = useState<number | null>(null);
+
   function recargar() {
     return obtenerSuscripcion().then((d) => {
       setDatos(d);
       setCargando(false);
       // Se respeta lo que el negocio ya tiene contratado al abrir la pantalla.
       if (d?.suscripcion) setPeriodicidad(d.suscripcion.periodicidad);
+      // Solo la primera vez: recargar tras un pago no debe pisar lo que el
+      // dueño está simulando en ese momento.
+      setLocales((antes) => antes ?? Math.max(1, d?.sedes?.activas ?? 1));
     });
   }
 
@@ -316,6 +328,21 @@ export function PlanRestaurante() {
             />
           )}
 
+          {/* SOLO PARA QUIEN PUEDE TENER LOCALES. `porSedeExtraCentavos` en 0
+              es la señal de que este plan no los cobra (los de captación no
+              tienen locales), y un simulador ahí sería una pregunta sin
+              sentido. Con backend viejo el campo no viene y tampoco se muestra:
+              mejor ausente que mostrando "S/0 por local", que sería mentira. */}
+          {datos.sedes && (datos.disponibles[0]?.porSedeExtraCentavos ?? 0) > 0 && (
+            <SimuladorLocales
+              valor={locales ?? 1}
+              onCambio={setLocales}
+              sedes={datos.sedes}
+              maximo={MAX_LOCALES}
+              sobreOscuro={!tienePlan}
+            />
+          )}
+
           <div className="grid gap-3 sm:grid-cols-3">
             {datos.disponibles.map((p) => (
               <TarjetaPlan
@@ -330,6 +357,8 @@ export function PlanRestaurante() {
                   (s && activa ? s.periodicidad === periodicidad : true)
                 }
                 deshabilitado={programando || checkout.estado === "abriendo" || checkout.estado === "procesando"}
+                locales={locales ?? 1}
+                localesGratis={Math.max(1, datos.sedes?.gratis ?? 0)}
                 onElegir={() => contratar(p)}
                 sobreOscuro={!tienePlan}
               />
@@ -598,12 +627,116 @@ function SelectorPeriodo({
   );
 }
 
+/**
+ * EL SIMULADOR DE LOCALES (2026-08-31).
+ *
+ * El cobro por local existe desde el 25-ago y funciona, pero NO SE VEÍA EN
+ * NINGÚN LADO: ni acá, ni en el checkout, ni en la web. Un negocio con tres
+ * locales no tenía forma de enterarse de que puede sumarlos, así que la
+ * función estaba construida y sin vender.
+ *
+ * Se muestra ANTES de las tarjetas y recalcula sus precios en vivo: el dueño
+ * ve lo que va a pagar de verdad mientras compara, en vez de descubrirlo en el
+ * checkout. Ese descubrimiento tardío es lo que hace que una compra se caiga.
+ *
+ * Arranca en los locales que YA tiene activos, no en 1: el número correcto es
+ * el suyo, y así el precio grande es el suyo desde el primer render.
+ */
+function SimuladorLocales({
+  valor,
+  onCambio,
+  sedes,
+  maximo,
+  sobreOscuro,
+}: {
+  valor: number;
+  onCambio: (n: number) => void;
+  sedes: SedesSuscripcion;
+  maximo: number;
+  sobreOscuro: boolean;
+}) {
+  const titulo = sobreOscuro ? "text-arena" : "text-tinta";
+  const secundario = sobreOscuro ? "text-arena/60" : "text-frio";
+  const caja = sobreOscuro ? "bg-arena/10 ring-arena/15" : "bg-arena/50 ring-linea";
+
+  // Los que ya tenía antes de que esto saliera no se cobran NUNCA. Sin
+  // mostrarlo, el dueño que abrió sus locales antes cree que le vamos a cobrar
+  // por ellos y no toca el control.
+  const respetados = Math.max(1, sedes.gratis);
+
+  return (
+    <div className={`rounded-tarjeta p-4 ring-1 ${caja}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className={`text-[0.95rem] font-bold ${titulo}`}>¿Cuántos locales tienes?</p>
+          <p className={`text-[0.78rem] ${secundario}`}>
+            El primero va incluido en el plan.
+            {sedes.gratis > 1 && ` Tus ${sedes.gratis} locales actuales no se cobran.`}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onCambio(Math.max(1, valor - 1))}
+            disabled={valor <= 1}
+            aria-label="Un local menos"
+            className={`h-9 w-9 rounded-full text-[1.1rem] font-bold ring-1 disabled:opacity-30 ${caja} ${titulo}`}
+          >
+            −
+          </button>
+          <span className={`w-8 text-center text-[1.3rem] font-bold tabular-nums ${titulo}`}>
+            {valor}
+          </span>
+          <button
+            type="button"
+            onClick={() => onCambio(Math.min(maximo, valor + 1))}
+            disabled={valor >= maximo}
+            aria-label="Un local más"
+            className={`h-9 w-9 rounded-full text-[1.1rem] font-bold ring-1 disabled:opacity-30 ${caja} ${titulo}`}
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      {/* EL TOPE SE EXPLICA, NO SOLO SE APLICA. Un botón "+" que deja de
+          responder sin decir por qué se lee como que la página está rota; y el
+          negocio que tiene más locales que el tope es justamente el más
+          valioso, así que se le da el camino en vez de una puerta cerrada. */}
+      {valor >= maximo && (
+        <p className={`mt-3 text-[0.78rem] ${secundario}`}>
+          ¿Tienes más de {maximo} locales? Escríbenos y armamos tu plan a medida.
+        </p>
+      )}
+
+      {valor > respetados && (
+        <p className={`mt-3 text-[0.8rem] ${secundario}`}>
+          Se cobran {valor - respetados} {valor - respetados === 1 ? "local" : "locales"} extra.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Hasta cuántos locales se pueden contratar solos.
+ *
+ * ESPEJO de `MAX_SEDES_CULQI` en el backend (2026-08-31), donde el tope es
+ * real: cada escalón es un plan que existe en Culqi porque alguien lo creó.
+ * Si acá fuera mayor, el simulador ofrecería un precio y el checkout diría
+ * "los pagos no están habilitados" — el peor momento para enterarse.
+ */
+const MAX_LOCALES = 5;
+
 /** Una opción de plan. */
 function TarjetaPlan({
   plan,
   periodicidad,
   esElActual,
   deshabilitado,
+  locales,
+  localesGratis,
   onElegir,
   sobreOscuro,
 }: {
@@ -611,15 +744,34 @@ function TarjetaPlan({
   periodicidad: Periodicidad;
   esElActual: boolean;
   deshabilitado: boolean;
+  /** Locales simulados. 1 = solo el incluido, y la tarjeta no cambia. */
+  locales: number;
+  /** Los que NO se cobran: el incluido más los que ya tenía antes del corte. */
+  localesGratis: number;
   onElegir: () => void;
   sobreOscuro: boolean;
 }) {
   // `plan.anual` puede faltar si el backend es viejo (durante un deploy): ahí
   // se muestra el mensual, que siempre viene.
   const anual = periodicidad === "anual" ? plan.anual : undefined;
+
+  /**
+   * LO QUE SUMAN LOS LOCALES EXTRA.
+   *
+   * Se calcula acá y no se toma de `precioConSedesCentavos` porque ese viene
+   * del backend con los locales que el negocio tiene HOY, y el simulador
+   * permite mover el número: si se usara ese, el precio no reaccionaría.
+   *
+   * El anual no admite locales —está bloqueado en el backend, abrir un local a
+   * mitad de un año ya cobrado no se recalcula limpio—, así que en anual el
+   * extra es 0 y la tarjeta muestra el precio pelado.
+   */
+  const cobrables = anual ? 0 : Math.max(0, locales - localesGratis);
+  const extra = cobrables * (plan.porSedeExtraCentavos ?? 0);
+
   // El número grande es siempre POR MES, en los dos modos: es la única forma
   // de compararlos de un vistazo. La letra chica dice el total.
-  const porMes = anual ? anual.equivalenteMensualCentavos : plan.precioCentavos;
+  const porMes = (anual ? anual.equivalenteMensualCentavos : plan.precioCentavos) + extra;
 
   const caja = sobreOscuro
     ? "bg-arena/10 ring-1 ring-arena/15"
@@ -643,6 +795,14 @@ function TarjetaPlan({
       </p>
       {anual && (
         <p className={`text-[0.75rem] ${secundario}`}>{unidadDelPlan(plan)}</p>
+      )}
+
+      {/* SE DICE DE DÓNDE SALE. Un precio que sube sin explicación se lee como
+          un error nuestro, y el dueño deja de confiar en el número. */}
+      {extra > 0 && (
+        <p className={`mt-1 text-[0.75rem] ${secundario}`}>
+          {soles(plan.precioCentavos)} + {cobrables} × {soles(plan.porSedeExtraCentavos ?? 0)} por local
+        </p>
       )}
 
       <button

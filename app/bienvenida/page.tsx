@@ -28,8 +28,9 @@ import { LogoLeadAI } from "@/components/LogoLeadAI";
 import { guardarFormaDeTrabajo } from "@/lib/horario";
 import { PasosOnboarding, Preparando } from "@/components/panel/PasosOnboarding";
 import { CartaAMano } from "@/components/panel/CartaAMano";
+import ConectarWhatsApp from "@/components/ConectarWhatsApp";
 
-const TOTAL_PASOS = 6;
+const TOTAL_PASOS = 7;
 
 /**
  * EL PASO "CÓMO TRABAJÁS" ES EL 6 EN EL CÓDIGO PERO EL 2 EN PANTALLA.
@@ -38,7 +39,7 @@ const TOTAL_PASOS = 6;
  * tocado ocho `setPaso` y sus tests. El orden lo decide `POSICION`, no el
  * número: agregar otro paso mañana es una fila más acá.
  */
-const POSICION: Record<number, number> = { 1: 1, 6: 2, 2: 3, 3: 4, 4: 5, 5: 6 };
+const POSICION: Record<number, number> = { 1: 1, 6: 2, 2: 3, 3: 4, 4: 5, 7: 6, 5: 7 };
 
 /** Los países donde puede estar el negocio. Perú primero: es donde estamos. */
 const PAISES = [
@@ -105,6 +106,9 @@ export default function BienvenidaPanel() {
   const [logo, setLogo] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
 
+  // Paso 7 — la conexion de WhatsApp
+  const [conectoWhatsapp, setConectoWhatsapp] = useState(false);
+
   // Paso 5 — el resumen
   const [hechos, setHechos] = useState<Record<string, boolean>>({});
 
@@ -148,6 +152,7 @@ export default function BienvenidaPanel() {
         await new Promise((r) => setTimeout(r, 250));
         marcar("horario");
         if (importados.length > 0) { await new Promise((r) => setTimeout(r, 250)); marcar("carta"); }
+        if (conectoWhatsapp) { await new Promise((r) => setTimeout(r, 250)); marcar("whatsappConectado"); }
         if (logo || banner) { await new Promise((r) => setTimeout(r, 250)); marcar("marca"); }
       }
     })();
@@ -293,7 +298,7 @@ export default function BienvenidaPanel() {
     if (logo) await subirImagenNegocio("logo", logo);
     if (banner) await subirImagenNegocio("banner", banner);
     setGuardando(false);
-    setPaso(5);
+    setPaso(esComida ? 7 : 5);
   }
 
   /** Trae los platos de una especialidad y los deja listos para editar. */
@@ -327,6 +332,20 @@ export default function BienvenidaPanel() {
             // Corto a propósito: el detalle se trunca en una línea, y "no
             // pued…" no le dice nada a nadie.
             : "Falta — sin ella el bot no vende",
+        }]
+      : []),
+    // LA CONEXIÓN TAMBIÉN APARECE SIEMPRE (2026-08-31), por el mismo motivo
+    // que la carta: sin WhatsApp conectado el bot no atiende a NADIE, y
+    // terminar el alta con un "¡Todo listo!" sobre un bot mudo es la peor
+    // manera de arrancar. Marcarlo como pendiente es lo único que se lo dice.
+    ...(esComida
+      ? [{
+          clave: "whatsappConectado",
+          emoji: "🔗",
+          titulo: "WhatsApp conectado",
+          detalle: conectoWhatsapp
+            ? "Listo, ya recibes mensajes"
+            : "Falta — tu bot no atiende sin esto",
         }]
       : []),
     ...(logo || banner ? [{ clave: "marca", emoji: "🎨", titulo: "Logo y banner", detalle: "Tu carta con tu marca" }] : []),
@@ -901,10 +920,67 @@ export default function BienvenidaPanel() {
             </div>
 
             <div className="mt-7 flex gap-2">
-              <button onClick={() => setPaso(5)} className={BOTON_SECUNDARIO}>Saltar</button>
+              <button onClick={() => setPaso(esComida ? 7 : 5)} className={BOTON_SECUNDARIO}>Saltar</button>
               <button onClick={guardarMarca} disabled={guardando} className={`${BOTON} mt-0 flex-1`}>
                 {guardando ? "Guardando…" : "Continuar"}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 7. Conectar el WhatsApp (2026-08-31) ──
+
+            EL ALTA TERMINABA CON EL BOT MUDO. Se recorrio el onboarding
+            completo y en ningun paso se ofrecia conectar el numero: el dueno
+            leia "¡Todo listo!" y su bot no atendia a nadie, porque no habia
+            canal. Tenia que descubrir solo que existe Configuracion → Canales.
+            Confuso ademas porque en el paso 1 SI se le pide su WhatsApp — pero
+            eso es un dato de contacto, no conecta nada.
+
+            Va aca y no antes a proposito: recien ahora su carta y su horario
+            estan cargados, asi que si un cliente escribe apenas conecta, el
+            bot tiene con que responder. Y es SALTABLE — quien no tenga a mano
+            su celular no puede quedar trabado en el ultimo paso. */}
+        {paso === 7 && (
+          <div className="entra">
+            <h1 className="text-[1.8rem] font-bold leading-tight text-tinta">
+              Conecta tu WhatsApp
+            </h1>
+            <p className="mt-2 text-[1.02rem] text-tinta-2">
+              Es por donde te van a escribir tus clientes. Toma un par de
+              minutos y se hace una sola vez.
+            </p>
+
+            <div className="mt-6 rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              <ConectarWhatsApp onConectado={() => setConectoWhatsapp(true)} />
+            </div>
+
+            {conectoWhatsapp && (
+              <p className="mt-3 rounded-tarjeta bg-brasa-suave px-4 py-3 text-[0.88rem] font-semibold text-tinta">
+                ¡Listo! Tu WhatsApp quedo conectado 🙌
+              </p>
+            )}
+
+            {/* SE AVISA QUE EL BOT NACE APAGADO (2026-08-31, planteado por
+                Jonathan: "no solo necesitamos la conexion sino tambien
+                configurarlo"). Sin esto el dueno conecta, ve que nada
+                responde, y concluye que no funciona. */}
+            <p className="mt-4 text-[0.86rem] text-frio">
+              Tu bot arranca <strong className="text-tinta-2">apagado</strong> a
+              proposito: asi nadie recibe respuestas mientras terminas de
+              configurarlo. Lo prendes desde Configuracion → El bot cuando
+              quieras.
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setPaso(5)} className={BOTON_SECUNDARIO}>
+                {conectoWhatsapp ? "Continuar" : "Lo hago despues"}
+              </button>
+              {conectoWhatsapp && (
+                <button onClick={() => setPaso(5)} className={`${BOTON} mt-0 flex-1`}>
+                  Continuar
+                </button>
+              )}
             </div>
           </div>
         )}

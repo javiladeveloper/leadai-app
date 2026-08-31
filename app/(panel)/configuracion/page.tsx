@@ -6,6 +6,7 @@ import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, EMPRESA_GLOBAL } fr
 import { EtapasEditor } from "@/components/panel/EtapasEditor";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { AccionesDelBot } from "@/components/panel/AccionesDelBot";
+import { InterruptorBot } from "@/components/panel/InterruptorBot";
 import { RitmoSeguimiento } from "@/components/panel/RitmoSeguimiento";
 import { HorarioEditor } from "@/components/panel/HorarioEditor";
 import { PagosEditor } from "@/components/panel/PagosEditor";
@@ -276,6 +277,12 @@ function ConfiguracionInner() {
 
           {tab === "bot" && (
             <>
+              {/* EL INTERRUPTOR VA PRIMERO (2026-08-31). El bot ahora NACE
+                  APAGADO —para que nadie reciba respuestas de un negocio a
+                  medio configurar— y su interruptor vivía en "Plan y consumo",
+                  donde nadie lo busca. Un bot que nace apagado y cuyo switch
+                  está escondido es un bot que no se enciende nunca. */}
+              <InterruptorBot />
               {/* QUÉ HACE EL BOT, ANTES DE CÓMO LO DICE (2026-08-30, Jonathan:
                   "te pueden escribir que agende citas... eso el bot no lo
                   hace"). Lista cerrada y NO editable: las capacidades no

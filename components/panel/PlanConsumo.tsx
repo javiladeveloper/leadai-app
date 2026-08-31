@@ -338,7 +338,7 @@ function TarjetaComprar({
 }
 
 // ─── Tarjeta de interruptor genérica (bot activo, IA activa, etc.) ───────
-function TarjetaSwitch({
+export function TarjetaSwitch({
   cargando,
   valorInicial,
   error,

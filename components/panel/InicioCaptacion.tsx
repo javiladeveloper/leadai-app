@@ -108,7 +108,7 @@ export function InicioCaptacion() {
   const pctClientes = clientes && clientes.limite > 0 ? Math.min(100, Math.round((clientes.usados / clientes.limite) * 100)) : 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-5 py-6 lg:px-8">
+    <div className="space-y-6">
       <header>
         <h1 className="text-[1.8rem] font-bold text-tinta">
           Hola{nombre ? `, ${nombre}` : ""} 👋

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { haySesion, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import { obtenerMiPlan } from "@/lib/api";
+import { MarketingBloqueado } from "@/components/panel/MarketingBloqueado";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 import AnunciosPanel from "@/app/(panel)/anuncios/page";
@@ -114,55 +115,11 @@ export default function MarketingPanel() {
    * desaparición se lee como que se rompió algo.
    */
   if (tieneMarketing === false) {
+    // MÁS ANCHO QUE EL RESTO (max-w-4xl vs 3xl) porque las cuatro tarjetas van
+    // en grilla de dos: con 3xl quedan angostas y el texto se parte feo.
     return (
-      <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">
-        <header>
-          <p className="eyebrow">Tu embudo</p>
-          <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Marketing</h1>
-          <p className="mt-1 text-[0.92rem] text-frio">
-            Trae clientes nuevos y haz volver a los que ya te compraron.
-          </p>
-        </header>
-
-        <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
-          <p className="text-[0.82rem] font-semibold uppercase tracking-wide text-frio">
-            Con el plan Full
-          </p>
-          <h2 className="mt-2 text-[1.25rem] font-bold text-tinta">
-            Vender más, sin que tengas que hacerlo vos
-          </h2>
-
-          {/* Cada línea dice lo que HACE, no cómo se llama la función: "campañas
-              masivas" no le dice nada a quien nunca mandó una. */}
-          <ul className="mt-4 space-y-3 text-[0.94rem] text-tinta-2">
-            <li>
-              <strong className="text-tinta">Escríbele a todos tus clientes de una.</strong>{" "}
-              La promo del viernes le llega a los que ya te compraron, desde tu
-              propio número.
-            </li>
-            <li>
-              <strong className="text-tinta">El bot trae de vuelta al que no volvió.</strong>{" "}
-              Le escribe solo al que hace rato no pide. Es la venta más barata
-              que existe: ya te conoce.
-            </li>
-            <li>
-              <strong className="text-tinta">Tus promos se ofrecen solas.</strong>{" "}
-              El bot cuenta lo del día antes de que el cliente elija, así pide
-              dos en vez de una.
-            </li>
-            <li>
-              <strong className="text-tinta">Anuncios en Facebook e Instagram.</strong>{" "}
-              Con lo que gastaste y cuánta gente llegó, en números reales.
-            </li>
-          </ul>
-
-          <a
-            href="/configuracion?t=plan"
-            className="mt-6 inline-flex rounded-full bg-tinta px-6 py-3 text-[0.95rem] font-semibold text-carta"
-          >
-            Ver el plan Full
-          </a>
-        </div>
+      <div className="mx-auto max-w-4xl px-5 py-6 lg:px-8">
+        <MarketingBloqueado nombreNegocio={nombreNegocio} />
       </div>
     );
   }

@@ -57,13 +57,27 @@ export default function InicioPanel() {
   // TODAVÍA NO SE SABE QUÉ NEGOCIO ES. Se espera antes de pintar en vez de
   // asumir uno: dibujar el inicio equivocado y cambiarlo un segundo después es
   // peor que un skeleton. Mismo criterio que el sidebar.
-  if (!negocio) {
-    return (
-      <div className="mx-auto max-w-5xl space-y-6 px-5 py-6 lg:px-8">
+  /**
+   * EL CONTENEDOR ES DEL DISPATCHER, no de cada pantalla.
+   *
+   * Al separar las dos pantallas quedó acá un bug: `InicioCaptacion` se llevó el
+   * `max-w-5xl` en la extracción y `InicioRestaurante` —que ya existía como
+   * componente— nunca lo tuvo, porque lo heredaba de la página. Resultado: el
+   * inicio de restaurante se dibujaba a lo ancho de la ventana y el header
+   * oscuro se salía por la derecha.
+   *
+   * Poniéndolo acá, las dos pantallas quedan iguales sin que ninguna tenga que
+   * acordarse — y una tercera lo hereda gratis.
+   */
+  return (
+    <div className="mx-auto max-w-5xl px-5 py-6 lg:px-8">
+      {!negocio ? (
         <SkeletonMetricas />
-      </div>
-    );
-  }
-
-  return negocio.capacidades.tieneCarta ? <InicioRestaurante /> : <InicioCaptacion />;
+      ) : negocio.capacidades.tieneCarta ? (
+        <InicioRestaurante />
+      ) : (
+        <InicioCaptacion />
+      )}
+    </div>
+  );
 }

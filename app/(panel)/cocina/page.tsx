@@ -204,7 +204,7 @@ export default function CocinaPage() {
           Antes era un título chico y una línea de texto. En una pantalla que
           se mira de reojo todo el servicio, el número que importa —cuántos
           pedidos hay encima— tiene que leerse desde el otro lado del mostrador.
-          Y si alguno se está pasando de tiempo, eso va acá arriba: es la única
+          Y si alguno se está pasando de tiempo, eso va aquí arriba: es la única
           zona que el dueño mira siempre. */}
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
@@ -222,7 +222,7 @@ export default function CocinaPage() {
           <h1 className="mt-1 text-[1.8rem] font-bold leading-none text-tinta">Cocina</h1>
           <p className="mt-1.5 text-[0.92rem] text-frio">
             {enCurso === 0
-              ? "Cuando entre un pedido, aparece acá."
+              ? "Cuando entre un pedido, aparece aquí."
               : demorados > 0
                 ? `${demorados} ${demorados === 1 ? "pedido lleva" : "pedidos llevan"} más de 25 minutos esperando.`
                 : "Todo saliendo a tiempo."}
@@ -527,7 +527,7 @@ function TarjetaPedido({
             <span
               aria-hidden
               className="text-[0.7rem] text-frio/50 transition-opacity group-hover:opacity-0 group-focus-within:opacity-0"
-              title="Pasá el mouse para ver la dirección"
+              title="Pasa el mouse para ver la dirección"
             >
               📍
             </span>
@@ -585,7 +585,7 @@ function TarjetaPedido({
       {validacion && <ChipPago validacion={validacion} onVer={() => onVerPago?.(pedido)} />}
 
       {/* EFECTIVO EN LA PUERTA (2026-08-22). El cliente eligió pagar al
-          recibir: acá no hay captura que revisar — hay plata que COBRAR. El
+          recibir: aquí no hay captura que revisar — hay plata que COBRAR. El
           chip canta el monto para que nadie suelte el pedido sin cobrarlo;
           desaparece solo cuando la entrega lo valida como cobrado. */}
       {pedido.pago === "efectivo_pendiente" && (
@@ -602,7 +602,7 @@ function TarjetaPedido({
           Ahora se despliega al pasar el mouse o al enfocar la tarjeta con el
           teclado, igual que en las compactas — la diferencia es que ahora vale
           también para las de arriba. La tarjeta completa gana ~35px y el ojo
-          se queda con lo que importa acá: qué plato y hace cuánto. */}
+          se queda con lo que importa aquí: qué plato y hace cuánto. */}
       {(pedido.direccion || pedido.referencia) && (
         <>
           {/* LA PISTA de que hay algo escondido, en su forma más chica: el
@@ -652,7 +652,7 @@ function TarjetaPedido({
                 className="shrink-0 rounded-chip bg-brasa-suave px-1.5 py-0.5 text-[0.7rem] font-semibold text-brasa-texto"
                 title={pedido.pagoMetodo ? `Cobrado con ${pedido.pagoMetodo}` : "Cobrado"}
               >
-                ✓ {pedido.pagoMetodo ?? "cobrado"}
+                ✓
               </span>
             ) : (
               onCobrar && (
@@ -660,8 +660,15 @@ function TarjetaPedido({
                   type="button"
                   onClick={onCobrar}
                   title="Registrar el cobro"
-                  className="shrink-0 rounded-chip bg-tibio-suave px-1.5 py-0.5 text-[0.7rem] font-semibold text-tibio transition hover:bg-tibio-suave/70"
+                  aria-label="Registrar el cobro"
+                  className="shrink-0 rounded-chip bg-tibio-suave px-1.5 py-0.5 text-[0.72rem] font-semibold text-tibio transition hover:bg-tibio-suave/70"
                 >
+                  {/* CON LA PALABRA, no solo el emoji (2026-09-01): registrar
+                      un cobro es una acción de PLATA y la única de esta fila
+                      que mueve dinero. Un emoji suelto obliga a adivinar o a
+                      pasar el mouse — y en el celular, donde se usa esta
+                      pantalla en pleno servicio, no hay mouse. El `aria-label`
+                      resuelve al lector de pantalla, no al que mira. */}
                   💰 Cobrar
                 </button>
               )
@@ -677,7 +684,7 @@ function TarjetaPedido({
               onClick={onEditar}
               title="Editar el pedido (agregar o quitar items)"
               aria-label="Editar el pedido"
-              className="rounded px-1 text-[0.8rem] text-frio/60 transition hover:bg-arena hover:text-tinta"
+              className="rounded text-[0.75rem] leading-none text-frio/60 transition hover:text-tinta"
             >
               ✏️
             </button>
@@ -697,7 +704,7 @@ function TarjetaPedido({
               disabled={avanzando}
               title="Cancelar el pedido"
               aria-label="Cancelar el pedido"
-              className="rounded px-1 text-[0.8rem] text-frio/60 transition hover:bg-alerta-suave hover:text-alerta disabled:opacity-40"
+              className="rounded text-[0.75rem] leading-none text-frio/60 transition hover:text-alerta disabled:opacity-40"
             >
               ✕
             </button>
@@ -770,7 +777,7 @@ function ChipPago({ validacion, onVer }: { validacion: ValidacionPago; onVer: ()
         {estado === "pendiente" ? (
           // Sin IA no hay número leído: lo que importa es que hay algo que
           // mirar, no un dato que nadie extrajo.
-          "Revisá el pago"
+          "Revisa el pago"
         ) : (
           <>
             {validacion.metodo ? validacion.metodo.toUpperCase() : "Pago"}
@@ -785,7 +792,7 @@ function ChipPago({ validacion, onVer }: { validacion: ValidacionPago; onVer: ()
       {/* El tilde solo aparece cuando lo confirmó una PERSONA. El visto de la
           IA ya está dicho por el color: mezclarlos haría creer al dueño que
           alguien miró algo que nadie miró. */}
-      {revisado && <span aria-label="Confirmado por vos">✓</span>}
+      {revisado && <span aria-label="Confirmado por ti">✓</span>}
       <span aria-hidden className="opacity-50">
         Ver
       </span>
@@ -996,8 +1003,8 @@ function DialogoPago({
         )}
 
         <p className="mt-4 text-[0.8rem] leading-snug text-frio">
-          Cotejá el número de operación con tu app antes de empezar a preparar.
-          Al tocar <b>Empezar a preparar</b> el pago queda confirmado por vos.
+          Coteja el número de operación con tu app antes de empezar a preparar.
+          Al tocar <b>Empezar a preparar</b> el pago queda confirmado por ti.
         </p>
       </div>
     </div>

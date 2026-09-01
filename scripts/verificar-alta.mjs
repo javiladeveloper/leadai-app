@@ -136,5 +136,22 @@ check(
   'si pide una, el rubro que no la tenga vuelve a quedarse sin canal',
 );
 
+// ── 6. El resumen tampoco puede atarse al rubro ──────────────────────────
+// MISMO BUG, UN PASO MAS ADELANTE: el item "WhatsApp conectado" vivia dentro de
+// un `esComida ?`, asi que captacion pasaba por el paso de conectar pero su
+// resumen no le decia si le faltaba — "¡Todo listo!" sobre un bot mudo.
+const resumen = sinComentarios.slice(sinComentarios.indexOf('clave: "negocio"'));
+const itemConexion = resumen.slice(0, resumen.indexOf('clave: "whatsappConectado"'));
+check(
+  'el resumen avisa de la conexion a TODOS los rubros',
+  !/\.\.\.\(esComida[\s\S]{0,80}$/.test(itemConexion),
+  'dentro de un esComida, captacion termina sin saber que su bot no atiende',
+);
+check(
+  'y lo que SI es de un rubro se pide por capacidad',
+  /\.\.\.\(caps\.tieneCocina/.test(sinComentarios) && /\.\.\.\(caps\.tieneCarta/.test(sinComentarios),
+  'el horario y la carta son de quien tiene cocina y carta, no de "gastronomia"',
+);
+
 console.log(fallas === 0 ? '\nTodo ok.' : `\n${fallas} falla(s).`);
 process.exit(fallas === 0 ? 0 : 1);

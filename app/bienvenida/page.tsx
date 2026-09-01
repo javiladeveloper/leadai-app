@@ -445,7 +445,7 @@ export default function BienvenidaPanel() {
     { clave: "negocio", emoji: "🏪", titulo: "Tu negocio", detalle: nombre },
     ...(whatsapp.trim() ? [{ clave: "whatsapp", emoji: "💬", titulo: "WhatsApp", detalle: `+${whatsapp}` }] : []),
     ...(direccion.trim() ? [{ clave: "direccion", emoji: "📍", titulo: "Dirección", detalle: direccion }] : []),
-    ...(esComida
+    ...(caps.tieneCocina
       ? [{
           clave: "horario",
           emoji: "🕐",
@@ -459,7 +459,7 @@ export default function BienvenidaPanel() {
     // la había cargado: quien la salteaba terminaba viendo "¡Todo listo!" sin
     // carta — y sin carta el bot no puede vender, que es todo el producto.
     // Marcarla como pendiente es lo único que le avisa que le falta.
-    ...(esComida
+    ...(caps.tieneCarta
       ? [{
           clave: "carta",
           emoji: "🍔",
@@ -471,20 +471,22 @@ export default function BienvenidaPanel() {
             : "Falta — sin ella el bot no vende",
         }]
       : []),
-    // LA CONEXIÓN TAMBIÉN APARECE SIEMPRE (2026-08-31), por el mismo motivo
-    // que la carta: sin WhatsApp conectado el bot no atiende a NADIE, y
-    // terminar el alta con un "¡Todo listo!" sobre un bot mudo es la peor
-    // manera de arrancar. Marcarlo como pendiente es lo único que se lo dice.
-    ...(esComida
-      ? [{
-          clave: "whatsappConectado",
-          emoji: "🔗",
-          titulo: "WhatsApp conectado",
-          detalle: conectoWhatsapp
-            ? "Listo, ya recibes mensajes"
-            : "Falta — tu bot no atiende sin esto",
-        }]
-      : []),
+    // LA CONEXIÓN APARECE SIEMPRE Y PARA TODOS (2026-08-31): sin WhatsApp
+    // conectado el bot no atiende a NADIE, y terminar el alta con un "¡Todo
+    // listo!" sobre un bot mudo es la peor manera de arrancar.
+    //
+    // SIN CONDICIÓN DE RUBRO, y no es un detalle: estaba dentro del `esComida`
+    // y era el MISMO bug del recorrido un paso más adelante — captación pasaba
+    // por el paso de conectar pero su resumen no le decía si le faltaba.
+    // Conectar el WhatsApp no depende de ninguna capacidad.
+    {
+      clave: "whatsappConectado",
+      emoji: "🔗",
+      titulo: "WhatsApp conectado",
+      detalle: conectoWhatsapp
+        ? "Listo, ya recibes mensajes"
+        : "Falta — tu bot no atiende sin esto",
+    },
     ...(logo || banner ? [{ clave: "marca", emoji: "🎨", titulo: "Logo y banner", detalle: "Tu carta con tu marca" }] : []),
   ];
 

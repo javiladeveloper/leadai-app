@@ -110,7 +110,19 @@ export default function MarketingPanel() {
     return (
       <div className="grid min-h-[50vh] place-items-center">
         <div className="flex flex-col items-center gap-3">
-          <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-linea border-t-brasa" />
+          {/* SE TIENE QUE VER QUE GIRA (2026-09-01, reporte de Jonathan: "el
+              loop no se mueve, se queda quieto").
+
+              Giraba —se midió la matriz de rotación entre dos instantes— pero
+              no se NOTABA: el aro era de 32px con el borde en `linea`, un gris
+              casi del color del fondo, y solo un cuarto teñido. A ese tamaño y
+              con ese contraste, el movimiento pasa desapercibido y parece
+              colgado.
+
+              Más grande, el aro base más marcado y DOS lados en verde: el giro
+              se lee de reojo, que es todo lo que un spinner tiene que lograr.
+              Y algo más lento (0.8s del default se siente nervioso). */}
+          <span className="h-11 w-11 animate-spin rounded-full border-[3px] border-arena-2 border-t-brasa border-r-brasa [animation-duration:0.9s]" />
           <p className="text-[0.86rem] text-frio">Cargando…</p>
         </div>
       </div>

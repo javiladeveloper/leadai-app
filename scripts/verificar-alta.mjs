@@ -32,17 +32,36 @@ const mapa = /const POSICION: Record<number, number> = \{([^}]*)\}/.exec(sinCome
 const POSICION = Object.fromEntries(
   (mapa?.[1] ?? '').split(',').map((p) => p.split(':').map((x) => Number(x.trim()))),
 );
-const filtro = /\.filter\(\(\[num\]\) => esComida \|\| \[([^\]]*)\]/.exec(sinComentarios);
-const soloCaptacion = (filtro?.[1] ?? '').match(/\d+/g)?.map(Number) ?? [];
+// EL RECORRIDO SALE DE LOS REQUISITOS, no de una lista de números por rubro:
+// cada paso declara qué capacidad necesita, y el rubro decide cuáles tiene.
+const iniReq = sinComentarios.indexOf('const REQUISITO');
+const finReq = sinComentarios.indexOf('};', iniReq);
+const REQUISITO = Object.fromEntries(
+  sinComentarios
+    .slice(iniReq, finReq)
+    .split(String.fromCharCode(10))
+    .map((l) => /^\s*(\d+):\s*('?\w+'?|null)/.exec(l))
+    .filter(Boolean)
+    .map((m) => [Number(m[1]), m[2] === 'null' ? null : m[2].replace(/'/g, '')]),
+);
 
-const recorrido = (esComida) =>
+// Las capacidades de cada rubro, como las declara `capacidadesDe`.
+const CAPS = {
+  restaurante: { tieneCarta: true, tieneCocina: true },
+  captacion: { tieneCarta: false, tieneCocina: false },
+};
+
+const recorrido = (caps) =>
   Object.entries(POSICION)
-    .filter(([n]) => esComida || soloCaptacion.includes(Number(n)))
+    .filter(([n]) => {
+      const req = REQUISITO[Number(n)];
+      return req === null || caps[req];
+    })
     .sort((a, b) => a[1] - b[1])
     .map(([n]) => Number(n));
 
-const resto = recorrido(true);
-const capt = recorrido(false);
+const resto = recorrido(CAPS.restaurante);
+const capt = recorrido(CAPS.captacion);
 
 // ── 1. Los DOS terminan conectando su WhatsApp ───────────────────────────
 // Es el bug que motiva este verificador. Conectar el WhatsApp no tiene nada de
@@ -53,10 +72,19 @@ check(
   capt.includes(7),
   'sin esto termina el alta sin canal y su bot no atiende a nadie',
 );
+// EL AVANCE SALE DEL RECORRIDO, no de un `esComida ?` escrito a mano: cada
+// bifurcación a mano es una que puede quedar a medias, y una ya quedó — la que
+// dejaba a captación sin conectar su WhatsApp.
 check(
-  'y el código lo manda ahí, no al resumen',
-  /setPaso\(esComida \? 6 : 7\)/.test(sinComentarios),
-  'si vuelve a "esComida ? 6 : 5", captación se saltea la conexión otra vez',
+  'se avanza por el recorrido, no bifurcando por rubro',
+  /function pasoSiguiente/.test(sinComentarios) &&
+    /setPaso\(pasoSiguiente\(1, caps\)\)/.test(sinComentarios),
+  'un setPaso(esComida ? x : y) vuelve a dejar un rubro sin pasos',
+);
+check(
+  'ningún paso se decide preguntando por el rubro',
+  !/setPaso\(esComida \?/.test(sinComentarios),
+  'es la cacería de ifs que las capacidades vinieron a eliminar',
 );
 
 // ── 2. El resumen va último en los dos ───────────────────────────────────
@@ -74,12 +102,12 @@ for (const [paso, que] of [[2, 'la carta'], [3, 'los platos'], [4, 'la marca'], 
 check(
   'la posición se calcula sobre el recorrido, no se lee de la tabla',
   /function posicionEnPantalla/.test(sinComentarios) &&
-    /actual=\{posicionEnPantalla\(paso, esComida\)\}/.test(sinComentarios),
+    /actual=\{posicionEnPantalla\(paso, caps\)\}/.test(sinComentarios),
   'con POSICION[paso] directo, captación mostraba "paso 6 de 2"',
 );
 check(
   'y el total sale de la misma lista',
-  /total=\{rubro === "" \? null : pasosVisibles\(esComida\)\.length - 1\}/.test(sinComentarios),
+  /total=\{rubro === "" \? null : pasosVisibles\(caps\)\.length - 1\}/.test(sinComentarios),
   'un total escrito a mano se desincroniza al mover un paso',
 );
 check(
@@ -95,8 +123,17 @@ check(
 );
 check(
   'atrás usa el MISMO recorrido que el contador',
-  /const visibles = pasosVisibles\(esComida\)/.test(sinComentarios),
+  /const visibles = pasosVisibles\(caps\)/.test(sinComentarios),
   'con dos listas distintas, "Atrás" lleva a un paso que la barra dice que no existe',
+);
+
+// EL PASO DE LA CONEXIÓN NO PUEDE PEDIR UNA CAPACIDAD. Es por donde le escriben
+// los clientes a CUALQUIER negocio; atarlo a un rubro es exactamente el bug que
+// dejó a captación sin canal.
+check(
+  'conectar WhatsApp no depende de ninguna capacidad',
+  REQUISITO[7] === null,
+  'si pide una, el rubro que no la tenga vuelve a quedarse sin canal',
 );
 
 console.log(fallas === 0 ? '\nTodo ok.' : `\n${fallas} falla(s).`);

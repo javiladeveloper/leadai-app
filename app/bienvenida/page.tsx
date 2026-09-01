@@ -42,16 +42,76 @@ const TOTAL_PASOS = 7;
 const POSICION: Record<number, number> = { 1: 1, 6: 2, 2: 3, 3: 4, 4: 5, 7: 6, 5: 7 };
 
 /**
- * Los pasos que ESTE negocio ve, en orden de pantalla.
+ * QUÉ CAPACIDAD NECESITA CADA PASO (2026-08-31).
  *
- * Captación no ve carta (2), platos (3), marca (4) ni "cómo trabajás" (6, que
- * es local/delivery, reservas y Yape). Sí ve el 7 —conectar el WhatsApp— desde
- * 2026-08-31: es por donde le escriben sus clientes, igual que a un
- * restaurante.
+ * Cada paso declara qué tiene que poder hacer el negocio para que le
+ * corresponda, en vez de preguntar "¿es restaurante?". `null` = lo ve todo el
+ * mundo, sea cual sea el rubro.
+ *
+ * ES EL DISEÑO QUE YA ACORDAMOS y estaba a medio aplicar: el alta preguntaba
+ * `esComida ?` en cada bifurcación, que es exactamente la cacería de `if` que
+ * las capacidades vinieron a eliminar. Y salió caro: cuando se agregó el paso
+ * de conectar el WhatsApp, se agregó SOLO a la rama de restaurantes, y un
+ * negocio de captación terminaba el alta sin canal —su bot no atendía a nadie
+ * porque no había por dónde— sin que nada fallara.
+ *
+ * Con esto, sumar el rubro nº5 es decidir su fila en la tabla de capacidades.
+ * Este archivo no se toca.
  */
-function pasosVisibles(esComida: boolean): number[] {
+const REQUISITO: Record<number, keyof CapacidadesAlta | null> = {
+  1: null,            // el nombre y el rubro: siempre
+  6: 'tieneCocina',   // local o delivery, reservas, a dónde le pagan
+  2: 'tieneCarta',    // la carta
+  3: 'tieneCarta',    // los platos
+  4: 'tieneCarta',    // logo y banner de la carta
+  7: null,            // conectar el WhatsApp: por acá le escriben a CUALQUIERA
+  5: null,            // el resumen
+};
+
+/**
+ * Lo que el alta necesita saber del rubro.
+ *
+ * Es un subconjunto de las capacidades del backend (`capacidades-rubro.ts`) con
+ * los mismos nombres a propósito: si mañana el alta necesita otra, se agrega
+ * acá con el nombre que ya tiene allá.
+ *
+ * SE DERIVA EN EL CLIENTE y no se pide al backend porque el rubro se ELIGE en
+ * este mismo formulario: cuando se dibuja el paso 1 el negocio todavía no
+ * existe, así que no hay a quién preguntarle.
+ */
+interface CapacidadesAlta {
+  tieneCarta: boolean;
+  tieneCocina: boolean;
+}
+
+function capacidadesDe(rubro: string): CapacidadesAlta {
+  // Espejo de `TABLA` en leadia/src/core/capacidades-rubro.ts: gastronomía es
+  // el único rubro con carta y cocina.
+  const esGastronomia = rubro === 'gastronomia';
+  return { tieneCarta: esGastronomia, tieneCocina: esGastronomia };
+}
+
+/**
+ * A qué paso se AVANZA desde este.
+ *
+ * Hermano de `pasoAnterior`: el recorrido manda en las dos direcciones. Cada
+ * `setPaso(esComida ? x : y)` escrito a mano es una bifurcación que puede
+ * quedar a medias — y una ya quedó: la que dejaba a captación sin conectar su
+ * WhatsApp.
+ */
+function pasoSiguiente(actual: number, caps: CapacidadesAlta): number {
+  const visibles = pasosVisibles(caps);
+  const i = visibles.indexOf(actual);
+  return i >= 0 && i < visibles.length - 1 ? visibles[i + 1] : 5;
+}
+
+/** Los pasos que ESTE negocio ve, en orden de pantalla. */
+function pasosVisibles(caps: CapacidadesAlta): number[] {
   return Object.entries(POSICION)
-    .filter(([num]) => esComida || ['1', '7', '5'].includes(num))
+    .filter(([num]) => {
+      const req = REQUISITO[Number(num)];
+      return req === null || caps[req];
+    })
     .sort((a, b) => a[1] - b[1])
     .map(([num]) => Number(num));
 }
@@ -64,8 +124,8 @@ function pasosVisibles(esComida: boolean): number[] {
  * pasos— el 7 daría "paso 6 de 3". Un contador que miente hace dudar de todo lo
  * que lo rodea.
  */
-function posicionEnPantalla(paso: number, esComida: boolean): number {
-  const i = pasosVisibles(esComida).indexOf(paso);
+function posicionEnPantalla(paso: number, caps: CapacidadesAlta): number {
+  const i = pasosVisibles(caps).indexOf(paso);
   return i >= 0 ? i + 1 : (POSICION[paso] ?? paso);
 }
 
@@ -83,10 +143,10 @@ function posicionEnPantalla(paso: number, esComida: boolean): number {
  * cualquier secuencia hardcodeada se desincroniza en cuanto se mueva un paso.
  * `null` = es el primero y no hay a dónde volver.
  */
-function pasoAnterior(actual: number, esComida: boolean): number | null {
+function pasoAnterior(actual: number, caps: CapacidadesAlta): number | null {
   // La MISMA lista que usa el contador: si divergen, "Atrás" lleva a un paso
   // que la barra dice que no existe.
-  const visibles = pasosVisibles(esComida);
+  const visibles = pasosVisibles(caps);
   const i = visibles.indexOf(actual);
   return i > 0 ? visibles[i - 1] : null;
 }
@@ -174,6 +234,8 @@ export default function BienvenidaPanel() {
   // alta son dos pasos, no cinco. El id es `gastronomia`, el de la lista de
   // rubros (lib/rubros.ts) — con "comida" a secas la rama nunca se activaba.
   const esComida = rubro === "gastronomia";
+  /** Qué puede hacer este negocio: decide qué pasos del alta le corresponden. */
+  const caps = capacidadesDe(rubro);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -267,7 +329,7 @@ export default function BienvenidaPanel() {
     // medias: el paso se agregó solo a su rama. Conectar el WhatsApp no tiene
     // NADA de específico de un rubro — es por donde escriben los clientes de
     // cualquier negocio.
-    setPaso(esComida ? 6 : 7);
+    setPaso(pasoSiguiente(1, caps));
   }
 
   /**
@@ -364,7 +426,7 @@ export default function BienvenidaPanel() {
     if (logo) await subirImagenNegocio("logo", logo);
     if (banner) await subirImagenNegocio("banner", banner);
     setGuardando(false);
-    setPaso(esComida ? 7 : 5);
+    setPaso(pasoSiguiente(4, caps));
   }
 
   /** Trae los platos de una especialidad y los deja listos para editar. */
@@ -438,7 +500,7 @@ export default function BienvenidaPanel() {
 
         {paso !== 5 && (
           <PasosOnboarding
-            actual={posicionEnPantalla(paso, esComida)}
+            actual={posicionEnPantalla(paso, caps)}
             /* SIN RUBRO NO HAY TOTAL. De a qué se dedica depende si el alta
                son 6 pasos o 2, y en el paso 1 todavía no se eligió: decía
                "1 de 2" y saltaba a "de 6" al tocar restaurante. */
@@ -446,7 +508,7 @@ export default function BienvenidaPanel() {
                mano: captación pasó de 2 pasos a 3 al sumarle la conexión de
                WhatsApp, y un total fijo se desincroniza en cuanto se mueva
                otro. Menos el resumen, que no se cuenta como paso. */
-            total={rubro === "" ? null : pasosVisibles(esComida).length - 1}
+            total={rubro === "" ? null : pasosVisibles(caps).length - 1}
           />
         )}
 
@@ -703,9 +765,9 @@ export default function BienvenidaPanel() {
             </div>
 
             <div className="mt-7 flex gap-2">
-              {pasoAnterior(6, esComida) !== null && (
+              {pasoAnterior(6, caps) !== null && (
                 <button
-                  onClick={() => setPaso(pasoAnterior(6, esComida)!)}
+                  onClick={() => setPaso(pasoAnterior(6, caps)!)}
                   className={BOTON_SECUNDARIO}
                 >
                   ← Atrás
@@ -769,9 +831,9 @@ export default function BienvenidaPanel() {
             </div>
 
             <div className="mt-7 flex gap-2">
-              {pasoAnterior(2, esComida) !== null && (
+              {pasoAnterior(2, caps) !== null && (
                 <button
-                  onClick={() => setPaso(pasoAnterior(2, esComida)!)}
+                  onClick={() => setPaso(pasoAnterior(2, caps)!)}
                   className={BOTON_SECUNDARIO}
                 >
                   ← Atrás
@@ -935,9 +997,9 @@ export default function BienvenidaPanel() {
             )}
 
             <div className="mt-7 flex gap-2">
-              {pasoAnterior(3, esComida) !== null && (
+              {pasoAnterior(3, caps) !== null && (
                 <button
-                  onClick={() => setPaso(pasoAnterior(3, esComida)!)}
+                  onClick={() => setPaso(pasoAnterior(3, caps)!)}
                   className={BOTON_SECUNDARIO}
                 >
                   ← Atrás
@@ -1023,15 +1085,15 @@ export default function BienvenidaPanel() {
             </div>
 
             <div className="mt-7 flex gap-2">
-              {pasoAnterior(4, esComida) !== null && (
+              {pasoAnterior(4, caps) !== null && (
                 <button
-                  onClick={() => setPaso(pasoAnterior(4, esComida)!)}
+                  onClick={() => setPaso(pasoAnterior(4, caps)!)}
                   className={BOTON_SECUNDARIO}
                 >
                   ← Atrás
                 </button>
               )}
-              <button onClick={() => setPaso(esComida ? 7 : 5)} className={BOTON_SECUNDARIO}>Saltar</button>
+              <button onClick={() => setPaso(pasoSiguiente(4, caps))} className={BOTON_SECUNDARIO}>Saltar</button>
               <button onClick={guardarMarca} disabled={guardando} className={`${BOTON} mt-0 flex-1`}>
                 {guardando ? "Guardando…" : "Continuar"}
               </button>
@@ -1084,9 +1146,9 @@ export default function BienvenidaPanel() {
             </p>
 
             <div className="mt-6 flex gap-3">
-              {pasoAnterior(7, esComida) !== null && (
+              {pasoAnterior(7, caps) !== null && (
                 <button
-                  onClick={() => setPaso(pasoAnterior(7, esComida)!)}
+                  onClick={() => setPaso(pasoAnterior(7, caps)!)}
                   className={BOTON_SECUNDARIO}
                 >
                   ← Atrás

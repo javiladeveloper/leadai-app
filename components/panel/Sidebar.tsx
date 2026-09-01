@@ -83,6 +83,19 @@ export const SECCIONES: Seccion[] = [
   // Reportes y Equipo son de CAPTACIÓN (2026-08-19): un restaurante ve lo que
   // vendió hoy en su Inicio y casi siempre lo maneja una sola persona.
   { href: "/reportes", label: "Reportes", Icono: IconoReportes, requiere: "calificaLeads", grupo: "Tu negocio" },
+  // REPORTES DE RESTAURANTE (2026-09-01, reporte de Jonathan: "restaurantes no
+  // tiene una sección de reportes"). Es OTRA pantalla, no la misma con ifs: la
+  // de arriba muestra leads, embudo de ventas y comisiones —datos que un
+  // restaurante no tiene— y por eso pide `calificaLeads`.
+  //
+  // El backend servía `GET /reportes/pedidos` desde julio con ventas por día,
+  // ticket promedio, top platos y embudo de abandono. Estaba todo calculado y
+  // nadie podía verlo.
+  //
+  // Va por `tieneCarta` y no por el plan: la SECCIÓN existe para todo
+  // restaurante, y el candado del plan lo pone la pantalla —igual que
+  // Marketing— para que el dueño vea qué se está perdiendo.
+  { href: "/reportes-pedidos", label: "Reportes", Icono: IconoReportes, requiere: "tieneCarta", grupo: "Tu negocio" },
   // EQUIPO ES DE TODOS LOS RUBROS (2026-08-31, Jonathan: "¿esa sección está
   // en el panel?"). Estaba atada a `calificaLeads` — capacidad de CAPTACIÓN —
   // así que justo el restaurante, que es quien invita mozos, caja y cocina,

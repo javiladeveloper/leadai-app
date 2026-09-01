@@ -611,6 +611,46 @@ export interface Catalogo {
   recargaDinamica: { minHits: number; tramos: { hastaHits: number; centavosPorHit: number }[] };
 }
 
+/**
+ * EL REPORTE DE UN RESTAURANTE (2026-09-01).
+ *
+ * Distinto del de captación (`ReporteNegocio`), que resume leads y embudo de
+ * ventas: un restaurante no tiene leads, tiene pedidos. Todo sale de pedidos
+ * ENTREGADOS —la venta real, no la promesa— y con el día calendario de Perú.
+ *
+ * El backend ya lo servía desde julio en `GET /reportes/pedidos`; lo que
+ * faltaba era la pantalla.
+ */
+export interface ReportePedidos {
+  desde: string;
+  hasta: string;
+  totales: {
+    pedidos: number;
+    totalCentavos: number;
+    ticketPromedioCentavos: number;
+    cancelados: number;
+    /** Preguntas que el bot no resolvió y contestó el dueño a mano. */
+    preguntasAMano: number;
+  };
+  /** Dónde se caen las conversaciones: no es lo mismo perder gente eligiendo que al pagar. */
+  embudo: { etapa: string; llegaron: number; siguieron: number }[];
+  serie: { dia: string; pedidos: number; totalCentavos: number }[];
+  topPlatos: { nombre: string; cantidad: number; totalCentavos: number }[];
+  porModalidad: { modalidad: string; pedidos: number; totalCentavos: number }[];
+}
+
+export async function reportePedidos(
+  preset: "hoy" | "semana" | "mes" = "semana",
+): Promise<ReportePedidos | null> {
+  try {
+    return await api<ReportePedidos>(`/reportes/pedidos?preset=${preset}`);
+  } catch {
+    // `null` y no una excepción: la pantalla muestra su estado de error y el
+    // resto del panel sigue andando.
+    return null;
+  }
+}
+
 export interface FeaturesPlan {
   ia: boolean;
   equipo: boolean;

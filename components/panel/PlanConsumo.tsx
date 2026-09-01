@@ -575,21 +575,49 @@ export function PlanConsumo() {
     });
   }
 
+  /**
+   * LA PANTALLA ENTRA COMPLETA, NO POR PEDAZOS (2026-09-01).
+   *
+   * Reporte de Jonathan moviéndose entre Marketing y Mi plan: "aparecen una
+   * luego otra... si no está completo lo que queremos mostrar, mandamos una
+   * pantalla de carga".
+   *
+   * Tenía razón y la causa era ésta: las tres llamadas —uso, catálogo y plan—
+   * resolvían por separado y cada tarjeta se pintaba al llegar SU dato. La
+   * pantalla se armaba a saltos, empujando lo de abajo tres veces.
+   *
+   * `Promise.all` NO hace que tarde más: las tres siguen saliendo juntas. Lo
+   * único que cambia es que se pinta cuando están las tres, y lo que se ve
+   * mientras es un skeleton estable en vez de un baile.
+   *
+   * NINGUNA ROMPE LA PANTALLA: `obtenerUso` y `obtenerMiPlan` ya devuelven
+   * `null` ante un fallo, y el catálogo se toma con `.catch`. Un `Promise.all`
+   * que rechaza dejaría la pantalla en blanco para siempre — peor que el
+   * problema que resuelve.
+   */
   useEffect(() => {
-    recargarSaldo();
-    obtenerCatalogo().then((c) => {
+    let vivo = true;
+    void Promise.all([
+      obtenerUso(),
+      obtenerCatalogo().catch(() => null),
+      obtenerMiPlan(),
+    ]).then(([u, c, p]) => {
+      if (!vivo) return;
+      setUso(u);
+      setErrorUso(!u);
       setCatalogo(c);
-      setCargandoCatalogo(false);
-    });
-    obtenerMiPlan().then((p) => {
       if (p) {
         setInsistenciaInicial(p.insistencia);
         setBotActivoInicial(p.botActivo);
       } else {
         setErrorPlan(true);
       }
+      // LOS TRES A LA VEZ: es lo que hace que la pantalla entre completa.
+      setCargandoUso(false);
+      setCargandoCatalogo(false);
       setCargandoPlan(false);
     });
+    return () => { vivo = false; };
   }, []);
 
   // EL RUBRO SALE DE LAS CAPACIDADES, no del fetch de uso (2026-08-19).

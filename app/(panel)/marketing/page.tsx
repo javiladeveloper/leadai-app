@@ -91,6 +91,28 @@ export default function MarketingPanel() {
 
   if (!listo) return null;
 
+  /**
+   * NO SE PINTA HASTA SABER QUÉ PINTAR (2026-09-01).
+   *
+   * Antes `setListo(true)` corría ANTES de conocer el plan, así que la pantalla
+   * mostraba las pestañas de Marketing completas y un instante después las
+   * reemplazaba por el candado. Ver algo y que te lo saquen se lee como que el
+   * producto se rompió — y encima, a quien no lo tiene, le mostrábamos por un
+   * segundo justo lo que no puede usar.
+   *
+   * Es el mismo criterio que ya usa el sidebar: esperar el dato en vez de
+   * adivinar y corregir después.
+   */
+  if (tieneMarketing === null) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 px-5 py-6 lg:px-8">
+        <div className="h-8 w-40 animate-pulse rounded-tarjeta bg-linea/60" />
+        <div className="h-24 animate-pulse rounded-tarjeta bg-linea/40" />
+        <div className="h-48 animate-pulse rounded-tarjeta bg-linea/40" />
+      </div>
+    );
+  }
+
   // A qué negocio le está hablando esta pantalla (2026-08-26: mismo criterio
   // que Publicar — que el usuario nunca dude sobre qué negocio va a operar).
   const nombreNegocio = g.modoGlobal

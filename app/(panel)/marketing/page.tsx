@@ -104,11 +104,15 @@ export default function MarketingPanel() {
    * adivinar y corregir después.
    */
   if (tieneMarketing === null) {
+    // MISMA ESPERA QUE MI PLAN: un spinner y nada más. Un esqueleto de cajas
+    // grises muestra una estructura que todavía no se sabe si es la correcta —
+    // acá ni siquiera se sabe si van las pestañas o el candado del plan.
     return (
-      <div className="mx-auto max-w-3xl space-y-4 px-5 py-6 lg:px-8">
-        <div className="h-8 w-40 animate-pulse rounded-tarjeta bg-linea/60" />
-        <div className="h-24 animate-pulse rounded-tarjeta bg-linea/40" />
-        <div className="h-48 animate-pulse rounded-tarjeta bg-linea/40" />
+      <div className="grid min-h-[50vh] place-items-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-linea border-t-brasa" />
+          <p className="text-[0.86rem] text-frio">Cargando…</p>
+        </div>
       </div>
     );
   }

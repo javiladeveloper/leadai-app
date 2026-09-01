@@ -633,6 +633,36 @@ export function PlanConsumo() {
   const caps = useCapacidadesOptimista();
   const esRestaurante = caps.tieneCarta;
 
+  /**
+   * MIENTRAS CARGA NO SE MUESTRA NADA A MEDIAS (2026-09-01).
+   *
+   * Reporte de Jonathan con captura: la pantalla mostraba las secciones con sus
+   * TÍTULOS ya escritos —"Pedidos de este mes", "¿El bot está atendiendo?"— y
+   * cajas grises debajo que se rellenaban después. Cada tarjeta traía su propio
+   * skeleton, así que se veía el esqueleto de la página armándose.
+   *
+   * Un skeleton por tarjeta sirve cuando el resto de la pantalla YA es real y
+   * falta un pedazo. Acá no falta un pedazo: falta todo, y mostrar la estructura
+   * vacía con los títulos puestos se ve peor que no mostrar nada.
+   *
+   * Ahora se espera y se pinta completo. Las tres llamadas salen juntas
+   * (`Promise.all` arriba), así que la espera es la de la más lenta y no la
+   * suma.
+   */
+  const cargando = cargandoUso || cargandoCatalogo || cargandoPlan;
+  if (cargando) {
+    return (
+      <div className="grid min-h-[50vh] place-items-center">
+        <div className="flex flex-col items-center gap-3">
+          {/* El mismo verde de acción del panel: la espera también es parte de
+              la marca, y un spinner gris se siente prestado de otro producto. */}
+          <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-linea border-t-brasa" />
+          <p className="text-[0.86rem] text-frio">Cargando tu plan…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     // El ORDEN cuenta (2026-08-18): primero lo que el dueño vino a ver —cuánto
     // lleva usado de su plan—, después los ajustes. El interruptor del bot
@@ -640,15 +670,6 @@ export function PlanConsumo() {
     <div className="space-y-5">
       {/* Solo si el plan cuenta pedidos. A un negocio de captación un contador
           de pedidos le sería ruido, y por eso el backend manda `null`. */}
-      {/* Con skeleton (2026-08-19): es lo PRIMERO de la página y era lo único
-          sin placeholder, así que aparecía de golpe y empujaba todo lo de
-          abajo. El `esRestaurante` viene de capacidades, ya cacheadas, así que
-          se sabe si va antes de tener el dato. */}
-      {esRestaurante && cargandoUso && (
-        <Seccion titulo="Pedidos de este mes" bajada="Lo que llevas vendido contra lo que incluye tu plan." tono="hondo">
-          <div className="h-24 animate-pulse rounded-tarjeta bg-arena-2/60" />
-        </Seccion>
-      )}
       {!cargandoUso && uso?.pedidos && (
         <Seccion
           titulo="Pedidos de este mes"

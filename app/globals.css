@@ -517,11 +517,28 @@ button[class*="active:scale"]:active {
    un error; uno lento parece que está trabajando. */
 .animate-pulse { animation-duration: 1.6s; }
 
+/* EL SPINNER DE ESPERA (2026-09-01).
+
+   Clase propia y no `animate-spin` de Tailwind porque el bloque de
+   `prefers-reduced-motion` de abajo anula TODAS las animaciones con
+   `!important`, y ahí el spinner quedaba clavado: con "reducir movimiento"
+   activado en el sistema, la pantalla de carga se veía igual que una colgada.
+
+   Es la excepción legítima a esa regla. Las otras animaciones DECORAN —una
+   tarjeta que entra, un botón que se hunde— y quitarlas no pierde información.
+   Este spinner INFORMA: es lo único que dice "esto sigue vivo". */
+.girando { animation: girar 0.9s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
   }
+  /* PERO EL SPINNER SIGUE GIRANDO, más lento y sin saltos: quien pidió menos
+     movimiento tampoco quiere quedarse mirando una pantalla que parece
+     colgada. Respetar la preferencia acá es bajar la velocidad, no apagarlo. */
+  .girando { animation: girar 2.4s linear infinite !important; }
   /* El hundido del botón se va del todo (2026-08-22): con la transición en
      0.001ms el escalado igual OCURRE, solo que de golpe — que es justo el
      tipo de salto que molesta a quien pidió menos movimiento. El feedback

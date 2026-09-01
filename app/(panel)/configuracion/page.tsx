@@ -34,7 +34,7 @@ import type { NegocioBandeja } from "@/lib/api";
 // La pestaña "Mi perfil" es de la PERSONA (dueña de la cuenta): sin chips.
 // El "＋ Agregar otro negocio" también vive acá (antes estaba en el selector
 // del header, que ya no existe).
-type Tab = "negocio" | "bot" | "canales" | "plan" | "perfil";
+type Tab = "negocio" | "bot" | "canales" | "perfil";
 
 // La BAJADA cambia con la pestaña (2026-08-18): una sola frase genérica no
 // dice nada, y "Mi perfil" traía la suya en un segundo encabezado propio.
@@ -51,7 +51,7 @@ const TABS: { id: Tab; label: string; corta: string; bajada: string; requiere?: 
   { id: "negocio", label: "Tu negocio", corta: "Horarios y pagos", bajada: "Los datos de tu negocio: horarios, cómo cobras y tus locales." },
   { id: "bot", label: "El bot", corta: "Cómo atiende", bajada: "Cómo atiende, qué responde y cuándo hace seguimiento." },
   { id: "canales", label: "Canales", corta: "Por dónde te escriben", bajada: "Conecta tus redes para que LeadAI atienda en cada una." },
-  { id: "plan", label: "Plan y consumo", corta: "Cuánto llevas usado", bajada: "Cuánto llevas usado este mes y qué empresa consume más." },
+
   // "Mi perfil" es el CV del VENDEDOR del marketplace —foto, años de
   // experiencia, ventas cerradas, rubros en los que sos bueno, experiencia
   // profesional— y su propia bajada lo dice: "así te ven los negocios que
@@ -97,9 +97,17 @@ function ConfiguracionInner() {
 
   // /configuracion?tab=perfil (redirección de la vieja /mi-perfil).
   useEffect(() => {
-    const t = searchParams.get("tab");
-    if (t === "perfil" || t === "canales" || t === "plan" || t === "negocio") setTab(t);
-  }, [searchParams]);
+    const t = searchParams.get("tab") ?? searchParams.get("t");
+    // EL PLAN SE MUDÓ A SU PROPIA SECCIÓN (2026-09-01). Se redirige en vez de
+    // romper: hay links guardados, el historial del navegador, y el botón del
+    // candado de Marketing apunta acá. Un 404 o una pestaña que ya no existe
+    // se lee como que el producto se rompió.
+    if (t === "plan") {
+      router.replace("/mi-plan");
+      return;
+    }
+    if (t === "perfil" || t === "canales" || t === "negocio") setTab(t);
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (negocios.length === 0 || tenantCfg) return;
@@ -128,7 +136,7 @@ function ConfiguracionInner() {
    * la pregunta equivocada. El detalle por negocio de abajo trae su propio
    * selector, que es donde sí corresponde elegir.
    */
-  const eligeNegocioArriba = tabDeNegocio && tab !== "plan";
+  const eligeNegocioArriba = tabDeNegocio;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-5 py-6 lg:px-8">
@@ -230,14 +238,7 @@ function ConfiguracionInner() {
               dibujo={<CanalesIlustracion />}
             />
           )}
-          {tab === "plan" && (
-            <HeroSeccion
-              titulo="Cuánto llevas usado este mes"
-              bajada={<>Tu plan alcanza para todas tus empresas juntas. Acá ves cuánto va y cuál de ellas consume más.</>}
-              dibujo={<PlanIlustracion />}
-            />
-          )}
-          {tab === "negocio" && (
+{tab === "negocio" && (
             <>
               {/* SOLO LA IDENTIDAD (2026-08-30, Jonathan: "toooooda esta
                   configuración debe estar en la sección bot").
@@ -345,35 +346,7 @@ function ConfiguracionInner() {
 
             </>
           )}
-
-          {tab === "plan" && (
-            <>
-              {/* PRIMERO EL PANORAMA (2026-08-27): con varios negocios, "¿cuánto
-                  llevo usado?" es una pregunta de la CUENTA, no de una empresa.
-                  Con una sola empresa no se muestra — repetiría lo de abajo. */}
-              <ConsumoDeCuenta />
-
-              {/* Y RECIÉN ACÁ EL DETALLE de UN negocio, con su propio selector.
-                  Los chips salieron de arriba (contestaban la pregunta
-                  equivocada), pero sin nada que diga de cuál se está hablando,
-                  las tarjetas de abajo son números sin dueño. */}
-              {negocios.length > 1 && (
-                <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
-                  <p className="mb-2.5 text-[0.75rem] font-bold uppercase tracking-wide text-frio">
-                    El detalle de un negocio
-                  </p>
-                  <BarraNegociosGlobal
-                    negocios={negocios}
-                    enfocado={tenantCfg}
-                    onElegir={elegirNegocio}
-                  />
-                </div>
-              )}
-              <PlanConsumo />
-              <ConfigComision />
-            </>
-          )}
-        </div>
+</div>
       )}
 
       {/* El gate también acá: entrar por `?tab=perfil` a mano no puede saltear
@@ -437,13 +410,6 @@ function IconoTab({ id }: { id: Tab }) {
     return (
       <svg viewBox="0 0 24 24" className={c} {...p}>
         <path d="M21 11.5a8.5 8.5 0 01-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1121 11.5z" />
-      </svg>
-    );
-  }
-  if (id === "plan") {
-    return (
-      <svg viewBox="0 0 24 24" className={c} {...p}>
-        <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
       </svg>
     );
   }

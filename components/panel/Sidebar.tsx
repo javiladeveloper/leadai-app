@@ -98,6 +98,12 @@ export const SECCIONES: Seccion[] = [
   // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona,
   // no de un negocio; decisión 2026-07-22). Ajustes entra a la barra de móvil
   // solo si sobra lugar: en captación los cuatro puestos ya se llenan.
+  // MI PLAN VA EN EL MENÚ Y NO DENTRO DE AJUSTES (2026-09-01, pedido de
+  // Jonathan). Nadie busca cuánto paga en "Configuración": va a mirar su plan,
+  // que es una pregunta de plata y no de configuración. Y es la pantalla donde
+  // el dueño SUBE de plan — esconderla es esconder el único lugar donde nos
+  // paga más.
+  { href: "/mi-plan", label: "Mi plan", Icono: IconoReportes, grupo: "Tu negocio" },
   { href: "/configuracion", label: "Configuración", corto: "Ajustes", Icono: IconoConfig, rapido: 4 },
 ];
 

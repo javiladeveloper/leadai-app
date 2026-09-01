@@ -97,7 +97,7 @@ export function MarketingBloqueado({ nombreNegocio }: { nombreNegocio?: string }
           </p>
         </div>
         <Link
-          href="/configuracion?t=plan"
+          href="/mi-plan"
           className="rounded-full bg-brasa px-6 py-3 text-[0.95rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.99]"
         >
           Ver el plan Full

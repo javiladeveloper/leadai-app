@@ -149,7 +149,7 @@ function ContadorPedidos({
       </p>
       {pasado && (
         <Link
-          href="/configuracion?tab=plan"
+          href="/mi-plan"
           className="mt-2 inline-block rounded-chip bg-orbita px-3 py-1 text-[0.72rem] font-bold text-sobre-orbita transition hover:bg-orbita-hondo"
         >
           Subir de plan

@@ -41,6 +41,34 @@ const TOTAL_PASOS = 7;
  */
 const POSICION: Record<number, number> = { 1: 1, 6: 2, 2: 3, 3: 4, 4: 5, 7: 6, 5: 7 };
 
+/**
+ * Los pasos que ESTE negocio ve, en orden de pantalla.
+ *
+ * Captación no ve carta (2), platos (3), marca (4) ni "cómo trabajás" (6, que
+ * es local/delivery, reservas y Yape). Sí ve el 7 —conectar el WhatsApp— desde
+ * 2026-08-31: es por donde le escriben sus clientes, igual que a un
+ * restaurante.
+ */
+function pasosVisibles(esComida: boolean): number[] {
+  return Object.entries(POSICION)
+    .filter(([num]) => esComida || ['1', '7', '5'].includes(num))
+    .sort((a, b) => a[1] - b[1])
+    .map(([num]) => Number(num));
+}
+
+/**
+ * En qué número de pantalla va este paso.
+ *
+ * SE CALCULA SOBRE EL RECORRIDO REAL y no se lee de `POSICION` directo: esa
+ * tabla tiene las posiciones del recorrido LARGO, y en captación —que ve cuatro
+ * pasos— el 7 daría "paso 6 de 3". Un contador que miente hace dudar de todo lo
+ * que lo rodea.
+ */
+function posicionEnPantalla(paso: number, esComida: boolean): number {
+  const i = pasosVisibles(esComida).indexOf(paso);
+  return i >= 0 ? i + 1 : (POSICION[paso] ?? paso);
+}
+
 /** Los países donde puede estar el negocio. Perú primero: es donde estamos. */
 /**
  * A QUE PASO SE VUELVE (2026-08-31, pedido de Jonathan: "también se debe poder
@@ -56,12 +84,9 @@ const POSICION: Record<number, number> = { 1: 1, 6: 2, 2: 3, 3: 4, 4: 5, 7: 6, 5
  * `null` = es el primero y no hay a dónde volver.
  */
 function pasoAnterior(actual: number, esComida: boolean): number | null {
-  const visibles = Object.entries(POSICION)
-    // Un negocio de captación no ve carta, marca ni conexión: volver a un paso
-    // que nunca vio lo dejaría en una pantalla que no le corresponde.
-    .filter(([num]) => esComida || ["1", "6", "5"].includes(num))
-    .sort((a, b) => a[1] - b[1])
-    .map(([num]) => Number(num));
+  // La MISMA lista que usa el contador: si divergen, "Atrás" lleva a un paso
+  // que la barra dice que no existe.
+  const visibles = pasosVisibles(esComida);
   const i = visibles.indexOf(actual);
   return i > 0 ? visibles[i - 1] : null;
 }
@@ -230,11 +255,19 @@ export default function BienvenidaPanel() {
     if (whatsapp.trim()) {
       await guardarNegocio({ whatsappCarta: whatsapp.trim() });
     }
-    // Un negocio que no es de comida no tiene carta ni horario de cocina:
-    // salta directo al final.
-    // El negocio de comida pasa por "cómo trabajás" (6, ver POSICION);
-    // captación no tiene local ni cobra por Yape, así que salta al resumen.
-    setPaso(esComida ? 6 : 5);
+    // El negocio de comida pasa por "cómo trabajás" (6, ver POSICION): local o
+    // delivery, reservas, a dónde le pagan. Captación no tiene nada de eso.
+    //
+    // PERO LOS DOS PASAN POR CONECTAR SU WHATSAPP (2026-08-31). Antes captación
+    // saltaba directo al resumen y TERMINABA EL ALTA SIN CANAL: leía "¡Todo
+    // listo!" y su bot no atendía a nadie, porque no había por dónde. Tenía que
+    // descubrir solo que existe Configuración → Canales.
+    //
+    // Es el mismo bug que se arregló para restaurantes el 31-ago, y quedó a
+    // medias: el paso se agregó solo a su rama. Conectar el WhatsApp no tiene
+    // NADA de específico de un rubro — es por donde escriben los clientes de
+    // cualquier negocio.
+    setPaso(esComida ? 6 : 7);
   }
 
   /**
@@ -405,11 +438,15 @@ export default function BienvenidaPanel() {
 
         {paso !== 5 && (
           <PasosOnboarding
-            actual={POSICION[paso] ?? paso}
+            actual={posicionEnPantalla(paso, esComida)}
             /* SIN RUBRO NO HAY TOTAL. De a qué se dedica depende si el alta
                son 6 pasos o 2, y en el paso 1 todavía no se eligió: decía
                "1 de 2" y saltaba a "de 6" al tocar restaurante. */
-            total={rubro === "" ? null : esComida ? TOTAL_PASOS : 2}
+            /* EL TOTAL SALE DEL RECORRIDO REAL, no de un número escrito a
+               mano: captación pasó de 2 pasos a 3 al sumarle la conexión de
+               WhatsApp, y un total fijo se desincroniza en cuanto se mueva
+               otro. Menos el resumen, que no se cuenta como paso. */
+            total={rubro === "" ? null : pasosVisibles(esComida).length - 1}
           />
         )}
 

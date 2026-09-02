@@ -409,7 +409,26 @@ Detalle: ${error || "sin detalle"}`,
 
           POR QUÉ VA ANTES Y NO EN EL ERROR: crear la página toma dos minutos
           si se sabe de antemano; descubrirlo después de fallar significa
-          volver a empezar el trámite entero. */}
+          volver a empezar el trámite entero.
+
+          TENER LA PÁGINA NO ALCANZA — TIENE QUE ESTAR DENTRO DEL PORTFOLIO
+          (2026-09-02, caso Shiro: fanpage sí, portfolio no).
+
+          Antes había DOS avisos que preguntaban "¿tenés página?" y "¿tenés
+          portfolio?" como casillas independientes. Pero lo que Meta exige es la
+          RELACIÓN entre las dos, y ahí se colaba el caso más caro:
+
+            - quien NO tiene página la crea acá y queda bien;
+            - quien SÍ la tiene lee "sí, tengo", saltea el aviso, crea el
+              portfolio nuevo del paso siguiente —que NACE VACÍO— y cae en el
+              mismo error genérico igual.
+
+          Es exactamente lo que pasó con el portfolio de Guisella: las páginas
+          existían, pero el portfolio tenía 0 — dos semanas trabada.
+
+          Por eso ahora son tres avisos, uno por caso: no tengo página (éste),
+          ya tengo página pero no portfolio (el de abajo), y no sé qué elegir
+          cuando Meta me lo pida (el último). */}
       <div className="rounded-tarjeta bg-arena/60 px-4 py-2.5 text-[0.82rem] text-tinta-2">
         <strong className="font-semibold text-tinta">
           ¿Tu negocio tiene página de Facebook?
@@ -426,6 +445,33 @@ Detalle: ${error || "sin detalle"}`,
         — es gratis y toma dos minutos. No hace falta publicar nada.
       </div>
 
+      {/* AVISO APARTE PARA QUIEN YA TIENE PÁGINA — no un párrafo más largo.
+
+          Al leerlo en pantalla, el aviso combinado quedaba en 62 palabras, y
+          quien YA tiene fanpage (el caso Shiro) tenía que atravesar 30 sobre
+          crear una página que ya tiene antes de llegar a lo suyo. En un trámite
+          donde la gente abandona, el dato que le sirve no puede estar al final
+          de un texto que arranca hablándole a otro.
+
+          Separados, cada dueño lee el que le toca: el de arriba si no tiene
+          página, éste si la tiene. */}
+      <div className="rounded-tarjeta bg-arena/60 px-4 py-2.5 text-[0.82rem] text-tinta-2">
+        <strong className="font-semibold text-tinta">
+          ¿Ya tienes página pero nunca usaste Facebook para empresas?
+        </strong>{" "}
+        Tu página tiene que estar dentro de tu portfolio comercial — tenerla en
+        tu Facebook personal no alcanza. Se agrega desde{" "}
+        <a
+          href="https://business.facebook.com/settings/pages"
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-orbita underline"
+        >
+          Configuración → Páginas
+        </a>{" "}
+        del portfolio, con el botón “Agregar”.
+      </div>
+
       {/* EL "PORTFOLIO COMERCIAL" NO SIGNIFICA NADA PARA UN DUEÑO (2026-08-31).
 
           Meta le pide elegir uno en medio del asistente, con esas dos palabras
@@ -440,12 +486,21 @@ Detalle: ${error || "sin detalle"}`,
           Y LA TRAMPA QUE ESTO EVITA: un portfolio recién creado nace VACÍO, sin
           página de Facebook. O sea que quien lo crea ahí mismo va derecho al
           error del aviso de arriba — a menos que cree la página primero, que es
-          justo lo que este texto le dice. */}
+          justo lo que este texto le dice.
+
+          EL CASO QUE FALTABA (2026-09-02): "ya tengo fanpage, no tengo
+          portfolio". Es el más común entre negocios con algo de recorrido —
+          hicieron su página hace años y nunca tocaron Business Manager. Para
+          ellos el portfolio nuevo NO resuelve solo: nace vacío igual, y su
+          página sigue afuera. Les falta el paso de agregarla, que es el que
+          este texto ahora nombra. */}
       <p className="px-1 text-[0.8rem] text-frio">
         Si Meta te pide elegir un <strong className="text-tinta-2">portfolio
         comercial</strong> y no tienes ninguno, elige “Crear uno nuevo”: es la
-        carpeta donde Meta guarda las cosas de tu negocio. Créala con el nombre
-        de tu negocio y sigue.
+        carpeta donde Meta guarda las cosas de tu negocio. Ponle el nombre de tu
+        negocio y, apenas lo crees,{" "}
+        <strong className="text-tinta-2">agrega ahí tu página de Facebook</strong>{" "}
+        — nace vacío, y sin la página adentro la conexión falla.
       </p>
 
       <div className="flex flex-wrap gap-2">

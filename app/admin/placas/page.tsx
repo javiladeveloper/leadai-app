@@ -3,8 +3,22 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   adminResumenPlacas, adminAltaLotePlacas, adminResetPinPlaca, adminLiberarPlaca,
+  adminAsignarPlaca,
   type PlacaAdmin,
 } from "@/lib/api";
+
+// SKUs de placa: mismo chip, distinto destino del toque.
+type TipoPlaca = "resenas" | "cobro" | "fidelidad" | "carta" | "acceso";
+const TIPOS: { valor: TipoPlaca; nombre: string }[] = [
+  { valor: "resenas", nombre: "⭐ Reseñas (Google)" },
+  { valor: "cobro", nombre: "💳 Cobro (Yape/transferencia)" },
+  { valor: "fidelidad", nombre: "🎟️ Fidelidad (sellos)" },
+  { valor: "carta", nombre: "📖 Carta (mesa)" },
+  { valor: "acceso", nombre: "🚪 Acceso (puerta)" },
+];
+const TIPO_CORTO: Record<string, string> = {
+  resenas: "⭐", cobro: "💳", fidelidad: "🎟️", carta: "📖", acceso: "🚪",
+};
 
 /**
  * OPERACIÓN DE PLACAS NFC (super admin, 2026-08-29).
@@ -24,7 +38,15 @@ export default function AdminPlacas() {
   const [uidsCrudos, setUidsCrudos] = useState("");
   const [lote, setLote] = useState("");
   const [marca, setMarca] = useState("leadai");
+  const [tipoLote, setTipoLote] = useState<TipoPlaca>("resenas");
   const [registrando, setRegistrando] = useState(false);
+
+  // Asignación directa (cobro/fidelidad/carta/acceso: el negocio no necesita
+  // cuenta del panel — exige la config previa en el tenant).
+  const [uidAsignar, setUidAsignar] = useState("");
+  const [tipoAsignar, setTipoAsignar] = useState<Exclude<TipoPlaca, "resenas">>("cobro");
+  const [tenantAsignar, setTenantAsignar] = useState("");
+  const [asignando, setAsignando] = useState(false);
   const [resultado, setResultado] = useState<{ registradas: { uid: string; pin: string }[]; invalidas: string[]; yaExistian: string[] } | null>(null);
 
   const [msg, setMsg] = useState("");
@@ -43,12 +65,25 @@ export default function AdminPlacas() {
     if (uids.length === 0 || registrando) return;
     setRegistrando(true);
     setMsg("");
-    const r = await adminAltaLotePlacas({ uids, lote: lote.trim() || undefined, marca });
+    const r = await adminAltaLotePlacas({ uids, lote: lote.trim() || undefined, marca, tipo: tipoLote });
     setRegistrando(false);
     if (!r) { setMsg("No se pudo registrar el lote."); return; }
     setResultado(r);
     setUidsCrudos("");
     cargar();
+  }
+
+  async function asignar() {
+    const uid = uidAsignar.trim();
+    const tenantId = tenantAsignar.trim();
+    if (!uid || !tenantId || asignando) return;
+    setAsignando(true);
+    const r = await adminAsignarPlaca(uid, tipoAsignar, tenantId);
+    setAsignando(false);
+    setMsg(r.ok
+      ? `✅ Placa …${uid.slice(-6)} asignada como ${tipoAsignar}. Destino: ${r.url}`
+      : `✕ ${r.error} (¿el tenant tiene la config de ${tipoAsignar} cargada?)`);
+    if (r.ok) { setUidAsignar(""); setTenantAsignar(""); cargar(); }
   }
 
   async function resetPin(uid: string) {
@@ -108,6 +143,13 @@ export default function AdminPlacas() {
             <option value="sania">Diseño Sania (clínicas)</option>
             <option value="fitcore">Diseño FitCore (gimnasios)</option>
           </select>
+          <select
+            value={tipoLote}
+            onChange={(e) => setTipoLote(e.target.value as TipoPlaca)}
+            className="rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.88rem] text-tinta ring-1 ring-linea"
+          >
+            {TIPOS.map((t) => <option key={t.valor} value={t.valor}>{t.nombre}</option>)}
+          </select>
           <button
             onClick={registrarLote}
             disabled={registrando || !uidsCrudos.trim()}
@@ -156,6 +198,46 @@ export default function AdminPlacas() {
         )}
       </section>
 
+      {/* ── Asignar placa a un negocio ── */}
+      <section className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea print:hidden">
+        <h2 className="text-[1.05rem] font-bold text-tinta">Asignar placa a un negocio</h2>
+        <p className="mt-1 text-[0.84rem] text-frio">
+          Para cobro, fidelidad, carta y acceso el negocio no necesita cuenta del panel — pero el
+          tenant debe tener su config cargada (cobroConfig / fidelidadConfig / carta / accesoConfig-FitCore).
+          Las de reseñas se activan solas con el PIN.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <input
+            value={uidAsignar}
+            onChange={(e) => setUidAsignar(e.target.value)}
+            placeholder="UID de la placa"
+            className="rounded-tarjeta bg-arena/60 px-3 py-2 font-mono text-[0.85rem] text-tinta ring-1 ring-linea focus:ring-brasa/40"
+          />
+          <select
+            value={tipoAsignar}
+            onChange={(e) => setTipoAsignar(e.target.value as typeof tipoAsignar)}
+            className="rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.88rem] text-tinta ring-1 ring-linea"
+          >
+            {TIPOS.filter((t) => t.valor !== "resenas").map((t) => (
+              <option key={t.valor} value={t.valor}>{t.nombre}</option>
+            ))}
+          </select>
+          <input
+            value={tenantAsignar}
+            onChange={(e) => setTenantAsignar(e.target.value)}
+            placeholder="tenantId del negocio"
+            className="min-w-[220px] rounded-tarjeta bg-arena/60 px-3 py-2 font-mono text-[0.85rem] text-tinta ring-1 ring-linea focus:ring-brasa/40"
+          />
+          <button
+            onClick={asignar}
+            disabled={asignando || !uidAsignar.trim() || !tenantAsignar.trim()}
+            className="rounded-chip bg-brasa px-5 py-2 text-[0.9rem] font-semibold text-sobre-brasa disabled:opacity-50"
+          >
+            {asignando ? "Asignando…" : "Asignar"}
+          </button>
+        </div>
+      </section>
+
       {/* ── Inventario ── */}
       <section className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea print:hidden">
         <div className="flex items-center justify-between">
@@ -173,6 +255,7 @@ export default function AdminPlacas() {
               <thead>
                 <tr className="border-b border-linea text-[0.72rem] uppercase tracking-wide text-frio">
                   <th className="py-2 pr-3">UID</th>
+                  <th className="py-2 pr-3">Tipo</th>
                   <th className="py-2 pr-3">Marca</th>
                   <th className="py-2 pr-3">Lote</th>
                   <th className="py-2 pr-3">Estado</th>
@@ -186,6 +269,7 @@ export default function AdminPlacas() {
                 {resumen.placas.map((p: PlacaAdmin) => (
                   <tr key={p.uid} className="border-b border-linea/60">
                     <td className="py-2 pr-3 font-mono text-[0.78rem]">{p.uid}</td>
+                    <td className="py-2 pr-3" title={p.tipo ?? "resenas"}>{TIPO_CORTO[p.tipo ?? "resenas"] ?? p.tipo}</td>
                     <td className="py-2 pr-3">{p.marca ?? "—"}</td>
                     <td className="py-2 pr-3">{p.lote ?? "—"}</td>
                     <td className="py-2 pr-3">{ESTADO[p.estado] ?? p.estado}</td>

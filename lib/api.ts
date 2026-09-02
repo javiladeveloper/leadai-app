@@ -1565,6 +1565,7 @@ export async function activarPlaca(
 export interface PlacaAdmin {
   uid: string;
   estado: string;
+  tipo?: string; // resenas | cobro | fidelidad | carta | acceso
   lote: string | null;
   marca: string | null;
   escaneos: number;
@@ -1604,6 +1605,7 @@ export async function adminResumenPlacas(): Promise<{
 
 export async function adminAltaLotePlacas(input: {
   uids: string[]; lote?: string; marca?: string;
+  tipo?: "resenas" | "cobro" | "fidelidad" | "carta" | "acceso";
 }): Promise<{ registradas: { uid: string; pin: string }[]; invalidas: string[]; yaExistian: string[] } | null> {
   try { return await api("/admin/placas/lote", { method: "POST", body: input, conEmpresa: false }); }
   catch { return null; }
@@ -1636,6 +1638,53 @@ export async function cambiarDestinoPlaca(uid: string, placeId: string, tenant?:
 export async function bajaPlaca(uid: string, tenant?: string): Promise<{ ok: boolean }> {
   try { await api(`/placas/${uid}/baja`, { method: "POST", tenant }); return { ok: true }; }
   catch { return { ok: false }; }
+}
+
+// ── Fidelidad (placa de sellos, 2026-09-02) ─────────────────────
+export interface ResumenFidelidad {
+  config: { modo: "premio" | "paquete"; meta: number; premio?: string };
+  totalClientes: number;
+  cercaDelPremio: number;
+  clientes: { telefono: string; nombre: string | null; sellos: number; ciclos: number; ultimoSelloEn: string | null }[];
+  canjesPendientes: { codigo: string; creadoEn: string; cliente: { telefono: string; nombre: string | null } }[];
+}
+
+// null = el negocio no tiene fidelidad configurada (la pestaña lo explica).
+export async function resumenFidelidad(tenant?: string): Promise<ResumenFidelidad | null> {
+  try { return await api("/fidelidad", { tenant }); }
+  catch { return null; }
+}
+
+export async function canjearCodigoFidelidad(codigo: string, tenant?: string): Promise<{ ok: boolean; error?: string }> {
+  try { await api(`/fidelidad/canjes/${encodeURIComponent(codigo)}/canjear`, { method: "POST", tenant }); return { ok: true }; }
+  catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo canjear" }; }
+}
+
+// ── Acceso (placa de la puerta, 2026-09-02) ─────────────────────
+export interface EventoAcceso {
+  telefono: string;
+  nombre: string | null;
+  tipoPersona: string; // socio | personal | desconocido
+  evento: string; // entrada | salida | rechazado
+  detalle: string | null;
+  creadoEn: string;
+}
+
+export async function registroAcceso(tenant?: string): Promise<EventoAcceso[] | null> {
+  try { return (await api<{ eventos: EventoAcceso[] }>("/acceso-registro", { tenant })).eventos; }
+  catch { return null; }
+}
+
+// Admin: asignar una placa registrada a un negocio, por tipo (cobro/fidelidad/carta/acceso).
+export async function adminAsignarPlaca(
+  uid: string, tipo: "cobro" | "fidelidad" | "carta" | "acceso", tenantId: string,
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  try {
+    const r = await api<{ url: string }>(`/admin/placas/${uid}/asignar-${tipo}`, {
+      method: "POST", body: { tenantId }, conEmpresa: false,
+    });
+    return { ok: true, url: r.url };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo asignar" }; }
 }
 
 // Calcula la comisión sugerida para un monto de venta, según la config del

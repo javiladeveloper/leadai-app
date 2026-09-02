@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import {
   misPlacas, cambiarDestinoPlaca, bajaPlaca, negociosParaPlaca,
-  type PlacaMia, type NegocioGooglePlaca,
+  resumenFidelidad, canjearCodigoFidelidad, registroAcceso,
+  type PlacaMia, type NegocioGooglePlaca, type ResumenFidelidad, type EventoAcceso,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
@@ -21,6 +22,14 @@ export default function PlacasPanel() {
   const [estado, setEstado] = useState<Estado>("cargando");
   const [placas, setPlacas] = useState<PlacaMia[]>([]);
   const g = useSeccionGlobal();
+
+  // Pestañas del mundo placa (2026-09-02): las placas físicas + el programa
+  // de fidelidad + el registro de la puerta, todo en un solo lugar.
+  const [pestana, setPestana] = useState<"placas" | "fidelidad" | "acceso">("placas");
+  const [fidelidad, setFidelidad] = useState<ResumenFidelidad | null | "cargando">("cargando");
+  const [acceso, setAcceso] = useState<EventoAcceso[] | null | "cargando">("cargando");
+  const [codigoCanje, setCodigoCanje] = useState("");
+  const [msgCanje, setMsgCanje] = useState("");
 
   // Cambiar destino: qué placa está en edición y la búsqueda del negocio nuevo.
   const [editando, setEditando] = useState<string | null>(null);
@@ -48,6 +57,31 @@ export default function PlacasPanel() {
     if (!listo || !g.listaLista) return;
     cargar();
   }, [listo, g.listaLista, cargar]);
+
+  // Las pestañas cargan perezoso: solo al abrirlas (y se recargan al cambiar
+  // de negocio enfocado, porque dependen de g.tenantLista).
+  useEffect(() => {
+    if (!listo || !g.listaLista) return;
+    if (pestana === "fidelidad") {
+      setFidelidad("cargando");
+      resumenFidelidad(g.tenantLista).then(setFidelidad);
+    } else if (pestana === "acceso") {
+      setAcceso("cargando");
+      registroAcceso(g.tenantLista).then(setAcceso);
+    }
+  }, [pestana, listo, g.listaLista, g.tenantLista]);
+
+  async function canjear() {
+    const codigo = codigoCanje.trim().toUpperCase();
+    if (!codigo) return;
+    const r = await canjearCodigoFidelidad(codigo, g.tenantLista);
+    setMsgCanje(r.ok ? `✅ Código ${codigo} canjeado — entrega el premio 🎉` : `✕ ${r.error}`);
+    if (r.ok) {
+      setCodigoCanje("");
+      setFidelidad("cargando");
+      resumenFidelidad(g.tenantLista).then(setFidelidad);
+    }
+  }
 
   async function buscar() {
     if (!consulta.trim() || buscando) return;
@@ -88,9 +122,9 @@ export default function PlacasPanel() {
     <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">
       <header>
         <p className="eyebrow">Tu negocio</p>
-        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Placas de reseñas</h1>
+        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Placas</h1>
         <p className="mt-1 text-[0.92rem] text-frio">
-          Cada toque a tu placa lleva al cliente directo a dejarte una reseña en Google.
+          Reseñas, sellos de fidelidad y control de acceso — todo con un toque a tu placa.
         </p>
       </header>
 
@@ -98,6 +132,145 @@ export default function PlacasPanel() {
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
       )}
 
+      {/* Pestañas del mundo placa */}
+      <div className="flex gap-2">
+        {([["placas", "🏷️ Mis placas"], ["fidelidad", "🎟️ Fidelidad"], ["acceso", "🚪 Acceso"]] as const).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setPestana(id)}
+            className={`rounded-chip px-4 py-2 text-[0.86rem] font-semibold transition ${
+              pestana === id ? "bg-brasa text-sobre-brasa" : "bg-carta text-tinta-2 ring-1 ring-linea hover:text-tinta"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── FIDELIDAD ── */}
+      {pestana === "fidelidad" && (
+        fidelidad === "cargando" ? <SkeletonLista filas={2} /> :
+        !fidelidad ? (
+          <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
+            <p className="text-[1.02rem] font-bold text-tinta">Este negocio no tiene fidelidad activa</p>
+            <p className="mt-1 text-[0.88rem] text-frio">Cuando tengas tu placa de sellos, la activamos y aquí verás a tus clientes frecuentes.</p>
+          </div>
+        ) : (
+          <>
+            {/* Canje en caja: lo primero que usa el cajero */}
+            <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              <h2 className="text-[1.02rem] font-bold text-tinta">Canjear un premio</h2>
+              <p className="mt-0.5 text-[0.84rem] text-frio">El cliente te muestra su código — escríbelo y entrega el premio.</p>
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={codigoCanje}
+                  onChange={(e) => setCodigoCanje(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === "Enter") canjear(); }}
+                  placeholder="Ej: XK7Q2N"
+                  maxLength={6}
+                  className="flex-1 rounded-tarjeta bg-fondo px-3 py-2 font-mono text-[1.05rem] tracking-widest text-tinta ring-1 ring-linea focus:ring-brasa/40"
+                />
+                <button onClick={canjear} disabled={!codigoCanje.trim()} className="rounded-chip bg-brasa px-5 py-2 text-[0.86rem] font-semibold text-sobre-brasa disabled:opacity-50">
+                  Canjear
+                </button>
+              </div>
+              {msgCanje && <p className="mt-2 text-[0.86rem] font-semibold text-tinta-2">{msgCanje}</p>}
+              {fidelidad.canjesPendientes.length > 0 && (
+                <p className="mt-2 text-[0.8rem] text-frio">
+                  Pendientes: {fidelidad.canjesPendientes.map((c) => c.codigo).join(" · ")}
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+                <p className="text-[0.74rem] font-bold uppercase tracking-wide text-frio">{fidelidad.config.modo === "paquete" ? "En su paquete" : "Juntando sellos"}</p>
+                <p className="text-[1.6rem] font-bold text-tinta">{fidelidad.totalClientes}</p>
+              </div>
+              <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+                <p className="text-[0.74rem] font-bold uppercase tracking-wide text-frio">Cerca del {fidelidad.config.modo === "paquete" ? "final" : "premio"} 🔥</p>
+                <p className="text-[1.6rem] font-bold text-tinta">{fidelidad.cercaDelPremio}</p>
+              </div>
+              <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+                <p className="text-[0.74rem] font-bold uppercase tracking-wide text-frio">Meta</p>
+                <p className="text-[1.6rem] font-bold text-tinta">{fidelidad.config.meta}<span className="text-[0.9rem] text-frio"> {fidelidad.config.modo === "paquete" ? "sesiones" : "visitas"}</span></p>
+              </div>
+            </div>
+
+            <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              <h2 className="text-[1.02rem] font-bold text-tinta">Tus clientes frecuentes</h2>
+              {fidelidad.clientes.length === 0 ? (
+                <p className="mt-2 text-[0.88rem] text-frio">Aún nadie suma {fidelidad.config.modo === "paquete" ? "sesiones" : "sellos"} — apunta la placa a la vista y cuéntaselo a tus clientes.</p>
+              ) : (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-left text-[0.86rem]">
+                    <thead>
+                      <tr className="text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+                        <th className="pb-2">Cliente</th><th className="pb-2">Avance</th><th className="pb-2">Ciclos</th><th className="pb-2">Última visita</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fidelidad.clientes.map((c) => (
+                        <tr key={c.telefono} className="border-t border-linea">
+                          <td className="py-2 font-semibold text-tinta">{c.nombre ?? `…${c.telefono.slice(-6)}`}</td>
+                          <td className="py-2 text-tinta-2">{c.sellos} / {fidelidad.config.meta}{c.sellos >= fidelidad.config.meta - 2 ? " 🔥" : ""}</td>
+                          <td className="py-2 text-tinta-2">{c.ciclos}</td>
+                          <td className="py-2 text-frio">{c.ultimoSelloEn ? new Date(c.ultimoSelloEn).toLocaleDateString("es-PE") : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )
+      )}
+
+      {/* ── ACCESO ── */}
+      {pestana === "acceso" && (
+        acceso === "cargando" ? <SkeletonLista filas={2} /> :
+        !acceso ? (
+          <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
+            <p className="text-[1.02rem] font-bold text-tinta">Este negocio no tiene control de acceso activo</p>
+            <p className="mt-1 text-[0.88rem] text-frio">Con tu placa de acceso en la puerta, aquí verás quién entró y las marcaciones de tu personal.</p>
+          </div>
+        ) : (
+          <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+            <h2 className="text-[1.02rem] font-bold text-tinta">Registro de hoy</h2>
+            {acceso.length === 0 ? (
+              <p className="mt-2 text-[0.88rem] text-frio">Todavía no hay toques hoy.</p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-left text-[0.86rem]">
+                  <thead>
+                    <tr className="text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+                      <th className="pb-2">Hora</th><th className="pb-2">Quién</th><th className="pb-2">Tipo</th><th className="pb-2">Evento</th><th className="pb-2">Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {acceso.map((e, i) => (
+                      <tr key={i} className="border-t border-linea">
+                        <td className="py-2 text-tinta-2">{new Date(e.creadoEn).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</td>
+                        <td className="py-2 font-semibold text-tinta">{e.nombre ?? `…${e.telefono.slice(-6)}`}</td>
+                        <td className="py-2 text-tinta-2">{e.tipoPersona === "socio" ? "Socio" : e.tipoPersona === "personal" ? "Personal" : "—"}</td>
+                        <td className="py-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[0.72rem] font-bold ${
+                            e.evento === "rechazado" ? "bg-alerta/10 text-alerta" : e.evento === "salida" ? "bg-arena text-tinta-2" : "bg-ok/12 text-ok"
+                          }`}>{e.evento}</span>
+                        </td>
+                        <td className="py-2 text-frio">{e.detalle ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )
+      )}
+
+      {pestana === "placas" && (<>
       {msg && <p className="text-[0.86rem] font-semibold text-tinta-2">{msg}</p>}
 
       {estado === "cargando" && <SkeletonLista filas={2} />}
@@ -236,6 +409,7 @@ export default function PlacasPanel() {
       <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
         💡 ¿Quieres más placas para tu mostrador o tus mesas? Escríbenos y te las llevamos.
       </div>
+      </>)}
     </div>
   );
 }

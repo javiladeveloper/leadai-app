@@ -184,6 +184,11 @@ export function entrarComoSoporte(tenantId: string, nombre: string): void {
   // otro haya escrito primero, y el modo se borraba solo al entrar.
   localStorage.setItem(CLAVE_EMPRESA, tenantId);
   localStorage.setItem(CLAVE_SOPORTE, JSON.stringify(dato));
+  // El mismo aviso que emite `guardarEmpresaActiva`: quien escuche el cambio
+  // de empresa (el menú, p. ej.) debe enterarse también al entrar a soporte.
+  if (previa !== tenantId) {
+    window.dispatchEvent(new CustomEvent("leadai:empresa-cambiada", { detail: { tenantId } }));
+  }
 }
 
 export function leerModoSoporte(): ModoSoporte | null {

@@ -156,10 +156,27 @@ export function precalentarCapacidades(): void {
  * caso, porque asumir un rubro haría parpadear el menú antes de corregirse.
  */
 export function useCapacidades(): EstadoNegocio | null {
-  const tenant = typeof window !== "undefined" ? leerEmpresaActiva() : null;
+  const [tenant, setTenant] = useState<string | null>(
+    () => (typeof window !== "undefined" ? leerEmpresaActiva() : null),
+  );
   const [estado, setEstado] = useState<EstadoNegocio | null>(
     tenant ? (cache.get(tenant) ?? leerGuardado(tenant)) : null,
   );
+
+  // LA EMPRESA ACTIVA PUEDE FIJARSE DESPUÉS DE MONTAR (bug 2026-09-04,
+  // Jonathan: "el panel de la izquierda no carga de una, tengo que presionar
+  // F5"). Con varias empresas, el login no deja ninguna activa: la elige la
+  // vista global un instante MÁS TARDE y avisa con `leadai:empresa-cambiada`
+  // — pero este hook leía el tenant una sola vez al renderizar, así que el
+  // menú se quedaba en esqueletos para siempre (el F5 lo "arreglaba" porque
+  // para entonces la empresa ya estaba en localStorage). Ahora escucha el
+  // evento; de paso, cambiar de negocio en la barra global también repinta
+  // el menú al toque.
+  useEffect(() => {
+    const alCambiar = () => setTenant(leerEmpresaActiva());
+    window.addEventListener("leadai:empresa-cambiada", alCambiar);
+    return () => window.removeEventListener("leadai:empresa-cambiada", alCambiar);
+  }, []);
 
   useEffect(() => {
     if (!tenant) { setEstado(null); return; }

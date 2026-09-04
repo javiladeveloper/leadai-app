@@ -306,11 +306,15 @@ export function PanelCanales() {
                   </p>
                 </div>
               )}
-              {/* Tampoco antes de saber: `otroNumero` cambia el texto del
-                  botón ("conectar otro" vs "conectar"), y con la lista vacía
-                  decía lo que no era. */}
-              {!cargando && (
-                <ConectarWhatsApp onConectado={cargar} otroNumero={conexiones.length > 0} />
+              {/* CON UN NÚMERO CONECTADO, EL FORMULARIO NO SALE (2026-09-04,
+                  Jonathan viéndolo en vivo: "no debería salir, evitemos
+                  errores por los usuarios"). La regla es un número por
+                  empresa: ofrecer "¿el otro número ya usa WhatsApp?" debajo
+                  de un número Activo confunde — parece un paso pendiente. El
+                  segundo número va en otra empresa, y eso ya lo dice el aviso
+                  de arriba. */}
+              {!cargando && conexiones.length === 0 && (
+                <ConectarWhatsApp onConectado={cargar} />
               )}
             </div>
           ) : (

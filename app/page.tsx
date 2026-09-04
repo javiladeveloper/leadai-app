@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { haySesion, leerSesion, guardarSesion, esSuperAdmin } from "@/lib/auth";
 import { hayGoogle, renderBotonGoogle } from "@/lib/google";
 import { entrarConGoogle, entrarConEmail, entrarDemo } from "@/lib/sesion";
+import { precalentarCapacidades } from "@/lib/modo-negocio";
 import { ApiError } from "@/lib/api";
 import { IconoRayo, IconoGoogle } from "@/components/Iconos";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
@@ -58,6 +59,8 @@ export default function Login() {
 
   useEffect(() => {
     if (haySesion()) {
+      // El menú necesita /capacidades: pedirlo YA, en paralelo al redirect.
+      precalentarCapacidades();
       router.replace(destinoTrasEntrar());
       return;
     }
@@ -67,6 +70,7 @@ export default function Login() {
         setError(null);
         try {
           await entrarConGoogle(idToken);
+          precalentarCapacidades();
           router.replace(destinoTrasEntrar());
         } catch (e) {
           setError(e instanceof ApiError ? e.message : "No se pudo iniciar sesión");
@@ -88,6 +92,7 @@ export default function Login() {
     try {
       const sesion = await entrarConEmail(email.trim(), password);
       guardarSesion(sesion);
+      precalentarCapacidades();
       router.replace(destinoTrasEntrar());
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Correo o contraseña incorrectos.");

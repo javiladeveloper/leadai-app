@@ -129,6 +129,27 @@ function guardar(tenant: string, estado: EstadoNegocio): void {
 }
 
 /**
+ * Precalienta el caché de capacidades (2026-09-04, reporte de Jonathan:
+ * "demora mucho en cargar el panel lateral al comienzo").
+ *
+ * El menú no se dibuja hasta saber qué puede el negocio, y en el PRIMER login
+ * de un navegador no hay nada guardado: el Sidebar esperaba su propia llamada
+ * (~1s desde Perú) DESPUÉS de montar. Esto dispara la consulta apenas hay
+ * sesión —mientras el navegador todavía está redirigiendo al panel— para que
+ * al montar el menú la respuesta ya esté en el caché.
+ *
+ * Fire-and-forget: si falla o llega tarde, el hook hace su consulta de
+ * siempre y no cambia nada.
+ */
+export function precalentarCapacidades(): void {
+  const tenant = typeof window !== "undefined" ? leerEmpresaActiva() : null;
+  if (!tenant || cache.has(tenant) || leerGuardado(tenant)) return;
+  api<EstadoNegocio>("/capacidades")
+    .then((r) => guardar(tenant, r))
+    .catch(() => undefined);
+}
+
+/**
  * Qué puede el negocio activo.
  *
  * Devuelve `null` mientras no se sabe — quien lo use tiene que tratar ese

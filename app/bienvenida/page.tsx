@@ -313,8 +313,15 @@ export default function BienvenidaPanel() {
         setPerfilBase(p);
         setPropuesta(p.propuestaValor ?? "");
         setCta(p.llamadaAccion ?? "");
+        const precargados = (p.catalogo ?? []).map((c) => ({ nombre: c.nombre, precio: c.precio ?? "" }));
+        // NUNCA una lista vacía (feedback de Jonathan 2026-09-04: "está feo"):
+        // la plantilla genérica no trae catálogo y el campo quedaba en un
+        // "+ Agregar otro" huérfano. Tres filas listas para escribir dicen
+        // "esto se llena así" sin explicar nada.
         setServicios(
-          (p.catalogo ?? []).map((c) => ({ nombre: c.nombre, precio: c.precio ?? "" })),
+          precargados.length > 0
+            ? precargados
+            : [{ nombre: "", precio: "" }, { nombre: "", precio: "" }, { nombre: "", precio: "" }],
         );
       })
       // Sin playbook cargable, el paso se puede saltar igual: se edita
@@ -895,8 +902,9 @@ export default function BienvenidaPanel() {
               Cuéntale a tu bot qué vendes
             </h1>
             <p className="mt-2 text-[1.02rem] text-tinta-2">
-              Con esto responde por tu negocio de verdad, no con generalidades.
-              Ya te adelantamos lo típico de tu rubro — corrige lo que no calce.
+              {perfilBase && perfilBase.catalogo?.length > 0
+                ? "Ya te adelantamos lo típico de tu rubro — corrige lo que no calce."
+                : "Tres respuestas cortas y tu bot deja de hablar en general para vender lo tuyo."}
             </p>
 
             {cargandoPerfil ? (
@@ -907,69 +915,96 @@ export default function BienvenidaPanel() {
                 después en Configuración → El bot.
               </p>
             ) : (
-              <div className="mt-6 space-y-5">
-                <Campo
-                  etiqueta="¿Qué ofreces y qué te hace distinto?"
-                  ayuda="Es lo primero que tu bot usa para presentarte"
-                >
-                  <textarea
-                    value={propuesta}
-                    onChange={(e) => setPropuesta(e.target.value)}
-                    rows={3}
-                    className={`${ENTRADA} resize-y`}
-                  />
-                </Campo>
+              <div className="mt-6 space-y-4">
+                <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+                  <Campo
+                    etiqueta="💬 ¿Qué ofreces y qué te hace distinto?"
+                    ayuda="Así se presenta tu bot"
+                  >
+                    <textarea
+                      value={propuesta}
+                      onChange={(e) => setPropuesta(e.target.value)}
+                      rows={3}
+                      placeholder="Ej: Hacemos software a medida para negocios en Perú. Entregamos rápido y damos soporte directo, sin intermediarios."
+                      className={`${ENTRADA} resize-y !bg-arena/50`}
+                    />
+                  </Campo>
+                </div>
 
-                <Campo
-                  etiqueta="Tus servicios o productos y su precio"
-                  ayuda="Los precios que diga el bot salen SOLO de aquí"
-                >
-                  <div className="space-y-2">
-                    {servicios.map((s, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <input
-                          value={s.nombre}
-                          onChange={(e) => setServicios(servicios.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x))}
-                          placeholder="Ej: Asesoría mensual"
-                          className={`${ENTRADA} min-w-0 flex-1`}
-                        />
-                        <input
-                          value={s.precio}
-                          onChange={(e) => setServicios(servicios.map((x, j) => j === i ? { ...x, precio: e.target.value } : x))}
-                          placeholder="S/150"
-                          className={`${ENTRADA} !w-28 shrink-0`}
-                        />
+                <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+                  <Campo
+                    etiqueta="🏷️ Tus servicios o productos"
+                    ayuda="Los precios que diga el bot salen SOLO de aquí"
+                  >
+                    <div className="space-y-2">
+                      {servicios.map((s, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <input
+                            value={s.nombre}
+                            onChange={(e) => setServicios(servicios.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x))}
+                            placeholder={["Ej: Plan mensual", "Ej: Instalación", "Ej: Soporte premium"][i] ?? "Otro servicio"}
+                            className={`${ENTRADA} min-w-0 flex-1 !bg-arena/50`}
+                          />
+                          <input
+                            value={s.precio}
+                            onChange={(e) => setServicios(servicios.map((x, j) => j === i ? { ...x, precio: e.target.value } : x))}
+                            placeholder="S/ —"
+                            className={`${ENTRADA} !w-28 shrink-0 !bg-arena/50 text-right`}
+                          />
+                          {/* La fila se puede quitar solo si hay más de una:
+                              una lista sin filas es el vacío que se veía feo. */}
+                          {servicios.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setServicios(servicios.filter((_, j) => j !== i))}
+                              aria-label={`Quitar ${s.nombre || "servicio"}`}
+                              className="shrink-0 rounded-lg px-2 py-2 text-frio transition hover:text-alerta"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setServicios([...servicios, { nombre: "", precio: "" }])}
+                        className="rounded-chip px-3.5 py-2 text-[0.86rem] font-semibold text-brasa-texto ring-1 ring-brasa/35 transition hover:bg-brasa-suave"
+                      >
+                        ＋ Agregar otro
+                      </button>
+                    </div>
+                  </Campo>
+                </div>
+
+                <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+                  <Campo
+                    etiqueta="🎯 ¿A qué quieres llevar cada conversación?"
+                    ayuda="La acción que el bot va a proponer"
+                  >
+                    <input
+                      value={cta}
+                      onChange={(e) => setCta(e.target.value)}
+                      placeholder="Escríbela o elige una de abajo"
+                      className={`${ENTRADA} !bg-arena/50`}
+                    />
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {["Agenda una demo de 15 minutos", "Cotiza por WhatsApp", "Agenda una visita", "Haz tu pedido hoy"].map((op) => (
                         <button
+                          key={op}
                           type="button"
-                          onClick={() => setServicios(servicios.filter((_, j) => j !== i))}
-                          aria-label={`Quitar ${s.nombre || "servicio"}`}
-                          className="shrink-0 rounded-lg px-2 py-2 text-frio transition hover:text-alerta"
+                          onClick={() => setCta(op)}
+                          className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
+                            cta === op
+                              ? "bg-brasa text-sobre-brasa"
+                              : "text-tinta-2 ring-1 ring-linea hover:bg-arena"
+                          }`}
                         >
-                          ✕
+                          {op}
                         </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setServicios([...servicios, { nombre: "", precio: "" }])}
-                      className="text-[0.88rem] font-semibold text-brasa-texto hover:underline"
-                    >
-                      ＋ Agregar otro
-                    </button>
-                  </div>
-                </Campo>
-
-                <Campo
-                  etiqueta="¿A qué quieres llevar cada conversación?"
-                  ayuda="La acción que el bot va a proponer"
-                >
-                  <input
-                    value={cta}
-                    onChange={(e) => setCta(e.target.value)}
-                    placeholder="Ej: Agenda una visita esta semana"
-                    className={ENTRADA}
-                  />
-                </Campo>
+                      ))}
+                    </div>
+                  </Campo>
+                </div>
               </div>
             )}
 

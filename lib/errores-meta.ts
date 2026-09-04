@@ -33,7 +33,26 @@ export interface ErrorTraducido {
  * El orden importa: gana la primera que matchea, así que van de lo más
  * específico a lo más general.
  */
+const VENTANA_VENCIDA: ErrorTraducido = {
+  titulo: 'La ventana de Meta se venció',
+  pasos: [
+    'Cierra la ventana de Meta si sigue abierta',
+    'Vuelve a tocar Conectar y hazlo de corrido',
+  ],
+  reintentable: true,
+};
+
 const CONOCIDOS: { pistas: string[]; error: ErrorTraducido }[] = [
+  {
+    // Va PRIMERO a propósito (2026-09-04): "code was already used" contiene
+    // "already", que también es pista de "número tomado". Con el orden de
+    // antes, un dueño que dejó vencer el popup leía que su número estaba
+    // en manos de otro proveedor y salía a pelear con el chatbot anterior —
+    // por un error que se arregla volviendo a tocar Conectar. (Mismo arreglo
+    // que ya lleva Sania en su copia de este archivo.)
+    pistas: ['code was already used', 'invalid code', 'code has expired', 'código ya usado'],
+    error: VENTANA_VENCIDA,
+  },
   {
     // El caso de la clienta: su número ya vive en otro portfolio de Meta,
     // normalmente uno que se creó solo al configurar WhatsApp Business.
@@ -78,15 +97,8 @@ const CONOCIDOS: { pistas: string[]; error: ErrorTraducido }[] = [
   },
   {
     // El diálogo lleva mucho abierto: Meta vence la sesión y todo falla raro.
-    pistas: ['session', 'sesión', 'expired', 'vencid', 'code was already used', 'invalid code'],
-    error: {
-      titulo: 'La ventana de Meta se venció',
-      pasos: [
-        'Cierra la ventana de Meta si sigue abierta',
-        'Vuelve a tocar Conectar y hazlo de corrido',
-      ],
-      reintentable: true,
-    },
+    pistas: ['session', 'sesión', 'expired', 'vencid'],
+    error: VENTANA_VENCIDA,
   },
   {
     // Cuenta sin permisos sobre ese número: lo maneja otra persona.

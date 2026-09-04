@@ -16,7 +16,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion, leerSesion, guardarEmpresaActiva } from "@/lib/auth";
-import { crearEmpresa } from "@/lib/api";
+import { crearEmpresa, obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
 import { RUBROS_DISPONIBLES, RUBROS_CAPTACION } from "@/lib/rubros";
 import {
   guardarNegocio, subirImagenNegocio, leerFoto,
@@ -30,7 +30,7 @@ import { PasosOnboarding, Preparando } from "@/components/panel/PasosOnboarding"
 import { CartaAMano } from "@/components/panel/CartaAMano";
 import ConectarWhatsApp from "@/components/ConectarWhatsApp";
 
-const TOTAL_PASOS = 7;
+const TOTAL_PASOS = 8;
 
 /**
  * EL PASO "CÓMO TRABAJÁS" ES EL 6 EN EL CÓDIGO PERO EL 2 EN PANTALLA.
@@ -39,7 +39,9 @@ const TOTAL_PASOS = 7;
  * tocado ocho `setPaso` y sus tests. El orden lo decide `POSICION`, no el
  * número: agregar otro paso mañana es una fila más acá.
  */
-const POSICION: Record<number, number> = { 1: 1, 6: 2, 2: 3, 3: 4, 4: 5, 7: 6, 5: 7 };
+// El 8 comparte posición con el 6 a propósito: son de recorridos DISJUNTOS
+// (el 6 es de cocina, el 8 de ventas) y nunca se ven juntos.
+const POSICION: Record<number, number> = { 1: 1, 6: 2, 8: 2, 2: 3, 3: 4, 4: 5, 7: 6, 5: 7 };
 
 /**
  * QUÉ CAPACIDAD NECESITA CADA PASO (2026-08-31).
@@ -61,6 +63,7 @@ const POSICION: Record<number, number> = { 1: 1, 6: 2, 2: 3, 3: 4, 4: 5, 7: 6, 5
 const REQUISITO: Record<number, keyof CapacidadesAlta | null> = {
   1: null,            // el nombre y el rubro: siempre
   6: 'tieneCocina',   // local o delivery, reservas, a dónde le pagan
+  8: 'esVentas',      // qué vende y qué lo hace distinto (el playbook del bot)
   2: 'tieneCarta',    // la carta
   3: 'tieneCarta',    // los platos
   4: 'tieneCarta',    // logo y banner de la carta
@@ -82,13 +85,22 @@ const REQUISITO: Record<number, keyof CapacidadesAlta | null> = {
 interface CapacidadesAlta {
   tieneCarta: boolean;
   tieneCocina: boolean;
+  esVentas: boolean;
 }
 
 function capacidadesDe(rubro: string): CapacidadesAlta {
   // Espejo de `TABLA` en leadia/src/core/capacidades-rubro.ts: gastronomía es
   // el único rubro con carta y cocina.
   const esGastronomia = rubro === 'gastronomia';
-  return { tieneCarta: esGastronomia, tieneCocina: esGastronomia };
+  return {
+    tieneCarta: esGastronomia,
+    tieneCocina: esGastronomia,
+    // Todo rubro de captación (2026-09-04, pedido de Jonathan: "el onboarding
+    // para ventas, que sea más enriquecido"): su alta era nombre + conectar y
+    // el bot nacía con la plantilla genérica del rubro sin saber qué vende
+    // ESTE negocio.
+    esVentas: rubro !== '' && !esGastronomia,
+  };
 }
 
 /**
@@ -211,6 +223,16 @@ export default function BienvenidaPanel() {
   const [cargandoSugerida, setCargandoSugerida] = useState("");
   const [erroresArchivo, setErroresArchivo] = useState<{ fila: number; motivo: string }[]>([]);
 
+  // Paso 8 — el playbook de ventas (solo captación). Los campos que más pesan
+  // en cómo vende el bot, precargados de la plantilla del rubro para que el
+  // dueño corrija en vez de redactar en blanco.
+  const [perfilBase, setPerfilBase] = useState<PerfilNegocio | null>(null);
+  const [cargandoPerfil, setCargandoPerfil] = useState(false);
+  const [propuesta, setPropuesta] = useState("");
+  const [cta, setCta] = useState("");
+  const [servicios, setServicios] = useState<{ nombre: string; precio: string }[]>([]);
+  const [guardoPlaybook, setGuardoPlaybook] = useState(false);
+
   // Paso 4 — la marca
   const [logo, setLogo] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
@@ -264,6 +286,8 @@ export default function BienvenidaPanel() {
       marcar("negocio");
       if (whatsapp.trim()) { await new Promise((r) => setTimeout(r, 250)); marcar("whatsapp"); }
       if (direccion.trim()) { await new Promise((r) => setTimeout(r, 250)); marcar("direccion"); }
+      if (caps.esVentas) { await new Promise((r) => setTimeout(r, 250)); marcar("playbook"); }
+      if (caps.esVentas && conectoWhatsapp) { await new Promise((r) => setTimeout(r, 250)); marcar("whatsappConectado"); }
       if (esComida) {
         // El horario YA se guardó en su paso (ver `guardarPaso2`). Acá había
         // un `guardarNegocio({})` con el objeto VACÍO —un PATCH que no
@@ -276,6 +300,28 @@ export default function BienvenidaPanel() {
       }
     })();
     return () => { vivo = false; };
+  }, [paso]);
+
+  // El playbook con el que NACIÓ el negocio (plantilla del rubro) se trae al
+  // llegar al paso: los campos arrancan llenos y el dueño corrige lo suyo.
+  useEffect(() => {
+    if (paso !== 8 || perfilBase || cargandoPerfil) return;
+    setCargandoPerfil(true);
+    obtenerPerfil()
+      .then((p) => {
+        if (!p) return;
+        setPerfilBase(p);
+        setPropuesta(p.propuestaValor ?? "");
+        setCta(p.llamadaAccion ?? "");
+        setServicios(
+          (p.catalogo ?? []).map((c) => ({ nombre: c.nombre, precio: c.precio ?? "" })),
+        );
+      })
+      // Sin playbook cargable, el paso se puede saltar igual: se edita
+      // después en Configuración. Nunca trabar el alta por esto.
+      .catch(() => undefined)
+      .finally(() => setCargandoPerfil(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paso]);
 
   // Las especialidades se piden UNA vez, al llegar al paso de la carta: antes
@@ -355,6 +401,33 @@ export default function BienvenidaPanel() {
     });
     setGuardando(false);
     setPaso(2);
+  }
+
+  /**
+   * Guarda el playbook de ventas personalizado. El PUT de /perfil es
+   * full-replace: SIEMPRE se parte del perfil con el que nació el negocio y
+   * solo se pisan los campos de este paso — mandar el objeto a medias
+   * borraría las señales, objeciones y políticas de la plantilla.
+   */
+  async function guardarPlaybookVentas() {
+    if (!perfilBase) { setPaso(pasoSiguiente(8, caps)); return; }
+    setGuardando(true);
+    const limpios = servicios
+      .map((s) => ({ nombre: s.nombre.trim(), precio: s.precio.trim() }))
+      .filter((s) => s.nombre);
+    const r = await guardarPerfil(perfilBase.rubro || rubro, {
+      ...perfilBase,
+      propuestaValor: propuesta.trim() || perfilBase.propuestaValor,
+      llamadaAccion: cta.trim() || perfilBase.llamadaAccion,
+      catalogo: limpios.length > 0
+        ? limpios.map((s) => ({ nombre: s.nombre, ...(s.precio ? { precio: s.precio } : {}) }))
+        : perfilBase.catalogo,
+    });
+    setGuardando(false);
+    if (!r.ok) { setError(r.error ?? "No se pudo guardar. Puedes saltarlo y editarlo después."); return; }
+    setError("");
+    setGuardoPlaybook(true);
+    setPaso(pasoSiguiente(8, caps));
   }
 
   async function guardarPaso2() {
@@ -469,6 +542,18 @@ export default function BienvenidaPanel() {
             // Corto a propósito: el detalle se trunca en una línea, y "no
             // pued…" no le dice nada a nadie.
             : "Falta — sin ella el bot no vende",
+        }]
+      : []),
+    // El playbook personalizado, solo para ventas: es SU paso del alta y el
+    // resumen debe decirle si el bot ya sabe qué vende o sigue en genérico.
+    ...(caps.esVentas
+      ? [{
+          clave: "playbook",
+          emoji: "🧠",
+          titulo: "Lo que vende tu bot",
+          detalle: guardoPlaybook
+            ? "Personalizado con tus servicios y precios"
+            : "Con lo típico de tu rubro — afínalo en Configuración",
         }]
       : []),
     // LA CONEXIÓN APARECE SIEMPRE Y PARA TODOS (2026-08-31): sin WhatsApp
@@ -779,6 +864,117 @@ export default function BienvenidaPanel() {
               <button
                 onClick={guardarComoTrabaja}
                 disabled={guardando}
+                className={`${BOTON} mt-0 flex-1`}
+              >
+                {guardando ? "Guardando…" : "Continuar"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 8. Qué vendes (solo captación, 2026-09-04) ──
+            El alta de ventas era nombre + conectar: el bot nacía con la
+            plantilla genérica del rubro sin saber qué vende ESTE negocio, y
+            el dueño tenía que descubrir el playbook en Configuración. Acá se
+            personalizan los tres campos que más pesan; el resto de la
+            plantilla (señales, objeciones, políticas) queda intacto. */}
+        {paso === 8 && (
+          <div className="entra">
+            <h1 className="text-[1.8rem] font-bold leading-tight text-tinta">
+              Cuéntale a tu bot qué vendes
+            </h1>
+            <p className="mt-2 text-[1.02rem] text-tinta-2">
+              Con esto responde por tu negocio de verdad, no con generalidades.
+              Ya te adelantamos lo típico de tu rubro — corrige lo que no calce.
+            </p>
+
+            {cargandoPerfil ? (
+              <p className="mt-6 text-[0.9rem] text-frio">Preparando tu punto de partida…</p>
+            ) : !perfilBase ? (
+              <p className="mt-6 rounded-tarjeta bg-arena px-4 py-3 text-[0.9rem] text-tinta-2">
+                No pudimos precargar tu playbook — continúa nomás: lo completas
+                después en Configuración → El bot.
+              </p>
+            ) : (
+              <div className="mt-6 space-y-5">
+                <Campo
+                  etiqueta="¿Qué ofreces y qué te hace distinto?"
+                  ayuda="Es lo primero que tu bot usa para presentarte"
+                >
+                  <textarea
+                    value={propuesta}
+                    onChange={(e) => setPropuesta(e.target.value)}
+                    rows={3}
+                    className={`${ENTRADA} resize-y`}
+                  />
+                </Campo>
+
+                <Campo
+                  etiqueta="Tus servicios o productos y su precio"
+                  ayuda="Los precios que diga el bot salen SOLO de aquí"
+                >
+                  <div className="space-y-2">
+                    {servicios.map((s, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          value={s.nombre}
+                          onChange={(e) => setServicios(servicios.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x))}
+                          placeholder="Ej: Asesoría mensual"
+                          className={`${ENTRADA} min-w-0 flex-1`}
+                        />
+                        <input
+                          value={s.precio}
+                          onChange={(e) => setServicios(servicios.map((x, j) => j === i ? { ...x, precio: e.target.value } : x))}
+                          placeholder="S/150"
+                          className={`${ENTRADA} !w-28 shrink-0`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setServicios(servicios.filter((_, j) => j !== i))}
+                          aria-label={`Quitar ${s.nombre || "servicio"}`}
+                          className="shrink-0 rounded-lg px-2 py-2 text-frio transition hover:text-alerta"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setServicios([...servicios, { nombre: "", precio: "" }])}
+                      className="text-[0.88rem] font-semibold text-brasa-texto hover:underline"
+                    >
+                      ＋ Agregar otro
+                    </button>
+                  </div>
+                </Campo>
+
+                <Campo
+                  etiqueta="¿A qué quieres llevar cada conversación?"
+                  ayuda="La acción que el bot va a proponer"
+                >
+                  <input
+                    value={cta}
+                    onChange={(e) => setCta(e.target.value)}
+                    placeholder="Ej: Agenda una visita esta semana"
+                    className={ENTRADA}
+                  />
+                </Campo>
+              </div>
+            )}
+
+            <div className="mt-7 flex gap-2">
+              {pasoAnterior(8, caps) !== null && (
+                <button
+                  onClick={() => setPaso(pasoAnterior(8, caps)!)}
+                  className={BOTON_SECUNDARIO}
+                >
+                  ← Atrás
+                </button>
+              )}
+              <button onClick={() => setPaso(pasoSiguiente(8, caps))} className={BOTON_SECUNDARIO}>Saltar</button>
+              <button
+                onClick={guardarPlaybookVentas}
+                disabled={guardando || cargandoPerfil}
                 className={`${BOTON} mt-0 flex-1`}
               >
                 {guardando ? "Guardando…" : "Continuar"}

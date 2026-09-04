@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion, leerSesion, guardarEmpresaActiva } from "@/lib/auth";
+import { haySesion, leerSesion, guardarEmpresaActiva, esSuperAdmin } from "@/lib/auth";
 import { crearEmpresa, obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
 import { RUBROS_DISPONIBLES, RUBROS_CAPTACION } from "@/lib/rubros";
 import {
@@ -583,6 +583,17 @@ export default function BienvenidaPanel() {
           <span className="text-lg font-bold text-tinta">
             Lead<span className="text-brasa-texto">AI</span>
           </span>
+          {/* El atajo del super admin (2026-09-04): sin empresas, el login lo
+              trae ACÁ — invitarlo a crear un negocio está bien, atraparlo no.
+              Nadie más ve este link. */}
+          {esSuperAdmin() && (
+            <a
+              href="/admin"
+              className="ml-auto text-[0.82rem] font-semibold text-frio transition hover:text-tinta"
+            >
+              Panel de plataforma →
+            </a>
+          )}
         </div>
 
         {paso !== 5 && (

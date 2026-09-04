@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion, leerSesion, guardarSesion, esSuperAdmin } from "@/lib/auth";
+import { haySesion, leerSesion, guardarSesion } from "@/lib/auth";
 import { hayGoogle, renderBotonGoogle } from "@/lib/google";
 import { entrarConGoogle, entrarConEmail, entrarDemo } from "@/lib/sesion";
 import { precalentarCapacidades } from "@/lib/modo-negocio";
@@ -51,9 +51,13 @@ export default function Login() {
     }
     if (sesion && sesion.empresas.length > 1) return "/global";
     if (sesion && sesion.empresas.length > 0) return "/inicio";
-    // Super admin sin negocio → panel de plataforma (no lo forzamos a crear un
-    // negocio). Un usuario normal sin negocio sí va al onboarding.
-    if (esSuperAdmin()) return "/admin";
+    // SIN EMPRESAS, TODOS AL ONBOARDING — super admin incluido (2026-09-04,
+    // Jonathan: "debería mandarme al onboarding porque no tengo ninguna
+    // empresa... no puedo crear un negocio"). La regla vieja lo mandaba a
+    // /admin y desde ahí no había NINGÚN camino para crear una: quedaba
+    // rebotando entre el panel de plataforma y un panel de negocio sin
+    // negocio. El onboarding le muestra un atajo al panel de plataforma por
+    // si eso era lo que buscaba — invitar no es forzar.
     return "/bienvenida";
   }
 

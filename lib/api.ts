@@ -126,6 +126,49 @@ export async function conectarWhatsAppEmbedded(args: {
   }
 }
 
+// ── La red de seguridad del Embedded Signup (2026-09-05) ──
+// El caso real: en el celular, el salto a WhatsApp mata la pestaña y el code
+// de Meta muere con ella. Estos dos helpers son la mitad panel del arreglo.
+
+// Reporta los ids que Meta manda por postMessage DURANTE el flujo — antes del
+// salto. Fire-and-forget: si falla, el flujo normal sigue idéntico.
+export async function reportarAvanceConexion(datos: { wabaId?: string; phoneNumberId?: string }): Promise<void> {
+  const token = leerSesion()?.token;
+  const tenant = leerEmpresaActiva();
+  try {
+    await fetch(`${API_URL}/canales/whatsapp/avance`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenant ? { 'X-Tenant-Id': tenant } : {}),
+      },
+      body: JSON.stringify(datos),
+      keepalive: true, // que sobreviva aunque la pestaña esté por morir
+    });
+  } catch { /* nunca rompe el flujo */ }
+}
+
+// ¿Meta confirmó un registro cuyo code nunca llegó? 'meta_confirmo' = mostrar
+// "toca Conectar para terminar" en vez de silencio.
+export async function estadoIntentoConexion(): Promise<'ninguno' | 'pendiente' | 'meta_confirmo'> {
+  const token = leerSesion()?.token;
+  const tenant = leerEmpresaActiva();
+  try {
+    const res = await fetch(`${API_URL}/canales/whatsapp/intento`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenant ? { 'X-Tenant-Id': tenant } : {}),
+      },
+    });
+    if (!res.ok) return 'ninguno';
+    const d = (await res.json()) as { estado?: string };
+    return d.estado === 'meta_confirmo' ? 'meta_confirmo' : d.estado === 'pendiente' ? 'pendiente' : 'ninguno';
+  } catch {
+    return 'ninguno';
+  }
+}
+
 // Playbook del negocio (perfil que la IA usa). Lectura y guardado reales.
 export interface PerfilNegocio {
   rubro: string;

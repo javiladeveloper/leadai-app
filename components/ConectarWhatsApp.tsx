@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { conectarWhatsAppEmbedded } from "@/lib/api";
+import { conectarWhatsAppEmbedded, reportarAvanceConexion, estadoIntentoConexion } from "@/lib/api";
 import { traducirErrorMeta } from "@/lib/errores-meta";
 
 /**
@@ -70,6 +70,18 @@ export default function ConectarWhatsApp({
   useEffect(() => {
     setEnCelular(/android|iphone|ipad|ipod/i.test(navigator.userAgent));
   }, []);
+
+  /**
+   * EL RESCATE (2026-09-05): si Meta confirmó un registro (webhook
+   * PARTNER_ADDED) y el canal nunca se creó —la pestaña murió con el code—,
+   * acá se le dice al dueño que le falta UN toque, en vez del silencio que
+   * casi nos cuesta el primer cliente. El reintento es corto: los activos ya
+   * existen en Meta y no hay salto a WhatsApp, así que anda en el celular.
+   */
+  const [rescate, setRescate] = useState(false);
+  useEffect(() => {
+    void estadoIntentoConexion().then((e) => setRescate(e === "meta_confirmo"));
+  }, []);
   // Datos que el popup entrega vía postMessage (wabaId/phoneNumberId).
   /**
    * Los datos del Embedded Signup en una REF, no en estado (2026-08-18).
@@ -117,6 +129,15 @@ export default function ConectarWhatsApp({
           // entero borraría el waba_id que ya había llegado.
           if (d.data.waba_id) sesionES.current.wabaId = d.data.waba_id;
           if (d.data.phone_number_id) sesionES.current.phoneNumberId = d.data.phone_number_id;
+          // LA RED DE SEGURIDAD (2026-09-05): estos ids se reportan al backend
+          // AL TOQUE, no al final — porque el final puede no llegar. En el
+          // celular, el salto a WhatsApp mata esta pestaña y el code muere con
+          // ella; con el waba_id ya guardado, el webhook PARTNER_ADDED sabe de
+          // quién era el registro y el panel puede ofrecer terminar. Caso
+          // real: el primer cliente completó TODO en Meta y no quedó nada.
+          if (d.data.waba_id || d.data.phone_number_id) {
+            void reportarAvanceConexion(sesionES.current);
+          }
         }
       } catch { /* ignore */ }
     };
@@ -292,6 +313,18 @@ Detalle: ${error || "sin detalle"}`,
   if (paso === "pregunta") {
     return (
       <div className="space-y-3">
+        {/* EL RESCATE: Meta confirmó su registro y a nosotros no nos llegó.
+            Va PRIMERO y en positivo — el dueño hizo todo bien; falta un toque. */}
+        {rescate && (
+          <p className="rounded-tarjeta border-l-4 border-ok bg-carta px-4 py-3 text-[0.85rem] text-tinta ring-1 ring-linea">
+            <strong className="font-semibold">
+              ✅ Meta ya confirmó tu registro — falta un solo paso.
+            </strong>{" "}
+            La última vez el proceso se cortó al final (pasa en el celular).
+            Toca conectar de nuevo: esta vez es corto, sin escanear nada, y la
+            ventana se cierra sola cuando queda listo.
+          </p>
+        )}
         <p className="text-sm font-semibold text-tinta">
           {otroNumero
             ? "¿El otro número ya usa WhatsApp Business en el celular?"

@@ -362,13 +362,27 @@ Detalle: ${error || "sin detalle"}`,
         </p>
       </div>
 
-      {/* EL CELULAR ES EL PEOR LUGAR PARA ESTO (2026-08-30): el asistente de
-          Meta abre ventanas, obliga a cambiar de app para buscar el código y
-          vence la sesión si uno se demora. No se bloquea a nadie: se avisa. */}
+      {/* EL CELULAR ES EL PEOR LUGAR PARA ESTO — y ya no es teoría (2026-09-05).
+
+          Caso real: un dueño completó TODO el asistente desde su celular —
+          Meta le dijo que cierre la pestaña— y la conexión no quedó. Por qué:
+          en coexistencia el flujo salta del navegador a la app de WhatsApp y
+          de vuelta, y Android mata la pestaña original en ese cambio. El
+          código de autorización que Meta entrega al final llega a una página
+          que ya no existe — para Meta terminó bien, para nosotros nunca pasó.
+
+          El texto anterior ("si puedes, hazlo desde una computadora") era tan
+          suave que se ignoraba. Ahora dice la CONSECUENCIA. Sigue sin
+          bloquear: en un número nuevo (sin salto a WhatsApp) sí puede andar. */}
       {enCelular && (
         <p className="rounded-tarjeta bg-tibio-suave px-4 py-2.5 text-[0.82rem] text-tinta-2">
-          Estás en el celular. Si puedes, hazlo desde una computadora: el
-          asistente de Meta funciona mucho mejor ahí.
+          <strong className="font-semibold text-tinta">
+            Hazlo desde una computadora.
+          </strong>{" "}
+          En el celular, el último paso suele fallar: al saltar a WhatsApp para
+          confirmar, el teléfono cierra esta página y la conexión se pierde —
+          aunque Meta te diga que terminó bien. En la computadora escaneas el
+          QR con tu celular y listo.
         </p>
       )}
 

@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { conectarWhatsAppEmbedded, reportarAvanceConexion, estadoIntentoConexion } from "@/lib/api";
+import {
+  conectarWhatsAppEmbedded,
+  reportarAvanceConexion,
+  estadoIntentoConexion,
+  urlConexionWhatsAppRedirect,
+} from "@/lib/api";
 import { traducirErrorMeta } from "@/lib/errores-meta";
 
 /**

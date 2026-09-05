@@ -149,6 +149,28 @@ export async function reportarAvanceConexion(datos: { wabaId?: string; phoneNumb
   } catch { /* nunca rompe el flujo */ }
 }
 
+// La URL del flujo por REDIRECCIÓN (2026-09-05): en el celular el popup de
+// FB.login no es confiable — el diálogo se abre como pestaña suelta ("Cierra
+// esta pestaña") o Android mata la página que espera el code. Con esta URL la
+// MISMA pestaña navega al asistente y el code vuelve a nuestro servidor.
+export async function urlConexionWhatsAppRedirect(modo: "nuevo" | "coexistencia"): Promise<string | null> {
+  const token = leerSesion()?.token;
+  const tenant = leerEmpresaActiva();
+  try {
+    const res = await fetch(`${API_URL}/canales/whatsapp/oauth-redirect?modo=${modo}`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenant ? { 'X-Tenant-Id': tenant } : {}),
+      },
+    });
+    if (!res.ok) return null;
+    const d = (await res.json()) as { url?: string };
+    return d.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ¿Meta confirmó un registro cuyo code nunca llegó? 'meta_confirmo' = mostrar
 // "toca Conectar para terminar" en vez de silencio.
 export async function estadoIntentoConexion(): Promise<'ninguno' | 'pendiente' | 'meta_confirmo'> {

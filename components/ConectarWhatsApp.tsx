@@ -150,6 +150,23 @@ export default function ConectarWhatsApp({
   // SIN borrarla (featureType whatsapp_business_app_onboarding — el asistente
   // pide escanear un QR desde la app; el número sigue funcionando en ambos).
   function conectar(modo: "nuevo" | "coexistencia" = "nuevo") {
+    // EN EL CELULAR, POR REDIRECCIÓN — visto dos veces en dos días con el
+    // primer cliente (2026-09-05): el popup de FB.login se abre como pestaña
+    // suelta o Android mata la página que espera el code, y Meta termina en
+    // "Cierra esta pestaña" con el code muerto. Acá la MISMA pestaña navega
+    // al asistente y el code vuelve a nuestro servidor: no hay página que
+    // pueda morir con él. El escritorio conserva FB.login (popup + postMessage
+    // con waba_id, más rico para la red de seguridad).
+    if (enCelular) {
+      setEstado("abriendo");
+      setError("");
+      void urlConexionWhatsAppRedirect(modo).then((url) => {
+        if (url) { window.location.href = url; return; }
+        setEstado("error");
+        setError("No se pudo iniciar la conexión. Intenta de nuevo en un momento.");
+      });
+      return;
+    }
     if (!window.FB) { setEstado("error"); setError("El conector de Meta aún no cargó. Recarga la página."); return; }
     if (!CONFIG_ID) { setEstado("error"); setError("Falta configurar el conector de WhatsApp."); return; }
     setEstado("abriendo");

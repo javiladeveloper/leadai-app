@@ -73,6 +73,8 @@ interface Carta {
     direccion: string | null; entregaMinutos: number | null;
     /** A dónde llega el pedido. null = el negocio no conectó WhatsApp. */
     whatsapp: string | null;
+    /** Qué métodos acepta el local — el checkout ofrece SOLO estos. */
+    pagos?: { yape: boolean; plin: boolean; efectivo: boolean };
     /** Frase corta bajo el nombre ("Makis y más, al toque"). */
     eslogan?: string | null;
     /** El anuncio del día, arriba de la carta. */
@@ -202,6 +204,13 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   // delivery/recojo; con esto el pedido vuelve al chat con todo resuelto.
   const [modalidad, setModalidad] = useState<"delivery" | "recojo">("delivery");
   const [codigo, setCodigo] = useState<string | null>(null);
+  /**
+   * CHECKOUT EN LA PÁGINA (2026-09-06, Fase 1 de la app de comensales): con
+   * código pero sin checkout, se muestra el formulario; con checkout hecho,
+   * la pantalla de pago. El puente viejo por WhatsApp queda como escape.
+   */
+  const [pedidoWeb, setPedidoWeb] = useState<CheckoutOk | null>(null);
+  const [porWhatsApp, setPorWhatsApp] = useState(false);
   // Se acaba de volver de la confirmación: la carta entra desde la izquierda,
   // que es la dirección de "atrás". Sin distinguirlo, ir y volver se verían
   // igual y el movimiento no comunicaría nada.
@@ -588,6 +597,23 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   if (enChat) return <PedidoEnChat whatsapp={carta.negocio.whatsapp} estiloTema={estiloTema} />;
 
   // Pedido enviado por la puerta clásica (link sin ref): código + botón.
+  if (codigo && pedidoWeb) {
+    return <PantallaPago pedido={pedidoWeb} negocio={carta.negocio} tenantId={tenantId} estiloTema={estiloTema} />;
+  }
+  if (codigo && !porWhatsApp) {
+    return (
+      <CheckoutPedido
+        tenantId={tenantId}
+        codigo={codigo}
+        total={total}
+        modalidad={modalidad}
+        negocio={carta.negocio}
+        estiloTema={estiloTema}
+        onListo={setPedidoWeb}
+        onPorWhatsApp={() => setPorWhatsApp(true)}
+      />
+    );
+  }
   if (codigo) return <PedidoListo codigo={codigo} total={total} whatsapp={carta.negocio.whatsapp} estiloTema={estiloTema} />;
 
   // El paso de CONFIRMACIÓN: el pedido como lo calculó el backend, con las
@@ -2042,6 +2068,248 @@ function PedidoEnMesa({
       >
         Pedir algo más
       </button>
+    </main>
+  );
+}
+
+/** Lo que devuelve POST /c/:tenantId/checkout cuando sale bien. */
+interface CheckoutOk {
+  codigo: string;
+  estado: string;
+  totalCentavos: number;
+  pago: {
+    metodo: "yape" | "plin" | "efectivo";
+    yapeNumero: string | null;
+    yapeNombre: string | null;
+    waMe: string | null;
+  };
+}
+
+/**
+ * EL CHECKOUT EN LA PÁGINA (2026-09-06) — Fase 1 de la app de comensales.
+ *
+ * La regla de UX de Jonathan: "el cliente no debe ver un login forzado ni
+ * muchos pasos". Este formulario ES su login: nombre y celular en la misma
+ * pantalla del pedido, cero contraseñas, cero cuenta. Una pantalla, un botón.
+ *
+ * El puente viejo por WhatsApp queda como ESCAPE (link chico abajo): quien no
+ * quiere formularios sigue teniendo su camino de siempre.
+ */
+function CheckoutPedido({
+  tenantId, codigo, total, modalidad, negocio, estiloTema, onListo, onPorWhatsApp,
+}: {
+  tenantId: string;
+  codigo: string;
+  total: number;
+  modalidad: "delivery" | "recojo";
+  negocio: Carta["negocio"];
+  estiloTema: React.CSSProperties;
+  onListo: (r: CheckoutOk) => void;
+  onPorWhatsApp: () => void;
+}) {
+  const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const pagos = negocio.pagos ?? { yape: true, plin: false, efectivo: false };
+  const metodos = [
+    ...(pagos.yape ? [{ id: "yape" as const, etiqueta: "Yape" }] : []),
+    ...(pagos.plin ? [{ id: "plin" as const, etiqueta: "Plin" }] : []),
+    ...(pagos.efectivo ? [{ id: "efectivo" as const, etiqueta: "Efectivo" }] : []),
+  ];
+  const [metodo, setMetodo] = useState<"yape" | "plin" | "efectivo">(metodos[0]?.id ?? "yape");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const esDelivery = modalidad === "delivery";
+  const telValido = /^9\d{8}$/.test(telefono.replace(/\D/g, "").replace(/^51/, ""));
+  const listo = nombre.trim().length >= 2 && telValido && (!esDelivery || direccion.trim().length >= 8);
+
+  async function confirmar() {
+    setEnviando(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/c/${tenantId}/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          codigo, nombre: nombre.trim(), telefono,
+          ...(esDelivery ? { direccion: direccion.trim() } : {}),
+          metodoPago: metodo,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "No pudimos confirmar tu pedido"); return; }
+      onListo(data as CheckoutOk);
+    } catch {
+      setError("No pudimos conectar. Revisa tu internet.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  const campo =
+    "w-full rounded-tarjeta bg-carta px-4 py-3.5 text-[1rem] text-tinta ring-1 ring-linea outline-none focus:ring-2 focus:ring-brasa/60";
+
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col bg-arena paso-adelante" style={estiloTema}>
+      <header className="flex items-center gap-3 border-b border-linea bg-carta px-5 py-3">
+        {negocio.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={negocio.logoUrl} alt="" className="size-10 shrink-0 rounded-xl object-cover ring-1 ring-linea" />
+        ) : (
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brasa/15 text-[1.1rem]" aria-hidden>🍽️</span>
+        )}
+        <p className="min-w-0 flex-1 truncate font-bold text-tinta">{negocio.nombre}</p>
+      </header>
+
+      <div className="flex flex-1 flex-col gap-4 p-5">
+        <div>
+          <h1 className="text-[1.35rem] font-bold text-tinta">Ya casi está 🙌</h1>
+          <p className="text-[0.9rem] text-tinta-2">
+            {esDelivery ? "🛵 Delivery" : "🥡 Para llevar"} · Total <b className="text-tinta">{soles(total)}</b>
+          </p>
+        </div>
+
+        <label className="block">
+          <span className="mb-1 block text-[0.85rem] font-semibold text-tinta-2">Tu nombre</span>
+          <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ana Torres"
+            autoComplete="name" className={campo} />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-[0.85rem] font-semibold text-tinta-2">Tu celular</span>
+          <input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="987 654 321"
+            inputMode="tel" autoComplete="tel" className={campo} />
+          <span className="mt-1 block text-[0.78rem] text-frio">Para avisarte de tu pedido. Sin spam.</span>
+        </label>
+
+        {esDelivery && (
+          <label className="block">
+            <span className="mb-1 block text-[0.85rem] font-semibold text-tinta-2">Dirección de entrega</span>
+            <input value={direccion} onChange={(e) => setDireccion(e.target.value)}
+              placeholder="Av. Los Olivos 123, San Borja" autoComplete="street-address" className={campo} />
+          </label>
+        )}
+
+        {metodos.length > 1 && (
+          <div>
+            <span className="mb-1.5 block text-[0.85rem] font-semibold text-tinta-2">¿Cómo pagas?</span>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Método de pago">
+              {metodos.map((m) => (
+                <button key={m.id} type="button" role="radio" aria-checked={metodo === m.id}
+                  onClick={() => setMetodo(m.id)}
+                  className={`rounded-full px-5 py-2.5 text-[0.95rem] font-semibold ring-1 transition ${
+                    metodo === m.id
+                      ? "bg-brasa text-sobre-brasa ring-brasa"
+                      : "bg-carta text-tinta-2 ring-linea"
+                  }`}>
+                  {m.etiqueta}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <p className="rounded-tarjeta bg-calor/10 px-4 py-3 text-[0.9rem] font-semibold text-calor">{error}</p>
+        )}
+
+        <div className="mt-auto space-y-3 pt-2">
+          <button onClick={confirmar} disabled={!listo || enviando}
+            className="w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-50">
+            {enviando ? "Confirmando…" : `Confirmar pedido · ${soles(total)}`}
+          </button>
+          {/* El escape: nadie queda atrapado en un formulario. */}
+          <button onClick={onPorWhatsApp} className="w-full text-center text-[0.85rem] font-semibold text-tinta-2 underline">
+            Prefiero terminar por WhatsApp
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+/**
+ * LA PANTALLA DE PAGO: qué yapear, a quién, y el botón que manda la captura
+ * por WhatsApp (mensaje ENTRANTE = gratis; el validador del chat hace el
+ * resto). Efectivo: confirmación directa — ya está en cocina.
+ */
+function PantallaPago({
+  pedido, negocio, tenantId, estiloTema,
+}: {
+  pedido: CheckoutOk;
+  negocio: Carta["negocio"];
+  tenantId: string;
+  estiloTema: React.CSSProperties;
+}) {
+  const [copiado, setCopiado] = useState(false);
+  const esEfectivo = pedido.pago.metodo === "efectivo";
+  const urlEstado = `/c/${tenantId}/pedido/${pedido.codigo}`;
+
+  async function copiarNumero() {
+    try {
+      await navigator.clipboard.writeText(pedido.pago.yapeNumero ?? "");
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch { /* sin clipboard: el número está visible igual */ }
+  }
+
+  if (esEfectivo) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-4 bg-arena p-6 text-center" style={estiloTema}>
+        <div className="text-[3rem]">✅</div>
+        <h1 className="text-[1.5rem] font-bold text-tinta">¡Pedido confirmado!</h1>
+        <p className="text-tinta-2">
+          Ya está en cocina. Pagas <b className="text-tinta">{soles(pedido.totalCentavos)}</b> al recibirlo.
+        </p>
+        <a href={urlEstado} className="mt-2 w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa">
+          Seguir mi pedido
+        </a>
+      </main>
+    );
+  }
+
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col bg-arena paso-adelante" style={estiloTema}>
+      <div className="flex flex-1 flex-col gap-4 p-5">
+        <div className="pt-4 text-center">
+          <div className="text-[2.6rem]">📲</div>
+          <h1 className="text-[1.4rem] font-bold text-tinta">Último paso: paga y listo</h1>
+          <p className="text-[0.9rem] text-tinta-2">Tu pedido queda confirmado al validar tu pago</p>
+        </div>
+
+        <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+          <p className="text-center text-[0.85rem] font-semibold uppercase tracking-wide text-tinta-2">
+            {pedido.pago.metodo === "plin" ? "Plinea" : "Yapea"}
+          </p>
+          <p className="mt-1 text-center text-[2rem] font-extrabold text-tinta">{soles(pedido.totalCentavos)}</p>
+          {pedido.pago.yapeNumero && (
+            <button onClick={copiarNumero}
+              className="mx-auto mt-3 flex items-center gap-2 rounded-full bg-arena px-5 py-2.5 ring-1 ring-linea">
+              <span className="text-[1.15rem] font-bold tracking-wide text-tinta">{pedido.pago.yapeNumero}</span>
+              <span className="text-[0.8rem] font-semibold text-tinta-2">{copiado ? "✓ copiado" : "copiar"}</span>
+            </button>
+          )}
+          {pedido.pago.yapeNombre && (
+            <p className="mt-2 text-center text-[0.85rem] text-tinta-2">a nombre de <b>{pedido.pago.yapeNombre}</b></p>
+          )}
+        </div>
+
+        <div className="mt-auto space-y-3">
+          {pedido.pago.waMe && (
+            <a href={pedido.pago.waMe}
+              className="block w-full rounded-tarjeta bg-brasa py-4 text-center text-[1.05rem] font-bold text-sobre-brasa">
+              Ya pagué — enviar mi captura 📤
+            </a>
+          )}
+          <a href={urlEstado} className="block w-full text-center text-[0.85rem] font-semibold text-tinta-2 underline">
+            Ver el estado de mi pedido
+          </a>
+          <p className="text-center text-[0.78rem] text-frio">
+            Pedido <b className="tracking-wide">#{pedido.codigo}</b> · guárdalo por si acaso
+          </p>
+        </div>
+      </div>
     </main>
   );
 }

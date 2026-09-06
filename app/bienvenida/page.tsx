@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion, leerSesion, guardarEmpresaActiva, esSuperAdmin } from "@/lib/auth";
+import { haySesion, leerSesion, guardarEmpresaActiva, esSuperAdmin, cerrarSesion } from "@/lib/auth";
 import { crearEmpresa, obtenerPerfil, guardarPerfil, type PerfilNegocio } from "@/lib/api";
 import { RUBROS_DISPONIBLES, RUBROS_CAPTACION } from "@/lib/rubros";
 import {
@@ -601,6 +601,16 @@ export default function BienvenidaPanel() {
               Panel de plataforma →
             </a>
           )}
+          {/* LA PUERTA DE SALIDA (2026-09-06, reporte de Jonathan: "me
+              confundí de cuenta y quedo atrapado"). Quien entró con la cuenta
+              equivocada tiene que poder soltarla desde CUALQUIER paso del
+              alta — sin esto el onboarding era una trampa. */}
+          <button
+            onClick={() => { cerrarSesion(); router.replace("/"); }}
+            className={`${esSuperAdmin() ? "ml-3" : "ml-auto"} text-[0.82rem] font-semibold text-frio transition hover:text-tinta`}
+          >
+            Cambiar de cuenta
+          </button>
         </div>
 
         {paso !== 5 && (
@@ -1389,7 +1399,13 @@ export default function BienvenidaPanel() {
               quieras.
             </p>
 
-            <div className="mt-6 flex gap-3">
+            {/* UN SOLO CAMINO HACIA ADELANTE (2026-09-06, reporte de Jonathan:
+                "los botones de abajo se ven feos"). Antes, con WhatsApp
+                conectado salían DOS "Continuar" (gris y naranja, lado a lado),
+                y sin conectar quedaban dos pastillas grises sin botón
+                principal. Ahora el botón de avanzar es UNO y ocupa el ancho:
+                naranja si ya conectó, discreto pero completo si lo posterga. */}
+            <div className="mt-6 flex items-stretch gap-3">
               {pasoAnterior(7, caps) !== null && (
                 <button
                   onClick={() => setPaso(pasoAnterior(7, caps)!)}
@@ -1398,14 +1414,16 @@ export default function BienvenidaPanel() {
                   ← Atrás
                 </button>
               )}
-              <button onClick={() => setPaso(5)} className={BOTON_SECUNDARIO}>
+              <button
+                onClick={() => setPaso(5)}
+                className={
+                  conectoWhatsapp
+                    ? `${BOTON} mt-0 flex-1`
+                    : `${BOTON_SECUNDARIO} flex-1 text-center`
+                }
+              >
                 {conectoWhatsapp ? "Continuar" : "Lo hago después"}
               </button>
-              {conectoWhatsapp && (
-                <button onClick={() => setPaso(5)} className={`${BOTON} mt-0 flex-1`}>
-                  Continuar
-                </button>
-              )}
             </div>
           </div>
         )}

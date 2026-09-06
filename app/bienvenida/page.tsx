@@ -519,6 +519,10 @@ export default function BienvenidaPanel() {
     // sumar los suyos. La carta sugerida es un punto de partida, no un molde.
     setImportados(platos);
     setModoCarta("mano");
+    // Elegir "vendo sushi" también dice QUÉ ES el local: esa es su categoría
+    // en el marketplace de comensales (2026-09-06). Best-effort: si falla,
+    // el alta sigue — el tipo se puede fijar después desde la carta.
+    if (tenantId) void guardarNegocio({ tipoCocina: id }, tenantId).catch(() => {});
   }
 
   const resumen = [

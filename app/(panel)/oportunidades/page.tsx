@@ -78,34 +78,39 @@ export default function OportunidadesPanel() {
         dibujo={<OportunidadesIlustracion />}
       />
 
+      {/* Solo eyebrow + h1: la bajada vivía repetida — el hero de arriba ya
+          lo dice todo (pasada UX 2026-09-06). */}
       <header>
         <p className="eyebrow">Red LeadAI</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Oportunidades</h1>
-        <p className="mt-1 text-[0.92rem] text-frio">
-          Negocios que buscan vendedores. Toma las que te interesen y traéles clientes con tu red + la IA.
-        </p>
       </header>
 
-      {/* Filtros por rubro */}
-      <div className="flex flex-wrap gap-2">
-        {RUBROS.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => setRubro(r.id)}
-            className={`shrink-0 rounded-chip px-4 py-2 text-[0.88rem] font-bold transition ${
-              rubro === r.id ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
+      {/* Filtro de rubro y el toggle "mías" SEPARADOS: uno es categoría, el
+          otro es un interruptor — mezclados en una fila se leían como parte
+          del mismo filtro. El toggle ahora dice siempre lo mismo y marca su
+          estado con la estrella, no cambiando de texto. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {RUBROS.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setRubro(r.id)}
+              className={`shrink-0 rounded-chip px-4 py-2 text-[0.88rem] font-bold transition ${
+                rubro === r.id ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => setSoloMias((v) => !v)}
-          className={`ml-auto shrink-0 rounded-chip px-4 py-2 text-[0.82rem] font-semibold transition ${
-            soloMias ? "bg-brasa-suave text-brasa-hondo" : "bg-carta text-frio ring-1 ring-linea"
+          aria-pressed={soloMias}
+          className={`shrink-0 rounded-chip px-4 py-2 text-[0.85rem] font-bold transition ${
+            soloMias ? "bg-brasa text-carta" : "bg-carta text-frio ring-1 ring-linea hover:ring-brasa/50"
           }`}
         >
-          {soloMias ? "★ Mis oportunidades" : "Ver solo las mías"}
+          {soloMias ? "★ Solo las mías" : "☆ Solo las mías"}
         </button>
       </div>
 
@@ -116,11 +121,26 @@ export default function OportunidadesPanel() {
         </div>
       )}
       {estado === "ok" && visibles.length === 0 && (
-        <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
-          <p className="text-[1.05rem] font-bold text-tinta">
-            {soloMias ? "Todavía no tomaste ninguna oportunidad" : "No hay oportunidades por ahora"}
+        <div className="rounded-tarjeta bg-carta p-8 text-center ring-1 ring-linea">
+          <span aria-hidden className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-arena text-3xl">
+            {soloMias ? "⭐" : "🔎"}
+          </span>
+          <p className="mt-3 text-[1.05rem] font-bold text-tinta">
+            {soloMias ? "Todavía no tomaste ninguna oportunidad" : "No hay oportunidades en este rubro por ahora"}
           </p>
-          <p className="mt-1 text-[0.9rem] text-frio">Vuelve pronto — se publican nuevas seguido.</p>
+          <p className="mt-1 text-[0.9rem] text-frio">
+            {soloMias
+              ? "Cuando tomes una, aparece acá con el contacto del negocio."
+              : "Se publican nuevas seguido — prueba con otro rubro o vuelve pronto."}
+          </p>
+          {soloMias && (
+            <button
+              onClick={() => setSoloMias(false)}
+              className="mt-4 rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition active:scale-[0.99]"
+            >
+              Ver todas las oportunidades
+            </button>
+          )}
         </div>
       )}
 
@@ -138,9 +158,16 @@ export default function OportunidadesPanel() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[0.82rem]">
-                <span className="font-semibold text-ok">💰 {o.comision}</span>
-                <span className="text-frio">📍 {o.zona}</span>
+              {/* LA COMISIÓN ES EL PRODUCTO (pasada UX 2026-09-06): es lo
+                  que decide si la tomas, y pesaba lo mismo que la zona. Ahora
+                  es un chip verde que se ve desde lejos. */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-ok/10 px-3 py-1 text-[0.88rem] font-bold text-ok ring-1 ring-ok/25">
+                  💰 {o.comision}
+                </span>
+                <span className="rounded-full bg-arena px-3 py-1 text-[0.82rem] text-tinta-2 ring-1 ring-linea">
+                  📍 {o.zona}
+                </span>
               </div>
 
               {/* Al tomarla, se muestra el contacto del negocio */}

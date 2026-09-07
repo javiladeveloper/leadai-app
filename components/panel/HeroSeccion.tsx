@@ -288,6 +288,64 @@ export function SeguimientoIlustracion() {
   );
 }
 
+/** Un comentario en un post que se convierte en conversación: la IA contesta. */
+export function ComentariosIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      {/* El post con su comentario */}
+      <rect x="10" y="14" width="66" height="76" rx="9" fill="#fff" opacity=".95" />
+      <rect x="18" y="22" width="50" height="30" rx="4" fill="#c4a882" />
+      <path d="M18 46l12-9 10 7 6-4 22 12v0H18z" fill="#8d6e4e" opacity=".85" />
+      <circle cx="26" cy="62" r="6" fill="#f0c9a8" />
+      <rect x="36" y="57" width="32" height="4" rx="2" fill="#3c4043" />
+      <rect x="36" y="65" width="24" height="3.5" rx="1.75" fill="#c8ccd0" />
+      {/* El corazón del post */}
+      <path d="M62 78c-2.4-2.2-6-1-6 1.8 0 2.2 2.6 4 6 6.6 3.4-2.6 6-4.4 6-6.6 0-2.8-3.6-4-6-1.8z" fill="#e1306c" />
+      {/* La respuesta que sale al chat */}
+      <path d="M80 52q14-2 22 6" stroke="#25d366" strokeWidth="1.8" fill="none" strokeDasharray="3 3" />
+      <rect x="92" y="58" width="48" height="36" rx="9" fill="#25d366" />
+      <path d="M100 94l1 8 8-8z" fill="#25d366" />
+      <rect x="100" y="67" width="32" height="4" rx="2" fill="#fff" opacity=".95" />
+      <rect x="100" y="76" width="24" height="4" rx="2" fill="#fff" opacity=".7" />
+      {/* El destello: contestó sola */}
+      <circle cx="134" cy="46" r="10" fill="#e8895f" />
+      <path d="M134 40l1.8 4.2 4.2 1.8-4.2 1.8-1.8 4.2-1.8-4.2-4.2-1.8 4.2-1.8z" fill="#fff" />
+    </svg>
+  );
+}
+
+/** El megáfono del negocio alcanzando las tres redes: el marketing entero. */
+export function MarketingIlustracion() {
+  return (
+    <svg viewBox="0 0 150 130" className="h-32 w-auto shrink-0 self-center" aria-hidden>
+      {/* El megáfono */}
+      <path d="M14 58l38-20v52l-38-20z" fill="#fff" opacity=".95" />
+      <rect x="10" y="52" width="10" height="24" rx="4" fill="#fff" opacity=".7" />
+      <path d="M52 38q10 26 0 52" fill="none" stroke="#e8895f" strokeWidth="4" strokeLinecap="round" />
+      {/* Las ondas hacia las redes */}
+      <g stroke="#fff" strokeWidth="1.6" strokeDasharray="3 3" fill="none" opacity=".5">
+        <path d="M62 48q18-14 34-16" />
+        <path d="M64 64h32" />
+        <path d="M62 80q18 14 34 16" />
+      </g>
+      {/* Instagram, Facebook y TikTok */}
+      <rect x="102" y="18" width="30" height="30" rx="9" fill="#e1306c" />
+      <rect x="110" y="26" width="14" height="14" rx="4.5" fill="none" stroke="#fff" strokeWidth="2" />
+      <circle cx="117" cy="33" r="3.4" fill="none" stroke="#fff" strokeWidth="2" />
+      <rect x="102" y="50" width="30" height="30" rx="9" fill="#1877f2" />
+      <path
+        d="M120 59h-3v-2.2c0-.9.6-1.1 1-1.1h2v-3.4h-2.8c-3.1 0-3.8 2.3-3.8 3.8V59H111v3.5h2.4V72h3.6v-9.5h2.6z"
+        fill="#fff"
+      />
+      <rect x="102" y="82" width="30" height="30" rx="9" fill="#111" />
+      <path
+        d="M121.5 90.5c-1.9 0-3.4-1.5-3.4-3.4h-2.9v10.6a2.4 2.4 0 11-2.4-2.4v-2.9a5.3 5.3 0 105.3 5.3v-5.6c1 .6 2.2.9 3.4.9z"
+        fill="#fff"
+      />
+    </svg>
+  );
+}
+
 /** Un gráfico que sube: cómo va el negocio. */
 export function ReportesIlustracion() {
   return (

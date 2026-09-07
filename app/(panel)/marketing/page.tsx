@@ -12,6 +12,7 @@ import AnunciosPanel from "@/app/(panel)/anuncios/page";
 import CampaniasPanel from "@/app/(panel)/campanias/page";
 import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
 import PublicarPanel from "@/app/(panel)/publicar/page";
+import { HeroSeccion, MarketingIlustracion } from "@/components/panel/HeroSeccion";
 
 /**
  * MARKETING: TRAER CLIENTES Y HACERLOS VOLVER (2026-08-24).
@@ -151,18 +152,29 @@ export default function MarketingPanel() {
       <header>
         <p className="eyebrow">Tu embudo</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Marketing</h1>
-        <p className="mt-1 text-[0.92rem] text-frio">
-          Trae clientes nuevos con anuncios, y haz volver a los que ya te compraron.
-        </p>
       </header>
+
+      {/* El hero que faltaba (pasada UX 2026-09-06): la página que ORIGINÓ el
+          patrón hero era la única del embudo que abría con el h1 pelado
+          mientras sus cuatro pestañas sí lo tienen por dentro. */}
+      <HeroSeccion
+        titulo="Que te conozcan, que vuelvan"
+        bajada="Trae clientes nuevos con anuncios, haz volver a los que ya te compraron, y publica en todas tus redes de una."
+        dibujo={<MarketingIlustracion />}
+      />
 
       {g.modoGlobal && (
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
       )}
 
+      {/* A QUIÉN le estás gastando la plata: con varios negocios esto es
+          información crítica, no una nota al pie — banner con peso propio. */}
       {nombreNegocio && g.modoGlobal && (
-        <p className="rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.84rem] text-tinta-2">
-          📣 Estás haciendo marketing para <strong className="text-tinta">{nombreNegocio}</strong>.
+        <p className="flex items-center gap-2.5 rounded-tarjeta border border-brasa/30 bg-brasa-suave px-4 py-3 text-[0.9rem] font-semibold text-tinta">
+          <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brasa/15 text-base">📣</span>
+          <span>
+            Estás haciendo marketing para <strong>{nombreNegocio}</strong>
+          </span>
         </p>
       )}
 

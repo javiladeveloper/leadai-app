@@ -10,7 +10,6 @@ import {
   type ReporteNegocio, type ReporteGlobal,
 } from "@/lib/api";
 import { SkeletonReportes } from "@/components/Skeletons";
-import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
 import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, ReportesIlustracion } from "@/components/panel/HeroSeccion";
 
@@ -127,7 +126,9 @@ function ReportesPanel() {
                 <p className="mt-1 text-[2rem] font-bold leading-none">{soles(rep.comisiones.ganada)}</p>
               </div>
               <div className="rounded-tarjeta bg-brasa p-5 text-sobre-brasa shadow-[var(--sombra-tarjeta)]">
-                <p className="text-[0.8rem] text-carta/70">Por cobrar</p>
+                {/* text-sobre-brasa/75 y no text-carta/70: ese token es del
+                    fondo verde hondo — acá sobre naranja quedaba sucio. */}
+                <p className="text-[0.8rem] text-sobre-brasa/75">Por cobrar</p>
                 <p className="mt-1 text-[2rem] font-bold leading-none">{soles(rep.comisiones.porCobrar)}</p>
               </div>
               <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
@@ -148,9 +149,12 @@ function ReportesPanel() {
               está arriba; esto responde "por qué no gané más", que es lo que
               el dueño puede accionar hoy. */}
           {rep && rep.embudo?.length > 0 && rep.embudo[0].quedan > 0 && (
-            <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+            // ring-brasa/40 y no ring-linea: es el ÚNICO bloque accionable de
+            // la página (el porqué no ganaste más) y pesaba igual que los
+            // informativos (pasada UX 2026-09-06).
+            <div className="entra rounded-tarjeta bg-carta p-5 ring-2 ring-brasa/40">
               <div className="mb-1 flex items-baseline justify-between gap-3">
-                <p className="text-[0.85rem] font-bold uppercase tracking-wide text-frio">Dónde se te caen las ventas</p>
+                <p className="text-[0.85rem] font-bold uppercase tracking-wide text-brasa-texto">🎯 Dónde se te caen las ventas</p>
                 {(() => {
                   // El escalón con la mayor caída ABSOLUTA — no el de peor
                   // porcentaje: perder 40 de 100 duele más que 2 de 3, aunque
@@ -290,8 +294,17 @@ function ReportesPanel() {
           {/* Tabla de comisiones del negocio actual */}
           {comisiones.length === 0 ? (
             <div className="rounded-tarjeta bg-carta p-8 text-center ring-1 ring-linea">
-              <p className="text-[1.1rem] font-semibold text-tinta">Aún no tienes ventas registradas</p>
-              <p className="mt-2 text-[0.95rem] text-tinta-2">Cuando cierres tu primer lead, vas a ver tus comisiones aquí.</p>
+              <span aria-hidden className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-arena text-3xl">📈</span>
+              <p className="mt-3 text-[1.1rem] font-semibold text-tinta">Aún no tienes ventas registradas</p>
+              <p className="mt-2 text-[0.95rem] text-tinta-2">
+                Cuando marques un lead como ganado en Seguimiento, su comisión aparece acá.
+              </p>
+              <Link
+                href="/seguimiento"
+                className="mt-4 inline-flex rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
+              >
+                Ir a mi pipeline
+              </Link>
             </div>
           ) : (
             <div className="rounded-tarjeta bg-carta ring-1 ring-linea">

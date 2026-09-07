@@ -8,6 +8,7 @@ import { listarComentarios, simularComentario, type Comentario } from "@/lib/api
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { AjustesComentarios } from "@/components/panel/AjustesComentarios";
+import { HeroSeccion, ComentariosIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -76,11 +77,16 @@ export default function ComentariosPanel() {
       <header>
         <p className="eyebrow">Tu embudo</p>
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Comentarios</h1>
-        <p className="mt-1 text-[0.92rem] text-frio">
-          Cuando alguien comenta tu publicación con intención de compra, la IA le responde
-          e invita al privado. Aquí ves todo lo que captó.
-        </p>
       </header>
+
+      {/* El hero que le faltaba (pasada UX 2026-09-06): era la única sección
+          del embudo sin él — abría con un aviso amarillo de advertencia. */}
+      <HeroSeccion
+        titulo="Los comentarios también venden"
+        bajada="Cuando alguien comenta tu publicación con intención de compra, la IA le responde e invita al privado — y entra a tu pipeline como lead."
+        nota="Aquí ves todo lo que captó y puedes probar cómo respondería."
+        dibujo={<ComentariosIlustracion />}
+      />
 
       {g.modoGlobal && (
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
@@ -106,6 +112,7 @@ export default function ComentariosPanel() {
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") probar(); }}
+            aria-label="Comentario de prueba"
             placeholder="Ej: ¿cuánto cuesta? ¿hacen delivery?"
             className="flex-1 rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
           />
@@ -172,6 +179,12 @@ export default function ComentariosPanel() {
             <p className="mt-1 text-[0.88rem] text-frio">
               Cuando conectes tus redes, los comentarios con intención van a aparecer aquí.
             </p>
+            <Link
+              href="/configuracion"
+              className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition active:scale-[0.99]"
+            >
+              Conectar mis redes
+            </Link>
           </div>
         )}
 

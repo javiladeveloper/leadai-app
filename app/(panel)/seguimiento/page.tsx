@@ -190,35 +190,44 @@ export default function SeguimientoPanel() {
     <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 lg:px-8">
       <HeroSeccion
         titulo="En qué va cada venta, sin anotarlo aparte"
-        bajada={<>Cada cliente avanza por etapas —nuevo, en conversación, ganado— y lo mueves arrastrándolo cuando cierras o descartas.</>}
+        bajada={<>Cada cliente avanza por etapas —nuevo, en conversación, ganado— y lo mueves con un toque cuando cierras o descartas.</>}
         nota="La IA lo va moviendo sola según lo que responde el cliente."
         dibujo={<SeguimientoIlustracion />}
       />
 
+      {/* Solo eyebrow + h1 (la bajada repetía el hero, pasada UX 2026-09-06)
+          y el buscador SUBE a la cabecera con su lupa de verdad — flotaba
+          suelto entre bloques con un emoji de placeholder. */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Tu pipeline</p>
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Seguimiento</h1>
-          <p className="mt-1 text-[0.92rem] text-frio">
-            Mira en qué etapa está cada venta y muévela cuando cierres o descartes.
-          </p>
         </div>
-        <button
-          onClick={cargar}
-          className="rounded-chip bg-carta px-4 py-2 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
-        >
-          Actualizar
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="relative block w-full sm:w-72">
+            <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-frio">
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" />
+              </svg>
+            </span>
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre o lo que dijo…"
+              className="w-full rounded-chip bg-carta py-2.5 pl-10 pr-4 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40"
+              aria-label="Buscar en el pipeline"
+            />
+          </label>
+          <button
+            onClick={cargar}
+            className="rounded-chip bg-carta px-4 py-2 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
+          >
+            Actualizar
+          </button>
+        </div>
       </header>
-
-      <input
-        type="search"
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="🔍 Buscar por nombre, contacto o lo que dijo…"
-        className="w-full rounded-chip bg-carta px-4 py-2.5 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40 sm:max-w-md"
-        aria-label="Buscar en el pipeline"
-      />
 
       {negocios.length > 1 && (
         <BarraNegociosGlobal
@@ -277,9 +286,10 @@ export default function SeguimientoPanel() {
                     infinito por más leads que tenga la etapa. */}
                 <div className="flex max-h-[calc(100vh-13rem)] flex-col gap-2.5 overflow-y-auto pr-0.5">
                   {items.length === 0 && (
-                    <p className="rounded-tarjeta border border-dashed border-linea px-3 py-6 text-center text-[0.8rem] text-frio">
-                      {et.ayuda}
-                    </p>
+                    <div className="rounded-tarjeta border border-dashed border-linea px-3 py-6 text-center">
+                      <span aria-hidden className={`mx-auto block h-2.5 w-2.5 rounded-full ${et.acento} opacity-40`} />
+                      <p className="mt-2 text-[0.8rem] text-frio">{et.ayuda}</p>
+                    </div>
                   )}
 
                   {mostrados.map((lead) => {
@@ -362,7 +372,7 @@ export default function SeguimientoPanel() {
                             if (v) moverEtapa(lead, v);
                           }}
                           aria-label="Mover el lead a otra etapa"
-                          className="mt-2 w-full rounded-chip border border-linea bg-arena/50 px-2 py-1.5 text-[0.75rem] font-semibold text-tinta-2"
+                          className="mt-2 w-full cursor-pointer rounded-chip border border-linea bg-carta px-2.5 py-2 text-[0.8rem] font-semibold text-tinta-2 transition hover:border-brasa/50 hover:text-tinta"
                         >
                           <option value="">{cerrable ? "↔ Mover a…" : "↩ Reabrir en…"}</option>
                           {ETAPAS.filter(

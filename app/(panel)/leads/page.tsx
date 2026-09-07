@@ -193,15 +193,24 @@ function LeadsPanelInner() {
         </button>
       </header>
 
-      {/* Búsqueda dentro de la bandeja */}
-      <input
-        type="search"
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="🔍 Buscar por nombre, contacto o lo que dijo…"
-        className="w-full rounded-chip bg-carta px-4 py-2.5 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40 sm:max-w-md"
-        aria-label="Buscar leads"
-      />
+      {/* Búsqueda dentro de la bandeja — con su lupa de verdad, no un emoji
+          de placeholder (pasada UX 2026-09-06). */}
+      <label className="relative block sm:max-w-md">
+        <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-frio">
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+        </span>
+        <input
+          type="search"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre, contacto o lo que dijo…"
+          className="w-full rounded-chip bg-carta py-2.5 pl-10 pr-4 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40"
+          aria-label="Buscar leads"
+        />
+      </label>
 
       {/* Card destacada: calientes sin atender */}
       {estado === "ok" && calientes > 0 && (
@@ -219,36 +228,46 @@ function LeadsPanelInner() {
         </button>
       )}
 
-      {/* Filtros de nivel de interés */}
-      <div className="flex flex-wrap gap-2">
-        {FILTROS_NIVEL.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFiltroNivel(f.id)}
-            className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
-              filtroNivel === f.id
-                ? "bg-tinta text-carta"
-                : "bg-carta text-tinta-2 ring-1 ring-linea"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Filtros de estado */}
-      <div className="flex flex-wrap gap-2">
-        {FILTROS_ESTADO.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFiltroEstado(f.id)}
-            className={`shrink-0 rounded-chip px-3.5 py-1.5 text-[0.82rem] font-semibold transition ${
-              filtroEstado === f.id ? "bg-tibio-suave text-tibio" : "bg-carta text-frio ring-1 ring-linea"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* LOS DOS EJES DE FILTRO, CON NOMBRE (pasada UX 2026-09-06): eran 10
+          chips sueltos en dos filas sin decir qué filtraba cada una — ahora
+          cada fila lleva su micro-etiqueta y el activo usa UNA convención. */}
+      <div className="space-y-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-24 shrink-0 text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
+            Temperatura
+          </span>
+          {FILTROS_NIVEL.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFiltroNivel(f.id)}
+              className={`shrink-0 rounded-chip px-4 py-2 text-[0.88rem] font-bold transition ${
+                filtroNivel === f.id
+                  ? "bg-tinta text-carta"
+                  : "bg-carta text-tinta-2 ring-1 ring-linea hover:ring-brasa/40"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-24 shrink-0 text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
+            Etapa
+          </span>
+          {FILTROS_ESTADO.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFiltroEstado(f.id)}
+              className={`shrink-0 rounded-chip px-3.5 py-1.5 text-[0.82rem] font-semibold transition ${
+                filtroEstado === f.id
+                  ? "bg-tinta text-carta"
+                  : "bg-carta text-frio ring-1 ring-linea hover:ring-brasa/40"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Estados de carga */}

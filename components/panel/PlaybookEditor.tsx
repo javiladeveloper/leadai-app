@@ -702,7 +702,21 @@ function ListaSimple({
   );
 }
 
-// Catálogo: nombre, descripción y precio por fila.
+/**
+ * Catálogo: LA TARJETA SE LEE, EL FORMULARIO SE ABRE (rediseño 2026-09-06,
+ * reporte de Jonathan: "es complicado de leer, incluso para mí… y encima es
+ * apretado").
+ *
+ * La versión anterior era una grilla de 3 inputs SIN etiquetas por fila: la
+ * descripción y el precio vivían truncados ("según régime…"), y con 9
+ * servicios la sección era ilegible — justo la sección que el dueño más
+ * necesita revisar, porque es lo que su bot le dice a los clientes.
+ *
+ * Ahora cada servicio es una tarjeta de LECTURA (nombre + precio como chip +
+ * descripción completa, con saltos de línea reales) y se edita de a uno, en
+ * un formulario con etiquetas y una textarea con aire. Al agregar, el nuevo
+ * abre listo para escribir.
+ */
 function ListaCatalogo({
   catalogo,
   onChange,
@@ -710,70 +724,128 @@ function ListaCatalogo({
   catalogo: PerfilNegocio["catalogo"];
   onChange: (v: PerfilNegocio["catalogo"]) => void;
 }) {
+  const [abierto, setAbierto] = useState<number | null>(null);
   function actualizar(i: number, campo: "nombre" | "descripcion" | "precio", v: string) {
     const copia = catalogo.map((it, idx) => (idx === i ? { ...it, [campo]: v } : it));
     onChange(copia);
   }
   function quitar(i: number) {
     onChange(catalogo.filter((_, idx) => idx !== i));
+    setAbierto((a) => (a === null ? null : a === i ? null : a > i ? a - 1 : a));
   }
   const MAX = 50; // debe coincidir con LIMITES_PERFIL.catalogoMax del backend
   const lleno = catalogo.length >= MAX;
   function agregar() {
     if (lleno) return;
     onChange([...catalogo, { nombre: "", descripcion: "", precio: "" }]);
+    setAbierto(catalogo.length); // el nuevo abre listo para escribir
   }
+
+  const claseCampo =
+    "w-full rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa";
+  const claseEtiqueta = "mb-1 block text-[0.72rem] font-semibold uppercase tracking-wide text-frio";
 
   return (
     <div className="border-t border-linea pt-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <div>
           <p className="text-[0.88rem] font-bold text-tinta">Qué vendes</p>
-          <p className="mt-0.5 text-[0.78rem] text-frio">Productos o servicios que ofrece el negocio</p>
+          <p className="mt-0.5 text-[0.78rem] text-frio">
+            Productos o servicios que ofrece el negocio — el bot responde con esto
+          </p>
         </div>
         <span className={`shrink-0 text-xs font-semibold ${lleno ? "text-brasa-hondo" : "text-frio"}`}>
           {catalogo.length}/{MAX}
         </span>
       </div>
-      <div className="space-y-3">
-        {catalogo.map((item, i) => (
-          <div key={i} className="grid gap-2 rounded-lg bg-carta p-3 ring-1 ring-linea sm:grid-cols-[1fr_1fr_auto_auto]">
-            <input
-              value={item.nombre}
-              onChange={(e) => actualizar(i, "nombre", e.target.value)}
-              placeholder="Ej: Declaración de renta"
-              className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
-            />
-            <input
-              value={item.descripcion ?? ""}
-              onChange={(e) => actualizar(i, "descripcion", e.target.value)}
-              placeholder="Descripción"
-              className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
-            />
-            <input
-              value={item.precio ?? ""}
-              onChange={(e) => actualizar(i, "precio", e.target.value)}
-              placeholder="Precio"
-              className="w-full rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa sm:w-28"
-            />
+      <div className="space-y-2">
+        {catalogo.map((item, i) =>
+          abierto === i ? (
+            /* ── Edición: etiquetas, espacio, y la descripción con aire ── */
+            <div key={i} className="rounded-xl bg-carta p-4 ring-2 ring-brasa">
+              <div className="grid gap-3 sm:grid-cols-[1.6fr_1fr]">
+                <div>
+                  <label className={claseEtiqueta}>Nombre del servicio</label>
+                  <input
+                    value={item.nombre}
+                    onChange={(e) => actualizar(i, "nombre", e.target.value)}
+                    placeholder="Ej: Declaración de renta"
+                    autoFocus
+                    className={claseCampo}
+                  />
+                </div>
+                <div>
+                  <label className={claseEtiqueta}>Precio</label>
+                  <input
+                    value={item.precio ?? ""}
+                    onChange={(e) => actualizar(i, "precio", e.target.value)}
+                    placeholder={'S/150, "desde S/80" o "se cotiza"'}
+                    className={claseCampo}
+                  />
+                </div>
+              </div>
+              <div className="mt-3">
+                <label className={claseEtiqueta}>Descripción (opcional)</label>
+                <textarea
+                  value={item.descripcion ?? ""}
+                  onChange={(e) => actualizar(i, "descripcion", e.target.value)}
+                  placeholder="Qué incluye, para quién es, qué lo hace distinto…"
+                  rows={2}
+                  className={`${claseCampo} resize-y`}
+                />
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => quitar(i)}
+                  className="rounded-lg px-2 py-1.5 text-xs font-semibold text-frio hover:text-brasa-texto"
+                >
+                  Eliminar servicio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAbierto(null)}
+                  className="rounded-lg bg-brasa px-4 py-1.5 text-sm font-semibold text-sobre-brasa"
+                >
+                  Listo
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* ── Lectura: todo el texto visible, nada truncado ── */
             <button
+              key={i}
               type="button"
-              onClick={() => quitar(i)}
-              aria-label="Quitar"
-              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa-texto"
+              onClick={() => setAbierto(i)}
+              className="block w-full rounded-xl bg-carta p-3.5 text-left ring-1 ring-linea transition hover:ring-brasa"
             >
-              ✕
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-semibold text-tinta">
+                  {item.nombre.trim() || <span className="font-normal italic text-frio">Sin nombre — toca para completar</span>}
+                </p>
+                <span className="flex shrink-0 items-center gap-2">
+                  {(item.precio ?? "").trim() && (
+                    <span className="rounded-full bg-arena px-2.5 py-0.5 text-xs font-semibold text-brasa-texto ring-1 ring-linea">
+                      {item.precio}
+                    </span>
+                  )}
+                  <span className="text-xs font-semibold text-frio">Editar ›</span>
+                </span>
+              </div>
+              {(item.descripcion ?? "").trim() && (
+                <p className="mt-1 text-[0.85rem] leading-relaxed text-frio">{item.descripcion}</p>
+              )}
             </button>
-          </div>
-        ))}
+          ),
+        )}
       </div>
       <button
         type="button"
         onClick={agregar}
         disabled={lleno}
-        className="mt-2 rounded-lg border border-dashed border-linea px-3 py-1.5 text-xs font-semibold text-frio hover:border-brasa hover:text-brasa-texto disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-linea disabled:hover:text-frio"
+        className="mt-3 w-full rounded-xl border border-dashed border-linea px-3 py-2.5 text-sm font-semibold text-frio hover:border-brasa hover:text-brasa-texto disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-linea disabled:hover:text-frio"
       >
-        + Agregar producto
+        + Agregar producto o servicio
       </button>
       {lleno && (
         <p className="mt-1.5 text-xs text-brasa-hondo">

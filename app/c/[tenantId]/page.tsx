@@ -535,17 +535,56 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
     googleAnalyticsId: carta?.negocio.googleAnalyticsId,
   });
 
+  // LO PRIMERO QUE VE EL 100% DE LOS CLIENTES (rediseño 2026-09-07): esto era
+  // un párrafo gris centrado en una pantalla en blanco — para alguien que
+  // acaba de tocar un link de WhatsApp en 3G, eso es "no cargó, salgo".
   if (error && !carta) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-[560px] items-center justify-center p-6">
-        <p className="text-center text-tinta-2">{error}</p>
+      <main className="mx-auto flex min-h-dvh max-w-[560px] flex-col items-center justify-center gap-3 p-6 text-center">
+        <span aria-hidden className="text-[3rem] leading-none">😕</span>
+        <p className="text-[1.05rem] font-bold text-tinta">{error}</p>
+        <p className="text-[0.9rem] text-tinta-2">
+          Puede ser el link o tu conexión. Prueba de nuevo en un momento.
+        </p>
+        <button
+          type="button"
+          onClick={() => location.reload()}
+          className="mt-1 rounded-full bg-brasa px-6 py-2.5 text-sm font-bold text-sobre-brasa transition active:scale-[0.98]"
+        >
+          Reintentar
+        </button>
       </main>
     );
   }
   if (!carta) {
+    // Esqueleto con la FORMA de la carta: el cliente ve que algo está
+    // llegando y a dónde va a llegar, en vez de una línea de texto.
     return (
-      <main className="mx-auto flex min-h-dvh max-w-[560px] items-center justify-center p-6">
-        <p className="text-tinta-2">Cargando la carta…</p>
+      <main className="mx-auto min-h-dvh max-w-[900px] animate-pulse">
+        <div className="h-36 bg-linea/70 sm:h-44" />
+        <div className="px-4">
+          <div className="-mt-8 h-16 w-16 rounded-2xl bg-linea ring-4 ring-arena" />
+          <div className="mt-3 h-5 w-48 rounded bg-linea" />
+          <div className="mt-2 h-3.5 w-64 rounded bg-linea/70" />
+          <div className="mt-5 flex gap-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-8 w-24 rounded-full bg-linea/70" />
+            ))}
+          </div>
+          <div className="mt-6 space-y-2.5">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex gap-3 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+                <div className="h-20 w-20 shrink-0 rounded-xl bg-linea/70" />
+                <div className="flex-1 space-y-2 py-1">
+                  <div className="h-4 w-2/3 rounded bg-linea" />
+                  <div className="h-3 w-full rounded bg-linea/60" />
+                  <div className="h-4 w-20 rounded bg-linea/70" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <span className="sr-only">Cargando la carta…</span>
       </main>
     );
   }
@@ -768,6 +807,16 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
         ))}
         {sueltos.length > 0 && (
           <section>
+            {/* Con título como todas: sin él, estos platos aparecían flotando
+                después de la última categoría y rompían el ritmo (2026-09-07).
+                Solo cuando HAY categorías arriba: si la carta entera son
+                sueltos, un encabezado "Más de la carta" sobra. */}
+            {porCategoria.length > 0 && (
+              <h2 className="eyebrow mb-2.5 flex items-center gap-2">
+                <span className="h-3.5 w-1 rounded-full bg-orbita" aria-hidden />
+                Más de la carta
+              </h2>
+            )}
             <div className={estiloTarjetas === "fotos" ? "grid grid-cols-2 gap-3 sm:grid-cols-3" : "grid gap-2.5 sm:grid-cols-2"}>
               {sueltos.map((p) => (
                 <TarjetaProducto
@@ -783,9 +832,21 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
           </section>
         )}
         {carta.productos.length === 0 && (
-          <p className="py-12 text-center text-tinta-2">
-            Este negocio todavía no cargó su carta.
-          </p>
+          <div className="flex flex-col items-center gap-2 py-14 text-center">
+            <span aria-hidden className="text-[3rem] leading-none">🍽️</span>
+            <p className="text-[1.05rem] font-bold text-tinta">La carta viene en camino</p>
+            <p className="max-w-[30ch] text-[0.9rem] text-tinta-2">
+              Este negocio todavía no la cargó. Escríbeles por WhatsApp y te cuentan qué tienen hoy.
+            </p>
+            {carta.negocio.whatsapp && (
+              <a
+                href={`https://wa.me/${carta.negocio.whatsapp}`}
+                className="mt-1 rounded-full bg-brasa px-6 py-2.5 text-sm font-bold text-sobre-brasa transition active:scale-[0.98]"
+              >
+                Escribir por WhatsApp
+              </a>
+            )}
+          </div>
         )}
       </div>
 
@@ -913,6 +974,22 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
             </p>
           )}
         </div>
+
+        {/* CERRADO SE DICE DE FRENTE (2026-09-07): el chip de arriba se pierde
+            al scrollear y el cliente armaba el carrito entero para chocar
+            recién en el botón. Acá se le dice ahora, y a qué hora volver —
+            puede seguir mirando la carta, que para eso está. */}
+        {!negocio.abierto && (
+          <div className="mt-3 flex items-start gap-2.5 rounded-tarjeta bg-alerta/10 px-4 py-3 ring-1 ring-alerta/25">
+            <span aria-hidden className="text-[1.1rem] leading-none">🌙</span>
+            <p className="text-[0.88rem] leading-snug text-tinta">
+              <b>Ahora estamos cerrados.</b>{" "}
+              {negocio.horaAbre != null
+                ? `Abrimos a las ${negocio.horaAbre}:00 — mira la carta y vuelve para pedir.`
+                : "Mira la carta mientras tanto y vuelve en nuestro horario para pedir."}
+            </p>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -1712,9 +1789,16 @@ function BarraCarrito({
   }, [unidades]);
 
   return (
-    <div ref={refCarrito} className="sube fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[900px] bg-carta px-5 pb-5 pt-3 shadow-[0_-4px_24px_rgba(15,20,18,0.08)]">
+    // SAFE AREA (2026-09-07): en iPhone con barra de gestos el botón quedaba
+    // pegado al borde y a medio tocar. El detalle también se achica (33dvh):
+    // con el toggle, los dos modos y el botón, 40dvh se comía media pantalla.
+    <div
+      ref={refCarrito}
+      className="sube fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[900px] bg-carta px-5 pt-3 shadow-[0_-4px_24px_rgba(15,20,18,0.08)]"
+      style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
+    >
       {abiertoDetalle && (
-        <div className="scroll-fino mb-3 max-h-[40dvh] space-y-2 overflow-y-auto">
+        <div className="scroll-fino mb-3 max-h-[33dvh] space-y-2 overflow-y-auto">
           {/* Cada línea ENTRA: sin esto, agregar algo mientras el detalle está
               abierto solo hace que la lista sea más larga, y no se ve qué se
               sumó. */}
@@ -1765,7 +1849,13 @@ function BarraCarrito({
         </div>
       )}
 
-      {error && <p className="mb-2 text-[0.85rem] font-semibold text-alerta">{error}</p>}
+      {/* El error con cara, no un renglón rojo suelto (2026-09-07). */}
+      {error && (
+        <p className="mb-2 flex items-start gap-2 rounded-tarjeta bg-alerta/10 px-3 py-2 text-[0.85rem] font-semibold text-alerta">
+          <span aria-hidden>⚠️</span>
+          <span>{error}</span>
+        </p>
+      )}
 
       {/* El toggle cambia de sentido según el estado: con el carrito abierto
           "ver detalle" no dice nada —ya lo estás viendo—. */}
@@ -2123,6 +2213,16 @@ function CheckoutPedido({
   const esDelivery = modalidad === "delivery";
   const telValido = /^9\d{8}$/.test(telefono.replace(/\D/g, "").replace(/^51/, ""));
   const listo = nombre.trim().length >= 2 && telValido && (!esDelivery || direccion.trim().length >= 8);
+  // QUÉ FALTA, DICHO (2026-09-07): el botón se apagaba sin explicar por qué
+  // y ahí se pierde la venta. Mismo criterio que `etiquetaFaltante` de la
+  // hoja de extras, que ya lo resolvía bien tres pantallas antes.
+  const faltante = !nombre.trim() || nombre.trim().length < 2
+    ? "Escribe tu nombre"
+    : !telValido
+      ? "Tu celular va con 9 dígitos (ej. 987 654 321)"
+      : esDelivery && direccion.trim().length < 8
+        ? "Falta tu dirección completa para el delivery"
+        : null;
 
   async function confirmar() {
     setEnviando(true);
@@ -2215,8 +2315,16 @@ function CheckoutPedido({
         )}
 
         <div className="mt-auto space-y-3 pt-2">
+          {/* Lo que falta, ANTES del botón apagado: el cliente ve por qué no
+              puede seguir en vez de creer que la página se rompió. */}
+          {faltante && !enviando && (
+            <p className="text-center text-[0.85rem] font-semibold text-tinta-2">{faltante}</p>
+          )}
           <button onClick={confirmar} disabled={!listo || enviando}
-            className="w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-50">
+            className="flex w-full items-center justify-center gap-2 rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-50">
+            {enviando && (
+              <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-sobre-brasa/40 border-t-sobre-brasa" />
+            )}
             {enviando ? "Confirmando…" : `Confirmar pedido · ${soles(total)}`}
           </button>
           {/* El escape: nadie queda atrapado en un formulario. */}

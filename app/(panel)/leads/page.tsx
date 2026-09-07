@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { haySesion, esModoGlobal } from "@/lib/auth";
-import { listarLeads, crearLeadManual, type Lead, type NivelInteres, type EstadoLead } from "@/lib/api";
+import { listarLeads, crearLeadManual, listarCanales, type Lead, type NivelInteres, type EstadoLead } from "@/lib/api";
 import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { IconoRayo } from "@/components/Iconos";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -73,6 +73,18 @@ function LeadsPanelInner() {
   const [nuevoNota, setNuevoNota] = useState("");
   const [creando, setCreando] = useState(false);
   const [errorNuevo, setErrorNuevo] = useState("");
+  // ¿HAY WHATSAPP CONECTADO? (2026-09-06, captura de Jonathan en J&V: canal
+  // conectado y el vacío igual gritaba "Conecta WhatsApp"). Mismo criterio
+  // que Conversaciones: si falla la consulta se asume que SÍ — ofrecerle
+  // conectar a quien ya conectó es acusarlo de no haberlo hecho.
+  const [tieneCanal, setTieneCanal] = useState<boolean | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    listarCanales()
+      .then((cs) => { if (vivo) setTieneCanal(cs.some((c) => c.activo)); })
+      .catch(() => { if (vivo) setTieneCanal(true); });
+    return () => { vivo = false; };
+  }, []);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -251,14 +263,23 @@ function LeadsPanelInner() {
       {estado === "ok" && visibles.length === 0 && (
         <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="text-[1.05rem] font-bold text-tinta">
-            Aún no tienes leads. Conecta WhatsApp para empezar
+            {tieneCanal === false
+              ? "Aún no tienes leads. Conecta WhatsApp para empezar"
+              : "Aún no tienes leads."}
           </p>
-          <Link
-            href="/configuracion"
-            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition active:scale-[0.99]"
-          >
-            Conectar WhatsApp
-          </Link>
+          {tieneCanal !== false && (
+            <p className="mt-1 text-[0.9rem] text-frio">
+              Tu WhatsApp está conectado: cuando alguien te escriba, su lead aparece acá solito.
+            </p>
+          )}
+          {tieneCanal === false && (
+            <Link
+              href="/configuracion"
+              className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition active:scale-[0.99]"
+            >
+              Conectar WhatsApp
+            </Link>
+          )}
         </div>
       )}
 

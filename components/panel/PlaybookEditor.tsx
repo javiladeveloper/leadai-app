@@ -271,6 +271,31 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
       </div>
       )}
 
+      {/* EL SALUDO VA PRIMERO (rediseño 2026-09-06): la sección ahora sigue
+          el orden de la conversación real — lo primero que el cliente lee es
+          lo primero que el dueño configura. Antes vivía al fondo, después de
+          las listas de calificación. */}
+      <Bloque
+        icono="👋"
+        titulo="El primer saludo del bot"
+        bajada={
+          caps.tieneCarta
+            ? "Abre el menú de pedidos: es lo primero que el cliente lee, antes de los botones y el link de tu carta."
+            : "Es lo primero que el cliente lee cuando te escribe por primera vez."
+        }
+      >
+        <CampoArea
+          label=""
+          value={perfil.mensajeBienvenida ?? ""}
+          onChange={(v) => setPerfil({ ...perfil, mensajeBienvenida: v })}
+          placeholder={
+            caps.tieneCarta
+              ? "Ej: ¡Bienvenido a [tu negocio]! 🍗 El mejor sabor de la zona."
+              : "Ej: ¡Hola! Soy el asistente de [tu negocio] 😊 ¿En qué te puedo ayudar?"
+          }
+        />
+      </Bloque>
+
       {/* EL TONO NO APLICA A PEDIDOS (2026-08-27, Jonathan: "¿de verdad
           funciona esto? si todo es determinístico").
           Tenía razón, y con números: el flujo de pedidos manda 69 mensajes
@@ -285,8 +310,11 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
           antes) se muestra como "Actual" y se respeta hasta que elijan uno
           curado (el backend valida con la misma lista). */}
       {esGuion && !caps.tieneCarta && (
-      <div>
-        <span className="mb-2 block text-sm font-medium text-tinta">Cómo quieres que hable el bot</span>
+      <Bloque
+        icono="🗣️"
+        titulo="Cómo quieres que hable el bot"
+        bajada="El tono con el que conversa — elige el que suena a tu negocio"
+      >
         <div className="flex flex-wrap gap-2">
           {perfil.tono.trim() !== "" &&
             !TONOS_BOT.some((t) => t.toLowerCase() === perfil.tono.trim().toLowerCase()) && (
@@ -310,19 +338,24 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
             );
           })}
         </div>
-      </div>
+      </Bloque>
       )}
       {/* "Por qué elegirte" alimenta el prompt de CALIFICACIÓN de leads, que
           un restaurante no usa: no califica a quien pide comida, le cobra. */}
       {esGuion && !caps.tieneCarta && (
-        <CampoArea
-          label="Por qué elegirte"
-          ayuda="Lo que te diferencia. El bot lo usa para convencer a quien duda."
-          chips={chips.propuestaValor}
-          value={perfil.propuestaValor}
-          onChange={(v) => setPerfil({ ...perfil, propuestaValor: v })}
-          placeholder="Ej: 20 años de experiencia, atención el mismo día"
-        />
+        <Bloque
+          icono="💪"
+          titulo="Por qué elegirte"
+          bajada="Lo que te diferencia. El bot lo usa para convencer a quien duda."
+        >
+          <CampoArea
+            label=""
+            chips={chips.propuestaValor}
+            value={perfil.propuestaValor}
+            onChange={(v) => setPerfil({ ...perfil, propuestaValor: v })}
+            placeholder="Ej: 20 años de experiencia, atención el mismo día"
+          />
+        </Bloque>
       )}
 
       {esGuion && caps.calificaLeads && (
@@ -412,6 +445,7 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
             onChange={(catalogo) => setPerfil({ ...perfil, catalogo })}
           />
           <ListaSimple
+            icono="❓"
             titulo="Preguntas clave"
             descripcion="Lo que el bot pregunta antes de avisarte que un cliente está listo para comprar"
             placeholder="¿Para cuándo lo necesitas?"
@@ -420,16 +454,18 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
             sugerencias={sug?.preguntasClave}
           />
           <ListaSimple
+            icono="🔥"
             titulo="Señales de que un cliente está listo para comprar"
-            descripcion="Lo que dice o pregunta un cliente que está por comprar"
+            descripcion="Cuando el bot detecta una de estas, te avisa: ese lead es para ti"
             placeholder="Ej: pregunta por precios y disponibilidad"
             valores={perfil.senalesCaliente}
             onChange={(senalesCaliente) => setPerfil({ ...perfil, senalesCaliente })}
             sugerencias={sug?.senalesCaliente}
           />
           <ListaSimple
+            icono="❄️"
             titulo="Señales de que un cliente todavía no está listo"
-            descripcion="Lo que indica que todavía no está listo para comprar"
+            descripcion="El bot lo atiende igual, pero no te interrumpe por estos"
             placeholder="Ej: solo pregunta info general, sin urgencia"
             valores={perfil.senalesFrio}
             onChange={(senalesFrio) => setPerfil({ ...perfil, senalesFrio })}
@@ -441,24 +477,6 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
           />
         </>
       )}
-
-      <div>
-        <p className="mb-1 text-xs text-frio">
-          {caps.tieneCarta
-            ? "Abre el menú de pedidos: es lo primero que el cliente lee, antes de los botones y el link de tu carta."
-            : "Es lo primero que el cliente lee cuando te escribe por primera vez."}
-        </p>
-        <CampoArea
-          label="El primer saludo del bot"
-          value={perfil.mensajeBienvenida ?? ""}
-          onChange={(v) => setPerfil({ ...perfil, mensajeBienvenida: v })}
-          placeholder={
-            caps.tieneCarta
-              ? "Ej: ¡Bienvenido a [tu negocio]! 🍗 El mejor sabor de la zona."
-              : "Ej: ¡Hola! Soy el asistente de [tu negocio] 😊 ¿En qué te puedo ayudar?"
-          }
-        />
-      </div>
 
       {esGuion && caps.redactaRespuestas && (
         <ListaRespuestasFijas
@@ -477,27 +495,41 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
           En captación no hay esos campos, así que ahí sigue siendo el lugar
           donde se cuentan las condiciones del servicio. */}
       {esGuion && !caps.tieneCarta && (
-        <CampoArea
-          label="Cómo trabajas (envíos, horarios, pagos)"
-          ayuda="Tus reglas. El bot las responde tal cual cuando se las preguntan."
-          chips={chips.politicas}
-          value={perfil.politicas}
-          onChange={(v) => setPerfil({ ...perfil, politicas: v })}
-          placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
-        />
+        <Bloque
+          icono="📋"
+          titulo="Cómo trabajas"
+          bajada="Envíos, horarios, formas de pago. El bot las responde tal cual cuando se las preguntan."
+        >
+          <CampoArea
+            label=""
+            chips={chips.politicas}
+            value={perfil.politicas}
+            onChange={(v) => setPerfil({ ...perfil, politicas: v })}
+            placeholder="Ej: Atención remota a todo el Perú. Pago por Yape o transferencia."
+          />
+        </Bloque>
       )}
       {esGuion && caps.calificaLeads && (
-        <CampoArea
-          label="Qué quieres que hagan tus clientes"
-          ayuda="Hacia dónde empuja el bot al cerrar. Tiene que ser algo que el CLIENTE hace."
-          chips={chips.llamadaAccion}
-          value={perfil.llamadaAccion}
-          onChange={(v) => setPerfil({ ...perfil, llamadaAccion: v })}
-          placeholder="Ej: Que dejen su nombre y qué necesitan"
-        />
+        <Bloque
+          icono="📞"
+          titulo="Qué quieres que hagan tus clientes"
+          bajada="Hacia dónde empuja el bot al cerrar. Tiene que ser algo que el CLIENTE hace (dejar sus datos, aceptar una llamada…)."
+        >
+          <CampoArea
+            label=""
+            chips={chips.llamadaAccion}
+            value={perfil.llamadaAccion}
+            onChange={(v) => setPerfil({ ...perfil, llamadaAccion: v })}
+            placeholder="Ej: Que dejen su nombre y qué necesitan"
+          />
+        </Bloque>
       )}
 
-      <div className="flex items-center gap-3 pt-1">
+      {/* GUARDAR SIEMPRE A LA VISTA (rediseño 2026-09-06): en un formulario
+          de diez bloques, el botón al fondo obligaba a scrollear a ciegas —
+          y peor: editar arriba y no ver cómo guardar. La barra se pega al
+          borde de abajo mientras la sección está en pantalla. */}
+      <div className="sticky bottom-0 -mx-5 -mb-5 flex items-center gap-3 rounded-b-tarjeta border-t border-linea bg-carta/95 px-5 py-3 backdrop-blur">
         <button
           type="button"
           onClick={guardar}
@@ -511,6 +543,48 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
       </div>
       </div>
     </Seccion>
+  );
+}
+
+/**
+ * CABECERA CON IDENTIDAD para cada bloque del guion (rediseño 2026-09-06,
+ * Jonathan: "el resto se ve plano, aburrido, no son intuitivos"). Antes cada
+ * bloque era un título en negrita sobre una línea — diez bloques idénticos
+ * son una pared. El icono en su medallón + la bajada de "para qué sirve"
+ * hacen la sección escaneable: encuentras el bloque que buscas sin leer.
+ */
+function Bloque({
+  icono,
+  titulo,
+  bajada,
+  extra,
+  children,
+}: {
+  icono: string;
+  titulo: string;
+  bajada?: string;
+  extra?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-t border-linea pt-5 first:border-t-0 first:pt-0">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <span
+            aria-hidden
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-arena text-lg ring-1 ring-linea"
+          >
+            {icono}
+          </span>
+          <div>
+            <p className="text-[0.92rem] font-bold text-tinta">{titulo}</p>
+            {bajada && <p className="mt-0.5 text-[0.8rem] leading-snug text-frio">{bajada}</p>}
+          </div>
+        </div>
+        {extra}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -573,7 +647,7 @@ function CampoArea({
 
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-tinta">{label}</span>
+      {label && <span className="mb-1 block text-sm font-medium text-tinta">{label}</span>}
       {ayuda && <span className="mb-2 block text-[0.82rem] text-frio">{ayuda}</span>}
       {disponibles.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
@@ -608,6 +682,7 @@ function CampoArea({
 
 // Lista editable de strings simples (preguntas clave), con agregar/quitar fila.
 function ListaSimple({
+  icono,
   titulo,
   descripcion,
   placeholder,
@@ -615,6 +690,7 @@ function ListaSimple({
   onChange,
   sugerencias = [],
 }: {
+  icono: string;
   titulo: string;
   descripcion?: string;
   placeholder?: string;
@@ -642,13 +718,7 @@ function ListaSimple({
   }
 
   return (
-    // Bloque separado por una LÍNEA, no otra caja (2026-08-18): estas listas
-    // ya viven dentro de la tarjeta de la sección, y una caja gris adentro de
-    // una tarjeta blanca adentro de la página era la tercera superficie.
-    <div className="border-t border-linea pt-4">
-      <p className="text-[0.88rem] font-bold text-tinta">{titulo}</p>
-      {descripcion && <p className="mb-2.5 mt-0.5 text-[0.78rem] text-frio">{descripcion}</p>}
-
+    <Bloque icono={icono} titulo={titulo} bajada={descripcion}>
       {/* LOS CHIPS. Solo los que TODAVÍA NO agregó: ofrecerle algo que ya
           tiene lo haría dudar de si se guardó. */}
       {(() => {
@@ -698,7 +768,7 @@ function ListaSimple({
       >
         + Agregar
       </button>
-    </div>
+    </Bloque>
   );
 }
 
@@ -746,18 +816,16 @@ function ListaCatalogo({
   const claseEtiqueta = "mb-1 block text-[0.72rem] font-semibold uppercase tracking-wide text-frio";
 
   return (
-    <div className="border-t border-linea pt-4">
-      <div className="mb-2 flex items-baseline justify-between gap-2">
-        <div>
-          <p className="text-[0.88rem] font-bold text-tinta">Qué vendes</p>
-          <p className="mt-0.5 text-[0.78rem] text-frio">
-            Productos o servicios que ofrece el negocio — el bot responde con esto
-          </p>
-        </div>
+    <Bloque
+      icono="🛍️"
+      titulo="Qué vendes"
+      bajada="Productos o servicios que ofrece el negocio — el bot responde con esto"
+      extra={
         <span className={`shrink-0 text-xs font-semibold ${lleno ? "text-brasa-hondo" : "text-frio"}`}>
           {catalogo.length}/{MAX}
         </span>
-      </div>
+      }
+    >
       <div className="space-y-2">
         {catalogo.map((item, i) =>
           abierto === i ? (
@@ -852,7 +920,7 @@ function ListaCatalogo({
           Llegaste al máximo de {MAX} productos. Es para que la IA no se sobrecargue y responda mejor.
         </p>
       )}
-    </div>
+    </Bloque>
   );
 }
 
@@ -878,34 +946,44 @@ function ListaRespuestasFijas({
   }
 
   return (
-    <div className="border-t border-linea pt-4">
-      <p className="text-[0.88rem] font-bold text-tinta">Respuestas listas</p>
-      <p className="mb-2 text-xs text-frio">
-        Para preguntas que se repiten mucho: si el cliente escribe esa palabra, el bot contesta esto
-        directo, sin pensarlo.
-      </p>
+    <Bloque
+      icono="⚡"
+      titulo="Respuestas listas"
+      bajada="Para lo que preguntan a cada rato: si el mensaje trae esa palabra, el bot contesta esto directo, sin pensarlo"
+    >
       <div className="space-y-3">
         {respuestasFijas.map((item, i) => (
-          <div key={i} className="grid gap-2 rounded-lg bg-carta p-3 ring-1 ring-linea sm:grid-cols-[1fr_1fr_auto]">
-            <input
-              value={item.palabra}
-              onChange={(e) => actualizar(i, "palabra", e.target.value)}
-              placeholder="Si preguntan por... Ej: precio"
-              className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
-            />
-            <input
-              value={item.respuesta}
-              onChange={(e) => actualizar(i, "respuesta", e.target.value)}
-              placeholder="El bot responde... Ej: Depende de tu caso, ¿cuánto facturas al mes?"
-              className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
-            />
+          <div key={i} className="rounded-xl bg-carta p-3.5 ring-1 ring-linea">
+            <div className="grid gap-2.5 sm:grid-cols-[1fr_1.6fr]">
+              <label className="block">
+                <span className="mb-1 block text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
+                  🔑 Si escriben la palabra…
+                </span>
+                <input
+                  value={item.palabra}
+                  onChange={(e) => actualizar(i, "palabra", e.target.value)}
+                  placeholder="Ej: precio"
+                  className="w-full rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
+                  ⚡ Contesta al toque…
+                </span>
+                <input
+                  value={item.respuesta}
+                  onChange={(e) => actualizar(i, "respuesta", e.target.value)}
+                  placeholder="Ej: Depende de tu caso, ¿cuánto facturas al mes?"
+                  className="w-full rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
+                />
+              </label>
+            </div>
             <button
               type="button"
               onClick={() => quitar(i)}
-              aria-label="Quitar"
-              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa-texto"
+              className="mt-2 text-xs font-semibold text-frio hover:text-brasa-texto"
             >
-              ✕
+              Quitar esta respuesta
             </button>
           </div>
         ))}
@@ -917,7 +995,7 @@ function ListaRespuestasFijas({
       >
         + Agregar respuesta lista
       </button>
-    </div>
+    </Bloque>
   );
 }
 
@@ -941,31 +1019,47 @@ function ListaObjeciones({
   }
 
   return (
-    <div className="border-t border-linea pt-4">
-      <p className="text-[0.88rem] font-bold text-tinta">Dudas comunes de tus clientes</p>
-      <p className="mb-2 text-xs text-frio">Qué suele frenar la venta y cómo responderlo</p>
+    <Bloque
+      icono="🤔"
+      titulo="Dudas comunes de tus clientes"
+      bajada="Qué suele frenar la venta y cómo responderlo — el bot usa TU respuesta, no inventa"
+    >
       <div className="space-y-3">
         {objeciones.map((item, i) => (
-          <div key={i} className="grid gap-2 rounded-lg bg-carta p-3 ring-1 ring-linea sm:grid-cols-[1fr_1fr_auto]">
-            <input
-              value={item.objecion}
-              onChange={(e) => actualizar(i, "objecion", e.target.value)}
-              placeholder="Ej: Está caro"
-              className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
-            />
-            <input
-              value={item.respuesta}
-              onChange={(e) => actualizar(i, "respuesta", e.target.value)}
-              placeholder="Ej: Tenemos planes a tu medida, ¿cuánto facturas al mes?"
-              className="rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
-            />
+          // Cada duda se lee como la conversación que es: la línea del
+          // cliente y la del bot, cada una con su etiqueta — antes eran dos
+          // inputs pelados lado a lado y no se sabía cuál era cuál.
+          <div key={i} className="rounded-xl bg-carta p-3.5 ring-1 ring-linea">
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
+                  😕 Si te dicen…
+                </span>
+                <input
+                  value={item.objecion}
+                  onChange={(e) => actualizar(i, "objecion", e.target.value)}
+                  placeholder="Ej: Está caro"
+                  className="w-full rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
+                  💬 El bot responde…
+                </span>
+                <input
+                  value={item.respuesta}
+                  onChange={(e) => actualizar(i, "respuesta", e.target.value)}
+                  placeholder="Ej: Tenemos planes a tu medida, ¿cuánto facturas al mes?"
+                  className="w-full rounded-lg border border-linea bg-carta px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
+                />
+              </label>
+            </div>
             <button
               type="button"
               onClick={() => quitar(i)}
-              aria-label="Quitar"
-              className="shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-frio hover:text-brasa-texto"
+              className="mt-2 text-xs font-semibold text-frio hover:text-brasa-texto"
             >
-              ✕
+              Quitar esta duda
             </button>
           </div>
         ))}
@@ -977,6 +1071,6 @@ function ListaObjeciones({
       >
         + Agregar duda
       </button>
-    </div>
+    </Bloque>
   );
 }

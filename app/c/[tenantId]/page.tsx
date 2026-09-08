@@ -67,6 +67,13 @@ interface Combo {
   precioCentavos: number; precioSueltoCentavos: number;
   fotoUrl: string | null;
   items: { nombre: string; cantidad: number }[];
+  /**
+   * Lo que el combo PREGUNTA al pedirlo (2026-09-08): "Elige tu roll",
+   * "Elige tu bebida". El dueño ya podía atarlos desde el panel, pero no
+   * llegaban acá y el combo se agregaba mudo. Opcional: una carta servida
+   * por un backend viejo no lo trae, y ahí el combo entra como antes.
+   */
+  grupoIds?: string[];
 }
 interface Carta {
   negocio: {
@@ -219,6 +226,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
   const [error, setError] = useState<string | null>(null);
   const [carrito, setCarrito] = useState<LineaCarrito[]>([]);
   const [eligiendo, setEligiendo] = useState<Producto | null>(null);
+  const [eligiendoCombo, setEligiendoCombo] = useState<Combo | null>(null);
   const [enviando, setEnviando] = useState(false);
   // Cómo lo quiere: se elige ACÁ y no en el chat (2026-08-19, decisión de
   // Jonathan: "primero es hacer el pedido") — el bot ya no pregunta
@@ -418,6 +426,10 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
       combos: carrito.filter((l) => l.combo).map((l) => ({
         comboId: l.producto.id,
         cantidad: l.cantidad,
+        // Lo que eligió DENTRO del combo (2026-09-08): sin esto el roll y la
+        // bebida se perdían en el camino y a la cocina le llegaba "Combo Roll
+        // + Bebida" a secas.
+        opcionIds: l.opciones.map((o) => o.id),
       })),
       modalidad,
       // Con el QR de mesa el backend cotiza "comer acá": sin envase (taper).
@@ -495,6 +507,7 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
             combos: carrito.filter((l) => l.combo).map((l) => ({
               comboId: l.producto.id,
               cantidad: l.cantidad,
+              opcionIds: l.opciones.map((o) => o.id),
             })),
           }),
         });
@@ -800,7 +813,14 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
                 <TarjetaCombo
                   key={c.id}
                   combo={c}
-                  onAgregar={() => agregarCombo(c)}
+                  onAgregar={() => {
+                    // Con grupos, el combo pregunta antes de entrar al
+                    // carrito: es el mismo selector de los platos, así que
+                    // el cliente no aprende dos formas de elegir.
+                    const suyos = carta.grupos.filter((g) => (c.grupoIds ?? []).includes(g.id));
+                    if (suyos.length) return setEligiendoCombo(c);
+                    agregarCombo(c);
+                  }}
                 />
               ))}
             </div>
@@ -884,6 +904,39 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
             // justo en los platos con opciones, que son los más elaborados.
             agregar({ producto: eligiendo, cantidad, opciones });
             setEligiendo(null);
+          }}
+        />
+      )}
+
+      {/* EL COMBO TAMBIÉN PREGUNTA (2026-09-08). Caso de Shiro: su combo es
+          "tabla de makis + bebida" y la configuración lo obligaba a fijar UN
+          roll; quería que el cliente escoja cualquiera. Se reusa la hoja de
+          los platos —mismo selector, mismas secciones, mismas fotos— y la
+          línea conserva `combo: true`, que es lo que el backend mira para
+          cobrar el precio del combo y no la suma de sus partes. */}
+      {eligiendoCombo && (
+        <HojaOpciones
+          producto={{
+            id: eligiendoCombo.id, nombre: eligiendoCombo.nombre,
+            descripcion: eligiendoCombo.descripcion,
+            precioCentavos: eligiendoCombo.precioCentavos,
+            precioAntesCentavos: eligiendoCombo.precioSueltoCentavos > eligiendoCombo.precioCentavos
+              ? eligiendoCombo.precioSueltoCentavos : null,
+            categoriaId: null, fotoUrl: eligiendoCombo.fotoUrl,
+            grupoIds: eligiendoCombo.grupoIds ?? [],
+          }}
+          grupos={carta.grupos.filter((g) => (eligiendoCombo.grupoIds ?? []).includes(g.id))}
+          onCancelar={() => setEligiendoCombo(null)}
+          onAgregar={(opciones, cantidad) => {
+            despegar();
+            setCarrito((c) => [...c, {
+              producto: {
+                id: eligiendoCombo.id, nombre: eligiendoCombo.nombre,
+                precioCentavos: eligiendoCombo.precioCentavos,
+              },
+              cantidad, opciones, combo: true,
+            }]);
+            setEligiendoCombo(null);
           }}
         />
       )}

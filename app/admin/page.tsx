@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { obtenerMetricasPlataforma, type MetricasPlataforma } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { ConsumoAgentes } from "@/components/admin/ConsumoAgentes";
 
 const NIVEL_LABEL: Record<string, string> = { caliente: "🔥 Calientes", tibio: "🌤 Tibios", frio: "❄️ Fríos" };
 const ESTADO_LABEL: Record<string, string> = {
@@ -53,6 +54,8 @@ export default function AdminMetricas() {
         <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Métricas globales</h1>
         <p className="mt-1 text-[0.92rem] text-frio">La foto de todo el ecosistema: negocios, leads y consumo.</p>
       </header>
+
+      <ConsumoAgentes />
 
       {estado === "cargando" && <SkeletonLista filas={3} />}
       {estado === "error" && (

@@ -1802,6 +1802,19 @@ export async function objetivosAd(tenant?: string): Promise<ObjetivoAd[]> {
 export async function publicoSugeridoAd(tenant?: string): Promise<PublicoAd | null> {
   try { return (await api<{ publico: PublicoAd }>("/anuncios/publico-sugerido", { tenant })).publico; } catch { return null; }
 }
+
+/** Dónde aparece el anuncio (2026-09-07): Facebook, Instagram, Estados de WhatsApp… */
+export interface CanalAd {
+  id: string;
+  nombre: string;
+  porque: string;
+  recomendado?: boolean;
+  /** El creativo se ve a pantalla completa: conviene imagen vertical. */
+  vertical?: boolean;
+}
+export async function canalesAd(tenant?: string): Promise<CanalAd[]> {
+  try { return (await api<{ canales: CanalAd[] }>("/anuncios/canales", { tenant })).canales; } catch { return []; }
+}
 export async function presupuestoAd(total: number, dias: number, tenant?: string): Promise<RecomPresupuesto | null> {
   try { return await api<RecomPresupuesto>(`/anuncios/presupuesto?total=${total}&dias=${dias}`, { tenant }); } catch { return null; }
 }
@@ -1820,6 +1833,8 @@ export async function crearAnuncio(input: {
   publico: { zona?: string; edadMin?: number; edadMax?: number; intereses?: string[] };
   presupuestoTotal: number;
   dias: number;
+  /** Dónde aparece. Sin valor: 'todos' (Meta reparte y optimiza solo). */
+  canal?: string;
 }, tenant?: string): Promise<{ ok: boolean; id?: string; error?: string }> {
   try {
     const r = await api<{ anuncio: { id: string } }>("/anuncios", { method: "POST", body: input, tenant });

@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import {
   objetivosAd, publicoSugeridoAd, presupuestoAd, sugerirTextoAd, listarAnuncios, crearAnuncio,
-  publicarAnuncioMeta, subirMediaPost,
-  type ObjetivoAd, type PublicoAd, type RecomPresupuesto, type Anuncio,
+  publicarAnuncioMeta, subirMediaPost, canalesAd,
+  type ObjetivoAd, type PublicoAd, type RecomPresupuesto, type Anuncio, type CanalAd,
   bolsaAnuncios, type BolsaAnuncios,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -58,6 +58,12 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
   const [mediaUrl, setMediaUrl] = useState("");
   const [subiendo, setSubiendo] = useState(false);
   const [publico, setPublico] = useState<PublicoAd | null>(null);
+  // DÓNDE aparece el anuncio (2026-09-07, pedido de Jonathan). Default 'todos':
+  // sin restringir, Meta reparte entre Facebook, Instagram y WhatsApp buscando
+  // el menor costo por conversación. Restringir NO baja el presupuesto (lo fija
+  // el dueño y se gasta igual): solo achica el inventario donde competir.
+  const [canales, setCanales] = useState<CanalAd[]>([]);
+  const [canal, setCanal] = useState("todos");
   const [zona, setZona] = useState("Todo Perú");
   const [edadMin, setEdadMin] = useState("18");
   const [edadMax, setEdadMax] = useState("55");
@@ -110,7 +116,11 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
         if (p) { setEdadMin(String(p.edadMin)); setEdadMax(String(p.edadMax)); }
       });
     }
-  }, [paso, publico, g.tenantLista]);
+    // Las ubicaciones se piden en el mismo paso: es donde el dueño decide a
+    // quién y dónde. Si la lista falla, el selector no se dibuja y el anuncio
+    // sale como siempre ('todos').
+    if (paso === 2 && canales.length === 0) canalesAd(g.tenantLista).then(setCanales);
+  }, [paso, publico, canales.length, g.tenantLista]);
 
   // Al entrar al paso de presupuesto (o cambiar total/días), recalcula.
   useEffect(() => {
@@ -166,6 +176,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
       },
       presupuestoTotal: Number(total),
       dias: Number(dias),
+      canal,
     }, g.tenantLista);
     if (!r.ok || !r.id) {
       setPublicando(false);
@@ -177,7 +188,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
     const p = await publicarAnuncioMeta(r.id, g.tenantLista, encender);
     setPublicando(false);
     // Reset del wizard (el anuncio ya existe; el resultado se avisa arriba)
-    setCreando(false); setPaso(0); setCampania(""); setTexto(""); setMediaUrl(""); setPublico(null); setZona("Todo Perú"); setTotal("100"); setDias("7"); setRecom(null); setEncender(false);
+    setCreando(false); setPaso(0); setCampania(""); setTexto(""); setMediaUrl(""); setPublico(null); setCanal("todos"); setZona("Todo Perú"); setTotal("100"); setDias("7"); setRecom(null); setEncender(false);
     setAviso(p.ok
       ? `✅ ${p.aviso ?? (encender
           ? "Anuncio publicado y ENCENDIDO en Meta: ya empezó a mostrarse."
@@ -393,6 +404,54 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                   )}
                 </div>
               )}
+
+              {/* DÓNDE APARECE (2026-09-07, pedido de Jonathan: "que pueda
+                  escoger a qué canal quiere salir la publicidad"). Va acá y no
+                  en su propio paso: "a quién" y "dónde" son la misma decisión.
+                  El aviso del costo es explícito porque la intuición engaña —
+                  recortar canales no abarata, encarece por persona alcanzada. */}
+              {canales.length > 0 && (
+                <div className="pt-1">
+                  <p className="text-[0.85rem] font-bold text-tinta">¿Dónde quieres que aparezca?</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {canales.map((c) => {
+                      const activo = canal === c.id;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setCanal(c.id)}
+                          aria-pressed={activo}
+                          className={`rounded-tarjeta p-3 text-left transition ${
+                            activo
+                              ? "bg-brasa-suave ring-2 ring-brasa"
+                              : "bg-carta ring-1 ring-linea hover:ring-brasa/40"
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[0.9rem] font-bold text-tinta">{c.nombre}</span>
+                            {c.recomendado && (
+                              <span className="rounded-full bg-ok/12 px-2 py-0.5 text-[0.68rem] font-bold text-ok">
+                                Recomendado
+                              </span>
+                            )}
+                          </span>
+                          <span className="mt-1 block text-[0.78rem] leading-snug text-frio">{c.porque}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {canales.find((c) => c.id === canal)?.vertical && !mediaUrl && (
+                    <p className="mt-2 rounded-tarjeta bg-tibio-suave/60 px-3.5 py-2 text-[0.8rem] text-tinta-2">
+                      📱 Ahí tu anuncio se ve a pantalla completa: sube una imagen <b>vertical</b> para que no salga recortada.
+                    </p>
+                  )}
+                  <p className="mt-2 text-[0.72rem] text-frio">
+                    Gastas lo mismo elijas lo que elijas: el presupuesto lo pones tú. Elegir menos lugares
+                    solo hace que tu anuncio compita en un espacio más chico.
+                  </p>
+                </div>
+              )}
               <div className="flex flex-wrap gap-3">
                 <div>
                   <label className="text-[0.85rem] font-bold text-tinta">Zona</label>
@@ -472,6 +531,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                   <img src={mediaUrl} alt="Imagen del anuncio" className="h-24 rounded-tarjeta object-cover ring-1 ring-linea" />
                 )}
                 <p><b className="text-tinta">Público:</b> {zona} · {edadMin}–{edadMax} años</p>
+                <p><b className="text-tinta">Dónde aparece:</b> {canales.find((c) => c.id === canal)?.nombre ?? "Donde mejor funcione"}</p>
                 <p className="text-brasa-hondo"><b>Vas a gastar hasta S/{total} en {dias} días</b> (S/{(Number(total) / Number(dias) || 0).toFixed(2)}/día).</p>
               </div>
               {/* EL CHECK, APAGADO POR DEFECTO. Encenderlo empieza a gastar

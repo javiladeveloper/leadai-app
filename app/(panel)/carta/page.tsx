@@ -52,10 +52,32 @@ export default function CartaPanel() {
     setListo(true);
   }, [router]);
 
-  async function cargar() {
-    const c = await obtenerCarta();
-    if (c) { setCarta(c); setEstado("ok"); } else setEstado("error");
+  /**
+   * REFRESCANDO, NO CARGANDO (2026-09-08, Jonathan: "igual si pongo guardar
+   * por favor un loop de carga, igual cuando me regresa atrás").
+   *
+   * Al guardar, la hoja se cierra y `cargar()` va a la red — pero la lista de
+   * atrás se quedaba QUIETA con los datos viejos hasta que respondía. El
+   * dueño veía su cambio "no aplicado" por un segundo largo y volvía a
+   * entrar a ver si se había guardado.
+   *
+   * No se usa el esqueleto acá: reemplazar la lista entera por bloques grises
+   * cada vez que se guarda parpadea y se siente peor. La lista se queda —
+   * atenuada y sin poder tocarse— con una barra corriendo arriba.
+   */
+  const [refrescando, setRefrescando] = useState(false);
+
+  async function cargar({ refresco = false } = {}) {
+    if (refresco) setRefrescando(true);
+    try {
+      const c = await obtenerCarta();
+      if (c) { setCarta(c); setEstado("ok"); } else setEstado("error");
+    } finally {
+      if (refresco) setRefrescando(false);
+    }
   }
+  /** Lo que reciben las secciones: recargar SIEMPRE es un refresco visible. */
+  const recargarVisible = () => cargar({ refresco: true });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (listo) cargar(); }, [listo]);
 
@@ -175,19 +197,37 @@ export default function CartaPanel() {
            corra en cada cambio; sin él la animación solo se vería la primera
            vez. Es la misma `.pantalla-entra` corta del resto del panel — 160ms,
            porque una transición que se nota estorba a la quinta vez. */
-        <div key={pestana} className="pantalla-entra">
+        <div
+          key={pestana}
+          className={`pantalla-entra relative transition-opacity duration-200 ${
+            refrescando ? "pointer-events-none opacity-50" : ""
+          }`}
+          aria-busy={refrescando}
+        >
+          {/* LA BARRA DE REFRESCO. Vuelve de guardar y la lista todavía trae
+              los datos viejos: sin esto, el dueño ve su cambio "no aplicado"
+              y entra de nuevo a revisar. Va pegada arriba del contenido, que
+              es donde está mirando cuando la hoja se cierra. */}
+          {refrescando && (
+            <span
+              className="pointer-events-none absolute inset-x-0 -top-1 z-10 h-[3px] overflow-hidden rounded-full bg-linea"
+              aria-hidden
+            >
+              <span className="barra-corre block h-full w-1/3 rounded-full bg-brasa" />
+            </span>
+          )}
           {pestana === "platos" && (
-            <Platos carta={carta} recargar={cargar} avisar={setError} />
+            <Platos carta={carta} recargar={recargarVisible} avisar={setError} />
           )}
           {pestana === "menu" && <MenuDelDiaPanel />}
           {pestana === "extras" && (
-            <Extras carta={carta} recargar={cargar} avisar={setError} />
+            <Extras carta={carta} recargar={recargarVisible} avisar={setError} />
           )}
           {pestana === "combos" && (
-            <Combos carta={carta} recargar={cargar} avisar={setError} />
+            <Combos carta={carta} recargar={recargarVisible} avisar={setError} />
           )}
           {pestana === "promos" && (
-            <Promos carta={carta} recargar={cargar} avisar={setError} />
+            <Promos carta={carta} recargar={recargarVisible} avisar={setError} />
           )}
           {pestana === "marca" && <MarcaCarta />}
         </div>
@@ -336,15 +376,42 @@ function Hoja({
   bajada?: string;
   cerrar: () => void;
   children: React.ReactNode;
-  pie: React.ReactNode;
+  /**
+   * El pie. Como FUNCIÓN recibe el cierre animado, para que su "Cancelar"
+   * salga igual que la ✕ — pasarlo como nodo ya construido dejaba a ese
+   * botón cerrando de golpe, que es la inconsistencia que se veía.
+   */
+  pie: React.ReactNode | ((cerrarAnimado: () => void) => React.ReactNode);
 }) {
+  /**
+   * CERRAR TAMBIÉN ES UN PASO (2026-09-08). La hoja entraba subiendo y se
+   * cortaba de golpe al cerrar. Se marca `yendose` para que corra la salida
+   * y recién ahí se avisa al padre: si se desmontara de una, no habría nada
+   * que animar.
+   *
+   * El timeout dura lo mismo que `.hoja-sale`. Un `animationend` sería más
+   * exacto pero se pierde si el navegador está con las animaciones apagadas
+   * —y entonces la hoja no cerraría nunca, que es mucho peor que cerrar 20ms
+   * antes de tiempo.
+   */
+  const [yendose, setYendose] = useState(false);
+  const irse = () => {
+    if (yendose) return; // dos toques seguidos no encadenan dos cierres
+    setYendose(true);
+    setTimeout(cerrar, 160);
+  };
+
   return (
     <div
-      className="aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
-      onClick={cerrar}
+      className={`aparece fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-6 ${
+        yendose ? "velo-sale" : ""
+      }`}
+      onClick={irse}
     >
       <div
-        className="sube flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-carta shadow-xl sm:rounded-2xl"
+        className={`sube flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-carta shadow-xl sm:rounded-2xl ${
+          yendose ? "hoja-sale" : ""
+        }`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -360,7 +427,7 @@ function Hoja({
               de todo. En el celular, con el teclado abierto, no había ninguna
               de las dos a mano. */}
           <button
-            onClick={cerrar}
+            onClick={irse}
             aria-label="Cerrar"
             className="-mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-frio transition hover:bg-arena hover:text-tinta active:scale-95"
           >
@@ -370,7 +437,9 @@ function Hoja({
 
         <div className="scroll-fino min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
 
-        <div className="flex gap-2 border-t border-linea bg-carta px-6 py-4">{pie}</div>
+        <div className="flex gap-2 border-t border-linea bg-carta px-6 py-4">
+            {typeof pie === "function" ? pie(irse) : pie}
+          </div>
       </div>
     </div>
   );
@@ -801,14 +870,14 @@ function HojaPlato({
       titulo={plato ? "Editar plato" : "Nuevo plato"}
       bajada={plato ? plato.nombre : "Lo que el cliente ve y pide en tu carta."}
       cerrar={cerrar}
-      pie={
+      pie={(cerrarAnimado) => (
         <PieHoja
-          cerrar={cerrar}
+          cerrar={cerrarAnimado}
           guardar={guardar}
           guardando={guardando}
           puedeGuardar={puedeGuardar}
         />
-      }
+      )}
     >
       <div className="space-y-4">
         <Campo etiqueta="Nombre">
@@ -1684,14 +1753,14 @@ function HojaGrupo({
       titulo={grupo ? "Editar grupo de extras" : "Nuevo grupo de extras"}
       bajada={grupo ? grupo.nombre : "Las opciones que el cliente elige junto al plato."}
       cerrar={cerrar}
-      pie={
+      pie={(cerrarAnimado) => (
         <PieHoja
-          cerrar={cerrar}
+          cerrar={cerrarAnimado}
           guardar={guardar}
           guardando={guardando}
           puedeGuardar
         />
-      }
+      )}
     >
         {/* EL FORMULARIO ENTRA COMO PASO (2026-09-08). Venir de las plantillas
             y que el contenido cambie de golpe se lee como un error de carga;
@@ -2297,14 +2366,14 @@ function HojaCombo({
       titulo={combo ? "Editar combo" : "Nuevo combo"}
       bajada="Varios platos que el cliente pide como uno solo."
       cerrar={cerrar}
-      pie={
+      pie={(cerrarAnimado) => (
         <PieHoja
-          cerrar={cerrar}
+          cerrar={cerrarAnimado}
           guardar={guardar}
           guardando={guardando}
           puedeGuardar={puedeGuardar}
         />
-      }
+      )}
     >
         <div className="space-y-4">
           <CampoFoto foto={foto} alFallar={setErrorCampo} />
@@ -2807,15 +2876,15 @@ function HojaPromo({
       titulo={promo ? "Editar promo" : "Nueva promo"}
       bajada={promo ? promo.nombre : "Se aplica sola cuando el cliente pide dentro de la ventana."}
       cerrar={cerrar}
-      pie={
+      pie={(cerrarAnimado) => (
         <PieHoja
-          cerrar={cerrar}
+          cerrar={cerrarAnimado}
           guardar={guardar}
           guardando={guardando}
           puedeGuardar
           etiqueta={promo ? "Guardar cambios" : "Crear promo"}
         />
-      }
+      )}
     >
         <div className="space-y-4">
           <CampoFoto

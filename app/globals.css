@@ -761,3 +761,27 @@ button[class*="active:scale"]:active {
    esta espera necesita exactamente eso. `leerFoto` comprime la imagen en el
    navegador, y con una foto de cámara moderna tarda lo suficiente para que el
    dueño toque el cuadradito otra vez creyendo que no pasó nada. */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LA HOJA TAMBIÉN SE VA (2026-09-08, Jonathan: "igual cuando me regresa
+   atrás"). Entraba animada —subiendo desde abajo— y se cerraba de golpe,
+   así que volver de guardar se sentía como un corte y no como un paso
+   atrás. La salida es MÁS CORTA que la entrada (160ms contra 280): al
+   entrar hay algo nuevo que mirar; al salir el dueño ya quiere ver su
+   lista, y estirarlo sería hacerlo esperar.
+   ═══════════════════════════════════════════════════════════════════════ */
+@keyframes hoja-baja {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(12%); }
+}
+.hoja-sale { animation: hoja-baja 0.16s ease-in forwards; }
+
+@keyframes velo-sale {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.velo-sale { animation: velo-sale 0.16s ease-in forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hoja-sale, .velo-sale { animation-duration: 0.01s !important; }
+}

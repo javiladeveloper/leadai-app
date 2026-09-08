@@ -43,6 +43,12 @@ interface Opcion {
   id: string; nombre: string; precioCentavos: number; fotoUrl: string | null;
   /** La sección de la carta a la que pertenece. `null` = un extra suelto. */
   seccion?: string | null;
+  /**
+   * LO QUE LLEVA (2026-09-08). "Sum roll" no le dice nada a quien no conoce
+   * la carta, y el selector del combo es donde decide. Viene deducida del
+   * plato del mismo nombre; `null` en los extras que no son un plato.
+   */
+  descripcion?: string | null;
 }
 interface Grupo {
   id: string; nombre: string; minSelec: number; maxSelec: number | null; opciones: Opcion[];
@@ -1704,8 +1710,14 @@ function HojaOpciones({
                   <div className="space-y-1.5">
                     {(() => {
                       const q = sinTildes((busca[g.id] ?? "").trim().toLowerCase());
+                      // BUSCA TAMBIÉN EN LO QUE LLEVA (2026-09-08): quien no
+                      // conoce la carta no busca "Masha Roll", busca
+                      // "langostino" o "palta". Con 38 rolls, ese es el único
+                      // camino que tiene para encontrar lo que se le antoja.
                       const visibles = q
-                        ? g.opciones.filter((o) => sinTildes(o.nombre.toLowerCase()).includes(q))
+                        ? g.opciones.filter((o) =>
+                            sinTildes(`${o.nombre} ${o.descripcion ?? ""}`.toLowerCase()).includes(q),
+                          )
                         : g.opciones;
                       if (visibles.length === 0) {
                         return (
@@ -1752,11 +1764,18 @@ function HojaOpciones({
                                 className="h-11 w-11 shrink-0 rounded-lg object-cover"
                               />
                             )}
-                            <span className={`min-w-0 flex-1 ${n > 0 ? "font-semibold text-tinta" : "text-tinta-2"}`}>
-                              {o.nombre}
-                              {o.precioCentavos > 0 && (
-                                <span className="ml-1.5 text-[0.8rem] font-semibold text-frio">
-                                  +{soles(o.precioCentavos)} c/u
+                            <span className="min-w-0 flex-1">
+                              <span className={`block ${n > 0 ? "font-semibold text-tinta" : "text-tinta-2"}`}>
+                                {o.nombre}
+                                {o.precioCentavos > 0 && (
+                                  <span className="ml-1.5 text-[0.8rem] font-semibold text-frio">
+                                    +{soles(o.precioCentavos)} c/u
+                                  </span>
+                                )}
+                              </span>
+                              {o.descripcion && (
+                                <span className="mt-0.5 line-clamp-2 text-[0.78rem] leading-snug text-frio [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+                                  {o.descripcion}
                                 </span>
                               )}
                             </span>
@@ -1845,8 +1864,19 @@ function HojaOpciones({
                               className="h-11 w-11 shrink-0 rounded-lg object-cover"
                             />
                           )}
-                          <span className={`min-w-0 flex-1 ${marcada ? "font-semibold text-tinta" : "text-tinta-2"}`}>
-                            {o.nombre}
+                          <span className="min-w-0 flex-1">
+                            <span className={`block ${marcada ? "font-semibold text-tinta" : "text-tinta-2"}`}>
+                              {o.nombre}
+                            </span>
+                            {/* Lo que lleva, en dos líneas: el cliente elige
+                                entre 38 nombres que no conoce. Se recorta
+                                porque la fila tiene que seguir siendo una
+                                fila —si crece, la lista deja de escanearse. */}
+                            {o.descripcion && (
+                              <span className="mt-0.5 line-clamp-2 text-[0.78rem] leading-snug text-frio [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+                                {o.descripcion}
+                              </span>
+                            )}
                           </span>
                           {o.precioCentavos > 0 && (
                             <span className={`shrink-0 text-[0.85rem] font-semibold tabular-nums ${marcada ? "text-calor" : "text-frio"}`}>

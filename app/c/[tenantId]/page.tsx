@@ -46,6 +46,13 @@ interface Opcion {
 }
 interface Grupo {
   id: string; nombre: string; minSelec: number; maxSelec: number | null; opciones: Opcion[];
+  /**
+   * REPARTIR N UNIDADES ENTRE LAS OPCIONES (2026-09-07). La caja de 7
+   * churros dejaba elegir 3 sabores pero no CUÁNTOS de cada uno. Con un
+   * número acá, la hoja muestra −/+ por opción en vez de casillas.
+   * `null` (casi todos los grupos) no cambia nada.
+   */
+  unidadesAReparto?: number | null;
 }
 interface Producto {
   id: string; nombre: string; descripcion: string | null; precioCentavos: number;
@@ -172,6 +179,20 @@ function sinTildes(s: string): string {
  * tartar", "¿Con qué salsa?". Anteponerle "Elige" a todos daba "Elige elige tu
  * tartar" — se vio en la carta de Shiro.
  */
+/**
+ * "Manjar blanco ×3" y no tres veces "Manjar blanco" (2026-09-07).
+ *
+ * En un grupo de REPARTO la cantidad se expresa repitiendo la opción —es lo
+ * que hace que el precio salga bien sin cambiar el contrato con el backend—,
+ * así que el carrito recibe la misma opción N veces. Se cuentan, respetando
+ * el orden en que el cliente las eligió.
+ */
+function opcionesEnTexto(opciones: { nombre: string }[]): string {
+  const cuentas = new Map<string, number>();
+  for (const o of opciones) cuentas.set(o.nombre, (cuentas.get(o.nombre) ?? 0) + 1);
+  return [...cuentas].map(([nombre, n]) => (n > 1 ? `${nombre} ×${n}` : nombre)).join(", ");
+}
+
 function etiquetaFaltante(nombre: string): string {
   const n = nombre.trim();
   // Ya viene con verbo o con pregunta: se respeta lo que escribió el dueño.
@@ -1503,8 +1524,34 @@ function HojaOpciones({
     });
   };
 
-  const faltanObligatorios = grupos.filter(
-    (g) => g.minSelec > 0 && !g.opciones.some((o) => elegidas.some((e) => e.id === o.id)),
+  /**
+   * EN UN GRUPO DE REPARTO LA CANTIDAD ES LA REPETICIÓN (2026-09-07).
+   *
+   * `elegidas` es una lista plana, así que "3 de manjar" son tres entradas
+   * del mismo id. No es un truco: es exactamente lo que viaja al backend en
+   * `opcionIds`, y lo que hace que el motor de precios cobre las 3 sin
+   * enterarse de que existe el reparto.
+   */
+  const sumar = (g: Grupo, op: Opcion, delta: number) => {
+    setElegidas((prev) => {
+      if (delta > 0) {
+        const usadas = prev.filter((e) => g.opciones.some((o) => o.id === e.id)).length;
+        if (usadas >= (g.unidadesAReparto ?? 0)) return prev; // el tope es el tope
+        return [...prev, op];
+      }
+      // Saca UNA sola: quitar la última coincidencia deja las demás intactas.
+      const i = prev.map((e) => e.id).lastIndexOf(op.id);
+      if (i < 0) return prev;
+      return [...prev.slice(0, i), ...prev.slice(i + 1)];
+    });
+  };
+
+  const faltanObligatorios = grupos.filter((g) =>
+    g.unidadesAReparto != null
+      // Un reparto incompleto es tan inválido como un obligatorio sin marcar:
+      // media caja de churros no es un pedido.
+      ? elegidas.filter((e) => g.opciones.some((o) => o.id === e.id)).length !== g.unidadesAReparto
+      : g.minSelec > 0 && !g.opciones.some((o) => elegidas.some((e) => e.id === o.id)),
   );
   const extras = elegidas.reduce((s, o) => s + o.precioCentavos, 0);
 
@@ -1548,14 +1595,28 @@ function HojaOpciones({
           <div className="space-y-6">
             {grupos.map((g) => {
               const cuantas = elegidas.filter((e) => g.opciones.some((o) => o.id === e.id)).length;
-              const lleno = g.maxSelec != null && cuantas >= g.maxSelec;
+              const lleno = g.unidadesAReparto != null
+                ? cuantas >= g.unidadesAReparto
+                : g.maxSelec != null && cuantas >= g.maxSelec;
               return (
                 <div key={g.id}>
                   <div className="mb-2.5 flex items-baseline justify-between gap-2">
                     <h4 className="font-bold text-tinta">{g.nombre}</h4>
                     {/* La REGLA en palabras, no "min 1 max 1": el cliente
                         necesita saber cuántas puede elegir ANTES de tocar. */}
-                    {g.minSelec > 0 ? (
+                    {g.unidadesAReparto != null ? (
+                      // El contador ES la instrucción: "3 de 7" dice a la vez
+                      // cuánto va y cuánto falta, sin una línea de ayuda.
+                      <span
+                        className={`shrink-0 rounded-chip px-2 py-0.5 text-[0.72rem] font-bold tabular-nums ${
+                          cuantas === g.unidadesAReparto
+                            ? "bg-ok/12 text-ok"
+                            : "bg-orbita/12 text-calor"
+                        }`}
+                      >
+                        {cuantas} de {g.unidadesAReparto}
+                      </span>
+                    ) : g.minSelec > 0 ? (
                       <span className="shrink-0 rounded-chip bg-orbita/12 px-2 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-calor">
                         Obligatorio
                       </span>
@@ -1605,6 +1666,66 @@ function HojaOpciones({
                       const agrupar = secciones.filter((s) => s.nombre).length > 1;
 
                       const pintarOpcion = (o: Opcion) => {
+                      // GRUPO DE REPARTO: la fila lleva un −/+ y no una
+                      // casilla, así que no puede ser un <button> (tendría
+                      // dos adentro). Es la única rama distinta; el resto de
+                      // la hoja —buscador, secciones, fotos— es la misma.
+                      if (g.unidadesAReparto != null) {
+                        const n = elegidas.filter((e) => e.id === o.id).length;
+                        return (
+                          <div
+                            key={o.id}
+                            className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 transition ${
+                              n > 0 ? "bg-brasa/10 ring-2 ring-brasa" : "ring-1 ring-linea"
+                            }`}
+                          >
+                            {o.fotoUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={o.fotoUrl}
+                                alt=""
+                                loading="lazy"
+                                className="h-11 w-11 shrink-0 rounded-lg object-cover"
+                              />
+                            )}
+                            <span className={`min-w-0 flex-1 ${n > 0 ? "font-semibold text-tinta" : "text-tinta-2"}`}>
+                              {o.nombre}
+                              {o.precioCentavos > 0 && (
+                                <span className="ml-1.5 text-[0.8rem] font-semibold text-frio">
+                                  +{soles(o.precioCentavos)} c/u
+                                </span>
+                              )}
+                            </span>
+                            <span className="flex shrink-0 items-center gap-1">
+                              <button
+                                onClick={() => sumar(g, o, -1)}
+                                disabled={n === 0}
+                                aria-label={`Quitar un ${o.nombre}`}
+                                className="grid h-8 w-8 place-items-center rounded-full text-[1.1rem] font-bold leading-none text-tinta ring-1 ring-linea transition enabled:hover:bg-arena disabled:opacity-30"
+                              >
+                                −
+                              </button>
+                              <span
+                                className="w-6 text-center text-[0.95rem] font-bold tabular-nums text-tinta"
+                                aria-live="polite"
+                              >
+                                {n}
+                              </span>
+                              <button
+                                onClick={() => sumar(g, o, +1)}
+                                // Con la caja llena, el + se apaga en vez de
+                                // desaparecer: el cliente ve POR QUÉ no puede
+                                // sumar más, y el contador de arriba lo dice.
+                                disabled={lleno}
+                                aria-label={`Agregar un ${o.nombre}`}
+                                className="grid h-8 w-8 place-items-center rounded-full text-[1.1rem] font-bold leading-none text-sobre-brasa bg-brasa transition enabled:hover:brightness-95 disabled:opacity-30"
+                              >
+                                +
+                              </button>
+                            </span>
+                          </div>
+                        );
+                      }
                       const marcada = elegidas.some((e) => e.id === o.id);
                       // Un grupo lleno bloquea lo NO elegido, pero deja
                       // destildar: si no, el cliente queda atrapado con una
@@ -1727,7 +1848,18 @@ function HojaOpciones({
                 // su grupo "Elige tu tartar", y el prefijo lo repetía —"Elige
                 // elige tu tartar"—. Si el nombre ya arranca con el verbo, se
                 // usa tal cual.
-                ? etiquetaFaltante(faltanObligatorios[0].nombre)
+                ? (() => {
+                    const g = faltanObligatorios[0];
+                    // En un reparto, lo que falta es una CUENTA, no un grupo:
+                    // "Elige sabores de tu caja" no le dice al cliente que ya
+                    // eligió 3 y le faltan 4.
+                    if (g.unidadesAReparto != null) {
+                      const n = elegidas.filter((e) => g.opciones.some((o) => o.id === e.id)).length;
+                      const d = g.unidadesAReparto - n;
+                      return d > 0 ? `Te faltan ${d} de ${g.unidadesAReparto}` : `Quita ${-d}: son ${g.unidadesAReparto}`;
+                    }
+                    return etiquetaFaltante(g.nombre);
+                  })()
                 : `Agregar · ${soles((producto.precioCentavos + extras) * cantidad)}`}
             </button>
           </div>
@@ -1808,7 +1940,7 @@ function BarraCarrito({
                 <p className="text-[0.95rem] leading-snug text-tinta">{l.producto.nombre}</p>
                 {l.opciones.length > 0 && (
                   <p className="text-[0.8rem] leading-snug text-tinta-2">
-                    {l.opciones.map((o) => o.nombre).join(", ")}
+                    {opcionesEnTexto(l.opciones)}
                   </p>
                 )}
               </div>

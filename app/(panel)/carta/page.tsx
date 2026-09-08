@@ -1145,6 +1145,9 @@ function Extras({
  * pasarle al cliente cuando pida.
  */
 function reglaDelGrupo(g: GrupoOpciones): string {
+  // El reparto manda: sin esto un grupo de 7 churros se leía "Elige entre 1 y
+  // las que quieras", que no describe nada de lo que el cliente vive.
+  if (g.unidadesAReparto) return `Reparte ${g.unidadesAReparto} unidades`;
   if (g.minSelec >= 1 && g.maxSelec === 1) return "Elige 1 — obligatorio";
   if (g.minSelec >= 1) return `Elige entre ${g.minSelec} y ${g.maxSelec ?? "las que quieras"}`;
   if (g.maxSelec === 1) return "Hasta 1, opcional";
@@ -1180,6 +1183,17 @@ const PLANTILLAS_GRUPO = [
     ejemplo: "El 1er topping va gratis y del 2° se cobra.",
     obligatorio: false, unaSola: false, sinCargo: "1",
   },
+  {
+    // REPARTIR N UNIDADES (2026-09-08). Los dos casos que lo pidieron: la
+    // caja de 7 churros de La Churrísima y el combo de 3 cortes de Shiro.
+    // En los dos, el cliente no elige QUÉ sino CUÁNTOS de cada uno — y sin
+    // esta plantilla había que escribirlo en la base a mano.
+    id: "reparte" as const,
+    icono: "🍱",
+    titulo: "Reparte una cantidad",
+    ejemplo: "Caja de 7 churros, 3 cortes de maki: elige cuántos de cada sabor.",
+    obligatorio: true, unaSola: false, sinCargo: "", reparte: "3",
+  },
 ];
 
 function HojaGrupo({
@@ -1206,6 +1220,13 @@ function HojaGrupo({
   const [sinCargo, setSinCargo] = useState(
     grupo?.sinCargo ? String(grupo.sinCargo) : "",
   );
+  // CUÁNTAS UNIDADES REPARTE (2026-09-08). Vacío = grupo normal. Con un
+  // número, la carta muestra un −/+ por opción y exige que la suma dé justo.
+  const [reparte, setReparte] = useState(
+    grupo?.unidadesAReparto ? String(grupo.unidadesAReparto) : "",
+  );
+  const nReparte = Math.max(0, Number(reparte) || 0);
+  const esReparto = nReparte >= 2;
   // Cada opción puede llevar foto: "¿qué es chimichurri?" se responde con una
   // imagen, no con el nombre. Viaja como data URL y sube DESPUÉS de crear el
   // grupo, que es cuando existen los ids de las opciones.
@@ -1236,7 +1257,9 @@ function HojaGrupo({
   const llenas = opciones.filter((o) => o.nombre.trim());
 
   // La regla EN PALABRAS, en vivo: es lo que el cliente va a vivir al pedir.
-  const reglaViva = obligatorio
+  const reglaViva = esReparto
+    ? `tendrá que repartir exactamente ${nReparte} unidades entre estas opciones`
+    : obligatorio
     ? unaSola
       ? "tendrá que elegir exactamente una"
       : `tendrá que elegir al menos una${Number(sinCargo) > 0 ? ` (las ${sinCargo} más caras van gratis)` : ""}`
@@ -1257,12 +1280,15 @@ function HojaGrupo({
     setGuardando(true);
     const datos = {
       nombre: nombre.trim(),
-      minSelec: obligatorio ? 1 : 0,
-      maxSelec: unaSola ? 1 : null,
+      minSelec: obligatorio || esReparto ? 1 : 0,
+      // Un grupo de reparto NO lleva tope: la cuenta exacta ES el reparto, y
+      // el backend rechaza que convivan.
+      maxSelec: esReparto ? null : unaSola ? 1 : null,
+      unidadesAReparto: esReparto ? nReparte : null,
       // Con "solo una" no hay gratis posible: la única que elige es la que se
       // cobra. Se manda 0 para que un grupo que cambia a "una sola" no quede
       // con un número que ya no aplica.
-      sinCargo: unaSola ? 0 : Math.max(0, Number(sinCargo) || 0),
+      sinCargo: unaSola || esReparto ? 0 : Math.max(0, Number(sinCargo) || 0),
       opciones: llenas.map((o) => ({
         nombre: o.nombre.trim(),
         precioCentavos: o.precio.trim() ? aCentavos(o.precio)! : 0,
@@ -1320,6 +1346,7 @@ function HojaGrupo({
                 setObligatorio(c.obligatorio);
                 setUnaSola(c.unaSola);
                 setSinCargo(c.sinCargo);
+                setReparte(("reparte" in c ? c.reparte : "") ?? "");
                 setEligiendoCaso(false);
               }}
               className="tarjeta-viva flex w-full items-start gap-3 rounded-tarjeta bg-arena/60 p-4 text-left ring-1 ring-linea transition hover:ring-brasa/50 active:scale-[0.99]"
@@ -1379,24 +1406,31 @@ function HojaGrupo({
                 </button>
               )}
             </p>
-            <label className="flex cursor-pointer items-center gap-2.5 text-[0.9rem] text-tinta-2">
-              <input
-                type="checkbox"
-                checked={obligatorio}
-                onChange={(e) => setObligatorio(e.target.checked)}
-                className="size-4 accent-[var(--color-brasa)]"
-              />
-              El cliente <b>tiene</b> que elegir
-            </label>
-            <label className="flex cursor-pointer items-center gap-2.5 text-[0.9rem] text-tinta-2">
-              <input
-                type="checkbox"
-                checked={unaSola}
-                onChange={(e) => setUnaSola(e.target.checked)}
-                className="size-4 accent-[var(--color-brasa)]"
-              />
-              Solo puede elegir <b>una</b>
-            </label>
+            {/* En un grupo de REPARTO estos dos no aplican: repartir 3
+                unidades ya es obligatorio y ya es "varias". Dejarlos sería
+                ofrecer combinaciones que el backend rechaza. */}
+            {!esReparto && (
+              <>
+                <label className="flex cursor-pointer items-center gap-2.5 text-[0.9rem] text-tinta-2">
+                  <input
+                    type="checkbox"
+                    checked={obligatorio}
+                    onChange={(e) => setObligatorio(e.target.checked)}
+                    className="size-4 accent-[var(--color-brasa)]"
+                  />
+                  El cliente <b>tiene</b> que elegir
+                </label>
+                <label className="flex cursor-pointer items-center gap-2.5 text-[0.9rem] text-tinta-2">
+                  <input
+                    type="checkbox"
+                    checked={unaSola}
+                    onChange={(e) => setUnaSola(e.target.checked)}
+                    className="size-4 accent-[var(--color-brasa)]"
+                  />
+                  Solo puede elegir <b>una</b>
+                </label>
+              </>
+            )}
 
             {/* LAS PRIMERAS SIN CARGO (2026-08-22). El caso del bubble tea:
                 "1 topping es gratis y del 2do se cobra".
@@ -1406,7 +1440,26 @@ function HojaGrupo({
 
                 Se regalan las MÁS CARAS — cobrarle la cara al cliente y
                 regalarle la barata se siente como una trampa. */}
-            {!unaSola && (
+            {/* CUÁNTAS UNIDADES REPARTE (2026-09-08). Es el número que el
+                dueño ya tiene en la cabeza —"son 7 churros", "son 3
+                cortes"—, así que se pregunta tal cual. Con él, la carta deja
+                de mostrar casillas y muestra un −/+ por opción. */}
+            {esReparto || reparte ? (
+              <label className="surge flex cursor-pointer items-center gap-2 text-[0.9rem] text-tinta-2">
+                El cliente reparte
+                <input
+                  value={reparte}
+                  onChange={(e) => setReparte(e.target.value.replace(/\D/g, ""))}
+                  inputMode="numeric"
+                  placeholder="3"
+                  aria-label="Cuántas unidades reparte el cliente"
+                  className="w-14 rounded-lg border border-linea bg-arena/40 px-2 py-1.5 text-center tabular-nums text-tinta placeholder:text-frio transition focus:border-brasa focus:bg-carta focus:outline-none"
+                />
+                <b>unidades</b> entre las opciones
+              </label>
+            ) : null}
+
+            {!unaSola && !esReparto && (
               <label className="surge flex cursor-pointer items-center gap-2 text-[0.9rem] text-tinta-2">
                 Las primeras
                 <input

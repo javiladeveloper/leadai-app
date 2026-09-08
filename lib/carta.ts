@@ -57,6 +57,12 @@ export interface GrupoOpciones {
   nombre: string;
   minSelec: number;
   maxSelec: number | null;
+  /**
+   * Cuántas unidades reparte el grupo (2026-09-08). La caja de 7 churros,
+   * los 3 cortes de maki: el cliente elige CUÁNTOS de cada opción, no cuáles.
+   * `null`/ausente = grupo normal.
+   */
+  unidadesAReparto?: number | null;
   orden: number;
   opciones: OpcionCarta[];
 }

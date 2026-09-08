@@ -22,7 +22,7 @@ import {
   obtenerCarta, crearCategoria, eliminarCategoria,
   crearProducto, actualizarProducto, marcarDisponible, eliminarProducto,
   crearGrupo, actualizarGrupo, eliminarGrupo,
-  crearCombo, eliminarCombo,
+  crearCombo, actualizarCombo, eliminarCombo,
   crearDescuento, actualizarDescuento, eliminarDescuento,
   subirFotoProducto, quitarFotoProducto, subirFoto, leerFoto,
   aCentavos, precioTexto, porcentajeDescuento, resumenDescuento, sinTildes, DIAS,
@@ -2002,6 +2002,8 @@ function Combos({
   carta, recargar, avisar,
 }: { carta: Carta; recargar: () => Promise<void>; avisar: (s: string) => void }) {
   const [abriendo, setAbriendo] = useState(false);
+  /** El combo que se está editando. `null` = uno nuevo (patrón de Promos). */
+  const [editando, setEditando] = useState<ComboCarta | null>(null);
 
   async function borrar(c: ComboCarta) {
     if (!confirm(`¿Borrar el combo "${c.nombre}"?`)) return;
@@ -2124,6 +2126,9 @@ function Combos({
                   </p>
                 )}
               </div>
+              <AccionFila onClick={() => { setEditando(c); setAbriendo(true); }}>
+                Editar
+              </AccionFila>
               <AccionFila peligro onClick={() => borrar(c)}>
                 Eliminar
               </AccionFila>
@@ -2132,7 +2137,17 @@ function Combos({
         })}
 
         {abriendo && (
-          <HojaCombo carta={carta} cerrar={() => setAbriendo(false)} recargar={recargar} avisar={avisar} />
+          // `key` para que al pasar de un combo a otro —o a uno nuevo— el
+          // formulario se remonte con los valores del que toca. Sin ella
+          // React reusa el estado y muestra los datos del anterior.
+          <HojaCombo
+            key={editando?.id ?? "nuevo"}
+            combo={editando}
+            carta={carta}
+            cerrar={() => { setAbriendo(false); setEditando(null); }}
+            recargar={recargar}
+            avisar={avisar}
+          />
         )}
       </div>
     </Seccion>
@@ -2140,16 +2155,36 @@ function Combos({
 }
 
 function HojaCombo({
-  carta, cerrar, recargar, avisar,
-}: { carta: Carta; cerrar: () => void; recargar: () => Promise<void>; avisar: (s: string) => void }) {
-  const [nombre, setNombre] = useState("");
-  const [precio, setPrecio] = useState("");
-  const [elegidos, setElegidos] = useState<{ productoId: string; cantidad: number }[]>([]);
+  combo, carta, cerrar, recargar, avisar,
+}: {
+  /**
+   * EDITAR UN COMBO (2026-09-08, pedido de Jonathan: "los combos también, si
+   * hago click debe permitirme entrar a una edición").
+   *
+   * Se podía crear y borrar, pero no corregir: cambiarle el precio o sumarle
+   * una pregunta obligaba a borrarlo y cargarlo de nuevo — y borrarlo le
+   * saca del carrito de nadie, pero sí le cambia el id, así que un link
+   * viejo al combo deja de resolver. Es el mismo agujero que los grupos
+   * tuvieron hasta el 2026-08-20.
+   */
+  combo?: ComboCarta | null;
+  carta: Carta; cerrar: () => void; recargar: () => Promise<void>; avisar: (s: string) => void;
+}) {
+  const [nombre, setNombre] = useState(combo?.nombre ?? "");
+  const [precio, setPrecio] = useState(
+    // El precio se muestra en soles, como el dueño lo escribe.
+    combo ? (combo.precioCentavos / 100).toFixed(2) : "",
+  );
+  const [elegidos, setElegidos] = useState<{ productoId: string; cantidad: number }[]>(
+    combo?.productos?.map((x) => ({ productoId: x.productoId, cantidad: x.cantidad })) ?? [],
+  );
   /** Los grupos que el combo pregunta al pedirlo: "elegí 2 sabores". */
-  const [grupoIds, setGrupoIds] = useState<string[]>([]);
+  const [grupoIds, setGrupoIds] = useState<string[]>(
+    combo?.grupos?.map((g) => g.grupoId) ?? [],
+  );
   const [guardando, setGuardando] = useState(false);
   const [errorCampo, setErrorCampo] = useState("");
-  const foto = useFoto(null);
+  const foto = useFoto(combo?.fotoUrl ?? null);
   // BUSCADOR (2026-08-19). Shiro tiene 48 platos y esta lista los mostraba
   // todos planos en una caja de 56px: armar un combo era scrollear a ciegas.
   const [busca, setBusca] = useState("");
@@ -2204,13 +2239,24 @@ function HojaCombo({
    * Ahora cuenta las dos partes: platos fijos + grupos que se preguntan.
    */
   const partesDelCombo = elegidos.length + grupoIds.length;
-  const puedeGuardar = nombre.trim().length > 0 && partesDelCombo >= 2 && centavos !== null;
+  /**
+   * AL MENOS UNA PARTE, NO DOS (2026-09-08).
+   *
+   * El mínimo de 2 dejaba fuera combos que el backend SÍ acepta y que tienen
+   * sentido: "caja de 7 churros a elección" es UNA pregunta y ya es un
+   * producto distinto del churro suelto. Peor: al EDITAR un combo así, el
+   * botón quedaba gris y el dueño no podía ni corregirle el precio.
+   *
+   * Lo que no puede pasar es un combo vacío —eso es un plato con otro
+   * nombre—, y de eso se encarga el `>= 1`, igual que la ruta.
+   */
+  const puedeGuardar = nombre.trim().length > 0 && partesDelCombo >= 1 && centavos !== null;
 
   async function guardar() {
     if (!nombre.trim()) { setErrorCampo("Ponle un nombre al combo."); return; }
-    if (partesDelCombo < 2) {
+    if (partesDelCombo < 1) {
       setErrorCampo(
-        "Un combo lleva al menos dos cosas: platos fijos, o preguntas al cliente (ej. 'elige tu corte' + 'elige tu bebida').",
+        "El combo tiene que llevar algo: marca los platos que van fijos, o lo que el cliente elige.",
       );
       return;
     }
@@ -2218,17 +2264,27 @@ function HojaCombo({
 
     setErrorCampo("");
     setGuardando(true);
-    const r = await crearCombo({
+    const datos = {
       nombre: nombre.trim(),
       precioCentavos: centavos,
       productos: elegidos,
       grupoIds,
-    });
-    if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+    };
+    // Al EDITAR ya conocemos el id; al crear lo trae la respuesta. Se
+    // resuelven por separado porque `actualizarCombo` no devuelve el combo.
+    let id: string | undefined;
+    if (combo) {
+      const r = await actualizarCombo(combo.id, datos);
+      if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+      id = combo.id;
+    } else {
+      const r = await crearCombo(datos);
+      if (!r.ok) { setGuardando(false); setErrorCampo(r.error ?? "No se pudo guardar"); return; }
+      id = r.dato?.id;
+    }
 
-    // La foto va DESPUÉS: el combo no tiene id hasta que el backend lo crea.
-    if (r.dato?.id) {
-      const err = await foto.guardar("combos", r.dato.id);
+    if (id) {
+      const err = await foto.guardar("combos", id);
       if (err) avisar(`El combo se guardó, pero la foto no subió.`);
     }
     setGuardando(false);
@@ -2238,7 +2294,7 @@ function HojaCombo({
 
   return (
     <Hoja
-      titulo="Nuevo combo"
+      titulo={combo ? "Editar combo" : "Nuevo combo"}
       bajada="Varios platos que el cliente pide como uno solo."
       cerrar={cerrar}
       pie={

@@ -374,6 +374,8 @@ export const quitarFotoProducto = (id: string, tenant?: string) =>
 /** Lo que el backend acepta. Se valida acá para no gastar la subida. */
 const TIPOS_FOTO = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FOTO = 5 * 1024 * 1024;
+/** Lo que se acepta del disco: se comprime en el navegador antes de subir. */
+const MAX_FOTO_ORIGINAL = 20 * 1024 * 1024;
 
 /**
  * Lee el archivo elegido y lo deja listo para subir.
@@ -381,19 +383,71 @@ const MAX_FOTO = 5 * 1024 * 1024;
  * Devuelve el error en palabras y no un throw: quien llama lo muestra tal cual
  * al lado del botón.
  */
-export function leerFoto(archivo: File): Promise<{ ok: true; datos: string } | { ok: false; error: string }> {
-  if (!TIPOS_FOTO.includes(archivo.type)) {
-    return Promise.resolve({ ok: false, error: "Tiene que ser una foto JPG, PNG o WebP." });
-  }
-  if (archivo.size > MAX_FOTO) {
-    return Promise.resolve({ ok: false, error: "La foto es muy pesada (máximo 5MB)." });
-  }
-  return new Promise((resolver) => {
-    const lector = new FileReader();
-    lector.onload = () => resolver({ ok: true, datos: String(lector.result) });
-    lector.onerror = () => resolver({ ok: false, error: "No pudimos leer esa foto." });
-    lector.readAsDataURL(archivo);
+/**
+ * LA FOTO SE ACHICA ANTES DE SUBIRLA (2026-09-08).
+ *
+ * Shiro cargando las fotos de sus platos: "Request body is too large". Un
+ * celular de hoy saca fotos de 4-6MB, y encima viajaban en base64 —que infla
+ * un 33%—, así que rebotaban contra el límite del servidor. Rechazarlas con
+ * un mensaje más lindo no alcanza: el dueño no tiene cómo achicar una foto
+ * desde el celular, y su carta se queda sin fotos.
+ *
+ * 1600px de lado mayor es lo que la carta muestra como máximo (la tarjeta más
+ * grande es de 800px en pantallas retina), y webp al 82% baja una foto de 5MB
+ * a ~200KB sin que se note. El backend igual la recomprime; esto es para que
+ * LLEGUE.
+ */
+const LADO_MAX = 1600;
+
+function comprimir(archivo: File): Promise<string> {
+  return new Promise((resolver, rechazar) => {
+    const url = URL.createObjectURL(archivo);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const escala = Math.min(1, LADO_MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * escala);
+      const h = Math.round(img.height * escala);
+      const lienzo = document.createElement("canvas");
+      lienzo.width = w;
+      lienzo.height = h;
+      const ctx = lienzo.getContext("2d");
+      if (!ctx) return rechazar(new Error("sin canvas"));
+      ctx.drawImage(img, 0, 0, w, h);
+      // webp con respaldo a jpeg: Safari viejo no exporta webp y devolvería
+      // un PNG gigante sin avisar (toDataURL cae al default en silencio).
+      const webp = lienzo.toDataURL("image/webp", 0.82);
+      resolver(webp.startsWith("data:image/webp") ? webp : lienzo.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rechazar(new Error("no se pudo leer")); };
+    img.src = url;
   });
+}
+
+export async function leerFoto(archivo: File): Promise<{ ok: true; datos: string } | { ok: false; error: string }> {
+  if (!TIPOS_FOTO.includes(archivo.type)) {
+    return { ok: false, error: "Tiene que ser una foto JPG, PNG o WebP." };
+  }
+  // El tope se mira sobre el ORIGINAL: una foto de 30MB tarda en decodificarse
+  // y traba el navegador antes de que el canvas la pueda achicar.
+  if (archivo.size > MAX_FOTO_ORIGINAL) {
+    return { ok: false, error: "La foto es muy pesada (máximo 20MB)." };
+  }
+  try {
+    return { ok: true, datos: await comprimir(archivo) };
+  } catch {
+    // Si el canvas falla (formatos raros, memoria), se sube tal cual — pero
+    // solo si entra: mejor que quedarse sin foto.
+    if (archivo.size > MAX_FOTO) {
+      return { ok: false, error: "No pudimos procesar esa foto. Prueba con una más liviana." };
+    }
+    return new Promise((resolver) => {
+      const lector = new FileReader();
+      lector.onload = () => resolver({ ok: true, datos: String(lector.result) });
+      lector.onerror = () => resolver({ ok: false, error: "No pudimos leer esa foto." });
+      lector.readAsDataURL(archivo);
+    });
+  }
 }
 
 // ── Grupos de extras ──────────────────────────────────────────────────

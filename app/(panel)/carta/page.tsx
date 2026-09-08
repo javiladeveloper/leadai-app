@@ -1841,11 +1841,27 @@ function HojaCombo({
   // Las MISMAS tres condiciones que valida `guardar`. El botón se apaga hasta
   // que se cumplen; los mensajes de abajo siguen ahí para decir cuál falta, que
   // es lo que un botón gris no explica solo.
-  const puedeGuardar = nombre.trim().length > 0 && elegidos.length >= 2 && centavos !== null;
+  /**
+   * UN COMBO SON DOS COSAS, ELIJA QUIEN ELIJA (2026-09-08).
+   *
+   * La regla vieja exigía 2 platos FIJOS, y eso dejaba fuera justo el combo
+   * que Shiro quería armar: "1 corte a elección + 1 bebida a elección" no
+   * tiene ningún plato fijo — son dos preguntas. Su botón Guardar quedaba
+   * gris sin decirle por qué.
+   *
+   * Ahora cuenta las dos partes: platos fijos + grupos que se preguntan.
+   */
+  const partesDelCombo = elegidos.length + grupoIds.length;
+  const puedeGuardar = nombre.trim().length > 0 && partesDelCombo >= 2 && centavos !== null;
 
   async function guardar() {
     if (!nombre.trim()) { setErrorCampo("Ponle un nombre al combo."); return; }
-    if (elegidos.length < 2) { setErrorCampo("Un combo lleva al menos dos platos."); return; }
+    if (partesDelCombo < 2) {
+      setErrorCampo(
+        "Un combo lleva al menos dos cosas: platos fijos, o preguntas al cliente (ej. 'elige tu corte' + 'elige tu bebida').",
+      );
+      return;
+    }
     if (centavos === null) { setErrorCampo("El precio tiene que ser un número, como 39.90."); return; }
 
     setErrorCampo("");
@@ -1896,8 +1912,17 @@ function HojaCombo({
           </Campo>
 
           <Campo
-            etiqueta="Qué lleva"
-            ayuda={elegidos.length > 0 ? `${elegidos.length} elegido(s)` : "Elige dos o más platos"}
+            etiqueta="Platos FIJOS del combo"
+            // LAS DOS SECCIONES SE CONFUNDÍAN (2026-09-08, Jonathan: "no
+            // entiendo nada"). "Qué lleva" y "Qué preguntar" sonaban igual, y
+            // la primera está arriba y con buscador, así que el dueño metía
+            // ahí un plato específico cuando lo que quería era que el cliente
+            // eligiera. Ahora cada etiqueta dice QUIÉN elige.
+            ayuda={
+              elegidos.length > 0
+                ? `${elegidos.length} plato(s) — van siempre, el cliente no los elige`
+                : "Déjalo vacío si el cliente elige todo (más abajo)"
+            }
           >
             {/* BUSCADOR (2026-08-19). Con 48 platos, encontrar "California"
                 era scrollear a ciegas una lista corrida. */}
@@ -1951,7 +1976,10 @@ function HojaCombo({
                           setElegidos((prev) => prev.map((x) => x.productoId === p.id ? { ...x, cantidad: n } : x));
                         }}
                         aria-label={`Cuántos ${p.nombre}`}
-                        className="w-14 shrink-0 rounded border border-linea bg-carta px-2 py-1 text-center text-[0.85rem] tabular-nums"
+                        // `text-tinta` explícito (2026-09-08): sin él el número
+                        // heredaba el color del contenedor y se veía TRANSPARENTE
+                        // — el dueño escribía una cantidad que no podía leer.
+                        className="w-14 shrink-0 rounded border border-linea bg-carta px-2 py-1 text-center text-[0.85rem] font-semibold tabular-nums text-tinta"
                       />
                     )}
                   </div>
@@ -1990,7 +2018,10 @@ function HojaCombo({
               sabores, porque no había forma de configurarlo. Son los MISMOS
               grupos que usan los platos, así que se reusan. */}
           {carta.grupos.length > 0 && (
-            <Campo etiqueta="Qué preguntar" ayuda="Sabores, término, extras: se preguntan al pedirlo">
+            <Campo
+              etiqueta="Lo que ELIGE el cliente"
+              ayuda="Aquí va 'elige tu corte', 'elige tu bebida'. Se le pregunta al pedir."
+            >
               <div className="space-y-1.5">
                 {carta.grupos.map((g) => (
                   <label key={g.id} className="flex cursor-pointer items-center gap-2.5 text-[0.9rem] text-tinta-2">

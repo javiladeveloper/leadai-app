@@ -925,7 +925,13 @@ export default function CartaPublica({ params }: { params: Promise<{ tenantId: s
             categoriaId: null, fotoUrl: eligiendoCombo.fotoUrl,
             grupoIds: eligiendoCombo.grupoIds ?? [],
           }}
-          grupos={carta.grupos.filter((g) => (eligiendoCombo.grupoIds ?? []).includes(g.id))}
+          // EN EL ORDEN DEL COMBO, no en el de la carta (2026-09-08): el
+          // dueño decide qué se pregunta primero —los cortes antes que la
+          // bebida— y filtrar sobre `carta.grupos` lo perdía, porque ese
+          // arreglo viene ordenado por cuándo se creó cada grupo.
+          grupos={(eligiendoCombo.grupoIds ?? [])
+            .map((id) => carta.grupos.find((g) => g.id === id))
+            .filter((g): g is Grupo => g != null)}
           onCancelar={() => setEligiendoCombo(null)}
           onAgregar={(opciones, cantidad) => {
             despegar();

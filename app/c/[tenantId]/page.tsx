@@ -1667,9 +1667,14 @@ function HojaOpciones({
                       // El contador ES la instrucción: "3 de 7" dice a la vez
                       // cuánto va y cuánto falta, sin una línea de ayuda.
                       <span
-                        className={`shrink-0 rounded-chip px-2 py-0.5 text-[0.72rem] font-bold tabular-nums ${
+                        // `key` con la cuenta: al cambiar, React reemplaza el
+                        // nodo y la animación vuelve a correr. Sin eso el
+                        // salto se ve una sola vez y el resto de los toques
+                        // quedan mudos.
+                        key={`c-${cuantas}`}
+                        className={`contador-cambia shrink-0 rounded-chip px-2 py-0.5 text-[0.72rem] font-bold tabular-nums transition-colors ${
                           cuantas === g.unidadesAReparto
-                            ? "bg-ok/12 text-ok"
+                            ? "grupo-listo bg-ok/12 text-ok"
                             : "bg-orbita/12 text-calor"
                         }`}
                       >
@@ -1734,7 +1739,7 @@ function HojaOpciones({
                         return (
                           <div
                             key={o.id}
-                            className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 transition ${
+                            className={`opcion-entra flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 transition-all duration-200 ${
                               n > 0 ? "bg-brasa/10 ring-2 ring-brasa" : "ring-1 ring-linea"
                             }`}
                           >
@@ -1765,7 +1770,10 @@ function HojaOpciones({
                                 −
                               </button>
                               <span
-                                className="w-6 text-center text-[0.95rem] font-bold tabular-nums text-tinta"
+                                key={`n-${o.id}-${n}`}
+                                className={`w-6 text-center text-[0.95rem] font-bold tabular-nums ${
+                                  n > 0 ? "contador-cambia text-tinta" : "text-frio"
+                                }`}
                                 aria-live="polite"
                               >
                                 {n}
@@ -1795,9 +1803,13 @@ function HojaOpciones({
                           key={o.id}
                           onClick={() => !bloqueada && alternar(g, o)}
                           disabled={bloqueada}
-                          className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left transition ${
+                          // `opcion-marcada` va con la key: al marcarla, React
+                          // remonta el nodo y el pulso corre de nuevo. Es el
+                          // acuse de que el toque entró — sin él, el cliente
+                          // toca dos veces.
+                          className={`opcion-entra flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left transition-all duration-200 active:scale-[0.99] ${
                             marcada
-                              ? "bg-brasa/10 ring-2 ring-brasa"
+                              ? "opcion-marcada bg-brasa/10 ring-2 ring-brasa"
                               : bloqueada
                                 ? "opacity-40 ring-1 ring-linea"
                                 : "ring-1 ring-linea hover:bg-arena/60 hover:ring-brasa/40"
@@ -1807,11 +1819,11 @@ function HojaOpciones({
                               Antes solo cambiaba el fondo y no se veía qué
                               estaba elegido. */}
                           <span
-                            className={`grid h-5 w-5 shrink-0 place-items-center text-[0.7rem] font-bold transition ${
+                            className={`grid h-5 w-5 shrink-0 place-items-center text-[0.7rem] font-bold transition-all duration-200 ${
                               g.maxSelec === 1 ? "rounded-full" : "rounded-md"
                             } ${
                               marcada
-                                ? "bg-brasa text-sobre-brasa"
+                                ? "scale-110 bg-brasa text-sobre-brasa"
                                 : "ring-1 ring-linea"
                             }`}
                             aria-hidden
@@ -1897,7 +1909,14 @@ function HojaOpciones({
             <button
               onClick={() => onAgregar(elegidas, cantidad)}
               disabled={faltanObligatorios.length > 0}
-              className="flex-1 rounded-tarjeta bg-brasa py-3.5 font-bold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.99] disabled:bg-arena disabled:text-frio"
+              // El brillo corre SOLO cuando pasa a habilitado: la `key` cambia
+              // en ese instante y remonta el botón. Es el momento en que el
+              // cliente terminó de elegir y puede seguir — decirlo con un
+              // destello es más rápido de leer que el cambio de color.
+              key={faltanObligatorios.length > 0 ? "falta" : "listo"}
+              className={`flex-1 rounded-tarjeta bg-brasa py-3.5 font-bold text-sobre-brasa transition-all duration-200 hover:bg-brasa-hondo active:scale-[0.99] disabled:bg-arena disabled:text-frio ${
+                faltanObligatorios.length === 0 ? "boton-listo" : ""
+              }`}
             >
               {faltanObligatorios.length > 0
                 // Se dice QUÉ falta, no solo se deshabilita: un botón gris sin
@@ -2109,7 +2128,15 @@ function BarraCarrito({
           : faltaParaElMinimo > 0
             ? `Mínimo ${soles(minimo)} para delivery`
             : enviando
-              ? "Revisando…"
+              ? (
+                  // Texto quieto = pantalla trabada (regla de Jonathan:
+                  // ninguna espera sin animación). Acá el cliente está a un
+                  // toque de pagar: si duda, abandona.
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-sobre-brasa/40 border-t-sobre-brasa" />
+                    Revisando tu pedido…
+                  </span>
+                )
               : `Ver mi pedido · ${soles(totalVisible)}`}
       </button>
     </div>
@@ -2231,7 +2258,12 @@ function ConfirmarPedido({
           className="w-full rounded-tarjeta bg-brasa py-4 text-[1.05rem] font-bold text-sobre-brasa transition active:scale-[0.99] disabled:opacity-40"
         >
           {enviando
-            ? "Enviando…"
+            ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-sobre-brasa/40 border-t-sobre-brasa" />
+                  Enviando tu pedido…
+                </span>
+              )
             : mesa
               ? `Mandar a cocina · ${soles(cotizacion.totalCentavos)}`
               : `Confirmar pedido · ${soles(cotizacion.totalCentavos)}`}

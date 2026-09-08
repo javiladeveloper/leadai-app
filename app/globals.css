@@ -576,3 +576,188 @@ button[class*="active:scale"]:active {
 .tipografia-redonda input {
   font-family: var(--fuente-carta), system-ui, sans-serif;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LA CARTA ES LA CARA DEL NEGOCIO (2026-09-08, Jonathan: "cuando el cliente
+   va escogiendo cosas del combo también debemos meterle animación, que se vea
+   bonito... la carta es la presentación del negocio").
+
+   Lo que sigue es para el MOMENTO DE ELEGIR: hasta hoy la hoja de opciones
+   aparecía y las filas estaban ahí de golpe, y marcar una solo cambiaba el
+   color. Elegir 3 cortes entre 38 era llenar un formulario, no antojarse.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* La fila ELEGIDA da un pulso corto. Es el acuse de recibo del toque: sin él
+   el cliente duda de si registró y toca otra vez —y en un grupo de reparto
+   eso le suma una unidad que no quería. */
+@keyframes opcion-marcada {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.025); }
+  100% { transform: scale(1); }
+}
+.opcion-marcada { animation: opcion-marcada 0.26s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* El CONTADOR de un reparto salta cuando cambia ("2 de 3" → "3 de 3"). Es el
+   número que decide si puede confirmar, así que tiene que llamar la atención
+   sin gritar. */
+@keyframes contador-cambia {
+  0%   { transform: translateY(0); opacity: 1; }
+  45%  { transform: translateY(-3px); opacity: 0.55; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.contador-cambia { animation: contador-cambia 0.24s ease-out; }
+
+/* El grupo COMPLETO respira una vez. Cuando el cliente termina de repartir sus
+   3 cortes, el chip pasa a verde: este destello lo hace visible sin que tenga
+   que buscarlo con la vista. */
+@keyframes grupo-listo {
+  0%   { box-shadow: 0 0 0 0 rgb(from var(--color-ok) r g b / 0.5); }
+  100% { box-shadow: 0 0 0 8px rgb(from var(--color-ok) r g b / 0); }
+}
+.grupo-listo { animation: grupo-listo 0.5s ease-out; }
+
+/* Las filas de opciones ENTRAN escalonadas, como las tarjetas de la carta.
+   Se corta al 8º: para entonces el cliente ya está scrolleando y esperar
+   más solo retrasa lo que quiere ver. */
+@keyframes opcion-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.opcion-entra { animation: opcion-entra 0.3s ease-out backwards; }
+.opcion-entra:nth-child(1) { animation-delay: 0.01s; }
+.opcion-entra:nth-child(2) { animation-delay: 0.03s; }
+.opcion-entra:nth-child(3) { animation-delay: 0.05s; }
+.opcion-entra:nth-child(4) { animation-delay: 0.07s; }
+.opcion-entra:nth-child(5) { animation-delay: 0.09s; }
+.opcion-entra:nth-child(6) { animation-delay: 0.11s; }
+.opcion-entra:nth-child(7) { animation-delay: 0.13s; }
+.opcion-entra:nth-child(n+8) { animation-delay: 0.15s; }
+
+/* El botón de CONFIRMAR, cuando por fin se habilita. El cliente completó lo
+   que faltaba y el botón pasa de gris a naranja: el brillo que lo cruza dice
+   "ahora sí" mejor que el cambio de color solo. */
+@keyframes boton-listo {
+  from { background-position: 200% 0; }
+  to   { background-position: -100% 0; }
+}
+.boton-listo {
+  background-image: linear-gradient(
+    100deg,
+    transparent 35%,
+    rgb(255 255 255 / 0.22) 50%,
+    transparent 65%
+  );
+  background-size: 200% 100%;
+  animation: boton-listo 0.7s ease-out;
+}
+
+/* NADIE SE MAREA POR UNA ANIMACIÓN. Quien pidió menos movimiento en su
+   sistema no debería tener que aguantar el nuestro: se apagan todas de una,
+   sin quitar el estado final (opacidad 1, sin desplazamiento). */
+@media (prefers-reduced-motion: reduce) {
+  .opcion-marcada,
+  .contador-cambia,
+  .grupo-listo,
+  .opcion-entra,
+  .boton-listo {
+    animation: none !important;
+  }
+}
+
+/* ═══ EL TELÉFONO DE MENTIRA DE LOS EXTRAS (2026-09-08) ═══════════════════
+   Jonathan se trabó armando un combo: "la sección extras es muy enredosa".
+   El diagnóstico no era la cantidad de campos sino QUIÉN elige — el dueño
+   creía estar eligiendo el sabor cuando estaba definiendo que el CLIENTE
+   lo elija. Ningún texto explicativo arregla eso: hay que MOSTRARLO.
+
+   De ahí este bloque. Es el vocabulario de una maqueta —un teléfono dibujado
+   con divs— que se pinta al lado del formulario y se mueve con lo que el
+   dueño escribe. Nada acá carga una imagen: una preview que tarda no sirve
+   para entender lo que estás tipeando ahora mismo. */
+
+/* LA MAQUETA RESPONDE AL TIPEO. Cuando el dueño cambia de plantilla la
+   preview entera es otra cosa (radios → casillas → −/+), y sin este saltito
+   el cambio pasa desapercibido: se ve igual de estático que antes y el dueño
+   no ata su elección con el resultado. 260ms, apenas más que una entrada
+   normal, porque acá el movimiento SÍ es el mensaje. */
+@keyframes maqueta-cambia {
+  0%   { opacity: 0; transform: scale(0.97) translateY(4px); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+.maqueta-cambia { animation: maqueta-cambia 260ms var(--curva-entrada, ease-out) backwards; }
+
+/* UNA FILA DE LA MAQUETA, ESCALONADA. Las opciones del grupo aparecen una
+   detrás de otra —no las siete de golpe— porque así se lee que son UNA LISTA
+   que el cliente va a recorrer, no un bloque de texto. El escalón se corta al
+   sexto: para entonces ya se entendió, y esperar más es hacerle perder tiempo
+   al dueño que solo quería ver su precio. */
+@keyframes maqueta-fila {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+.maqueta-fila { animation: maqueta-fila 200ms var(--curva-entrada, ease-out) backwards; }
+.maqueta-fila:nth-child(1) { animation-delay: 0.03s; }
+.maqueta-fila:nth-child(2) { animation-delay: 0.07s; }
+.maqueta-fila:nth-child(3) { animation-delay: 0.11s; }
+.maqueta-fila:nth-child(4) { animation-delay: 0.15s; }
+.maqueta-fila:nth-child(5) { animation-delay: 0.19s; }
+.maqueta-fila:nth-child(n+6) { animation-delay: 0.22s; }
+
+/* EL DEDO DE MENTIRA. La maqueta muestra una opción ya marcada para que se
+   entienda que el cliente TOCA algo; este pulso sobre la marcada dice que
+   ese estado lo eligió alguien, no que venga puesto de fábrica. Corre tres
+   veces y para: algo que late para siempre al lado de un formulario compite
+   con los campos que el dueño está llenando. */
+@keyframes maqueta-toque {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brasa) 0%, transparent); }
+  40%      { box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-brasa) 30%, transparent); }
+}
+.maqueta-toque { animation: maqueta-toque 1.3s var(--curva-entrada, ease-out) 3; }
+
+/* EL NÚMERO QUE CAMBIA en la maqueta de reparto ("2 de 3"). Es el mismo
+   recurso que la carta pública usa en su contador: sin el saltito, sumar una
+   unidad no se ve, y el reparto es justo la plantilla que nadie entiende de
+   solo leerla. */
+@keyframes maqueta-cuenta {
+  0%   { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.maqueta-cuenta { animation: maqueta-cuenta 220ms var(--curva-entrada, ease-out); }
+
+/* LA PLANTILLA ELEGIDA SE VA, EL FORMULARIO LLEGA (2026-09-08).
+   Elegir el caso y llenar los campos son dos PASOS del mismo camino, igual
+   que la carta y la confirmación de la carta pública. Antes la lista de
+   plantillas desaparecía y el formulario aparecía en el mismo lugar sin
+   relación visible: parecía que la hoja se había roto y recargado. */
+.plantilla-sale { animation: paso-adelante-sale 180ms var(--curva-salida, ease-out) forwards; }
+
+/* LA PLANTILLA QUE SE TOCÓ, ANTES DE IRSE. Se ilumina un instante para que el
+   ojo confirme CUÁL de las cuatro quedó elegida — sin esto, con la hoja
+   cambiando entera, el dueño no está seguro de haber tocado la que quería, y
+   ese es exactamente el momento donde se traba. */
+@keyframes plantilla-elegida {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brasa) 45%, transparent); }
+  100% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--color-brasa) 0%, transparent); }
+}
+.plantilla-elegida {
+  animation: plantilla-elegida 320ms var(--curva-entrada, ease-out);
+}
+
+/* GUARDANDO, CON LA BARRA CORRIENDO (2026-09-08). Regla de Jonathan: ninguna
+   espera sin animación. Guardar un grupo con fotos son varias subidas en fila
+   y el botón que solo dice "Guardando…" parece colgado a los tres segundos.
+   Es indeterminada a propósito —no sabemos cuántas fotos ni qué tan lenta
+   está la red—, así que informa "sigue vivo", no "falta tanto". */
+@keyframes barra-corre {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.barra-corre { animation: barra-corre 1.1s ease-in-out infinite; }
+
+/* LA FOTO DEL EXTRA MIENTRAS SE PREPARA usa `.girando`, el spinner que ya
+   existe, y no una animación propia: es la única que sobrevive a
+   `prefers-reduced-motion` —por eso está escrita como excepción allá arriba— y
+   esta espera necesita exactamente eso. `leerFoto` comprime la imagen en el
+   navegador, y con una foto de cámara moderna tarda lo suficiente para que el
+   dueño toque el cuadradito otra vez creyendo que no pasó nada. */

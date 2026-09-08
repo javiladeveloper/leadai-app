@@ -168,7 +168,14 @@ export default function CartaPanel() {
       )}
 
       {estado === "ok" && carta && (
-        <>
+        /* CAMBIAR DE PESTAÑA SE VE (2026-09-08). Las seis pestañas intercambiaban
+           el contenido de golpe: el subrayado se movía arriba y abajo aparecía
+           otra pantalla sin ninguna relación, así que no se leía como "la misma
+           carta, otra vista". El `key` remonta el bloque para que la entrada
+           corra en cada cambio; sin él la animación solo se vería la primera
+           vez. Es la misma `.pantalla-entra` corta del resto del panel — 160ms,
+           porque una transición que se nota estorba a la quinta vez. */
+        <div key={pestana} className="pantalla-entra">
           {pestana === "platos" && (
             <Platos carta={carta} recargar={cargar} avisar={setError} />
           )}
@@ -183,7 +190,7 @@ export default function CartaPanel() {
             <Promos carta={carta} recargar={cargar} avisar={setError} />
           )}
           {pestana === "marca" && <MarcaCarta />}
-        </>
+        </div>
       )}
     </div>
   );
@@ -387,12 +394,31 @@ function PieHoja({
       >
         Cancelar
       </button>
+      {/* GUARDANDO, CON LA BARRA CORRIENDO (2026-09-08). Regla de Jonathan:
+          ninguna espera sin animación. El botón decía "Guardando…" y se
+          quedaba quieto — y guardar un grupo de extras son varias subidas de
+          foto en fila, así que a los tres segundos parecía colgado y el dueño
+          empezaba a tocar. La barra es INDETERMINADA a propósito: no sabemos
+          cuántas fotos ni qué tan lenta está la red, así que informa "esto
+          sigue vivo", no "falta tanto".
+
+          Va acá adentro, en el pie compartido, y no en cada hoja: las cuatro
+          guardan igual y ninguna nueva debería nacer sin el indicador. */}
       <button
         onClick={guardar}
         disabled={guardando || !puedeGuardar}
-        className="flex-[1.4] rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita shadow-[0_2px_10px_rgba(0,0,0,0.10)] transition hover:bg-orbita-hondo hover:shadow-[0_4px_16px_rgba(0,0,0,0.16)] active:scale-[0.98] disabled:opacity-50 disabled:shadow-none"
+        aria-busy={guardando}
+        className="relative flex-[1.4] overflow-hidden rounded-tarjeta bg-orbita px-4 py-2.5 font-semibold text-sobre-orbita shadow-[0_2px_10px_rgba(0,0,0,0.10)] transition hover:bg-orbita-hondo hover:shadow-[0_4px_16px_rgba(0,0,0,0.16)] active:scale-[0.98] disabled:opacity-50 disabled:shadow-none"
       >
         {guardando ? "Guardando…" : etiqueta}
+        {guardando && (
+          <span
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] overflow-hidden bg-sobre-orbita/15"
+            aria-hidden
+          >
+            <span className="barra-corre block h-full w-1/3 rounded-full bg-sobre-orbita/70" />
+          </span>
+        )}
       </button>
     </>
   );
@@ -1160,6 +1186,14 @@ function reglaDelGrupo(g: GrupoOpciones): string {
  * en min/max: piensa "el cliente elige su término", "cobro el queso extra",
  * "el 1er topping va gratis". Elegir el caso preconfigura las reglas — los
  * toggles quedan abajo como ajuste fino, no como examen de entrada.
+ *
+ * EL EJEMPLO AHORA SE VE, NO SE LEE (2026-09-08, Jonathan se trabó armando un
+ * combo: "es muy enredoso, hazlo más demostrativo"). Cada plantilla trae un
+ * `demo` —el grupo de mentira que se dibuja en la maqueta de al lado— porque
+ * la frase "el 1er topping va gratis" describe una REGLA, y lo que el dueño
+ * necesita reconocer es la PANTALLA que su cliente va a ver. Los nombres del
+ * demo salen del caso real que motivó cada plantilla, no son genéricos: se
+ * reconoce "Queso extra" mucho antes que "Opción 1".
  */
 const PLANTILLAS_GRUPO = [
   {
@@ -1168,6 +1202,14 @@ const PLANTILLAS_GRUPO = [
     titulo: "El cliente elige UNA",
     ejemplo: "Término de la carne, tamaño, sabor. No puede pedir sin elegir.",
     obligatorio: true, unaSola: true, sinCargo: "",
+    demo: {
+      nombre: "Término de la carne",
+      opciones: [
+        { nombre: "Jugoso", precio: "" },
+        { nombre: "Tres cuartos", precio: "" },
+        { nombre: "Bien cocido", precio: "" },
+      ],
+    },
   },
   {
     id: "agregados" as const,
@@ -1175,6 +1217,14 @@ const PLANTILLAS_GRUPO = [
     titulo: "Agregados que se cobran",
     ejemplo: "Queso extra, porción de arroz, cremas. Puede saltárselo.",
     obligatorio: false, unaSola: false, sinCargo: "",
+    demo: {
+      nombre: "Agrégale",
+      opciones: [
+        { nombre: "Queso extra", precio: "3.00" },
+        { nombre: "Porción de arroz", precio: "5.00" },
+        { nombre: "Crema de rocoto", precio: "2.00" },
+      ],
+    },
   },
   {
     id: "con_gratis" as const,
@@ -1182,6 +1232,14 @@ const PLANTILLAS_GRUPO = [
     titulo: "Incluye algunos gratis",
     ejemplo: "El 1er topping va gratis y del 2° se cobra.",
     obligatorio: false, unaSola: false, sinCargo: "1",
+    demo: {
+      nombre: "Toppings",
+      opciones: [
+        { nombre: "Perlas", precio: "2.50" },
+        { nombre: "Jelly de lychee", precio: "3.00" },
+        { nombre: "Pudín", precio: "2.50" },
+      ],
+    },
   },
   {
     // REPARTIR N UNIDADES (2026-09-08). Los dos casos que lo pidieron: la
@@ -1193,8 +1251,215 @@ const PLANTILLAS_GRUPO = [
     titulo: "Reparte una cantidad",
     ejemplo: "Caja de 7 churros, 3 cortes de maki: elige cuántos de cada sabor.",
     obligatorio: true, unaSola: false, sinCargo: "", reparte: "3",
+    demo: {
+      nombre: "Sabores de la caja",
+      opciones: [
+        { nombre: "Manjar", precio: "" },
+        { nombre: "Chocolate", precio: "" },
+        { nombre: "Fresa", precio: "" },
+      ],
+    },
   },
 ];
+
+/** Una opción como la ve la maqueta: nombre y precio, en texto crudo. */
+type OpcionMaqueta = { nombre: string; precio: string };
+
+/**
+ * LA MAQUETA — el teléfono de mentira del grupo de extras (2026-09-08).
+ *
+ * Jonathan, trabado armando un combo: "cuando configuras la sección extras es
+ * muy enredoso... hazlo más demostrativo, quizás con pequeñas imágenes para
+ * guiar". El diagnóstico de fondo ya estaba hecho: el formulario pregunta
+ * cosas parecidas sin dejar claro QUIÉN elige. El dueño escribe "Chicha
+ * morada" creyendo que está eligiendo la bebida, cuando lo que está haciendo
+ * es definir que su CLIENTE la elija.
+ *
+ * Una frase más no arregla eso — ya había tres. Lo que lo arregla es pintar la
+ * pantalla del cliente al lado del campo y moverla con cada tecla: la única
+ * forma de que se lea "esto lo va a tocar otra persona" es verlo tocable.
+ *
+ * Se dibuja con divs y nada más: tiene que redibujarse en cada tecla, y algo
+ * que se descarga no le sigue el ritmo al tipeo. Por eso tampoco son "imágenes
+ * para guiar" literales — son la pantalla real, que enseña más que un dibujo.
+ *
+ * Las tres formas NO son decoración, son las tres reglas del backend:
+ *   · redondo lleno  → maxSelec 1        (elige una y solo una)
+ *   · cuadrado ✓     → maxSelec libre    (marca las que quiera)
+ *   · −/+ con cuenta → unidadesAReparto  (reparte N entre las opciones)
+ * Son las MISMAS que pinta la carta pública en /c/[tenantId]: el dueño ya vio
+ * esa pantalla desde el lado del cliente, así que las reconoce sin leyenda.
+ */
+function MaquetaGrupo({
+  nombre, opciones, unaSola, obligatorio, sinCargo, reparte, compacta = false,
+}: {
+  nombre: string;
+  opciones: OpcionMaqueta[];
+  unaSola: boolean;
+  obligatorio: boolean;
+  /** Cuántas de las elegidas van gratis. 0 = se cobran todas. */
+  sinCargo: number;
+  /** Cuántas unidades reparte el cliente. 0 = grupo normal. */
+  reparte: number;
+  /** Versión chica, para adentro de una tarjeta de plantilla. */
+  compacta?: boolean;
+}) {
+  const esReparto = reparte >= 2;
+  // Solo las primeras: la maqueta demuestra la FORMA, y con cinco filas ya se
+  // entendió. Un grupo de 39 makis convertiría la preview en otro scroll.
+  const visibles = opciones.slice(0, compacta ? 3 : 5);
+  const sobran = opciones.length - visibles.length;
+
+  // EL REPARTO SE MUESTRA A MEDIO LLENAR (2026-09-08). Con la caja en cero los
+  // −/+ se ven pero la mecánica no: lo que hay que entender es que la suma
+  // tiene que dar JUSTO. Con "2 de 3" en naranja se lee de una que falta algo,
+  // que es exactamente lo que su cliente va a sentir al pedir.
+  const repartidas = visibles.map((_, i) => (esReparto && i === 0 ? Math.min(2, reparte) : 0));
+  const puestas = repartidas.reduce((s, n) => s + n, 0);
+  const completo = puestas === reparte;
+
+  const textoRegla = esReparto
+    ? `${puestas} de ${reparte}`
+    : obligatorio
+      ? unaSola ? "Elige 1" : "Obligatorio"
+      : unaSola ? "Elige 1" : "Opcional";
+
+  return (
+    <div
+      /* `key` con la FORMA: al cambiar de plantilla la maqueta pasa a ser otra
+         cosa (redondos → cuadrados → −/+), y sin remontar el nodo el cambio se
+         ve estático. Ese saltito es lo que ata "toqué esta tarjeta" con "pasa
+         esto" — sin él, elegir el caso no se siente como una decisión. */
+      key={`${esReparto ? "r" : unaSola ? "u" : "v"}-${reparte}`}
+      className={`maqueta-cambia rounded-tarjeta bg-carta ring-1 ring-linea ${compacta ? "p-2.5" : "p-3"}`}
+    >
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <p className={`min-w-0 truncate font-bold text-tinta ${compacta ? "text-[0.8rem]" : "text-[0.92rem]"}`}>
+          {nombre}
+        </p>
+        <span
+          key={`cuenta-${puestas}`}
+          className={`shrink-0 rounded-chip px-2 py-0.5 text-[0.68rem] font-bold tabular-nums ${
+            esReparto
+              ? completo
+                ? "bg-ok/12 text-ok"
+                : "maqueta-cuenta bg-orbita/12 text-calor"
+              : obligatorio
+                ? "bg-orbita/12 uppercase tracking-wide text-calor"
+                : "bg-arena uppercase tracking-wide text-frio"
+          }`}
+        >
+          {textoRegla}
+        </span>
+      </div>
+
+      <div className="space-y-1.5">
+        {visibles.map((o, i) => {
+          // La PRIMERA va marcada en los modos de tildar: una lista de casillas
+          // todas vacías se lee como una lista, no como algo que se elige.
+          const marcada = !esReparto && i === 0;
+          const gratis = sinCargo > 0 && !unaSola && !esReparto && i === 0;
+          const n = repartidas[i];
+          return (
+            <div
+              key={`${o.nombre}-${i}`}
+              className={`maqueta-fila flex items-center gap-2 rounded-lg px-2.5 ${
+                compacta ? "py-1.5" : "py-2"
+              } ${
+                marcada || n > 0 ? "bg-brasa/10 ring-2 ring-brasa" : "ring-1 ring-linea"
+              } ${marcada ? "maqueta-toque" : ""}`}
+            >
+              {/* LA FORMA ES LA REGLA. Redondo = una sola; cuadrado = varias.
+                  En el reparto no hay marca porque no se tilda: se cuenta. */}
+              {!esReparto && (
+                <span
+                  aria-hidden
+                  className={`grid shrink-0 place-items-center text-[0.62rem] font-bold ${
+                    compacta ? "h-3.5 w-3.5" : "h-4 w-4"
+                  } ${unaSola ? "rounded-full" : "rounded"} ${
+                    marcada ? "bg-brasa text-sobre-brasa" : "ring-1 ring-linea"
+                  }`}
+                >
+                  {marcada ? "✓" : ""}
+                </span>
+              )}
+
+              <span
+                className={`min-w-0 flex-1 truncate ${compacta ? "text-[0.74rem]" : "text-[0.82rem]"} ${
+                  marcada || n > 0 ? "font-semibold text-tinta" : "text-tinta-2"
+                }`}
+              >
+                {o.nombre || "Sin nombre"}
+              </span>
+
+              {esReparto ? (
+                /* El −/+ de la carta pública, en chico. NO es interactivo a
+                   propósito: es el dibujo de lo que va a tocar el cliente, y un
+                   control que respondiera acá invitaría a "configurar" desde la
+                   preview — que es justo la confusión que se quiere matar. */
+                <span className="flex shrink-0 items-center gap-1" aria-hidden>
+                  <span
+                    className={`grid place-items-center rounded-full text-[0.75rem] font-bold leading-none ring-1 ring-linea ${
+                      compacta ? "h-5 w-5" : "h-6 w-6"
+                    } ${n > 0 ? "text-tinta" : "text-frio opacity-40"}`}
+                  >
+                    −
+                  </span>
+                  <span
+                    key={`n-${i}-${n}`}
+                    className={`w-4 text-center text-[0.78rem] font-bold tabular-nums ${
+                      n > 0 ? "maqueta-cuenta text-tinta" : "text-frio"
+                    }`}
+                  >
+                    {n}
+                  </span>
+                  <span
+                    className={`grid place-items-center rounded-full bg-brasa text-[0.75rem] font-bold leading-none text-sobre-brasa ${
+                      compacta ? "h-5 w-5" : "h-6 w-6"
+                    } ${completo ? "opacity-30" : ""}`}
+                  >
+                    +
+                  </span>
+                </span>
+              ) : (
+                <span
+                  className={`shrink-0 tabular-nums ${compacta ? "text-[0.7rem]" : "text-[0.78rem]"} ${
+                    gratis ? "font-semibold text-brasa-texto" : "text-frio"
+                  }`}
+                >
+                  {gratis
+                    ? "gratis"
+                    : o.precio.trim() && aCentavos(o.precio) !== null
+                      ? `+${precioTexto(aCentavos(o.precio)!)}`
+                      : "incluido"}
+                </span>
+              )}
+            </div>
+          );
+        })}
+        {sobran > 0 && (
+          <p className={`px-2.5 text-frio ${compacta ? "text-[0.68rem]" : "text-[0.74rem]"}`}>
+            …y {sobran} más
+          </p>
+        )}
+      </div>
+
+      {/* El regalo se muestra ACÁ y no en una nota aparte: es el renglón que el
+          cliente ve en su total, y verlo en la maqueta es lo que confirma que
+          "las primeras sin cargo" quedó bien puesto. */}
+      {sinCargo > 0 && !unaSola && !esReparto && (
+        <p className={`mt-2 text-brasa-texto ${compacta ? "text-[0.68rem]" : "text-[0.74rem]"}`}>
+          🎁 {sinCargo === 1 ? "La más cara que elija va" : `Las ${sinCargo} más caras que elija van`} sin cargo
+        </p>
+      )}
+      {esReparto && !completo && (
+        <p className={`mt-2 font-semibold text-calor ${compacta ? "text-[0.68rem]" : "text-[0.74rem]"}`}>
+          No puede seguir hasta completar {reparte}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function HojaGrupo({
   grupo, carta, cerrar, recargar,
@@ -1246,6 +1511,17 @@ function HojaGrupo({
   // Al CREAR se elige primero el caso (plantilla); al editar se va directo al
   // formulario — las reglas ya existen y el dueño viene a corregir algo.
   const [eligiendoCaso, setEligiendoCaso] = useState(!grupo);
+  // ELEGIR EL CASO ES UN PASO, NO UN CORTE (2026-09-08). La lista de plantillas
+  // desaparecía y el formulario aparecía en el mismo lugar sin ninguna relación
+  // visible: parecía que la hoja se había roto y recargado. Estos dos estados
+  // sostienen el cruce —cuál se tocó, y que la lista se está yendo— los 180ms
+  // que tarda en salir.
+  const [elegida, setElegida] = useState<string | null>(null);
+  const [saliendoPlantilla, setSaliendoPlantilla] = useState(false);
+  // La foto de un extra se COMPRIME en el navegador antes de viajar, y con una
+  // foto de cámara moderna eso tarda lo suficiente para que el dueño toque el
+  // cuadradito otra vez creyendo que no pasó nada.
+  const [fotoOcupada, setFotoOcupada] = useState<number | null>(null);
   // Qué platos llevan este grupo — SE ASIGNAN ACÁ MISMO (2026-08-22). Antes
   // el flujo estaba partido: crear el grupo y después ir plato por plato.
   const [platosIds, setPlatosIds] = useState<string[]>(
@@ -1328,33 +1604,70 @@ function HojaGrupo({
     cerrar();
   }
 
+  /**
+   * Tocar una plantilla: se ilumina, la lista se va, y recién ahí entra el
+   * formulario. Los 180ms del `setTimeout` son los que dura `.plantilla-sale`;
+   * pasarlo a estado antes dejaría las dos pantallas encimadas.
+   *
+   * Las reglas se aplican YA, no al terminar la animación: si el dueño cierra
+   * la hoja a mitad del cruce, lo que eligió no se pierde.
+   */
+  function elegirPlantilla(c: (typeof PLANTILLAS_GRUPO)[number]) {
+    setObligatorio(c.obligatorio);
+    setUnaSola(c.unaSola);
+    setSinCargo(c.sinCargo);
+    setReparte(("reparte" in c ? c.reparte : "") ?? "");
+    setElegida(c.id);
+    setSaliendoPlantilla(true);
+    setTimeout(() => setEligiendoCaso(false), 180);
+  }
+
   // PASO 0 AL CREAR: elegir el CASO, no descifrar checkboxes. Cada tarjeta es
   // una situación que el dueño reconoce; tocarla preconfigura las reglas.
   if (eligiendoCaso) {
     return (
       <Hoja
         titulo="Nuevo grupo de extras"
-        bajada="¿Cómo funciona lo que el cliente va a elegir?"
+        bajada="Toca el que se parezca a lo tuyo — abajo de cada uno está la pantalla que verá tu cliente."
         cerrar={cerrar}
         pie={null}
       >
-        <div className="space-y-2.5">
+        <div className={`space-y-2.5 ${saliendoPlantilla ? "plantilla-sale" : ""}`}>
           {PLANTILLAS_GRUPO.map((c) => (
             <button
               key={c.id}
-              onClick={() => {
-                setObligatorio(c.obligatorio);
-                setUnaSola(c.unaSola);
-                setSinCargo(c.sinCargo);
-                setReparte(("reparte" in c ? c.reparte : "") ?? "");
-                setEligiendoCaso(false);
-              }}
-              className="tarjeta-viva flex w-full items-start gap-3 rounded-tarjeta bg-arena/60 p-4 text-left ring-1 ring-linea transition hover:ring-brasa/50 active:scale-[0.99]"
+              onClick={() => elegirPlantilla(c)}
+              /* La tarjeta ELEGIDA se ilumina un momento antes de que la hoja
+                 cambie (2026-09-08): con las cuatro yéndose juntas, sin este
+                 destello el dueño no queda seguro de cuál tocó — y ahí, con la
+                 pantalla cambiando, es donde se traba. */
+              className={`tarjeta-viva block w-full rounded-tarjeta bg-arena/60 p-4 text-left ring-1 ring-linea transition hover:ring-brasa/50 active:scale-[0.99] ${
+                elegida === c.id ? "plantilla-elegida ring-2 ring-brasa" : ""
+              }`}
             >
-              <span className="text-[1.6rem]" aria-hidden>{c.icono}</span>
-              <span className="min-w-0">
-                <span className="block font-semibold text-tinta">{c.titulo}</span>
-                <span className="block text-[0.82rem] leading-snug text-tinta-2">{c.ejemplo}</span>
+              <span className="flex items-start gap-3">
+                <span className="text-[1.6rem] leading-none" aria-hidden>{c.icono}</span>
+                <span className="min-w-0">
+                  <span className="block font-semibold text-tinta">{c.titulo}</span>
+                  <span className="block text-[0.82rem] leading-snug text-tinta-2">{c.ejemplo}</span>
+                </span>
+              </span>
+              {/* LA PANTALLA DEL CLIENTE, DENTRO DE LA TARJETA (2026-09-08).
+                  Los cuatro casos se describían con palabras parecidas —"elige",
+                  "puede elegir", "va gratis"— y elegir entre ellos era comparar
+                  frases. Con la maqueta debajo, la diferencia es de FORMA:
+                  redondos, cuadrados o −/+. Se decide de un vistazo. */}
+              <span className="mt-3 block border-t border-linea pt-3">
+                <span className="eyebrow mb-1.5 block">Lo verá así</span>
+                <MaquetaGrupo
+                  compacta
+                  nombre={c.demo.nombre}
+                  opciones={c.demo.opciones}
+                  unaSola={c.unaSola}
+                  obligatorio={c.obligatorio}
+                  sinCargo={Number(c.sinCargo) || 0}
+                  reparte={Number("reparte" in c ? c.reparte : "") || 0}
+                />
               </span>
             </button>
           ))}
@@ -1380,8 +1693,17 @@ function HojaGrupo({
         />
       }
     >
-        <div className="space-y-4">
-          <Campo etiqueta="Nombre del grupo" ayuda="Cremas, Tamaño, Término…">
+        {/* EL FORMULARIO ENTRA COMO PASO (2026-09-08). Venir de las plantillas
+            y que el contenido cambie de golpe se lee como un error de carga;
+            entrando desde la derecha se lee como pasar de hoja. Solo al crear:
+            al editar no hubo paso anterior del que venir. */}
+        <div className={`space-y-4 ${grupo ? "" : "paso-adelante"}`}>
+          {/* "LA PREGUNTA QUE LE HACES" Y NO "NOMBRE DEL GRUPO" (2026-09-08).
+              Es la misma confusión de fondo que ya se arregló en los combos: el
+              dueño leía "Nombre del grupo" y escribía el nombre de UN extra
+              ("Chicha morada"), porque nada le decía que ese texto es el
+              encabezado de una pregunta que su cliente va a leer. */}
+          <Campo etiqueta="¿Qué le preguntas al cliente?" ayuda="Cremas, Tamaño, Término…">
             <input
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
@@ -1397,15 +1719,23 @@ function HojaGrupo({
                 un par de checkboxes que hay que interpretar. */}
             <p className="rounded-lg bg-carta px-3 py-2 text-[0.85rem] text-tinta ring-1 ring-linea">
               👁 Al pedir un plato con este grupo, el cliente <b>{reglaViva}</b>.
-              {!grupo && (
-                <button
-                  onClick={() => setEligiendoCaso(true)}
-                  className="ml-2 text-[0.78rem] font-semibold text-brasa-texto hover:underline"
-                >
-                  cambiar el caso
-                </button>
-              )}
             </p>
+            {/* VOLVER A LOS CASOS ES UN BOTÓN, NO UN ENLACE PERDIDO EN LA FRASE
+                (2026-09-08). Estaba pegado al final del renglón de la regla, en
+                letra chica: quien elegía mal la plantilla —el caso de Jonathan—
+                no encontraba la salida y terminaba peleando con los checkboxes.
+                Ahora se ve, y muestra qué caso está puesto. */}
+            {!grupo && (
+              <button
+                onClick={() => { setElegida(null); setSaliendoPlantilla(false); setEligiendoCaso(true); }}
+                className="flex w-full items-center gap-2 rounded-lg bg-carta px-3 py-2 text-left text-[0.8rem] text-tinta-2 ring-1 ring-linea transition hover:ring-brasa/50"
+              >
+                <span aria-hidden>↩</span>
+                <span className="min-w-0 flex-1 truncate">
+                  ¿No es lo que querías? <b className="text-brasa-texto">Elegir otro caso</b>
+                </span>
+              </button>
+            )}
             {/* En un grupo de REPARTO estos dos no aplican: repartir 3
                 unidades ya es obligatorio y ya es "varias". Dejarlos sería
                 ofrecer combinaciones que el backend rechaza. */}
@@ -1475,10 +1805,27 @@ function HojaGrupo({
             )}
           </div>
 
-          <Campo etiqueta="Opciones" ayuda="Deja el precio vacío si no cuesta nada">
+          {/* "ENTRE QUÉ ELIGE" Y NO "OPCIONES" (2026-09-08). Mismo arreglo que
+              en `HojaCombo`: la etiqueta genérica no decía quién elige, y al
+              lado de un campo llamado "Nombre del grupo" las dos parecían pedir
+              lo mismo. Acá se nombra al actor — y el contador ya se cruza con
+              el "de 3" de la maqueta cuando el grupo reparte. */}
+          <Campo
+            etiqueta={`Entre qué ELIGE el cliente${llenas.length > 0 ? ` (${llenas.length})` : ""}`}
+            ayuda="Deja el precio vacío si no cuesta nada"
+          >
             <div className="space-y-2">
               {opciones.map((o, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div
+                  key={i}
+                  /* CADA OPCIÓN ENTRA, ESCALONADA (2026-09-08). Agregar una
+                     fila hacía aparecer una línea idéntica a las de arriba y no
+                     se veía dónde había quedado el cursor; al reabrir un grupo
+                     de doce, las doce caían de golpe. Con el escalón la lista
+                     se lee como lista y el ojo sigue la que llegó. */
+                  style={retardo(i)}
+                  className="fila-entra flex items-center gap-2"
+                >
                   {/* Foto del extra: chica, al costado. Es opcional y no debe
                       robarle lugar al nombre y el precio, que es lo que el
                       dueño viene a escribir. */}
@@ -1492,13 +1839,28 @@ function HojaGrupo({
                         const archivo = e.target.files?.[0];
                         e.target.value = "";
                         if (!archivo) return;
+                        // NINGUNA ESPERA SIN ANIMACIÓN (regla de Jonathan).
+                        // `leerFoto` comprime la imagen en el navegador y con
+                        // una foto de cámara eso tarda: sin marcar el cuadrado
+                        // como ocupado, el dueño lo toca de nuevo creyendo que
+                        // no pasó nada y se le abre dos veces el explorador.
+                        setFotoOcupada(i);
                         const r = await leerFoto(archivo);
+                        setFotoOcupada(null);
                         if (!r.ok) { setErrorCampo(r.error); return; }
                         setErrorCampo("");
                         setOpciones((prev) => prev.map((x, j) => (j === i ? { ...x, foto: r.datos } : x)));
                       }}
                     />
-                    {o.foto ? (
+                    {fotoOcupada === i ? (
+                      <span
+                        className="grid h-9 w-9 place-items-center rounded border border-dashed border-orbita"
+                        aria-label="Preparando la foto"
+                        role="status"
+                      >
+                        <span className="girando block h-4 w-4 rounded-full border-2 border-linea border-t-orbita" aria-hidden />
+                      </span>
+                    ) : o.foto ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={o.foto} alt="" className="h-9 w-9 rounded object-cover ring-2 ring-orbita/35" />
                     ) : (
@@ -1540,7 +1902,7 @@ function HojaGrupo({
               ))}
               <button
                 onClick={() => setOpciones((prev) => [...prev, { nombre: "", precio: "", foto: null }])}
-                className="text-[0.85rem] font-semibold text-brasa-texto hover:underline"
+                className="rounded-chip px-2 py-1 text-[0.85rem] font-semibold text-brasa-texto transition hover:bg-brasa/10"
               >
                 + Agregar otra
               </button>
@@ -1588,43 +1950,33 @@ function HojaGrupo({
             </Campo>
           )}
 
-          {/* ASÍ LO VE EL CLIENTE: la vista previa mata la duda de qué están
-              configurando estos campos. Mismo layout que la carta pública:
-              círculo si elige una, cuadrado si puede varias. */}
-          {llenas.length > 0 && (
-            <div className="rounded-tarjeta bg-arena/60 p-3.5 ring-1 ring-linea">
-              <p className="eyebrow mb-2">Así lo verá el cliente</p>
-              <div className="rounded-tarjeta bg-carta p-3 ring-1 ring-linea">
-                <p className="text-[0.9rem] font-semibold text-tinta">
-                  {nombre.trim() || "Nombre del grupo"}
-                  <span className="ml-2 text-[0.75rem] font-normal text-frio">
-                    {obligatorio ? (unaSola ? "elige 1" : "elige al menos 1") : "opcional"}
-                  </span>
-                </p>
-                <div className="mt-2 space-y-1.5">
-                  {llenas.slice(0, 5).map((o, i) => (
-                    <div key={i} className="flex items-center justify-between gap-2 text-[0.85rem]">
-                      <span className="flex items-center gap-2 text-tinta-2">
-                        <span aria-hidden className="text-frio">{unaSola ? "◯" : "☐"}</span>
-                        {o.nombre}
-                      </span>
-                      <span className="tabular-nums text-frio">
-                        {o.precio.trim() && aCentavos(o.precio) ? `+S/${Number(o.precio).toFixed(2)}` : "gratis"}
-                      </span>
-                    </div>
-                  ))}
-                  {llenas.length > 5 && (
-                    <p className="text-[0.78rem] text-frio">…y {llenas.length - 5} más</p>
-                  )}
-                </div>
-                {!unaSola && Number(sinCargo) > 0 && (
-                  <p className="mt-2 text-[0.78rem] text-brasa-texto">
-                    🎁 {Number(sinCargo) === 1 ? "La opción más cara que elija va" : `Las ${sinCargo} más caras que elija van`} sin cargo.
-                  </p>
-                )}
-              </div>
+          {/* ASÍ LO VE EL CLIENTE — LA MISMA MAQUETA DE LAS PLANTILLAS
+              (2026-09-08). La preview que había acá estaba escrita aparte y se
+              le había quedado atrás: dibujaba "◯"/"☐" con caracteres, no sabía
+              nada del reparto —la plantilla de la caja de churros se veía como
+              una lista de casillas, que es lo contrario de lo que pasa— y decía
+              "gratis" donde el cliente lee "incluido".
+
+              Ahora es el MISMO componente que el dueño ya vio al elegir el
+              caso, con sus nombres y sus precios adentro. Ese reconocimiento es
+              la mitad del asunto: "esto que estoy llenando es aquello que
+              elegí". Se mantiene visible aunque no haya nada escrito todavía,
+              con los renglones en gris, porque el momento en que más falta
+              hace entender qué se está configurando es ANTES de escribir. */}
+          <div className="rounded-tarjeta bg-arena/60 p-3.5 ring-1 ring-linea">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <p className="eyebrow">Así lo verá tu cliente</p>
+              <p className="text-[0.72rem] text-frio">se actualiza mientras escribes</p>
             </div>
-          )}
+            <MaquetaGrupo
+              nombre={nombre.trim() || "Nombre del grupo"}
+              opciones={llenas.length > 0 ? llenas : [{ nombre: "Tu primera opción", precio: "" }]}
+              unaSola={unaSola}
+              obligatorio={obligatorio}
+              sinCargo={Number(sinCargo) || 0}
+              reparte={nReparte}
+            />
+          </div>
 
           {errorCampo && (
             <p className="fila-entra rounded-lg bg-alerta/10 px-3 py-2 text-[0.85rem] font-semibold text-alerta">

@@ -8,10 +8,10 @@ import { obtenerMiPlan } from "@/lib/api";
 import { MarketingBloqueado } from "@/components/panel/MarketingBloqueado";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { useCapacidadesOptimista } from "@/lib/modo-negocio";
-import AnunciosPanel from "@/app/(panel)/anuncios/page";
-import CampaniasPanel from "@/app/(panel)/campanias/page";
+import AnunciosPanel from "@/components/panel/AnunciosPanel";
+import CampaniasPanel from "@/components/panel/CampaniasPanel";
 import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
-import PublicarPanel from "@/app/(panel)/publicar/page";
+import PublicarPanel from "@/components/panel/PublicarPanel";
 import { HeroSeccion, MarketingIlustracion } from "@/components/panel/HeroSeccion";
 
 /**

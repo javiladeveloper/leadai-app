@@ -69,3 +69,73 @@ test('la imagen del encabezado se sube SIN comprimir, o Meta la rechaza siempre'
   assert.match(src, /subirMediaPost\(.*,\s*false\)/,
     'la imagen del encabezado se está comprimiendo a WebP y Meta la va a rechazar');
 });
+
+/**
+ * NINGUNA ESPERA SIN ANIMACIÓN — tampoco al enviar la plantilla (2026-09-09).
+ *
+ * Jonathan: "cuando puse enviar a revisión... se queda sin hacer nada, no
+ * sabes si funcionó, el botón no tiene animación de presionado, no sale loop
+ * de carga, te quedas ahí esperando no sabes si se colgó".
+ *
+ * Crear una plantilla con imagen NO es rápido: el backend descarga el archivo,
+ * abre una sesión de subida con Meta, manda los bytes y recién ahí crea la
+ * plantilla. Son varios segundos con el botón idéntico a como estaba.
+ *
+ * Y sin bloquearlo se puede tocar dos veces: la segunda petición choca con la
+ * primera y Meta responde "Content in This Language Already Exists" — el
+ * error que vio después de tocar de nuevo creyendo que no había pasado nada.
+ */
+test('el botón de enviar a Meta muestra que está trabajando', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../components/panel/CampaniasPanel.tsx', import.meta.url), 'utf8');
+  // Un estado propio del envío, distinto del de subir la imagen (pSubiendo).
+  assert.match(src, /pEnviando/, 'no hay estado de envío: el botón no puede avisar que trabaja');
+  // Y una animación, no solo texto.
+  assert.match(src, /pEnviando[\s\S]{0,400}animate-spin/,
+    'la espera va sin animación (regla de la casa)');
+});
+
+test('no se puede enviar dos veces: la segunda choca y Meta la rechaza', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../components/panel/CampaniasPanel.tsx', import.meta.url), 'utf8');
+  // El guard de reentrada y el botón deshabilitado mientras viaja.
+  assert.match(src, /if \(pEnviando/, 'falta el guard de reentrada');
+  assert.match(src, /disabled=\{[^}]*pEnviando/, 'el botón sigue clickeable mientras envía');
+});
+
+/**
+ * "CONTENT IN THIS LANGUAGE ALREADY EXISTS" EN CASTELLANO (2026-09-09).
+ *
+ * Meta responde eso cuando ya hay una plantilla con ese nombre en ese idioma.
+ * Le pasó a Jonathan al tocar "Enviar" de nuevo creyendo que no había pasado
+ * nada: la primera SÍ había funcionado. El mensaje en inglés no dice ni que
+ * su plantilla ya está creada ni qué hacer.
+ */
+test('el choque de nombre se explica: ya existe, y qué hacer', async () => {
+  const { traducirErrorPlantilla } = await import('../lib/errores-plantilla.ts');
+  const t = traducirErrorPlantilla(
+    'Content in This Language Already Exists: There is already Spanish content for this template. You can create a new template and try again.',
+  );
+  assert.match(t, /ya (existe|tienes)/i);
+  // Y lo más importante: que NO perdió su trabajo.
+  assert.match(t, /revisión|lista/i);
+  assert.doesNotMatch(t, /Already Exists/);
+});
+
+test('el formato no soportado también se explica', async () => {
+  const { traducirErrorPlantilla } = await import('../lib/errores-plantilla.ts');
+  const t = traducirErrorPlantilla('File Type Not Supported: The type of file is not supported.');
+  assert.match(t, /JPG|PNG/);
+});
+
+test('lo que no sabemos traducir se pasa tal cual, no se traga', async () => {
+  const { traducirErrorPlantilla } = await import('../lib/errores-plantilla.ts');
+  assert.equal(traducirErrorPlantilla('Algo rarísimo de Meta'), 'Algo rarísimo de Meta');
+  assert.match(traducirErrorPlantilla(''), /No se pudo/);
+});
+
+test('el traductor está CABLEADO en el panel, no es código muerto', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../components/panel/CampaniasPanel.tsx', import.meta.url), 'utf8');
+  assert.match(src, /traducirErrorPlantilla\(/);
+});

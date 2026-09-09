@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import { formatoEncabezadoOk, ACEPTA_ENCABEZADO, MENSAJE_FORMATO, AYUDA_FORMATO } from "@/lib/encabezado-plantilla";
+import { traducirErrorPlantilla } from "@/lib/errores-plantilla";
 import {
   listarLeads,
   listarPlantillasHSM, crearPlantillaHSM, eliminarPlantillaHSM, cupoCampanias,
@@ -113,6 +114,13 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
   const [pImagenUrl, setPImagenUrl] = useState("");
   const [pSubiendo, setPSubiendo] = useState(false);
   const [pMsg, setPMsg] = useState("");
+  /**
+   * ENVIANDO LA PLANTILLA A META (2026-09-09). Distinto de `pSubiendo` (que
+   * es la subida de la imagen): crear la plantilla con encabezado descarga el
+   * archivo, abre sesión con Meta, manda los bytes y recién crea — varios
+   * segundos en los que el botón se veía idéntico a como estaba.
+   */
+  const [pEnviando, setPEnviando] = useState(false);
   const [borrando, setBorrando] = useState<string | null>(null);
 
   const g = useSeccionGlobal();
@@ -208,15 +216,24 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
   }
 
   async function crearPlantillaSubmit() {
-    if (pSubiendo || !pNombre.trim() || pCuerpo.trim().length < 10) return;
+    // El guard incluye `pEnviando`: sin él, tocar dos veces manda dos
+    // peticiones y la segunda choca con la primera — Meta responde "Content
+    // in This Language Already Exists" y parece que falló todo cuando la
+    // primera en realidad había funcionado (caso real 2026-09-09).
+    if (pEnviando || pSubiendo || !pNombre.trim() || pCuerpo.trim().length < 10) return;
     setPMsg("");
+    setPEnviando(true);
     const r = await crearPlantillaHSM({
       nombre: pNombre.trim(),
       categoria: pCategoria,
       cuerpo: pCuerpo.trim(),
       ...(pImagenUrl ? { encabezado: { tipo: "IMAGE" as const, url: pImagenUrl } } : {}),
     }, g.tenantLista);
-    if (!r.ok) { setPMsg(r.error ?? "No se pudo crear la plantilla."); return; }
+    setPEnviando(false);
+    // El error de Meta viene en inglés y sin decir qué hacer: "Content in
+    // This Language Already Exists" no le dice a nadie que su plantilla YA
+    // está creada y en revisión (caso real 2026-09-09).
+    if (!r.ok) { setPMsg(traducirErrorPlantilla(r.error ?? "")); return; }
     setCreandoPlantilla(false); setPNombre(""); setPCuerpo(""); setPImagenUrl("");
     setAviso(`✅ Plantilla enviada a Meta. ${r.aviso ?? "La revisión toma minutos u horas; el estado aparece en la lista."}`);
     cargar();
@@ -610,10 +627,13 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
                 </button>
                 <button
                   onClick={crearPlantillaSubmit}
-                  disabled={pSubiendo || !pNombre.trim() || pCuerpo.trim().length < 10}
-                  className="rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
+                  disabled={pEnviando || pSubiendo || !pNombre.trim() || pCuerpo.trim().length < 10}
+                  className="inline-flex items-center gap-2 rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
                 >
-                  Enviar a revisión de Meta
+                  {pEnviando && (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-sobre-brasa/40 border-t-sobre-brasa" />
+                  )}
+                  {pEnviando ? "Enviando a Meta…" : "Enviar a revisión de Meta"}
                 </button>
               </div>
             </div>

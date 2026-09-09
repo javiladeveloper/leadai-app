@@ -991,7 +991,7 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
       <div className="relative h-36 w-full overflow-hidden bg-superficie-honda sm:h-44">
         {negocio.bannerUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={negocio.bannerUrl} alt="" className="h-full w-full object-cover" />
+          <img src={negocio.bannerUrl} alt="" fetchPriority="high" decoding="async" className="h-full w-full object-cover" />
         )}
       </div>
 
@@ -1002,7 +1002,7 @@ function Cabecera({ negocio }: { negocio: Carta["negocio"] }) {
           <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-carta shadow-[var(--sombra-tarjeta)] ring-2 ring-carta">
             {negocio.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={negocio.logoUrl} alt="" className="h-full w-full object-cover" />
+              <img src={negocio.logoUrl} alt="" decoding="async" className="h-full w-full object-cover" />
             ) : (
               // Sin logo: la inicial del negocio. Un cuadro vacío se ve roto.
               <span className="text-[2rem] font-bold text-orbita">
@@ -1393,6 +1393,8 @@ function FilaDestacados({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={p.fotoUrl}
+                    loading="lazy"
+                    decoding="async"
                     alt=""
                     className="h-36 w-36 rounded-xl object-cover ring-1 ring-linea"
                   />
@@ -1459,7 +1461,7 @@ function TarjetaProducto({
       >
         <span className="relative w-full">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={producto.fotoUrl} alt="" className="aspect-[4/3] w-full object-cover" />
+          <img src={producto.fotoUrl} alt="" loading="lazy" decoding="async" className="aspect-[4/3] w-full object-cover" />
           <span className="absolute bottom-2 right-2 grid h-8 w-8 place-items-center rounded-full bg-brasa text-[1.15rem] font-bold text-sobre-brasa shadow-md">
             +
           </span>
@@ -1498,6 +1500,8 @@ function TarjetaProducto({
         <img
           src={producto.fotoUrl}
           alt=""
+          loading="lazy"
+          decoding="async"
           className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-linea"
         />
       )}
@@ -1638,6 +1642,8 @@ function HojaOpciones({
             <img
               src={producto.fotoUrl}
               alt=""
+              loading="lazy"
+              decoding="async"
               className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-linea"
             />
           )}

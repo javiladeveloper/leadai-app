@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
 import {
+  listarLeads,
   listarPlantillasHSM, crearPlantillaHSM, eliminarPlantillaHSM, cupoCampanias,
   estadoPagoCampanias, listarCampanias, crearCampaniaHSM, pausarCampania, subirMediaPost,
   type PlantillaHSM, type CampaniaHSM, type CupoCampanias,
@@ -53,6 +54,50 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
   const [nombre, setNombre] = useState("");
   const [plantillaSel, setPlantillaSel] = useState("");
   const [contactosTexto, setContactosTexto] = useState("");
+  /**
+   * TRAER A LOS QUE YA COMPRARON (2026-09-09, idea de Jonathan: "en marketing
+   * quizás queremos enviar a quienes tuvieron 4 o 5 pedidos — sabemos que
+   * funcionará porque son clientes ya fijos").
+   *
+   * Antes había que pegar los teléfonos A MANO, uno por línea: nadie iba a
+   * cruzar su lista de pedidos contra su agenda para armar esa audiencia. Con
+   * esto son dos toques.
+   */
+  const [buscandoFieles, setBuscandoFieles] = useState(0); // el mínimo que se está buscando
+  const [avisoFieles, setAvisoFieles] = useState("");
+
+  async function traerClientes(minPedidos: number) {
+    setBuscandoFieles(minPedidos);
+    setAvisoFieles("");
+    try {
+      const leads = await listarLeads({ minPedidos });
+      // Solo los que tienen teléfono real: un LID (número privado) no sirve
+      // para una plantilla de WhatsApp.
+      const lineas = leads
+        .filter((l) => /^\d{6,}$/.test(l.contactoExterno))
+        .map((l) => (l.nombre ? `${l.contactoExterno}, ${l.nombre}` : l.contactoExterno));
+      if (lineas.length === 0) {
+        setAvisoFieles(
+          minPedidos === 1
+            ? "Todavía no hay clientes con pedidos entregados."
+            : `Nadie llegó a ${minPedidos} pedidos todavía. Probá con menos.`,
+        );
+        return;
+      }
+      // Se AGREGA a lo que ya haya escrito, sin pisarlo, y sin repetir a nadie.
+      setContactosTexto((prev) => {
+        const previas = prev.split("\n").map((x) => x.trim()).filter(Boolean);
+        const yaEstan = new Set(previas.map((x) => x.split(",")[0].trim()));
+        const nuevas = lineas.filter((l) => !yaEstan.has(l.split(",")[0].trim()));
+        return [...previas, ...nuevas].join("\n");
+      });
+      setAvisoFieles(`${lineas.length} cliente${lineas.length === 1 ? "" : "s"} agregado${lineas.length === 1 ? "" : "s"}.`);
+    } catch {
+      setAvisoFieles("No pudimos traer la lista. Intenta de nuevo.");
+    } finally {
+      setBuscandoFieles(0);
+    }
+  }
   const [programada, setProgramada] = useState("");
   const [encabezadoUrl, setEncabezadoUrl] = useState("");
   const [subiendo, setSubiendo] = useState(false);
@@ -360,6 +405,30 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
           <div>
             <label className="text-[0.85rem] font-bold text-tinta">Destinatarios</label>
             <p className="text-[0.76rem] text-frio">Pega los teléfonos, uno por línea. Opcional: coma y el nombre (se usa para personalizar el {"{{1}}"} de la plantilla).</p>
+
+            {/* TUS CLIENTES, SIN PEGAR NADA (2026-09-09). Nadie iba a cruzar
+                su lista de pedidos contra su agenda para armar la audiencia
+                que mejor convierte: quien ya compró varias veces. Los botones
+                la traen; el número dice cuántas compras tiene cada uno. */}
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-[0.76rem] font-semibold text-tinta-2">Traer a los que ya compraron:</span>
+              {[1, 2, 4].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => traerClientes(n)}
+                  disabled={buscandoFieles > 0}
+                  className="rounded-chip bg-arena px-2.5 py-1 text-[0.78rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-carta hover:text-tinta disabled:opacity-50"
+                >
+                  {buscandoFieles === n
+                    ? "Buscando…"
+                    : n === 1 ? "1 vez o más" : `${n} veces o más`}
+                </button>
+              ))}
+            </div>
+            {avisoFieles && (
+              <p className="mt-1 text-[0.78rem] text-tinta-2">{avisoFieles}</p>
+            )}
             <textarea
               value={contactosTexto}
               onChange={(e) => setContactosTexto(e.target.value)}

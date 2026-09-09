@@ -338,6 +338,8 @@ export interface Lead {
   id: string;
   nombre: string | null;
   contactoExterno: string;
+  /** Cuántos pedidos se le ENTREGARON (2026-09-09): la señal de cliente fiel. */
+  pedidosEntregados?: number;
   canalOrigen: string;
   nivelInteres: NivelInteres;
   estado: EstadoLead;
@@ -431,7 +433,16 @@ export interface Resumen {
 }
 
 export async function listarLeads(
-  filtros?: { estado?: string; nivel?: string },
+  filtros?: {
+    estado?: string;
+    nivel?: string;
+    /**
+     * CLIENTES QUE YA VOLVIERON (2026-09-09). Cuenta pedidos ENTREGADOS:
+     * `minPedidos: 4` trae a los que compraron cuatro veces o más — la
+     * audiencia que mejor convierte en una campaña.
+     */
+    minPedidos?: number;
+  },
 ): Promise<Lead[]> {
   // El backend pagina por cursor (máx 100 por página). Seguimos el cursor hasta
   // agotar para que el pipeline no se quede con solo la primera página (antes
@@ -443,6 +454,7 @@ export async function listarLeads(
     const qs = new URLSearchParams();
     if (filtros?.estado) qs.set("estado", filtros.estado);
     if (filtros?.nivel) qs.set("nivel", filtros.nivel);
+    if (filtros?.minPedidos) qs.set("minPedidos", String(filtros.minPedidos));
     qs.set("limit", "100");
     if (cursor) qs.set("cursor", cursor);
     const r: { items: Lead[]; siguienteCursor: string | null } = await api(

@@ -53,3 +53,19 @@ test('el panel valida antes de subir y muestra el formato', async () => {
   assert.doesNotMatch(src, /accept="image\/\*"/, 'quedó un input con el comodín');
   assert.equal((src.match(/accept=\{ACEPTA_ENCABEZADO\}/g) || []).length, 2);
 });
+
+/**
+ * LA CAUSA REAL: el backend convertía a WebP (2026-09-09).
+ *
+ * La primera sospecha fue el formato del archivo original, y era falsa —
+ * probado contra Meta: un JPG con el mismo cuerpo se acepta. El problema está
+ * DESPUÉS de elegir: `subirImagen` comprime toda imagen a WebP (para que la
+ * carta pese poco) y Meta rechaza WebP en encabezados. Daba igual qué formato
+ * eligiera el dueño: al storage entraba JPG y salía WebP.
+ */
+test('la imagen del encabezado se sube SIN comprimir, o Meta la rechaza siempre', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../components/panel/CampaniasPanel.tsx', import.meta.url), 'utf8');
+  assert.match(src, /subirMediaPost\(.*,\s*false\)/,
+    'la imagen del encabezado se está comprimiendo a WebP y Meta la va a rechazar');
+});

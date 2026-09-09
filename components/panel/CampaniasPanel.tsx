@@ -170,7 +170,9 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
     setSub(true);
     const reader = new FileReader();
     reader.onload = async () => {
-      const r = await subirMediaPost(String(reader.result), g.tenantLista);
+      // `false`: esta imagen va a Meta, que rechaza WebP en encabezados de
+      // plantilla. Sin esto el backend la convertía y fallaba siempre.
+      const r = await subirMediaPost(String(reader.result), g.tenantLista, false);
       setSub(false);
       if (r.ok && r.url) setUrl(r.url);
       else (destino === "campania" ? setMsg : setPMsg)(r.error ?? "No se pudo subir la imagen.");

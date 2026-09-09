@@ -1598,10 +1598,23 @@ export async function sugerirCopyPost(idea: string, tenant?: string): Promise<st
 }
 
 export async function subirMediaPost(
-  imagen: string, tenant?: string,
+  imagen: string,
+  tenant?: string,
+  /**
+   * `false` cuando la imagen va a Meta (2026-09-09): el backend convierte
+   * TODA imagen a WebP para que la carta cargue liviana, y Meta rechaza WebP
+   * en los encabezados de plantilla. Sin esto, una foto JPG salía WebP y la
+   * plantilla fallaba con "Invalid parameter" — eligiera el formato que
+   * eligiera el dueño.
+   */
+  comprimir?: boolean,
 ): Promise<{ ok: boolean; url?: string; tipoMedia?: string; error?: string }> {
   try {
-    const r = await api<{ url: string; tipoMedia?: string }>("/publicaciones/media", { method: "POST", body: { imagen }, tenant });
+    const r = await api<{ url: string; tipoMedia?: string }>("/publicaciones/media", {
+      method: "POST",
+      body: comprimir === false ? { imagen, comprimir: false } : { imagen },
+      tenant,
+    });
     return { ok: true, url: r.url, tipoMedia: r.tipoMedia };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo subir" };

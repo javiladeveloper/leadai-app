@@ -5,10 +5,18 @@ import { usePathname } from "next/navigation";
 import { IconoReportes, IconoBandeja, IconoRayo } from "@/components/Iconos";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 
-const SECCIONES = [
+/**
+ * Las secciones del panel de plataforma. EXPORTADA (2026-09-09) porque la
+ * barra de móvil (`AdminNavInferior`) usa esta misma lista: tener dos listas
+ * es cómo el panel de negocio se desincronizó antes — agregar una sección
+ * obligaba a acordarse de dos archivos.
+ *
+ * `corto` para la barra angosta, donde "Aprendizaje" no entra.
+ */
+export const SECCIONES_ADMIN = [
   { href: "/admin", label: "Métricas", Icono: IconoReportes },
   { href: "/admin/negocios", label: "Negocios", Icono: IconoBandeja },
-  { href: "/admin/aprendizaje", label: "Aprendizaje", Icono: IconoRayo },
+  { href: "/admin/aprendizaje", label: "Aprendizaje", corto: "Datos", Icono: IconoRayo },
   // Operación de placas NFC (2026-08-29): alta de lotes con PINs, inventario,
   // reset de PIN y liberar para reventa.
   { href: "/admin/placas", label: "Placas", Icono: IconoBandeja },
@@ -33,7 +41,7 @@ export function AdminSidebar() {
         </span>
       </div>
       <nav className="flex-1 space-y-1 px-3">
-        {SECCIONES.map(({ href, label, Icono }) => {
+        {SECCIONES_ADMIN.map(({ href, label, Icono }) => {
           // /admin es exacto; el resto por prefijo (para subrutas futuras).
           const activo = href === "/admin" ? path === "/admin" : path.startsWith(href);
           return (

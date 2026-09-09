@@ -226,7 +226,7 @@ export default function AdminPlacas() {
             value={tenantAsignar}
             onChange={(e) => setTenantAsignar(e.target.value)}
             placeholder="tenantId del negocio"
-            className="min-w-[220px] rounded-tarjeta bg-arena/60 px-3 py-2 font-mono text-[0.85rem] text-tinta ring-1 ring-linea focus:ring-brasa/40"
+            className="w-full flex-1 sm:w-auto sm:min-w-[220px] rounded-tarjeta bg-arena/60 px-3 py-2 font-mono text-[0.85rem] text-tinta ring-1 ring-linea focus:ring-brasa/40"
           />
           <button
             onClick={asignar}
@@ -251,7 +251,7 @@ export default function AdminPlacas() {
         {cargando && <p className="mt-3 text-[0.85rem] text-frio">Cargando…</p>}
         {!cargando && resumen && (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-[0.84rem]">
+            <table className="w-full min-w-[860px] text-left text-[0.84rem]">
               <thead>
                 <tr className="border-b border-linea text-[0.72rem] uppercase tracking-wide text-frio">
                   <th className="py-2 pr-3">UID</th>

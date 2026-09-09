@@ -128,7 +128,7 @@ export default function AdminNorac() {
               <p className="mt-2 text-[0.88rem] text-frio">Todavía no hay placas registradas.</p>
             ) : (
               <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-left text-[0.88rem]">
+                <table className="w-full min-w-[560px] text-left text-[0.88rem]">
                   <thead>
                     <tr className="text-[0.74rem] font-bold uppercase tracking-wide text-frio">
                       <th className="pb-2">Marca</th>

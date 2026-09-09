@@ -170,7 +170,7 @@ export default function MovimientosNegocio({ params }: { params: Promise<{ id: s
       )}
 
       <div className="overflow-x-auto rounded-tarjeta bg-carta ring-1 ring-linea">
-        <table className="w-full text-left text-[0.88rem]">
+        <table className="w-full min-w-[680px] text-left text-[0.88rem]">
           <thead>
             <tr className="border-b border-linea text-[0.72rem] uppercase tracking-wide text-frio">
               <th className="px-4 py-3 font-bold">Cuándo</th>

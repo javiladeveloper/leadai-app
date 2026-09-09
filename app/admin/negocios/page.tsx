@@ -151,7 +151,7 @@ export default function AdminNegocios() {
         </div>
 
         <div className="overflow-x-auto rounded-tarjeta bg-carta ring-1 ring-linea">
-          <table className="w-full text-left text-[0.9rem]">
+          <table className="w-full min-w-[640px] text-left text-[0.9rem]">
             <thead>
               <tr className="border-b border-linea text-[0.75rem] uppercase tracking-wide text-frio">
                 <th className="px-4 py-3 font-bold">Negocio</th>

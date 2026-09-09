@@ -153,21 +153,44 @@ export async function reportarAvanceConexion(datos: { wabaId?: string; phoneNumb
 // FB.login no es confiable — el diálogo se abre como pestaña suelta ("Cierra
 // esta pestaña") o Android mata la página que espera el code. Con esta URL la
 // MISMA pestaña navega al asistente y el code vuelve a nuestro servidor.
-export async function urlConexionWhatsAppRedirect(modo: "nuevo" | "coexistencia"): Promise<string | null> {
+/**
+ * POR QUÉ FALLÓ, NO SOLO QUE FALLÓ (2026-09-08).
+ *
+ * Tres negocios trabados en esta pantalla y CERO intentos registrados en el
+ * servidor: la llamada no llegaba. Pero el `catch` devolvía `null` a secas,
+ * así que el panel mostraba "cargando" sin poder decir la causa — y nosotros
+ * investigábamos a ciegas, descartando red, CORS y navegador uno por uno.
+ *
+ * Ahora el motivo viaja con el resultado. No es telemetría: es lo que el
+ * dueño lee en pantalla y nos manda en una captura.
+ */
+export type FalloConexion =
+  | { ok: true; url: string }
+  | { ok: false; motivo: 'sin_sesion' | 'sin_negocio' | 'red' | 'rechazado'; detalle?: string };
+
+export async function urlConexionWhatsAppRedirect(
+  modo: "nuevo" | "coexistencia",
+): Promise<FalloConexion> {
   const token = leerSesion()?.token;
   const tenant = leerEmpresaActiva();
+  // Sin token o sin negocio activo la petición sale mal formada y el servidor
+  // la rechaza con 401/403 — pero el dueño solo veía "cargando". Pasa cuando
+  // la sesión venció con la pestaña abierta, que es MUY común en un celular
+  // que estuvo horas en segundo plano.
+  if (!token) return { ok: false, motivo: 'sin_sesion' };
+  if (!tenant) return { ok: false, motivo: 'sin_negocio' };
   try {
     const res = await fetch(`${API_URL}/canales/whatsapp/oauth-redirect?modo=${modo}`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(tenant ? { 'X-Tenant-Id': tenant } : {}),
-      },
+      headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Id': tenant },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return { ok: false, motivo: 'rechazado', detalle: `${res.status}` };
+    }
     const d = (await res.json()) as { url?: string };
-    return d.url ?? null;
-  } catch {
-    return null;
+    if (!d.url) return { ok: false, motivo: 'rechazado', detalle: 'sin url' };
+    return { ok: true, url: d.url };
+  } catch (e) {
+    return { ok: false, motivo: 'red', detalle: (e as Error)?.message?.slice(0, 60) };
   }
 }
 

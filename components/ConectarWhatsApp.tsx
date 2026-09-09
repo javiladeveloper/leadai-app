@@ -234,12 +234,30 @@ export default function ConectarWhatsApp({
        * el botón vuelve a estar vivo con un mensaje que dice qué hacer.
        */
       const reloj = new Promise<null>((r) => setTimeout(() => r(null), 12_000));
-      void Promise.race([urlConexionWhatsAppRedirect(modo), reloj]).then((url) => {
-        if (!url) {
+      void Promise.race([urlConexionWhatsAppRedirect(modo), reloj]).then((r) => {
+        // EL MOTIVO SE DICE (2026-09-08). Antes todo fallo mostraba el mismo
+        // "revisa tu conexión", así que una sesión vencida —el caso más común
+        // en un celular que estuvo horas en segundo plano— mandaba al dueño a
+        // pelear con su WiFi.
+        if (!r) {
           setEstado("error");
           setError("No pudimos abrir el asistente de Meta. Revisa tu conexión y toca Continuar de nuevo.");
           return;
         }
+        if (!r.ok) {
+          setEstado("error");
+          setError(
+            r.motivo === 'sin_sesion' || (r.motivo === 'rechazado' && r.detalle === '401')
+              ? "Tu sesión venció. Vuelve a entrar y toca Conectar de nuevo."
+              : r.motivo === 'sin_negocio'
+                ? "No hay un negocio seleccionado. Vuelve al inicio y entra de nuevo a Configuración."
+                : r.motivo === 'red'
+                  ? "No pudimos abrir el asistente de Meta. Revisa tu conexión y toca Continuar de nuevo."
+                  : `No pudimos abrir el asistente de Meta (${r.detalle ?? 'error'}). Escríbenos y lo resolvemos.`,
+          );
+          return;
+        }
+        const url = r.url;
         /**
          * Y QUE LA NAVEGACIÓN OCURRA DE VERDAD (2026-09-08, captura del
          * celular de la señora: "Abriendo Meta…" clavado).
@@ -279,6 +297,28 @@ export default function ConectarWhatsApp({
             "El asistente de Meta está tardando en abrir. Toca el botón de abajo para abrirlo directo.",
           );
         }, 9_000);
+
+        /**
+         * DOS FORMAS DE SALIR, PORQUE UNA NO ALCANZA (2026-09-08, MIUI 14).
+         *
+         * `location.href` es lo estándar, pero en MIUI —y en los WebView de
+         * WhatsApp/Instagram— puede ignorarse en silencio: no lanza error, no
+         * navega, y el botón se queda en "Abriendo Meta…". Xiaomi es
+         * agresivo con lo que considera "salto entre apps".
+         *
+         * Un CLICK REAL sobre un <a> pasa por otro camino del navegador y
+         * suele funcionar donde la asignación no. Se intenta primero eso; si
+         * el navegador ya navegó, el `location.href` de abajo no llega a
+         * ejecutarse nunca.
+         */
+        try {
+          const a = document.createElement("a");
+          a.href = url;
+          a.rel = "noopener";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } catch { /* si falla, queda la asignación de abajo */ }
         window.location.href = url;
       });
       return;

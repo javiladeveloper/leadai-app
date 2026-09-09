@@ -46,11 +46,18 @@ export default function Login() {
     // UN MOZO NO PUEDE VER /inicio NI /global (2026-08-21): el backend se lo
     // bloquea con 403 y quedaría mirando un error apenas entra. Su casa es la
     // cocina, que es lo único que hace.
-    if (sesion?.empresas.every((e) => e.rol === "mozo") && sesion.empresas.length > 0) {
+    // `empresas` puede faltar (2026-09-08): una sesión guardada por una
+    // versión vieja del panel, o un login a medio responder, no la trae — y
+    // `sesion?.empresas.every(...)` protege `sesion` pero NO `empresas`, así
+    // que la raíz del panel reventaba con "Cannot read properties of
+    // undefined" y quedaba en blanco. Sin botones, sin nada: el dueño no
+    // tiene forma de saber que su sesión quedó vieja.
+    const empresas = sesion?.empresas ?? [];
+    if (empresas.length > 0 && empresas.every((e) => e.rol === "mozo")) {
       return "/cocina";
     }
-    if (sesion && sesion.empresas.length > 1) return "/global";
-    if (sesion && sesion.empresas.length > 0) return "/inicio";
+    if (sesion && empresas.length > 1) return "/global";
+    if (sesion && empresas.length > 0) return "/inicio";
     // SIN EMPRESAS, TODOS AL ONBOARDING — super admin incluido (2026-09-04,
     // Jonathan: "debería mandarme al onboarding porque no tengo ninguna
     // empresa... no puedo crear un negocio"). La regla vieja lo mandaba a

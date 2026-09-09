@@ -65,6 +65,21 @@ export default function ConectarWhatsApp({
    * con pantallas de Meta que parecían errores nuestros.
    */
   const [paso, setPaso] = useState<"pregunta" | "aviso">("pregunta");
+
+  /**
+   * EL PASO 2 TIENE QUE VERSE (2026-09-08).
+   *
+   * Tocar "Sí, ya lo uso" no abre Meta: cambia esta tarjeta por la que
+   * explica el trámite, y el botón que SÍ abre Meta ("Continuar") queda más
+   * abajo. En un celular ese botón cae fuera de la pantalla, así que el
+   * dueño toca, no ve nada nuevo y concluye que está roto — reportado con
+   * dos negocios el mismo día. Al aparecer, la tarjeta se trae a la vista.
+   */
+  const avisoRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (paso !== "aviso") return;
+    avisoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [paso]);
   const [modo, setModo] = useState<"nuevo" | "coexistencia">("coexistencia");
   /**
    * El asistente de Meta anda mucho peor en el teléfono: abre ventanas, obliga
@@ -74,6 +89,27 @@ export default function ConectarWhatsApp({
   const [enCelular, setEnCelular] = useState(false);
   useEffect(() => {
     setEnCelular(/android|iphone|ipad|ipod/i.test(navigator.userAgent));
+  }, []);
+
+  /**
+   * VOLVER DE META DEJA EL BOTÓN VIVO (2026-09-08).
+   *
+   * En el celular la conexión se hace navegando a Facebook. Si el dueño se
+   * arrepiente y toca "atrás", el navegador restaura ESTA página desde su
+   * caché — con el estado tal como quedó: "Abriendo Meta…" y el botón
+   * deshabilitado. Quedaba mirando una pantalla que no responde, después de
+   * haber salido por su cuenta.
+   *
+   * `pageshow` con `persisted` es el único evento que avisa de esa vuelta
+   * (el componente no se vuelve a montar, así que un useEffect normal no
+   * corre).
+   */
+  useEffect(() => {
+    const alVolver = (ev: PageTransitionEvent) => {
+      if (ev.persisted) { setEstado("idle"); setError(""); }
+    };
+    window.addEventListener("pageshow", alVolver);
+    return () => window.removeEventListener("pageshow", alVolver);
   }, []);
 
   /**
@@ -165,10 +201,25 @@ export default function ConectarWhatsApp({
     if (enCelular) {
       setEstado("abriendo");
       setError("");
-      void urlConexionWhatsAppRedirect(modo).then((url) => {
+      /**
+       * EL BOTÓN NO PUEDE QUEDAR TRABADO (2026-09-08).
+       *
+       * Reportado con dos negocios el mismo día: "se quedaba cargando y no
+       * llevaba a ningún lado". El botón entra en "Abriendo Meta…" y se
+       * DESHABILITA —igual que "Volver"—, así que si la petición nunca
+       * resuelve (red móvil que cuelga sin cortar, Android suspendiendo la
+       * pestaña, el dueño que vuelve atrás desde Facebook) la pantalla queda
+       * muerta: sin forma de reintentar salvo recargar, y nadie recarga
+       * cuando cree que el sistema está trabajando.
+       *
+       * Se corre contra un reloj de 12s. Lo que gane decide: o navegamos, o
+       * el botón vuelve a estar vivo con un mensaje que dice qué hacer.
+       */
+      const reloj = new Promise<null>((r) => setTimeout(() => r(null), 12_000));
+      void Promise.race([urlConexionWhatsAppRedirect(modo), reloj]).then((url) => {
         if (url) { window.location.href = url; return; }
         setEstado("error");
-        setError("No se pudo iniciar la conexión. Intenta de nuevo en un momento.");
+        setError("No pudimos abrir el asistente de Meta. Revisa tu conexión y toca Continuar de nuevo.");
       });
       return;
     }
@@ -384,7 +435,7 @@ Detalle: ${error || "sin detalle"}`,
   // el número. Sin aviso, cada una de esas pantallas se siente un error del
   // producto — y el dueño abandona en la primera que no entiende.
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={avisoRef}>
       <div className="rounded-tarjeta bg-arena/60 px-4 py-3.5">
         <p className="text-sm font-bold text-tinta">Ahora se abre el asistente de Meta</p>
         <p className="mt-1 text-[0.84rem] text-tinta-2">

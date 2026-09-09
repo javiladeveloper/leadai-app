@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { movimientosNegocioAdmin, type MovimientosNegocioAdmin } from "@/lib/api";
+import { movimientosNegocioAdmin, cambiarPlanAdmin, type MovimientosNegocioAdmin } from "@/lib/api";
 import { entrarComoSoporte } from "@/lib/auth";
 import { soles } from "@/lib/precio";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -23,6 +23,117 @@ const PLAN_LABEL: Record<string, string> = {
   pedidos: "Arranque", arranque: "Arranque", crecer: "Crecer", full: "Full",
   resto_gratis: "Gratis",
 };
+
+/**
+ * LAS DOS ESCALERAS, espejo de `adminPanel.ts`. Captación cobra por clientes
+ * atendidos; restaurante por pedidos. El backend rechaza el cruce igual — esto
+ * es para no OFRECER un plan que va a fallar.
+ */
+const PLANES_CAPTACION = ["free", "flujos", "light", "pro", "business"];
+const PLANES_RESTAURANTE = ["resto_gratis", "arranque", "crecer", "full"];
+
+/**
+ * CAMBIAR EL PLAN A MANO (2026-09-09, Jonathan: "no me sale la opción para
+ * cambiar el plan... agrégalo al panel de admin").
+ *
+ * La ficha es de lectura a propósito —operar el negocio es del negocio— pero
+ * el PLAN es la relación comercial con la plataforma, no una operación suya.
+ * Hasta hoy había que armar un curl con la ADMIN_API_KEY.
+ *
+ * No toca la suscripción de Culqi: es el override manual (una prueba, un trato
+ * hablado). Si el negocio tiene cobro automático, el corte siguiente manda —y
+ * por eso se avisa en pantalla en vez de dejarlo como sorpresa.
+ */
+function CambiarPlan({
+  id, planActual, objetivo, alCambiar,
+}: {
+  id: string; planActual: string; objetivo?: string; alCambiar: (plan: string) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Sin `objetivo` (API vieja) se cae a la escalera donde ya está su plan
+  // actual: mostrar la lista equivocada es peor que no mostrar nada.
+  const escalera =
+    objetivo === "vender_pedidos" || PLANES_RESTAURANTE.includes(planActual)
+      ? PLANES_RESTAURANTE
+      : PLANES_CAPTACION;
+
+  async function elegir(plan: string) {
+    if (plan === planActual) { setAbierto(false); return; }
+    setGuardando(true);
+    setError(null);
+    const r = await cambiarPlanAdmin(id, plan);
+    if (r.ok) {
+      alCambiar(r.plan);
+      setAbierto(false);
+    } else {
+      setError(r.error);
+    }
+    setGuardando(false);
+  }
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="rounded-chip px-2 py-0.5 text-[0.78rem] font-bold text-tinta-2 underline underline-offset-2 transition hover:text-tinta"
+      >
+        cambiar
+      </button>
+    );
+  }
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5 align-middle">
+      {escalera.map((p) => (
+        <button
+          key={p}
+          disabled={guardando}
+          onClick={() => elegir(p)}
+          className={`rounded-chip px-2.5 py-1 text-[0.78rem] font-bold transition disabled:opacity-50 ${
+            p === planActual
+              ? "bg-tinta text-carta"
+              : "bg-carta text-tinta ring-1 ring-linea hover:ring-tinta-2"
+          }`}
+        >
+          {PLAN_LABEL[p] ?? p}
+        </button>
+      ))}
+      <button
+        onClick={() => { setAbierto(false); setError(null); }}
+        disabled={guardando}
+        className="px-1.5 text-[0.78rem] font-bold text-frio disabled:opacity-50"
+      >
+        ✕
+      </button>
+      {guardando && (
+        <span className="flex items-end gap-1 pb-[3px]" aria-label="Guardando">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="punto-espera h-1.5 w-1.5 rounded-full bg-tinta-2" style={{ ["--i" as string]: i }} />
+          ))}
+        </span>
+      )}
+      {error && <span className="text-[0.78rem] font-semibold text-brasa-hondo">{error}</span>}
+    </span>
+  );
+}
+
+/**
+ * EL AVISO DE QUE ESTO NO ES LA SUSCRIPCIÓN.
+ *
+ * Solo se muestra si el negocio tiene cobro automático: ahí el cambio a mano
+ * dura hasta el próximo corte y después Culqi vuelve a mandar. Sin este aviso
+ * el admin cree que quedó y una semana después el plan "se revirtió solo".
+ */
+function AvisoSuscripcion() {
+  return (
+    <p className="mt-1 text-[0.78rem] text-frio">
+      ⚠️ Tiene cobro automático: un cambio a mano vale hasta el próximo corte.
+    </p>
+  );
+}
 
 const ESTADO_EMOJI: Record<string, string> = {
   esperando_pago: "🕐", pagado: "🟢", preparando: "👨‍🍳", listo: "📦",
@@ -100,7 +211,16 @@ export default function MovimientosNegocio({ params }: { params: Promise<{ id: s
           </button>
         </div>
         <p className="mt-0.5 text-[0.88rem] text-frio">
-          Plan <b className="text-tinta-2">{PLAN_LABEL[datos.plan] ?? datos.plan}</b>
+          Plan <b className="text-tinta-2">{PLAN_LABEL[datos.plan] ?? datos.plan}</b>{" "}
+          <CambiarPlan
+            id={id}
+            planActual={datos.plan}
+            objetivo={datos.objetivo}
+            // Se actualiza en memoria en vez de recargar: volver a pedir los
+            // movimientos completos por un campo es tirar abajo la pantalla
+            // que el admin estaba mirando.
+            alCambiar={(plan) => setDatos((d) => (d ? { ...d, plan } : d))}
+          />
           {datos.suscripcion && (
             <>
               {" · "}suscripción {datos.suscripcion.estado} hasta el{" "}
@@ -117,6 +237,7 @@ export default function MovimientosNegocio({ params }: { params: Promise<{ id: s
             </>
           )}
         </p>
+        {datos.suscripcion?.estado === "activa" && <AvisoSuscripcion />}
       </header>
 
       {/* La puesta en marcha: qué le falta a este negocio para vender.

@@ -1315,12 +1315,32 @@ export interface MovimientosNegocioAdmin {
   suscripcion: { plan: string; estado: string; vigenteHasta: string; planSiguiente: string | null } | null;
   recargas: { mensajesUltimos90: number; adsCentavosUltimos90: number };
   senales: SenalesNegocio;
+  /** El rubro, para saber qué escalera de planes ofrecerle. */
+  objetivo?: string;
 }
 
 export async function movimientosNegocioAdmin(id: string): Promise<MovimientosNegocioAdmin | null> {
   try {
     return await api<MovimientosNegocioAdmin>(`/admin/negocios/${id}/movimientos`, { conEmpresa: false });
   } catch { return null; }
+}
+
+// Cambiar el plan de un negocio a mano (super admin). Devuelve el error de la
+// API tal cual: el backend valida que el plan sea de la escalera del rubro y
+// su mensaje ya dice cuáles valen.
+export async function cambiarPlanAdmin(
+  id: string,
+  plan: string,
+): Promise<{ ok: true; plan: string; antes: string } | { ok: false; error: string }> {
+  try {
+    const r = await api<{ ok: true; plan: string; antes: string }>(
+      `/admin/negocios/${id}/plan`,
+      { method: "PATCH", body: { plan }, conEmpresa: false },
+    );
+    return r;
+  } catch (e) {
+    return { ok: false, error: e instanceof ApiError ? e.message : "No se pudo cambiar el plan" };
+  }
 }
 
 // ── Simulador de chat (probar la IA desde el panel) ─────────

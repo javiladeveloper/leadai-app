@@ -212,11 +212,11 @@ const SIN_RED: ErrorTraducido = {
  * tiene): es salir del navegador embebido.
  */
 const WEBVIEW: ErrorTraducido = {
-  titulo: 'Abre el panel en tu navegador',
+  titulo: 'El asistente de Meta está tardando',
   pasos: [
-    'Estás dentro de WhatsApp o Instagram, y ese navegador no deja abrir el asistente de Meta',
-    'Toca "Abrir Meta en el navegador" acá abajo — o los tres puntos (⋮) arriba y "Abrir en Chrome"',
-    'También puedes entrar a app.leadai-pe.com directo desde Chrome o Safari',
+    'Toca "Abrir Meta en el navegador" acá abajo: va directo al asistente',
+    'Si tampoco abre, mantén apretado ese botón y elige "Abrir en otra pestaña"',
+    'Con señal débil el asistente tarda: si estás con datos móviles, prueba con WiFi',
     'Esto NO es un problema de tu página de Facebook ni de tu número',
   ],
   reintentable: true,
@@ -228,7 +228,7 @@ export function traducirErrorMeta(crudo: string | null | undefined): ErrorTraduc
   // Nuestros propios fallos de red, antes de cualquier ida a Meta.
   if (t.includes('no pudimos abrir el asistente') || t.includes('revisa tu conexión')) return SIN_RED;
   // El navegador embebido de WhatsApp/Instagram bloqueando la salida.
-  if (t.includes('no dejó abrir el asistente')) return WEBVIEW;
+  if (t.includes('no dejó abrir el asistente') || t.includes('está tardando en abrir')) return WEBVIEW;
   for (const { pistas, error } of CONOCIDOS) {
     if (pistas.some((p) => t.includes(p))) return error;
   }

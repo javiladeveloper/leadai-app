@@ -256,14 +256,29 @@ export default function ConectarWhatsApp({
          * navegador del teléfono.
          */
         const aqui = window.location.href;
+        /**
+         * 9s, y el mensaje NO acusa al navegador (2026-09-08, segunda
+         * captura: la dueña YA estaba en Chrome y le decíamos "abrilo en
+         * Chrome" — un consejo que la manda a dar vueltas).
+         *
+         * Seguir en la página después de asignar `location.href` tiene DOS
+         * causas: el WebView que ignora el salto, y una red móvil lenta que
+         * todavía está resolviendo facebook.com. No sabemos cuál es, así que
+         * el mensaje ofrece el enlace directo —que sirve para las dos— sin
+         * afirmar de quién es la culpa.
+         *
+         * 9 y no 4: en 3G cargar el login de Facebook tarda más que eso, y
+         * cortar antes le muestra un error a alguien que iba bien.
+         */
         setTimeout(() => {
           if (window.location.href !== aqui) return; // navegó: nada que hacer
+          if (document.visibilityState === "hidden") return; // ya se fue a Meta
           setEstado("error");
           setUrlMeta(url);
           setError(
-            "Tu navegador no dejó abrir el asistente de Meta. Suele pasar cuando entras desde WhatsApp o Instagram: abre el panel en Chrome o Safari y vuelve a intentar.",
+            "El asistente de Meta está tardando en abrir. Toca el botón de abajo para abrirlo directo.",
           );
-        }, 4_000);
+        }, 9_000);
         window.location.href = url;
       });
       return;

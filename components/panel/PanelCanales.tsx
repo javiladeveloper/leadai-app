@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   listarCanales, obtenerUrlOAuth, actualizarCanal, eliminarCanal,
   cuentasPendientes, elegirCuenta,
@@ -10,6 +10,7 @@ import { leerSesion, leerEmpresaActiva } from "@/lib/auth";
 import { listarSucursales, type Sucursal } from "@/lib/cocina";
 import { IconoWhatsApp, IconoInstagram, IconoMessenger, IconoTikTok } from "@/components/Iconos";
 import ConectarWhatsApp from "@/components/ConectarWhatsApp";
+import { esCelular, comoAbrirConexion } from "@/lib/conectar-canal";
 
 // Metadatos de cada red: ícono, nombre, color de marca y cómo se conecta.
 const REDES: {
@@ -32,6 +33,15 @@ export function PanelCanales() {
   const [cargando, setCargando] = useState(true);
   const [seleccion, setSeleccion] = useState<TipoCanal>("whatsapp");
   const [conectando, setConectando] = useState(false);
+  // Por qué no se pudo abrir la conexión (2026-09-09): antes el botón se
+  // apagaba en silencio y el dueño no sabía si tocó mal o si algo falló.
+  const [errorConexion, setErrorConexion] = useState("");
+  // Se resuelve DESPUÉS de montar: `navigator` no existe en el servidor.
+  const [enCelular, setEnCelular] = useState(false);
+  useEffect(() => { setEnCelular(esCelular(navigator.userAgent)); }, []);
+  // ¿Mandamos al dueño a autorizar en la red? Ref y no estado: se lee dentro
+  // de un listener, que cerraría sobre el valor del render en que se creó.
+  const fuiAAutorizar = useRef(false);
   /**
    * LOS LOCALES DEL NEGOCIO (2026-08-25). Solo hacen falta si hay más de uno:
    * con un solo local no hay nada que elegir y el selector sería ruido.
@@ -98,6 +108,38 @@ export function PanelCanales() {
     // `seleccion`: el popup avisa de la red que se estaba conectando.
   }, [seleccion]);
 
+  /**
+   * VOLVER DE LA RED REFRESCA LA LISTA (2026-09-09).
+   *
+   * El `postMessage` de arriba solo llega desde el popup, que es el camino de
+   * escritorio. En el celular la conexión va por REDIRECCIÓN: esta pestaña se
+   * fue a Instagram/Messenger/TikTok y volvió, y no hay opener que avise. Sin
+   * esto el panel seguiría diciendo "Sin conectar" aunque la conexión haya
+   * quedado — el mismo silencio que en la app hizo repetir el flujo entero de
+   * WhatsApp creyendo que había fallado.
+   *
+   * `pageshow` con `persisted` cubre la vuelta desde la caché del navegador
+   * (el botón atrás), y `visibilitychange` la vuelta normal a la pestaña.
+   */
+  useEffect(() => {
+    const refrescar = () => {
+      // Solo si de verdad lo mandamos a autorizar: sin este guard, cualquier
+      // cambio de pestaña dispararía dos requests de gusto.
+      if (!fuiAAutorizar.current) return;
+      fuiAAutorizar.current = false;
+      void cargar();
+      void revisarPendientes(seleccion);
+    };
+    const alVolver = (e: PageTransitionEvent) => { if (e.persisted) refrescar(); };
+    const alVerse = () => { if (document.visibilityState === "visible") refrescar(); };
+    window.addEventListener("pageshow", alVolver);
+    document.addEventListener("visibilitychange", alVerse);
+    return () => {
+      window.removeEventListener("pageshow", alVolver);
+      document.removeEventListener("visibilitychange", alVerse);
+    };
+  }, [seleccion]);
+
   // Cuántas cuentas hay conectadas de cada red.
   const cuenta = (tipo: TipoCanal) => canales.filter((c) => c.tipo === tipo).length;
 
@@ -106,20 +148,55 @@ export function PanelCanales() {
 
   async function conectarOAuth(tipo: TipoCanal) {
     setConectando(true);
+    setErrorConexion("");
     const url = await obtenerUrlOAuth(tipo);
-    setConectando(false);
-    if (url) {
-      // POPUP centrado, no pestaña (2026-08-26): el callback del backend hace
-      // postMessage al terminar y se cierra solo — el panel se refresca al
-      // instante (listener de arriba). OJO: sin "noopener", a propósito — el
-      // popup necesita window.opener para avisarnos. Si el navegador bloquea
-      // el popup, cae a pestaña nueva como antes.
-      const w = 520, h = 720;
-      const x = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
-      const y = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
-      const popup = window.open(url, "conectar-red", `popup=yes,width=${w},height=${h},left=${x},top=${y}`);
-      if (!popup) window.open(url, "_blank");
+    if (!url) {
+      // NUNCA CALLADO (2026-09-09). `obtenerUrlOAuth` devuelve null ante
+      // cualquier fallo, así que el botón se apagaba y no pasaba nada: el
+      // dueño se queda mirando una pantalla que no responde sin saber si
+      // tocó mal, si falló la red o si venció su sesión. Es el mismo
+      // silencio que hizo repetir el flujo entero en WhatsApp.
+      setConectando(false);
+      setErrorConexion(
+        "No pudimos abrir la conexión. Revisa tu internet y toca de nuevo; " +
+          "si vuelve a pasar, vuelve a entrar a tu cuenta.",
+      );
+      return;
     }
+
+    /**
+     * EN EL CELULAR, POR REDIRECCIÓN (2026-09-09).
+     *
+     * El popup es el camino de escritorio y ahí se queda: tiene
+     * `window.opener`, así que el callback avisa por postMessage y la lista
+     * se refresca sola. Pero en el teléfono ese mismo popup es el pozo que
+     * costó dos noches con WhatsApp — Android lo abre como pestaña suelta o
+     * lo mata al saltar de app, y el `code` de la red muere con la página.
+     *
+     * Acá la MISMA pestaña navega a la red y el code vuelve a nuestro
+     * servidor (el `state` va firmado con el tenant): no hay página que
+     * pueda morir con él. Al terminar, el callback muestra su pantalla con
+     * el botón de vuelta al panel.
+     */
+    if (comoAbrirConexion(enCelular) === "redireccion") {
+      fuiAAutorizar.current = true;
+      // El estado NO se apaga: la pestaña se va: dejarlo prendido evita el
+      // parpadeo si el navegador tarda en navegar.
+      window.location.href = url;
+      return;
+    }
+
+    setConectando(false);
+    // POPUP centrado, no pestaña (2026-08-26): el callback del backend hace
+    // postMessage al terminar y se cierra solo — el panel se refresca al
+    // instante (listener de arriba). OJO: sin "noopener", a propósito — el
+    // popup necesita window.opener para avisarnos. Si el navegador bloquea
+    // el popup, cae a pestaña nueva como antes.
+    const w = 520, h = 720;
+    const x = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
+    const y = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
+    const popup = window.open(url, "conectar-red", `popup=yes,width=${w},height=${h},left=${x},top=${y}`);
+    if (!popup) window.open(url, "_blank");
   }
 
   async function alternar(c: Canal) {
@@ -414,9 +491,20 @@ export function PanelCanales() {
                   >
                     {conectando ? "Abriendo…" : `Conectar ${red.nombre}`}
                   </button>
+                  {/* En el celular no se abre "una ventana": esta misma
+                      pestaña navega a la red y vuelve al terminar. Decir lo
+                      que NO va a pasar deja al dueño esperando algo que no
+                      llega (2026-09-09). */}
                   <p className="mt-2 text-[0.75rem] text-frio">
-                    Se abre una ventana para que autorices con {red.nombre}.
+                    {enCelular
+                      ? `Te llevamos a ${red.nombre} para que autorices, y vuelves acá al terminar.`
+                      : `Se abre una ventana para que autorices con ${red.nombre}.`}
                   </p>
+                  {errorConexion && (
+                    <p className="mt-2 rounded-tarjeta bg-alerta-suave px-3 py-2 text-[0.8rem] text-alerta-hondo">
+                      {errorConexion}
+                    </p>
+                  )}
                 </>
               )}
               {/* TikTok NO trae mensajes (2026-08-26, Jonathan esperó un DM

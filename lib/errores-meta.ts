@@ -200,11 +200,35 @@ const SIN_RED: ErrorTraducido = {
   reintentable: true,
 };
 
+/**
+ * ENTRAR DESDE WHATSAPP NO ES ENTRAR DESDE EL NAVEGADOR (2026-09-08).
+ *
+ * Captura del celular de una dueña: "Abriendo Meta…" clavado para siempre.
+ * Había abierto el panel desde el link de WhatsApp, así que corría dentro
+ * de su navegador EMBEBIDO —el de la ✕ arriba—, y ese WebView ignoró el
+ * salto a facebook.com sin lanzar ningún error.
+ *
+ * El consejo no es "revisa tu conexión" (la tenía) ni "crea una página" (la
+ * tiene): es salir del navegador embebido.
+ */
+const WEBVIEW: ErrorTraducido = {
+  titulo: 'Abre el panel en tu navegador',
+  pasos: [
+    'Estás dentro de WhatsApp o Instagram, y ese navegador no deja abrir el asistente de Meta',
+    'Toca "Abrir Meta en el navegador" acá abajo — o los tres puntos (⋮) arriba y "Abrir en Chrome"',
+    'También puedes entrar a app.leadai-pe.com directo desde Chrome o Safari',
+    'Esto NO es un problema de tu página de Facebook ni de tu número',
+  ],
+  reintentable: true,
+};
+
 export function traducirErrorMeta(crudo: string | null | undefined): ErrorTraducido {
   const t = (crudo ?? '').toLowerCase();
   if (!t.trim()) return GENERICO;
   // Nuestros propios fallos de red, antes de cualquier ida a Meta.
   if (t.includes('no pudimos abrir el asistente') || t.includes('revisa tu conexión')) return SIN_RED;
+  // El navegador embebido de WhatsApp/Instagram bloqueando la salida.
+  if (t.includes('no dejó abrir el asistente')) return WEBVIEW;
   for (const { pistas, error } of CONOCIDOS) {
     if (pistas.some((p) => t.includes(p))) return error;
   }

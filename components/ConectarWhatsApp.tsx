@@ -75,6 +75,13 @@ export default function ConectarWhatsApp({
    * dueño toca, no ve nada nuevo y concluye que está roto — reportado con
    * dos negocios el mismo día. Al aparecer, la tarjeta se trae a la vista.
    */
+  /**
+   * La URL de Meta, cuando el WebView no dejó navegar sola. Se ofrece como
+   * ENLACE: un `<a>` con target lo abre en el navegador del teléfono en
+   * casos donde `location.href` no hace nada — y si tampoco, el dueño puede
+   * mantenerlo apretado y copiarlo.
+   */
+  const [urlMeta, setUrlMeta] = useState<string>("");
   const avisoRef = useRef<HTMLDivElement>(null);
   const continuarRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -228,9 +235,36 @@ export default function ConectarWhatsApp({
        */
       const reloj = new Promise<null>((r) => setTimeout(() => r(null), 12_000));
       void Promise.race([urlConexionWhatsAppRedirect(modo), reloj]).then((url) => {
-        if (url) { window.location.href = url; return; }
-        setEstado("error");
-        setError("No pudimos abrir el asistente de Meta. Revisa tu conexión y toca Continuar de nuevo.");
+        if (!url) {
+          setEstado("error");
+          setError("No pudimos abrir el asistente de Meta. Revisa tu conexión y toca Continuar de nuevo.");
+          return;
+        }
+        /**
+         * Y QUE LA NAVEGACIÓN OCURRA DE VERDAD (2026-09-08, captura del
+         * celular de la señora: "Abriendo Meta…" clavado).
+         *
+         * El reloj de arriba cubre que la PETICIÓN no responda. Pero cuando
+         * el panel se abre dentro del navegador embebido de WhatsApp o
+         * Instagram —el de la ✕ y la ⌄ arriba— ese WebView puede IGNORAR el
+         * salto a facebook.com sin lanzar ningún error: la promesa resolvió,
+         * asignamos `location.href` y no pasa nada. Ahí ya no quedaba ningún
+         * reloj corriendo y el botón moría en "Abriendo Meta…".
+         *
+         * A los 4s, si seguimos en esta página, se asume que el WebView no
+         * dejó salir y se ofrece el camino que sí funciona: abrir en el
+         * navegador del teléfono.
+         */
+        const aqui = window.location.href;
+        setTimeout(() => {
+          if (window.location.href !== aqui) return; // navegó: nada que hacer
+          setEstado("error");
+          setUrlMeta(url);
+          setError(
+            "Tu navegador no dejó abrir el asistente de Meta. Suele pasar cuando entras desde WhatsApp o Instagram: abre el panel en Chrome o Safari y vuelve a intentar.",
+          );
+        }, 4_000);
+        window.location.href = url;
       });
       return;
     }
@@ -345,6 +379,21 @@ export default function ConectarWhatsApp({
           ))}
         </ol>
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {/* LA SALIDA CUANDO EL WEBVIEW NO DEJA NAVEGAR (2026-09-08). Un
+              <a> con target puede abrir lo que `location.href` no abrió —y
+              si tampoco, el dueño mantiene apretado y copia el link para
+              pegarlo en Chrome. Es el único camino que le queda sin salir a
+              buscar ayuda. */}
+          {urlMeta && (
+            <a
+              href={urlMeta}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full bg-orbita px-5 py-2 text-sm font-semibold text-sobre-orbita transition hover:bg-orbita-hondo"
+            >
+              Abrir Meta en el navegador
+            </a>
+          )}
           {t.reintentable && (
             <button
               type="button"

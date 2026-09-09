@@ -39,3 +39,14 @@ test('todo error traducido se puede reintentar o dice a quién escribir', () => 
     assert.ok(salida, `"${crudo}" deja al dueño sin salida`);
   }
 });
+
+test('el navegador embebido de WhatsApp tiene su propio consejo', () => {
+  // Captura real: "Abriendo Meta…" clavado en el celular de una dueña que
+  // abrió el panel desde el link de WhatsApp. Su WebView ignoró el salto a
+  // facebook.com sin error. Ni la conexión ni la página tenían la culpa.
+  const e = traducirErrorMeta('Tu navegador no dejó abrir el asistente de Meta. Suele pasar cuando entras desde WhatsApp o Instagram: abre el panel en Chrome o Safari y vuelve a intentar.');
+  const pasos = e.pasos.join(' ').toLowerCase();
+  assert.ok(pasos.includes('chrome') || pasos.includes('navegador'), 'debe decir cómo salir del WebView');
+  assert.ok(!pasos.includes('facebook.com/pages/create'), 'NO debe mandar a crear una página');
+  assert.ok(e.reintentable);
+});

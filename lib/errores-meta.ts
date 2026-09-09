@@ -181,9 +181,30 @@ const GENERICO: ErrorTraducido = {
  * NUNCA devuelve null: quedarse sin mensaje es peor que un consejo genérico,
  * porque el dueño se queda mirando una pantalla que no le dice qué hacer.
  */
+/**
+ * NO TODO ERROR ES CULPA DE META (2026-09-08).
+ *
+ * Si la conexión se cae ANTES de salir hacia Meta —red móvil colgada,
+ * servidor sin responder— el mensaje genérico mandaba a crear una página de
+ * Facebook. La pizzería que reportó el problema YA tenía página, portfolio y
+ * hasta publicidad corriendo: ese consejo la manda a buscar donde no está.
+ */
+const SIN_RED: ErrorTraducido = {
+  titulo: 'No pudimos abrir el asistente de Meta',
+  pasos: [
+    'Revisa tu conexión a internet y toca "Intentar de nuevo"',
+    'Si estás con datos móviles y va lento, prueba con WiFi',
+    'Esto NO es un problema de tu página de Facebook ni de tu número: no llegamos a salir de LeadAI',
+    'Si sigue igual en unos minutos, escríbenos',
+  ],
+  reintentable: true,
+};
+
 export function traducirErrorMeta(crudo: string | null | undefined): ErrorTraducido {
   const t = (crudo ?? '').toLowerCase();
   if (!t.trim()) return GENERICO;
+  // Nuestros propios fallos de red, antes de cualquier ida a Meta.
+  if (t.includes('no pudimos abrir el asistente') || t.includes('revisa tu conexión')) return SIN_RED;
   for (const { pistas, error } of CONOCIDOS) {
     if (pistas.some((p) => t.includes(p))) return error;
   }

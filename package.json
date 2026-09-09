@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:consumo": "node --experimental-strip-types --test tests/consumo-agentes.test.mjs"
+    "test:consumo": "node --experimental-strip-types --test tests/consumo-agentes.test.mjs",
+    "test:conectar": "node --experimental-strip-types --test tests/conectar-whatsapp.test.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.2",

@@ -36,6 +36,7 @@ import { SkeletonLista } from "@/components/Skeletons";
 import { MarcaCarta } from "@/components/panel/MarcaCarta";
 import { MenuDelDiaPanel } from "@/components/panel/MenuDelDiaPanel";
 import { Seccion } from "@/components/panel/Seccion";
+import { ImportarCarta } from "@/components/panel/ImportarCarta";
 
 type Pestana = "platos" | "menu" | "extras" | "combos" | "promos" | "marca";
 
@@ -559,20 +560,33 @@ function Platos({
       }
       tono="hondo"
       accion={
-        <BotonNuevo onClick={() => { setEditando(null); setAbriendo(true); }}>
-          + Nuevo plato
-        </BotonNuevo>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* SUBIR LA CARTA TAMBIÉN DESDE ACÁ (2026-09-09). Existía solo en el
+              onboarding: quien se saltó ese paso, o cambió su carta después,
+              tenía que cargar plato por plato. Va junto a "Nuevo plato" y no
+              solo en el vacío porque reimportar es seguro — el backend saltea
+              por nombre lo que ya existe. */}
+          <ImportarCarta alTerminar={recargar} />
+          <BotonNuevo onClick={() => { setEditando(null); setAbriendo(true); }}>
+            + Nuevo plato
+          </BotonNuevo>
+        </div>
       }
     >
       <div className="space-y-5">
         <NuevaSeccion recargar={recargar} avisar={avisar} />
 
         {carta.productos.length === 0 && carta.categorias.length === 0 && (
-          <Vacio
-            icono="🍽️"
-            titulo="Tu carta está vacía"
-            texto="Carga tu primer plato para que tus clientes puedan pedirlo."
-          />
+          <div className="space-y-3">
+            <Vacio
+              icono="🍽️"
+              titulo="Tu carta está vacía"
+              texto="Sube tu carta y la leemos por ti, o carga el primer plato a mano."
+            />
+            {/* EL CAMINO PRINCIPAL con la carta vacía: cargar 51 platos a mano
+                es lo que hace que un dueño abandone. */}
+            <ImportarCarta variante="vacio" alTerminar={recargar} />
+          </div>
         )}
 
         {porSeccion.map(({ categoria, platos }, iSeccion) => (

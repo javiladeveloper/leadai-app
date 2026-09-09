@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
+import { formatoEncabezadoOk, ACEPTA_ENCABEZADO, MENSAJE_FORMATO, AYUDA_FORMATO } from "@/lib/encabezado-plantilla";
 import {
   listarLeads,
   listarPlantillasHSM, crearPlantillaHSM, eliminarPlantillaHSM, cupoCampanias,
@@ -155,9 +156,17 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
 
   async function subirEncabezado(e: React.ChangeEvent<HTMLInputElement>, destino: "campania" | "plantilla") {
     const file = e.target.files?.[0];
+    // Se limpia para que elegir el MISMO archivo otra vez vuelva a disparar.
+    e.target.value = "";
     if (!file) return;
     const setSub = destino === "campania" ? setSubiendo : setPSubiendo;
     const setUrl = destino === "campania" ? setEncabezadoUrl : setPImagenUrl;
+    const setAviso = destino === "campania" ? setMsg : setPMsg;
+    // EL FORMATO SE REVISA ACÁ (2026-09-09): Meta solo acepta JPG y PNG en el
+    // encabezado, y un logo en WebP subía megas para volver con "Invalid
+    // parameter" y nada más. Ver lib/encabezado-plantilla.ts.
+    if (!formatoEncabezadoOk(file.name)) { setAviso(MENSAJE_FORMATO); return; }
+    setAviso("");
     setSub(true);
     const reader = new FileReader();
     reader.onload = async () => {
@@ -396,9 +405,12 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
               ) : (
                 <label className="mt-1 flex cursor-pointer items-center justify-center rounded-tarjeta border-2 border-dashed border-linea bg-arena/40 px-3 py-4 text-[0.86rem] text-frio transition hover:border-brasa/40">
                   {subiendo ? "Subiendo…" : "📷 Subir imagen"}
-                  <input type="file" accept="image/*" onChange={(e) => subirEncabezado(e, "campania")} className="hidden" disabled={subiendo} />
+                  <input type="file" accept={ACEPTA_ENCABEZADO} onChange={(e) => subirEncabezado(e, "campania")} className="hidden" disabled={subiendo} />
                 </label>
               )}
+              {/* El formato se dice ANTES de elegir: enterarse al fallar la
+                  subida es tarde y no explica nada (2026-09-09). */}
+              {!encabezadoUrl && <p className="mt-1 text-[0.74rem] text-frio">{AYUDA_FORMATO}</p>}
             </div>
           )}
 
@@ -584,9 +596,10 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
                 ) : (
                   <label className="mt-1 flex cursor-pointer items-center justify-center rounded-tarjeta border-2 border-dashed border-linea bg-arena/40 px-3 py-4 text-[0.86rem] text-frio transition hover:border-brasa/40">
                     {pSubiendo ? "Subiendo…" : "📷 Subir imagen (promos con flyer, antes/después)"}
-                    <input type="file" accept="image/*" onChange={(e) => subirEncabezado(e, "plantilla")} className="hidden" disabled={pSubiendo} />
+                    <input type="file" accept={ACEPTA_ENCABEZADO} onChange={(e) => subirEncabezado(e, "plantilla")} className="hidden" disabled={pSubiendo} />
                   </label>
                 )}
+                {!pImagenUrl && <p className="mt-1 text-[0.74rem] text-frio">{AYUDA_FORMATO}</p>}
               </div>
               {pMsg && <p className="text-[0.84rem] font-semibold text-calor-hondo">{pMsg}</p>}
               <div className="flex items-center justify-between gap-2">

@@ -76,9 +76,20 @@ export default function ConectarWhatsApp({
    * dos negocios el mismo día. Al aparecer, la tarjeta se trae a la vista.
    */
   const avisoRef = useRef<HTMLDivElement>(null);
+  const continuarRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (paso !== "aviso") return;
-    avisoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Se trae el BOTÓN, no la tarjeta: la explicación mide más que la
+    // pantalla de un celular, así que centrarla dejaba "Continuar" igual de
+    // escondido —medido en producción: top 956px en una ventana de 860—. El
+    // botón es lo único que el dueño tiene que encontrar.
+    const t = setTimeout(() => {
+      (continuarRef.current ?? avisoRef.current)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 50);
+    return () => clearTimeout(t);
   }, [paso]);
   const [modo, setModo] = useState<"nuevo" | "coexistencia">("coexistencia");
   /**
@@ -626,6 +637,7 @@ Detalle: ${error || "sin detalle"}`,
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          ref={continuarRef}
           onClick={() => conectar(modo)}
           disabled={estado === "abriendo" || estado === "conectando"}
           className="rounded-full bg-orbita px-5 py-2.5 text-sm font-semibold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-60"

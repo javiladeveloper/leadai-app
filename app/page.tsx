@@ -10,6 +10,43 @@ import { ApiError } from "@/lib/api";
 import { IconoRayo, IconoGoogle } from "@/components/Iconos";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 
+/**
+ * LA ESPERA DEL LOGIN CON GOOGLE (2026-09-09).
+ *
+ * Entre que el usuario elige su cuenta y que entra al panel corren unos
+ * segundos —el ida y vuelta a `POST /auth/google`— en los que la pantalla se
+ * quedaba EXACTAMENTE igual: el botón "Continuar con Google" ahí, quieto.
+ * Jonathan: "se queda pegado... parece que no hubiera funcionado".
+ *
+ * Antes esto lo marcaba solo `aria-busy` en el contenedor, que no pinta nada:
+ * un lector de pantalla se enteraba y una persona mirando, no.
+ *
+ * Se reusa el ícono de Google —el mismo que acaba de tocar— para que la
+ * transición no parezca un cambio de pantalla, sino la misma continuando.
+ */
+function EntrandoConGoogle() {
+  return (
+    <div
+      className="flex items-center justify-center gap-3 rounded-chip bg-carta px-6 py-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea"
+      role="status"
+    >
+      <IconoGoogle className="h-6 w-6 shrink-0" />
+      <span className="text-[1.05rem] font-bold text-tinta">Entrando</span>
+      {/* aria-hidden: el texto de arriba ya dice todo; sin esto un lector de
+          pantalla anuncia tres viñetas sin significado. */}
+      <span className="flex items-end gap-1 pb-[3px]" aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="punto-espera h-1.5 w-1.5 rounded-full bg-tinta-2"
+            style={{ ["--i" as string]: i }}
+          />
+        ))}
+      </span>
+    </div>
+  );
+}
+
 // Pantalla de entrada. Si ya hay sesión, va directo al panel. Si no, ofrece
 // entrar con Google (cuando está configurado) o el modo demo para la reunión.
 export default function Login() {
@@ -145,7 +182,17 @@ export default function Login() {
         )}
 
         {hayGoogle() ? (
-          <div ref={botonRef} className="flex justify-center" aria-busy={cargando} />
+          // EL BOTÓN NO SE DESMONTA NUNCA (2026-09-09, Jonathan: "se queda
+          // pegado en la misma ventana de continuar con Google... parece que
+          // no hubiera funcionado"). Google renderiza SU botón dentro de este
+          // div por imperativo; si React lo saca del árbol mientras entramos,
+          // al volver (por un error de red, por ejemplo) el contenedor está
+          // vacío y no hay con qué reintentar. Por eso se OCULTA con `hidden`
+          // y encima se pinta la espera: el nodo sigue vivo debajo.
+          <div className="flex w-full justify-center" aria-busy={cargando}>
+            <div ref={botonRef} className={cargando ? "hidden" : "flex justify-center"} />
+            {cargando && <EntrandoConGoogle />}
+          </div>
         ) : (
           <button
             onClick={entrarComoDemo}

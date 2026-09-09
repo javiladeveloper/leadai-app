@@ -429,6 +429,20 @@ button:active:not(:disabled), [role="button"]:active { transform: scale(0.97); }
 }
 .respira-punto { animation: latir-punto 2s ease-in-out infinite; }
 
+/* LOS TRES PUNTOS DE "ESTOY TRABAJANDO" (2026-09-09). Distinto del puntito de
+   "en vivo" de arriba: aquel dice que la pantalla se refresca sola, este dice
+   que HAY UNA ESPERA EN CURSO. Los tres laten desfasados —de ahí el
+   `--i`— porque tres puntos que parpadean al unísono se leen como un error,
+   no como progreso. */
+@keyframes rebotar-punto {
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40%           { opacity: 1;   transform: translateY(-3px); }
+}
+.punto-espera {
+  animation: rebotar-punto 1.2s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 160ms);
+}
+
 /* EL PEDIDO QUE ACABA DE ENTRAR.
    Un pedido nuevo aparecía igual que uno de hace media hora. Este destello
    corre UNA vez y se apaga: en una cocina, algo que parpadea para siempre se
@@ -539,6 +553,12 @@ button[class*="active:scale"]:active {
      movimiento tampoco quiere quedarse mirando una pantalla que parece
      colgada. Respetar la preferencia acá es bajar la velocidad, no apagarlo. */
   .girando { animation: girar 2.4s linear infinite !important; }
+  /* Los puntos de espera, por la misma razón que el spinner: INFORMAN que algo
+     sigue en curso. Se quedan solo con el cambio de opacidad —sin el rebote,
+     que es la parte decorativa— y más lentos. */
+  .punto-espera {
+    animation: latir-punto 2.4s ease-in-out infinite !important;
+  }
   /* El hundido del botón se va del todo (2026-08-22): con la transición en
      0.001ms el escalado igual OCURRE, solo que de golpe — que es justo el
      tipo de salto que molesta a quien pidió menos movimiento. El feedback

@@ -388,8 +388,13 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
         </div>
       ) : (
         <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
-          📸 La publicación real en Instagram/Facebook se activa cuando Meta apruebe la app
-          (en trámite). En TikTok ya se publica de verdad.
+          {/* EL AVISO DE "EN TRÁMITE" YA NO ERA CIERTO (2026-09-11). Se escribió
+              cuando publicar en Meta estaba simulado, pero `publicarEnInstagram`
+              usa el Graph API de verdad desde hace semanas —verificado hoy: el
+              post salió en el perfil real—. El texto viejo le decía al revisor
+              de Meta, dentro del video del App Review, que la función no está
+              implementada: justo la contradicción que hace que rechacen. */}
+          📸 Lo que publiques sale de verdad en las redes conectadas de este negocio.
         </div>
       )}
 

@@ -70,12 +70,10 @@ export function AccionesDelBot() {
       detalle: "Vuelve a escribirle al que no cerró, con el ritmo que elijas",
       activa: caps.nutreLeads !== false,
     },
-    {
-      titulo: "Tomar pedidos y cobrar",
-      detalle: "Arma el pedido, cobra por Yape o Plin y lo manda a cocina",
-      activa: caps.tieneCarta !== false,
-      enSuLugar: "Disponible en negocios de comida",
-    },
+    // ACÁ ESTABA "Tomar pedidos y cobrar" (2026-09-14). Se fue con los
+    // restaurantes: en LeadAI ya no es una función apagada que se puede
+    // encender, es una que no existe. Dejarla decía "Disponible en
+    // negocios de comida" y prometía algo que este panel no va a hacer.
     {
       // LA QUE MOTIVÓ TODO ESTO. Alguien va a escribirlo en el playbook: mejor
       // que lo lea acá, apagado y con la verdad al lado.

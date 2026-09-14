@@ -39,8 +39,13 @@ export default function InvitacionPage() {
   const [estado, setEstado] = useState<"mirando" | "lista" | "aceptando" | "ok" | "error">("mirando");
   const [mensaje, setMensaje] = useState("");
 
-  /** A dónde mandarlo después de entrar: un mozo no puede ver /inicio. */
-  const destinoDe = useCallback((rol?: string) => (rol === "mozo" ? "/cocina" : "/inicio"), []);
+  /**
+   * A dónde mandarlo después de entrar.
+   *
+   * El mozo iba a `/cocina`, que ya no existe para nadie (los restaurantes
+   * se fueron a Wappido, 2026-09-14). Ahora todos entran por Inicio.
+   */
+  const destinoDe = useCallback(() => "/inicio", []);
 
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("token");
@@ -77,7 +82,7 @@ export default function InvitacionPage() {
     }
     sessionStorage.removeItem("invitacion_token");
     setEstado("ok");
-    setTimeout(() => router.replace(destinoDe(datos?.rol)), 1200);
+    setTimeout(() => router.replace(destinoDe()), 1200);
   }, [token, router, datos, destinoDe]);
 
   const sesion = haySesion() ? leerSesion() : null;
@@ -166,9 +171,7 @@ export default function InvitacionPage() {
           <div className="surge">
             <h1 className="mt-6 text-2xl font-bold text-tinta">¡Listo! 🎉</h1>
             <p className="mt-2 text-tinta-2">
-              {datos?.rol === "mozo"
-                ? "Ya puedes tomar pedidos. Entrando…"
-                : "Ya estás en el equipo. Entrando…"}
+              Ya estás en el equipo. Entrando…
             </p>
           </div>
         )}

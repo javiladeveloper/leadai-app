@@ -300,8 +300,8 @@ export function PresenciaEditor() {
       {/* ── 3. REDES ── */}
       <Bloque
         n={3}
-        titulo="Tus redes en la carta"
-        porQue="El que ve tu carta y te sigue, vuelve solo. Es el cliente más barato que vas a conseguir."
+        titulo="Tus redes en tu página"
+        porQue="El que te ve y te sigue, vuelve solo. Es el cliente más barato que vas a conseguir."
         listo={conRedes}
       >
         <label className="block">
@@ -335,7 +335,7 @@ export function PresenciaEditor() {
           />
         </label>
         <p className="mt-2 text-[0.8rem] text-frio">
-          Con una sola alcanza. Aparecen como botones al final de tu carta.
+          Con una sola alcanza. Aparecen como botones al final de tu página.
         </p>
       </Bloque>
 

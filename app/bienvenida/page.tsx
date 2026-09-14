@@ -89,9 +89,16 @@ interface CapacidadesAlta {
 }
 
 function capacidadesDe(rubro: string): CapacidadesAlta {
-  // Espejo de `TABLA` en leadia/src/core/capacidades-rubro.ts: gastronomía es
-  // el único rubro con carta y cocina.
-  const esGastronomia = rubro === 'gastronomia';
+  // LOS RESTAURANTES SE DAN DE ALTA EN WAPPIDO (2026-09-14). Gastronomía ya
+  // no se ofrece en el selector (ver `OFRECIDOS` en lib/rubros.ts), así que
+  // acá no puede llegar — y si llegara por una URL vieja o un borrador a
+  // medias, tampoco debe abrir los pasos de carta y cocina: este panel no
+  // tiene dónde editarlos.
+  //
+  // Deja de ser espejo de `TABLA` (capacidades-rubro.ts) a propósito: el
+  // backend sigue diciendo que gastronomía tiene carta, porque es cierto
+  // para Wappido. Lo que cambia es quién la atiende.
+  const esGastronomia = false;
   return {
     tieneCarta: esGastronomia,
     tieneCocina: esGastronomia,

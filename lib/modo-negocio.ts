@@ -113,7 +113,10 @@ function leerGuardado(tenant: string): EstadoNegocio | null {
   const v = localStorage.getItem(`${CLAVE}.${tenant}`);
   if (!v) return null;
   try {
-    return JSON.parse(v) as EstadoNegocio;
+    // Se limpia AL LEER también: un panel abierto antes del 2026-09-14 tiene
+    // guardado un `tieneCarta: true` que pintaría el menú viejo hasta que
+    // responda el backend.
+    return sinRestaurantes(JSON.parse(v) as EstadoNegocio);
   } catch {
     // JSON viejo o corrupto: se ignora y se pregunta de nuevo. Nunca romper
     // el panel por algo que solo estaba para evitar un parpadeo.
@@ -121,10 +124,45 @@ function leerGuardado(tenant: string): EstadoNegocio | null {
   }
 }
 
+/**
+ * LOS RESTAURANTES NO SE ATIENDEN DESDE ACÁ (2026-09-14).
+ *
+ * Se fueron a Wappido: otra marca, otro panel, otra app — el mismo backend.
+ * Como el backend es COMPARTIDO, `GET /capacidades` sigue devolviendo
+ * `tieneCarta`/`tieneCocina` en `true` para un negocio de comida, y con eso
+ * el panel de LeadAI le pintaría Carta, Cocina y Reportes de pedidos.
+ *
+ * Acá se apagan, en el ÚNICO punto por el que entra la respuesta del
+ * backend. Todo lo de restaurante ya vivía detrás de estas cuatro banderas
+ * (`Sidebar.SECCIONES`, `seccionesDe`, los `if` de Configuración y Mi plan),
+ * así que apagarlas acá apaga el menú, las pantallas y sus consultas de una
+ * sola vez.
+ *
+ * NO SE BORRA EL CÓDIGO, se DESCONECTA (decisión de Jonathan): las páginas y
+ * libs siguen en el repo, inertes. Y sobre todo sigue viva la carta pública
+ * `/c/<slug>`, que NO depende de esto: el bot manda ese link por WhatsApp en
+ * cada pedido y hay QR pegados en mesas apuntando ahí. Apagar la capacidad
+ * esconde el EDITOR, no tumba la carta que ve el comensal.
+ */
+function sinRestaurantes(estado: EstadoNegocio): EstadoNegocio {
+  return {
+    ...estado,
+    modoPedidos: false,
+    capacidades: {
+      ...estado.capacidades,
+      tieneCarta: false,
+      tieneCocina: false,
+      validaPagos: false,
+      tieneReservas: false,
+    },
+  };
+}
+
 function guardar(tenant: string, estado: EstadoNegocio): void {
-  cache.set(tenant, estado);
+  const limpio = sinRestaurantes(estado);
+  cache.set(tenant, limpio);
   if (typeof window !== "undefined") {
-    localStorage.setItem(`${CLAVE}.${tenant}`, JSON.stringify(estado));
+    localStorage.setItem(`${CLAVE}.${tenant}`, JSON.stringify(limpio));
   }
 }
 
@@ -188,8 +226,11 @@ export function useCapacidades(): EstadoNegocio | null {
     let vivo = true;
     api<EstadoNegocio>("/capacidades")
       .then((r) => {
-        guardar(tenant, r);
-        if (vivo) setEstado(r);
+        // `guardar` limpia lo de restaurante (ver `sinRestaurantes`); se
+        // pinta lo MISMO que se cachea, no la respuesta cruda.
+        const limpio = sinRestaurantes(r);
+        guardar(tenant, limpio);
+        if (vivo) setEstado(limpio);
       })
       // Si falla, NO se acorta el menú: se asume el rubro más completo.
       .catch(() => { if (vivo) setEstado(TODO_ENCENDIDO); });

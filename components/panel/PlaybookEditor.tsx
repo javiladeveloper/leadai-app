@@ -119,7 +119,7 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
   // Los chips de los campos largos, según CÓMO vende el negocio (pedidos vs
   // servicios): un contador y un abogado cierran igual aunque sus rubros no se
   // parezcan.
-  const chips = chipsDeCampo(caps.tieneCarta);
+  const chips = chipsDeCampo();
   // Los ejemplos de su rubro, para los chips. `null` mientras cargan o si
   // falla: son ayuda, y sin ellos la pantalla funciona igual que siempre.
   const [sug, setSug] = useState<SugerenciasPlaybook | null>(null);

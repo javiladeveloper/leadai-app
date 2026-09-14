@@ -52,7 +52,11 @@ export const RUBROS: Rubro[] = [
  * Quien YA tiene otro rubro lo conserva: `RUBROS` sigue completo y su etiqueta
  * se resuelve igual.
  */
-const OFRECIDOS = ['gastronomia', 'ventas'];
+// GASTRONOMÍA YA NO SE OFRECE (2026-09-14): los restaurantes se dan de alta
+// y se atienden en Wappido. Sigue en `RUBROS` a propósito — un negocio
+// creado antes con ese rubro conserva su etiqueta legible en vez de mostrar
+// el id crudo; lo que desaparece es la OPCIÓN de elegirlo al crear uno.
+const OFRECIDOS = ['ventas'];
 
 export const RUBROS_DISPONIBLES: Rubro[] = RUBROS.filter((r) => OFRECIDOS.includes(r.id));
 

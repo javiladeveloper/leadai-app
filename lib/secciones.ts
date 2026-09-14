@@ -121,8 +121,16 @@ export function seccionesDe(
     if (s.soloConPlacas && !estado?.tienePlacas) return false;
     return true;
   });
-  if (rol !== "mozo") return porCapacidad;
-  return porCapacidad.filter((s) => RUTAS_DEL_MOZO.some((r) => s.href === r));
+  // EL MOZO YA NO SE FILTRA (2026-09-14). Su menú era exactamente
+  // [Cocina, Carta], y esas dos secciones están apagadas desde que los
+  // restaurantes se fueron a Wappido (ver `sinRestaurantes` en
+  // lib/modo-negocio.ts). Mantener el filtro le dejaba el menú VACÍO: la
+  // intersección de sus rutas con lo que existe hoy es cero.
+  //
+  // No se puede invitar a un mozo nuevo (la opción va detrás de
+  // `tieneCocina`), pero los que ya están en la base siguen entrando: ven
+  // lo mismo que un vendedor, que es lo único que este panel hace ahora.
+  return porCapacidad;
 }
 
 /**

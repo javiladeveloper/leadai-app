@@ -86,8 +86,17 @@ const CHIPS: Record<FormaDeVender, ChipsDeCampo> = {
   },
 };
 
-export function chipsDeCampo(tieneCarta: boolean | null): ChipsDeCampo {
-  return CHIPS[tieneCarta ? "pedidos" : "servicios"];
+/**
+ * Los chips de ejemplo del playbook.
+ *
+ * Recibía `tieneCarta` para elegir entre los ejemplos de pedidos y los de
+ * servicios. Desde 2026-09-14 siempre son los de servicios: `CHIPS.pedidos`
+ * ("Mínimo S/20 para delivery", "Que reserven una mesa") quedó inalcanzable
+ * cuando los restaurantes se fueron a Wappido. Se deja el objeto entero por
+ * si vuelve a servir de referencia; la rama, no.
+ */
+export function chipsDeCampo(): ChipsDeCampo {
+  return CHIPS["servicios"];
 }
 
 /**

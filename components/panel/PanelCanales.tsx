@@ -372,14 +372,14 @@ export function PanelCanales() {
                   </p>
                   {/* SUCURSALES NO SE MANDAN SOLAS A OTRA EMPRESA (2026-08-25).
                       Con el mismo negocio en varios locales, "crea otra
-                      empresa" es el consejo CARO: carga la carta de nuevo,
-                      paga otro plan y pierde las ventas juntas. Todavía no hay
+                      empresa" es el consejo CARO: carga todo de nuevo, paga
+                      otro plan y pierde las ventas juntas. Todavía no hay
                       soporte real de sucursales, así que se les pide que
                       escriban en vez de empujarlos a un camino que les sale
                       peor y encima nos hace ver mal. */}
                   <p>
                     <b className="text-tinta">¿Es otro local del mismo negocio?</b> Escríbenos antes
-                    de conectarlo — lo configuramos contigo para que no cargues la carta dos veces.
+                    de conectarlo — lo configuramos contigo para que no cargues todo dos veces.
                   </p>
                 </div>
               )}

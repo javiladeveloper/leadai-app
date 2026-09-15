@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  listarCanales, obtenerUrlOAuth, actualizarCanal, eliminarCanal,
+  listarCanales, obtenerUrlOAuth, actualizarCanal, eliminarCanal, liberarCanal,
   cuentasPendientes, elegirCuenta,
   type Canal, type TipoCanal, type CuentaPendiente,
 } from "@/lib/api";
@@ -204,9 +204,18 @@ export function PanelCanales() {
     cargar();
   }
 
-  // Desconecta (elimina) la conexión con la red. Los leads y conversaciones
-  // quedan intactos: solo se quita el enlace, y se puede volver a conectar.
+  // Desconecta la conexión con la red. Los leads y conversaciones quedan
+  // intactos: solo se quita el enlace.
+  //
+  // WHATSAPP VA POR OTRO CAMINO (2026-09-15). El DELETE de siempre desconecta
+  // el bot pero deja el número REGISTRADO en la API de Meta: desde ahí el
+  // dueño no puede usarlo en su app de WhatsApp Business ni llevarlo a otra
+  // plataforma. Para Instagram o Messenger da igual —se reconectan con un
+  // clic—, pero un número de teléfono queda atrapado, y el mensaje de acá le
+  // prometía justo lo contrario ("puedes volver a conectarla cuando quieras").
+  // Liberar además lo desregistra.
   async function desconectar(c: Canal) {
+    if (c.tipo === "whatsapp") return desconectarWhatsApp(c);
     const seguro = window.confirm(
       `¿Desconectar ${c.nombre || c.cuentaExterna}?\n\n` +
         "La cuenta deja de estar conectada a LeadAI (el bot ya no atenderá por aquí). " +
@@ -215,6 +224,37 @@ export function PanelCanales() {
     if (!seguro) return;
     await eliminarCanal(c.id);
     cargar();
+  }
+
+  async function desconectarWhatsApp(c: Canal) {
+    const compartidos = (c.compartirCon?.length ?? 0) + 1;
+    const seguro = window.confirm(
+      `¿Desconectar ${c.nombre || c.cuentaExterna}?\n\n` +
+        "El bot deja de responder por este número y lo sueltas para usarlo en tu app de " +
+        "WhatsApp Business o conectarlo a otro lado.\n\n" +
+        (compartidos > 1
+          ? `OJO: este número atiende ${compartidos} negocios. Todos dejan de recibir mensajes.\n\n`
+          : "") +
+        "Tus conversaciones y leads NO se borran. Para volver a conectarlo aquí hay que " +
+        "verificarlo de nuevo con Meta.",
+    );
+    if (!seguro) return;
+    const r = await liberarCanal(c.id);
+    cargar();
+    // El detalle se MUESTRA. Meta no deja soltar por API los números de
+    // coexistencia (los que viven en la app del celular): ahí el bot queda
+    // desconectado igual, pero al dueño le falta un paso a mano y necesita
+    // saber cuál. Decirle "listo" sin más lo deja creyendo que el número ya
+    // es suyo cuando todavía no lo es.
+    if (!r.ok) {
+      window.alert(r.detalle || "No se pudo desconectar. Intenta de nuevo.");
+    } else if (!r.numeroLiberado) {
+      window.alert(
+        "El bot ya no responde por ese número.\n\n" +
+          "Para soltarlo del todo en Meta falta un paso a mano:\n\n" +
+          (r.detalle || "Escríbenos y lo vemos contigo."),
+      );
+    }
   }
 
   return (

@@ -1494,6 +1494,31 @@ export async function eliminarCanal(id: string): Promise<{ ok: boolean }> {
   catch { return { ok: false }; }
 }
 
+/**
+ * SOLTAR UN NÚMERO DE WHATSAPP (2026-09-15).
+ *
+ * `eliminarCanal` (DELETE) desconecta el bot pero deja el número REGISTRADO en
+ * la API de Meta, y desde ahí no se puede usar en la app de WhatsApp Business
+ * ni conectarlo a otra plataforma. Para Instagram o Messenger da igual —se
+ * reconectan con un clic—, pero para un número de teléfono es dejarlo
+ * atrapado: el dueño cree que lo soltó y no puede usarlo en ningún lado.
+ *
+ * Liberar además lo desregistra. Volver a conectarlo acá exige verificarlo de
+ * nuevo con Meta, y por eso se pregunta antes.
+ *
+ * `numeroLiberado: false` NO es un error: Meta no deja soltar por API los
+ * números de coexistencia (los que viven en la app del celular). El canal se
+ * borra igual y `detalle` trae el paso manual — hay que MOSTRARLO.
+ */
+export async function liberarCanal(id: string): Promise<{ ok: boolean; numeroLiberado: boolean; detalle: string }> {
+  try {
+    const r = await api<{ numeroLiberado?: boolean; detalle?: string }>(`/canales/${id}/liberar`, { method: "POST" });
+    return { ok: true, numeroLiberado: r?.numeroLiberado === true, detalle: typeof r?.detalle === "string" ? r.detalle : "" };
+  } catch (e) {
+    return { ok: false, numeroLiberado: false, detalle: e instanceof Error ? e.message : "No se pudo desconectar." };
+  }
+}
+
 // ── Comentarios como leads (Fase 1 embudo) ──────────────────────
 export interface Comentario {
   id: string;

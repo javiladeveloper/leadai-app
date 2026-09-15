@@ -6,7 +6,7 @@ import {
   guardarHorario,
   type ConfigHorario,
 } from "@/lib/horario";
-import { guardarNegocio } from "@/lib/carta";
+import { guardarDatosNegocio, type DatosNegocio } from "@/lib/negocio";
 import { HeroSeccion } from "@/components/panel/HeroSeccion";
 
 /**
@@ -88,12 +88,18 @@ export function PresenciaEditor() {
     avisarOk();
   }
 
-  /** Lo que vive en la carta (link corto, redes). Misma pantalla, otra ruta. */
-  async function aplicarCarta(cambios: Parameters<typeof guardarNegocio>[0]) {
+  /**
+   * El link corto y las redes.
+   *
+   * Va por `lib/negocio` y no por `lib/carta` (2026-09-14): estos campos son
+   * de cualquier negocio, y esta pantalla —Marketing— la usan los que no
+   * tienen carta. Ver el comentario de `lib/negocio.ts`.
+   */
+  async function aplicarCarta(cambios: DatosNegocio) {
     if (!cfg) return;
     const previo = cfg;
     setError("");
-    const r = await guardarNegocio(cambios);
+    const r = await guardarDatosNegocio(cambios);
     if (!r.ok) {
       setSlug(previo.slug ?? "");
       setIg(previo.instagramUrl ?? "");

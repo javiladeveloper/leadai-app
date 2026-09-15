@@ -6,6 +6,21 @@ export interface EmpresaResumen {
   tenantId: string;
   nombre: string;
   rol: string;
+  /** `captar_y_derivar`, `vender_pedidos`, `agendar_citas`, `matricular_socio`. Lo manda el backend. */
+  objetivo?: string;
+}
+
+/**
+ * LOS RESTAURANTES NO VIVEN EN LEADAI (2026-09-15). Se fueron a Wappido
+ * —otra marca, otro panel, otra app— sobre el MISMO backend, así que `/auth/yo`
+ * y `/empresas` siguen devolviéndolos. Jonathan vio "La Churrísima" entre sus
+ * negocios de Configuración. Espejo exacto de `sinRestaurantes()` de la app
+ * móvil (leadai-mobile caa02a6): se corta en la FRONTERA —cada escritura de la
+ * sesión y la lista en vivo— para que ninguna pantalla filtre por su cuenta.
+ */
+export const OBJETIVO_RESTAURANTE = "vender_pedidos";
+export function empresasSinRestaurantes(empresas: EmpresaResumen[]): EmpresaResumen[] {
+  return empresas.filter((e) => e.objetivo !== OBJETIVO_RESTAURANTE);
 }
 
 export interface Sesion {
@@ -20,9 +35,19 @@ const CLAVE_EMPRESA = "leadai.empresa";
 
 const esNavegador = () => typeof window !== "undefined";
 
-export function guardarSesion(sesion: Sesion): void {
+export function guardarSesion(sesionCruda: Sesion): void {
   if (!esNavegador()) return;
+  // Un restaurante nunca entra a la sesión (ver `empresasSinRestaurantes`).
+  const sesion: Sesion = { ...sesionCruda, empresas: empresasSinRestaurantes(sesionCruda.empresas ?? []) };
   localStorage.setItem(CLAVE_SESION, JSON.stringify(sesion));
+  // Si la empresa activa era un restaurante que acaba de salir de la lista,
+  // se suelta: dejarla activa mandaría X-Tenant-Id de un negocio que el panel
+  // ya no muestra. En soporte no se toca (el negocio ajeno no está en la lista).
+  const activa = localStorage.getItem(CLAVE_EMPRESA);
+  if (activa && !leerModoSoporte() && sesionCruda.empresas?.some((e) => e.tenantId === activa)
+      && !sesion.empresas.some((e) => e.tenantId === activa)) {
+    localStorage.removeItem(CLAVE_EMPRESA);
+  }
   // Si hay una sola empresa, la dejamos activa por defecto — SALVO en soporte:
   // `refrescarSesion()` corre en cada carga del panel, y esto sacaría del
   // negocio ajeno a un super admin con un solo negocio propio, en silencio y

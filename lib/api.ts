@@ -2,7 +2,7 @@
 // Autenticación: token de usuario (Bearer) + header X-Tenant-Id para elegir la
 // empresa activa. El token y la empresa se guardan en el navegador (ver auth.ts).
 
-import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, EMPRESA_GLOBAL, type EmpresaResumen } from "./auth";
+import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, EMPRESA_GLOBAL, type EmpresaResumen, empresasSinRestaurantes } from "./auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -82,11 +82,14 @@ export async function refrescarSesion(): Promise<boolean> {
     "/auth/yo",
     { conEmpresa: false },
   );
+  // Se compara contra la lista YA sin restaurantes: la guardada nunca los
+  // tiene, y comparar con la cruda marcaría "cambio" en cada carga.
+  const empresas = empresasSinRestaurantes(r.empresas);
   const cambio =
     r.esSuperAdmin !== (sesion.esSuperAdmin === true) ||
-    JSON.stringify(r.empresas) !== JSON.stringify(sesion.empresas);
+    JSON.stringify(empresas) !== JSON.stringify(sesion.empresas);
   if (cambio) {
-    guardarSesion({ ...sesion, empresas: r.empresas, esSuperAdmin: r.esSuperAdmin });
+    guardarSesion({ ...sesion, empresas, esSuperAdmin: r.esSuperAdmin });
   }
   return cambio;
 }
@@ -1021,7 +1024,8 @@ export async function resumenPedidos(): Promise<ResumenPedidos | null> {
 // creado en otro dispositivo) no aparecería sin este refresco.
 export async function misEmpresas(): Promise<EmpresaResumen[]> {
   try {
-    return await api<EmpresaResumen[]>("/empresas");
+    // Los restaurantes viven en Wappido: acá no se listan (ver lib/auth.ts).
+    return empresasSinRestaurantes(await api<EmpresaResumen[]>("/empresas"));
   } catch {
     return [];
   }

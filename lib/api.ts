@@ -445,6 +445,14 @@ export async function listarLeads(
      * audiencia que mejor convierte en una campaña.
      */
     minPedidos?: number;
+    /**
+     * LOS DOS EXTREMOS DEL EJE TEMPORAL (2026-09-16), y son usos opuestos:
+     *  · `dias: 30`         → los que SI escribieron hace poco (bandeja viva).
+     *  · `inactivoDias: 60` → los que NO vuelven hace dos meses, que es la
+     *    campana que mas rinde: recuperar al que se fue.
+     */
+    dias?: number;
+    inactivoDias?: number;
   },
 ): Promise<Lead[]> {
   // El backend pagina por cursor (máx 100 por página). Seguimos el cursor hasta
@@ -458,6 +466,8 @@ export async function listarLeads(
     if (filtros?.estado) qs.set("estado", filtros.estado);
     if (filtros?.nivel) qs.set("nivel", filtros.nivel);
     if (filtros?.minPedidos) qs.set("minPedidos", String(filtros.minPedidos));
+    if (filtros?.dias) qs.set("dias", String(filtros.dias));
+    if (filtros?.inactivoDias) qs.set("inactivoDias", String(filtros.inactivoDias));
     qs.set("limit", "100");
     if (cursor) qs.set("cursor", cursor);
     const r: { items: Lead[]; siguienteCursor: string | null } = await api(

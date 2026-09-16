@@ -39,6 +39,65 @@ const ESTADO_PLANTILLA: Record<string, { texto: string; clase: string }> = {
  * `embebido`: esta pantalla se monta DENTRO de /marketing, que ya puso el
  * título y la barra de negocios. Sin esto, se verían dos veces.
  */
+/**
+ * LAS AUDIENCIAS QUE SE PUEDEN TRAER A UNA CAMPAÑA (2026-09-16).
+ *
+ * Se nombran por lo que SON para el negocio, no por el campo que las filtra:
+ * nadie piensa "quiero los de nivelInteres tibio", piensa "los que
+ * preguntaron y no compraron".
+ *
+ * Van fuera del componente a propósito —son constantes, y adentro se
+ * recrearían en cada render— y agrupadas porque tres filas cortas se leen
+ * mejor que doce chips seguidos, sobre todo para alguien que maneja tres o
+ * cuatro negocios y entra a esta pantalla cada tanto.
+ */
+const AUDIENCIAS: Array<{
+  titulo: string;
+  opciones: Array<{
+    clave: string;
+    etiqueta: string;
+    ayuda: string;
+    filtro: Parameters<typeof listarLeads>[0];
+    vacio: string;
+  }>;
+}> = [
+  {
+    titulo: "Ya te compraron:",
+    opciones: [
+      { clave: "c1", etiqueta: "1 vez o más", ayuda: "Cualquiera con al menos un pedido entregado.",
+        filtro: { minPedidos: 1 }, vacio: "Todavía no hay clientes con pedidos entregados." },
+      { clave: "c2", etiqueta: "2 veces o más", ayuda: "Ya volvieron al menos una vez.",
+        filtro: { minPedidos: 2 }, vacio: "Nadie llegó a 2 pedidos todavía. Probá con menos." },
+      { clave: "c4", etiqueta: "4 veces o más", ayuda: "Tus clientes fieles: la audiencia que mejor convierte.",
+        filtro: { minPedidos: 4 }, vacio: "Nadie llegó a 4 pedidos todavía. Probá con menos." },
+    ],
+  },
+  {
+    titulo: "Se enfriaron:",
+    opciones: [
+      // La campaña que más rinde: el que ya te compró y dejó de venir vuelve
+      // mucho más barato que conseguir uno nuevo.
+      { clave: "i30", etiqueta: "Sin escribir hace 30 días", ayuda: "No dan señales hace un mes.",
+        filtro: { inactivoDias: 30 }, vacio: "Nadie lleva 30 días sin escribir. Buena señal." },
+      { clave: "i60", etiqueta: "60 días", ayuda: "Dos meses sin aparecer.",
+        filtro: { inactivoDias: 60 }, vacio: "Nadie lleva 60 días sin escribir." },
+      { clave: "i90", etiqueta: "90 días", ayuda: "Tres meses: a estos hay que reconquistarlos.",
+        filtro: { inactivoDias: 90 }, vacio: "Nadie lleva 90 días sin escribir." },
+    ],
+  },
+  {
+    titulo: "Por interés:",
+    opciones: [
+      { clave: "caliente", etiqueta: "Calientes", ayuda: "Mostraron intención clara de comprar.",
+        filtro: { nivel: "caliente" }, vacio: "No hay leads calientes ahora mismo." },
+      { clave: "tibio", etiqueta: "Tibios", ayuda: "Preguntaron pero no cerraron: los que más ganan con un empujón.",
+        filtro: { nivel: "tibio" }, vacio: "No hay leads tibios ahora mismo." },
+      { clave: "perdido", etiqueta: "Los que se perdieron", ayuda: "Marcados como perdidos: una oferta puede revivirlos.",
+        filtro: { estado: "perdido" }, vacio: "No hay leads marcados como perdidos." },
+    ],
+  },
+];
+
 export default function CampaniasPanel({ embebido = false }: { embebido?: boolean } = {}) {
   const router = useRouter();
   const [listo, setListo] = useState(false);
@@ -65,25 +124,36 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
    * cruzar su lista de pedidos contra su agenda para armar esa audiencia. Con
    * esto son dos toques.
    */
-  const [buscandoFieles, setBuscandoFieles] = useState(0); // el mínimo que se está buscando
+  const [buscandoFieles, setBuscandoFieles] = useState(""); // qué audiencia se está trayendo
   const [avisoFieles, setAvisoFieles] = useState("");
 
-  async function traerClientes(minPedidos: number) {
-    setBuscandoFieles(minPedidos);
+  /**
+   * TRAER UNA AUDIENCIA A LA LISTA (2026-09-16, pedido de Jonathan: "quizás
+   * queremos enviar mensajes solo a los tibios, o solo a los fríos").
+   *
+   * Antes solo sabía filtrar por cuántas veces compró. Ahora recibe el filtro
+   * entero, así cada botón de arriba es una audiencia y sumar una más no toca
+   * esta función.
+   *
+   * `clave` identifica cuál se está buscando para deshabilitar solo ese botón;
+   * `vacio` es qué decirle si no hay nadie, que depende de la audiencia.
+   */
+  async function traerAudiencia(
+    clave: string,
+    filtro: Parameters<typeof listarLeads>[0],
+    vacio: string,
+  ) {
+    setBuscandoFieles(clave);
     setAvisoFieles("");
     try {
-      const leads = await listarLeads({ minPedidos });
+      const leads = await listarLeads(filtro);
       // Solo los que tienen teléfono real: un LID (número privado) no sirve
       // para una plantilla de WhatsApp.
       const lineas = leads
         .filter((l) => /^\d{6,}$/.test(l.contactoExterno))
         .map((l) => (l.nombre ? `${l.contactoExterno}, ${l.nombre}` : l.contactoExterno));
       if (lineas.length === 0) {
-        setAvisoFieles(
-          minPedidos === 1
-            ? "Todavía no hay clientes con pedidos entregados."
-            : `Nadie llegó a ${minPedidos} pedidos todavía. Probá con menos.`,
-        );
+        setAvisoFieles(vacio);
         return;
       }
       // Se AGREGA a lo que ya haya escrito, sin pisarlo, y sin repetir a nadie.
@@ -97,7 +167,7 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
     } catch {
       setAvisoFieles("No pudimos traer la lista. Intenta de nuevo.");
     } finally {
-      setBuscandoFieles(0);
+      setBuscandoFieles("");
     }
   }
   const [programada, setProgramada] = useState("");
@@ -441,22 +511,28 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
                 su lista de pedidos contra su agenda para armar la audiencia
                 que mejor convierte: quien ya compró varias veces. Los botones
                 la traen; el número dice cuántas compras tiene cada uno. */}
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-[0.76rem] font-semibold text-tinta-2">Traer a los que ya compraron:</span>
-              {[1, 2, 4].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => traerClientes(n)}
-                  disabled={buscandoFieles > 0}
-                  className="rounded-chip bg-arena px-2.5 py-1 text-[0.78rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-carta hover:text-tinta disabled:opacity-50"
-                >
-                  {buscandoFieles === n
-                    ? "Buscando…"
-                    : n === 1 ? "1 vez o más" : `${n} veces o más`}
-                </button>
-              ))}
-            </div>
+            {/* CADA BOTÓN ES UNA AUDIENCIA (2026-09-16). Antes solo se podía
+                filtrar por cuántas veces compró. Las audiencias se nombran por
+                lo que SON para el negocio —"los que no vuelven", "los que
+                preguntaron y no compraron"— y no por el campo que las filtra:
+                nadie piensa "quiero los de nivelInteres tibio". */}
+            {AUDIENCIAS.map((grupo) => (
+              <div key={grupo.titulo} className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[0.76rem] font-semibold text-tinta-2">{grupo.titulo}</span>
+                {grupo.opciones.map((o) => (
+                  <button
+                    key={o.clave}
+                    type="button"
+                    onClick={() => traerAudiencia(o.clave, o.filtro, o.vacio)}
+                    disabled={buscandoFieles !== ""}
+                    title={o.ayuda}
+                    className="rounded-chip bg-arena px-2.5 py-1 text-[0.78rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-carta hover:text-tinta disabled:opacity-50"
+                  >
+                    {buscandoFieles === o.clave ? "Buscando…" : o.etiqueta}
+                  </button>
+                ))}
+              </div>
+            ))}
             {avisoFieles && (
               <p className="mt-1 text-[0.78rem] text-tinta-2">{avisoFieles}</p>
             )}

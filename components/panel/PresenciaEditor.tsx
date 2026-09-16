@@ -44,8 +44,10 @@ export function PresenciaEditor() {
   const [slug, setSlug] = useState("");
   const [ig, setIg] = useState("");
   const [fb, setFb] = useState("");
+  const [tt, setTt] = useState("");
   const [meta, setMeta] = useState("");
   const [ga, setGa] = useState("");
+  const [capi, setCapi] = useState("");
 
   useEffect(() => {
     let vivo = true;
@@ -56,8 +58,10 @@ export function PresenciaEditor() {
       setSlug(r?.slug ?? "");
       setIg(r?.instagramUrl ?? "");
       setFb(r?.facebookUrl ?? "");
+      setTt(r?.tiktokUrl ?? "");
       setMeta(r?.metaPixelId ?? "");
       setGa(r?.googleAnalyticsId ?? "");
+      setCapi(r?.capiDatasetId ?? "");
       setCargando(false);
     });
     return () => { vivo = false; };
@@ -104,6 +108,7 @@ export function PresenciaEditor() {
       setSlug(previo.slug ?? "");
       setIg(previo.instagramUrl ?? "");
       setFb(previo.facebookUrl ?? "");
+      setTt(previo.tiktokUrl ?? "");
       // El slug puede estar TOMADO por otro negocio: el mensaje del backend
       // dice cuál es el problema, y perderlo lo deja sin saber por qué falló.
       setError(r.error ?? "No se pudo guardar");
@@ -114,6 +119,7 @@ export function PresenciaEditor() {
       ...(cambios.slug !== undefined ? { slug: cambios.slug } : {}),
       ...(cambios.instagramUrl !== undefined ? { instagramUrl: cambios.instagramUrl } : {}),
       ...(cambios.facebookUrl !== undefined ? { facebookUrl: cambios.facebookUrl } : {}),
+      ...(cambios.tiktokUrl !== undefined ? { tiktokUrl: cambios.tiktokUrl } : {}),
     });
     avisarOk();
   }
@@ -122,9 +128,9 @@ export function PresenciaEditor() {
   if (!cfg) return null;
 
   const enGoogle = (cfg.googleReviewUrl ?? "").trim().length > 0;
-  const conRedes = Boolean(cfg.instagramUrl?.trim() || cfg.facebookUrl?.trim());
+  const conRedes = Boolean(cfg.instagramUrl?.trim() || cfg.facebookUrl?.trim() || cfg.tiktokUrl?.trim());
   const conCarta = Boolean(cfg.slug?.trim());
-  const midiendo = Boolean((cfg.metaPixelId ?? "").trim() || (cfg.googleAnalyticsId ?? "").trim());
+  const midiendo = Boolean((cfg.metaPixelId ?? "").trim() || (cfg.googleAnalyticsId ?? "").trim() || (cfg.capiDatasetId ?? "").trim());
   const linkCarta = cfg.slug?.trim() ? `app.leadai-pe.com/c/${cfg.slug.trim()}` : "";
 
   return (
@@ -340,6 +346,25 @@ export function PresenciaEditor() {
             className="mt-1.5 w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio"
           />
         </label>
+        {/* TIKTOK FALTABA (2026-09-16). La columna `tiktokUrl` existe desde
+            siempre y la carta pública ya la pinta: lo único que no había era
+            dónde escribirla. Un negocio con TikTok y sin Instagram no tenía
+            cómo poner su red. */}
+        <label className="mt-3 block">
+          <span className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+            TikTok
+          </span>
+          <input
+            value={tt}
+            onChange={(e) => setTt(e.target.value)}
+            onBlur={() => {
+              const v = tt.trim();
+              if (v !== (cfg.tiktokUrl ?? "")) void aplicarCarta({ tiktokUrl: v || null });
+            }}
+            placeholder="https://tiktok.com/@tunegocio"
+            className="mt-1.5 w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio"
+          />
+        </label>
         <p className="mt-2 text-[0.8rem] text-frio">
           Con una sola alcanza. Aparecen como botones al final de tu página.
         </p>
@@ -399,6 +424,54 @@ export function PresenciaEditor() {
             &ldquo;G-&rdquo;.
           </span>
         </label>
+
+        {/* CAPI: EL MOTOR ESTABA Y NO HABÍA DÓNDE PRENDERLO (2026-09-16).
+            `src/core/capi.ts` existe desde el 4-sep y ya dispara en cada cita
+            agendada, pero sin Dataset ID devuelve "omitido: sin_dataset" en
+            silencio. El campo faltaba: el módulo entero estaba inerte.
+
+            El token no se pide acá a propósito — cae al del canal de WhatsApp,
+            que el negocio ya conectó. Pedirle un secreto más sería una excusa
+            para no activarlo. */}
+        <label className="mt-5 block">
+          <span className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
+            Conversiones de Meta
+          </span>
+          <input
+            value={capi}
+            onChange={(e) => setCapi(e.target.value)}
+            onBlur={() => {
+              const v = capi.trim();
+              if (v !== (cfg.capiDatasetId ?? "")) void aplicar({ capiDatasetId: v });
+            }}
+            inputMode="numeric"
+            placeholder="1234567890123456"
+            className="mt-1.5 w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 tabular-nums text-tinta placeholder:text-frio"
+          />
+          <span className="mt-1 block text-[0.8rem] text-frio">
+            El píxel mide quién entró a tu página. Esto le avisa a Facebook
+            quién <strong className="text-tinta-2">terminó comprando</strong>,
+            así deja de buscarte curiosos y te busca clientes.
+          </span>
+        </label>
+
+        <Pasos
+          titulo="Dónde encuentro ese número"
+          pasos={[
+            <>En el <strong className="text-tinta">Administrador de eventos</strong>, entra a <strong className="text-tinta">Orígenes de datos</strong>.</>,
+            <>Elige el conjunto que usa tu WhatsApp.</>,
+            <>Copia el <strong className="text-tinta">identificador del conjunto</strong>: son solo números.</>,
+          ]}
+          dibujo={<PixelIlustracion />}
+        />
+
+        {(cfg.capiDatasetId ?? "").trim() && (
+          <p className="mt-4 rounded-tarjeta bg-brasa-suave px-4 py-3 text-[0.85rem] text-ok">
+            <strong>Listo.</strong> Cada vez que un cliente agenda o compra,
+            Facebook se entera y aprende a buscar gente parecida. Tus anuncios
+            se abaratan solos con el tiempo.
+          </p>
+        )}
       </Bloque>
 
       <div className="min-h-[1.2rem] text-[0.84rem]">

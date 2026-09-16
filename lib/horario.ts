@@ -52,10 +52,19 @@ export interface ConfigHorario {
   metaPixelId: string;
   /** GA4: "G-XXXXXXX". */
   googleAnalyticsId: string;
+  /**
+   * Dataset de la API de Conversiones de Meta (CAPI).
+   *
+   * El pixel mide quien entro a la web; CAPI le devuelve a Meta QUIEN
+   * termino comprando, y con eso deja de optimizar hacia "gente que inicia
+   * chats" para buscar gente parecida a la que agenda. Vacio = apagado.
+   */
+  capiDatasetId: string;
   // Para el diagnóstico de presencia: qué tiene ya y qué le falta.
   direccion?: string | null;
   instagramUrl?: string | null;
   facebookUrl?: string | null;
+  tiktokUrl?: string | null;
   /** El link corto de su carta. Sin esto no tiene qué promocionar. */
   slug?: string | null;
 
@@ -109,9 +118,11 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       googleReviewUrl: r.config.googleReviewUrl ?? "",
       metaPixelId: r.config.metaPixelId ?? "",
       googleAnalyticsId: r.config.googleAnalyticsId ?? "",
+      capiDatasetId: r.config.capiDatasetId ?? "",
       direccion: r.config.direccion ?? null,
       instagramUrl: r.config.instagramUrl ?? null,
       facebookUrl: r.config.facebookUrl ?? null,
+      tiktokUrl: r.config.tiktokUrl ?? null,
       slug: r.config.slug ?? null,
       yapeNumero: r.config.yapeNumero ?? "",
       yapeNombre: r.config.yapeNombre ?? "",

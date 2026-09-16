@@ -435,6 +435,31 @@ export interface Resumen {
   ventasCerradas: number;
 }
 
+/**
+ * Las ciudades que este negocio REALMENTE tiene, con cuantos leads hay en cada
+ * una.
+ *
+ * No se ofrece un desplegable con los 25 departamentos del Peru: 23
+ * devolverian cero y el dueno terminaria probando a ciegas cual de sus botones
+ * tiene gente. Con el conteo ve "Tacna (48)" y sabe a que le apunta antes de
+ * mandar nada.
+ */
+export async function ciudadesDeLeads(
+  tenant?: string,
+): Promise<Array<{ ciudad: string; cuantos: number }>> {
+  try {
+    const r: { items: Array<{ ciudad: string; cuantos: number }> } = await api(
+      "/leads/ciudades",
+      { tenant },
+    );
+    return r.items ?? [];
+  } catch {
+    // Sin ciudades no se muestra la fila: es un filtro de mas, no un error que
+    // valga romperle la pantalla al que vino a mandar una campana.
+    return [];
+  }
+}
+
 export async function listarLeads(
   filtros?: {
     estado?: string;
@@ -453,6 +478,8 @@ export async function listarLeads(
      */
     dias?: number;
     inactivoDias?: number;
+    /** De donde escribe el lead: "Tacna". Sale de su ubicacion o su delivery. */
+    ciudad?: string;
   },
 ): Promise<Lead[]> {
   // El backend pagina por cursor (máx 100 por página). Seguimos el cursor hasta
@@ -468,6 +495,7 @@ export async function listarLeads(
     if (filtros?.minPedidos) qs.set("minPedidos", String(filtros.minPedidos));
     if (filtros?.dias) qs.set("dias", String(filtros.dias));
     if (filtros?.inactivoDias) qs.set("inactivoDias", String(filtros.inactivoDias));
+    if (filtros?.ciudad) qs.set("ciudad", filtros.ciudad);
     qs.set("limit", "100");
     if (cursor) qs.set("cursor", cursor);
     const r: { items: Lead[]; siguienteCursor: string | null } = await api(

@@ -9,6 +9,7 @@ import { formatoEncabezadoOk, ACEPTA_ENCABEZADO, MENSAJE_FORMATO, AYUDA_FORMATO 
 import { traducirErrorPlantilla } from "@/lib/errores-plantilla";
 import {
   listarLeads,
+  ciudadesDeLeads,
   listarPlantillasHSM, crearPlantillaHSM, eliminarPlantillaHSM, cupoCampanias,
   estadoPagoCampanias, listarCampanias, crearCampaniaHSM, pausarCampania, subirMediaPost,
   type PlantillaHSM, type CampaniaHSM, type CupoCampanias,
@@ -126,6 +127,18 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
    */
   const [buscandoFieles, setBuscandoFieles] = useState(""); // qué audiencia se está trayendo
   const [avisoFieles, setAvisoFieles] = useState("");
+  /**
+   * Las ciudades que este negocio tiene de verdad (2026-09-16).
+   *
+   * La fila no se pinta si esta vacia: un negocio de mostrador puro no tiene
+   * la ciudad de casi nadie —solo la sabemos de quien comparte ubicacion o
+   * pide delivery— y una fila de filtros que no filtra nada es ruido.
+   */
+  const [ciudades, setCiudades] = useState<Array<{ ciudad: string; cuantos: number }>>([]);
+
+  useEffect(() => {
+    void ciudadesDeLeads().then(setCiudades);
+  }, []);
 
   /**
    * TRAER UNA AUDIENCIA A LA LISTA (2026-09-16, pedido de Jonathan: "quizás
@@ -533,6 +546,37 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
                 ))}
               </div>
             ))}
+
+            {/* POR CIUDAD (2026-09-16). Las ciudades salen de los leads que
+                este negocio tiene de verdad, no de una lista fija: ofrecer los
+                25 departamentos del Perú dejaría 23 botones que devuelven cero.
+                Si nadie tiene ciudad todavía, la fila no aparece. */}
+            {ciudades.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[0.76rem] font-semibold text-tinta-2">Por ciudad:</span>
+                {ciudades.map((c) => (
+                  <button
+                    key={c.ciudad}
+                    type="button"
+                    onClick={() =>
+                      traerAudiencia(
+                        `ciudad:${c.ciudad}`,
+                        { ciudad: c.ciudad },
+                        `No hay nadie de ${c.ciudad} con WhatsApp.`,
+                      )
+                    }
+                    disabled={buscandoFieles !== ""}
+                    title={`Sale de la ubicación que compartieron o de su dirección de delivery`}
+                    className="rounded-chip bg-arena px-2.5 py-1 text-[0.78rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-carta hover:text-tinta disabled:opacity-50"
+                  >
+                    {buscandoFieles === `ciudad:${c.ciudad}`
+                      ? "Buscando…"
+                      : `${c.ciudad} (${c.cuantos})`}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {avisoFieles && (
               <p className="mt-1 text-[0.78rem] text-tinta-2">{avisoFieles}</p>
             )}

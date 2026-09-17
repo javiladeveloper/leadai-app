@@ -2139,6 +2139,51 @@ export async function metricasAds(tenant?: string): Promise<MetricasAds | null> 
   }
 }
 
+/**
+ * QUE FUNCIONO Y QUE NO (2026-09-17).
+ *
+ * El ranking sale del historico propio --unica forma de ver tendencia, porque
+ * Meta solo devuelve acumulados-- y los desgloses de Meta en vivo.
+ */
+export interface FilaRanking {
+  anuncioId: string;
+  nombre: string;
+  campania: string;
+  gastoCentavos: number;
+  impresiones: number;
+  personas: number;
+  clics: number;
+  ctr: number;
+  tendencia: 'subiendo' | 'estable' | 'cayendo' | null;
+  dias: number;
+}
+export interface Desglose {
+  etiqueta: string;
+  gastoCentavos: number;
+  impresiones: number;
+  clics: number;
+  ctr: number;
+}
+export interface RendimientoAds {
+  ranking: FilaRanking[];
+  desgloses: {
+    porHora: Desglose[];
+    porEdad: Desglose[];
+    porRed: Desglose[];
+    porZona: Desglose[];
+  } | null;
+}
+export async function rendimientoAds(
+  dias = 30,
+  tenant?: string,
+): Promise<RendimientoAds | null> {
+  try {
+    return await api<RendimientoAds>(`/anuncios/rendimiento?dias=${dias}`, { tenant });
+  } catch {
+    return null;
+  }
+}
+
 export interface BolsaAnuncios {
   bonoCentavos: number;
   bonoPlanCentavos: number;

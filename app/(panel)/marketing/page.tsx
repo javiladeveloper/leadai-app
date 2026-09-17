@@ -13,6 +13,7 @@ import CampaniasPanel from "@/components/panel/CampaniasPanel";
 import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
 import { ReporteAnuncios } from "@/components/panel/ReporteAnuncios";
 import { MetricasAnuncios } from "@/components/panel/MetricasAnuncios";
+import { RendimientoAnuncios } from "@/components/panel/RendimientoAnuncios";
 import PublicarPanel from "@/components/panel/PublicarPanel";
 import { HeroSeccion, MarketingIlustracion } from "@/components/panel/HeroSeccion";
 
@@ -270,6 +271,12 @@ export default function MarketingPanel() {
               tendría que abrir el Ads Manager para ver. */}
           <div className="mt-5">
             <MetricasAnuncios tenant={g.enfocado || undefined} />
+          </div>
+          {/* QUE FUNCIONO (2026-09-17). Arriba esta cada anuncio por separado;
+              esto responde la pregunta de conjunto: cual rinde, si sigue
+              rindiendo, y a que hora y a que publico conviene gastar. */}
+          <div className="mt-5">
+            <RendimientoAnuncios tenant={g.enfocado || undefined} />
           </div>
           <div className="mt-5">
             <AnunciosPanel embebido />

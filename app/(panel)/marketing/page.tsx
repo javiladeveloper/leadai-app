@@ -12,6 +12,7 @@ import AnunciosPanel from "@/components/panel/AnunciosPanel";
 import CampaniasPanel from "@/components/panel/CampaniasPanel";
 import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
 import { ReporteAnuncios } from "@/components/panel/ReporteAnuncios";
+import { MetricasAnuncios } from "@/components/panel/MetricasAnuncios";
 import PublicarPanel from "@/components/panel/PublicarPanel";
 import { HeroSeccion, MarketingIlustracion } from "@/components/panel/HeroSeccion";
 
@@ -263,6 +264,13 @@ export default function MarketingPanel() {
               responde con lo que ya pasó — no con el formulario para crear uno
               nuevo. Por eso la tabla va arriba. */}
           <ReporteAnuncios tenant={g.enfocado || undefined} />
+          {/* QUE PASO CON CADA ANUNCIO (2026-09-17). El ROAS de arriba dice
+              cual da de comer; esto dice POR QUE — a cuanta gente llego, si
+              enganchó, si ya se quemó de tanto repetirse. Es lo que el dueño
+              tendría que abrir el Ads Manager para ver. */}
+          <div className="mt-5">
+            <MetricasAnuncios tenant={g.enfocado || undefined} />
+          </div>
           <div className="mt-5">
             <AnunciosPanel embebido />
           </div>

@@ -2078,6 +2078,48 @@ export interface CupoCampanias {
   bonoMensajesPlan?: number;
 }
 
+/**
+ * LO QUE META SABE DE TUS ANUNCIOS (2026-09-17).
+ *
+ * Todo esto ya lo devuelve el Marketing API en la misma llamada; lo usabamos a
+ * medias. Los nombres estan en castellano a proposito: `reach`, `frequency` y
+ * `cpm` no le dicen nada a un dueno de restaurante, y este panel existe
+ * justamente para que no tenga que entrar al Ads Manager.
+ */
+export interface AnuncioMetricas {
+  adId: string;
+  nombre: string;
+  campania: string;
+  impresiones: number;
+  clics: number;
+  gastoCentavos: number;
+  personas: number;
+  frecuencia: number;
+  cpmCentavos: number;
+  ctr: number;
+  interacciones: number;
+  clicsAlLink: number;
+}
+export interface MetricasAds {
+  actualizadoEn: string;
+  cuenta: { impresiones: number; clics: number; gastoCentavos: number };
+  campanias: Array<{
+    id: string; nombre: string; estado: string;
+    impresiones: number; clics: number; gastoCentavos: number;
+  }>;
+  anuncios: AnuncioMetricas[];
+}
+export async function metricasAds(tenant?: string): Promise<MetricasAds | null> {
+  try {
+    const r = await api<{ metricas: MetricasAds | null }>("/anuncios/metricas", { tenant });
+    return r.metricas;
+  } catch {
+    // Sin cuenta publicitaria conectada el backend devuelve null; un error de
+    // red tampoco puede romper la pantalla entera.
+    return null;
+  }
+}
+
 export interface BolsaAnuncios {
   bonoCentavos: number;
   bonoPlanCentavos: number;

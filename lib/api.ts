@@ -2184,6 +2184,74 @@ export async function rendimientoAds(
   }
 }
 
+/**
+ * PUBLICOS PROPIOS EN META (2026-09-17).
+ *
+ * `revisar` NO sube nada: cuenta y devuelve cuantos quedaron. Existe para que
+ * nadie mande datos de contacto de terceros sin ver antes el numero -- de Meta
+ * un publico no se puede "desmandar".
+ */
+export interface RevisionPublico {
+  contactos: number;
+  descartados: number;
+  alcanza: boolean;
+  alcanzaParaSimilar: boolean;
+  minimo: number;
+  minimoSimilar: number;
+}
+
+export interface ResultadoPublico {
+  ok: boolean;
+  publicoId?: string;
+  similarId?: string;
+  contactos: number;
+  descartados: number;
+  mensaje: string;
+}
+
+export interface PublicoSubido {
+  id: string;
+  nombre: string;
+  tipo: string;
+  contactos: number;
+  origen: string;
+  subidoPor: string;
+  estado: string;
+  publicoId: string;
+  creadoEn: string;
+}
+
+export async function revisarPublico(
+  telefonos: string[],
+  tenant?: string,
+): Promise<RevisionPublico> {
+  return api<RevisionPublico>("/anuncios/publicos/revisar", {
+    method: "POST",
+    body: JSON.stringify({ telefonos }),
+    tenant,
+  });
+}
+
+export async function crearPublico(
+  datos: { nombre: string; telefonos: string[]; origen: string; conSimilar: boolean },
+  tenant?: string,
+): Promise<ResultadoPublico> {
+  return api<ResultadoPublico>("/anuncios/publicos", {
+    method: "POST",
+    body: JSON.stringify(datos),
+    tenant,
+  });
+}
+
+export async function listarPublicos(tenant?: string): Promise<PublicoSubido[]> {
+  try {
+    const r = await api<{ publicos: PublicoSubido[] }>("/anuncios/publicos", { tenant });
+    return r.publicos ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export interface BolsaAnuncios {
   bonoCentavos: number;
   bonoPlanCentavos: number;

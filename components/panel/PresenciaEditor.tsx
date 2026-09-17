@@ -31,7 +31,18 @@ import { HeroSeccion } from "@/components/panel/HeroSeccion";
  * Eso es lo que hay acá: primero por qué le conviene, después el campo, y las
  * instrucciones dibujadas al lado — nunca "andá a otra sección".
  */
-export function PresenciaEditor() {
+/**
+ * `tenant`: el negocio ENFOCADO en la barra de Marketing (2026-09-16).
+ *
+ * Sin esto el editor leia y escribia siempre en la empresa activa, aunque la
+ * barra de arriba mostrara otra. Con varios negocios eso es peor que un
+ * filtro que no anda: el dueno cambia a Sania, pega el pixel de Sania, y
+ * termina guardandolo en Norac Labs sin que nada se lo diga.
+ *
+ * Opcional a proposito: sin barra de negocios (una sola empresa) se comporta
+ * como siempre, usando la activa.
+ */
+export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
   const [cfg, setCfg] = useState<ConfigHorario | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -51,7 +62,7 @@ export function PresenciaEditor() {
 
   useEffect(() => {
     let vivo = true;
-    void obtenerHorario().then((r) => {
+    void obtenerHorario(tenant).then((r) => {
       if (!vivo) return;
       setCfg(r);
       setUrl(r?.googleReviewUrl ?? "");
@@ -65,7 +76,7 @@ export function PresenciaEditor() {
       setCargando(false);
     });
     return () => { vivo = false; };
-  }, []);
+  }, [tenant]);
 
   function avisarOk() {
     setGuardado(true);
@@ -78,7 +89,7 @@ export function PresenciaEditor() {
     const previo = cfg;
     setCfg({ ...cfg, ...cambios });
     setError("");
-    const r = await guardarHorario(cambios);
+    const r = await guardarHorario(cambios, tenant);
     if (!r.ok) {
       // Se revierte el campo también: si el backend lo rechazó, dejarlo
       // escrito en pantalla le hace creer que quedó guardado.
@@ -103,7 +114,7 @@ export function PresenciaEditor() {
     if (!cfg) return;
     const previo = cfg;
     setError("");
-    const r = await guardarDatosNegocio(cambios);
+    const r = await guardarDatosNegocio(cambios, tenant);
     if (!r.ok) {
       setSlug(previo.slug ?? "");
       setIg(previo.instagramUrl ?? "");

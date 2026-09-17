@@ -240,7 +240,19 @@ export default function MarketingPanel() {
           un rubro sin esa capacidad— se muestra la otra en vez de una pantalla
           en blanco. */}
       {mostrar === "presencia" ? (
-        <PresenciaEditor />
+        /**
+         * EL NEGOCIO ENFOCADO, NO LA EMPRESA ACTIVA (2026-09-16).
+         *
+         * Presencia se montaba sin `tenant`, asi que leia y escribia siempre
+         * en la empresa activa aunque la barra de arriba mostrara otra. Con
+         * varios negocios eso es peor que un filtro que no anda: el dueno
+         * cambia a Sania, pega el pixel de Sania, y termina guardandolo en
+         * Norac Labs sin que nada se lo diga.
+         *
+         * `key` fuerza el remonte al cambiar de negocio: sin eso los campos
+         * conservan el texto del anterior, que es la misma confusion.
+         */
+        <PresenciaEditor key={g.enfocado || "activa"} tenant={g.enfocado || undefined} />
       ) : mostrar === "publicar" ? (
         <PublicarPanel embebido />
       ) : mostrar === "anuncios" ? (

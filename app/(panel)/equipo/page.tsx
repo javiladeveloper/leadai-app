@@ -14,6 +14,23 @@ import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 
 const ROL_LABEL: Record<string, string> = {
   owner: "Dueño", admin: "Administrador", agente: "Vendedor", mozo: "Mozo",
+  ventas: "Ventas", marketing: "Marketing", cocina: "Cocina",
+};
+
+/**
+ * QUE VE CADA PUESTO, en una linea.
+ *
+ * Va debajo del selector porque elegir un rol es decidir a que datos accede
+ * una persona, y sin esto la unica forma de saberlo es probarlo con ella
+ * adentro. En una clinica eso importa el doble: las conversaciones son
+ * consultas de pacientes.
+ */
+const ROL_AYUDA: Record<string, string> = {
+  ventas: "Atiende los mensajes, trabaja los leads, agenda citas y ve sus comisiones. No ve la configuración del bot ni cuánto factura el negocio.",
+  marketing: "Publica contenido, maneja la publicidad y contesta comentarios. Ve la lista de leads para medir si su trabajo trajo gente, pero NO entra a las conversaciones.",
+  admin: "Todo menos la facturación de la cuenta: configura el bot, invita gente y ve todos los reportes.",
+  agente: "El rol antiguo: ve todo el panel, incluidos los reportes de facturación del negocio.",
+  mozo: "Toma pedidos en el local y los cobra. No ve reportes ni conversaciones.",
 };
 
 function EquipoPanel() {
@@ -23,7 +40,7 @@ function EquipoPanel() {
   const [miembros, setMiembros] = useState<MiembroEquipo[]>([]);
   const [invitaciones, setInvitaciones] = useState<InvitacionPendiente[]>([]);
   const [email, setEmail] = useState("");
-  const [rol, setRol] = useState<"admin" | "agente" | "mozo">("agente");
+  const [rol, setRol] = useState<"admin" | "agente" | "ventas" | "marketing" | "mozo">("ventas");
   // El rol Mozo solo aplica donde hay cocina: en un negocio de captación
   // existe pero no significa nada. Mientras las capacidades no llegan
   // (`null`) se oculta — mostrar de menos es preferible a ofrecer un rol que
@@ -126,11 +143,18 @@ function EquipoPanel() {
           />
           <select
             value={rol}
-            onChange={(e) => setRol(e.target.value as "admin" | "agente" | "mozo")}
+            onChange={(e) => setRol(e.target.value as "admin" | "agente" | "ventas" | "marketing" | "mozo")}
             className="rounded-tarjeta border border-linea bg-arena/30 px-3 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa"
           >
-            <option value="agente">Vendedor</option>
+            {/* LOS PUESTOS REALES (2026-09-17, pedido de Jonathan: "agregar al
+                marketero un rol de marketing, otro de ventas").
+                "Ventas" y "Marketing" primero porque son los que se reparten
+                todos los dias; "Vendedor (todo)" queda por compatibilidad --
+                es el rol viejo, que ve tambien los reportes de plata. */}
+            <option value="ventas">Ventas</option>
+            <option value="marketing">Marketing</option>
             <option value="admin">Administrador</option>
+            <option value="agente">Vendedor (acceso total)</option>
             {/* MOZO solo donde hay cocina (2026-08-21): en un negocio de
                 captación el rol existe pero no significa nada, y una opción
                 que no aplica solo genera preguntas. */}
@@ -144,6 +168,9 @@ function EquipoPanel() {
             {invitando ? "Invitando…" : "Invitar"}
           </button>
         </div>
+        {ROL_AYUDA[rol] && (
+          <p className="mt-2 text-[0.82rem] text-frio">{ROL_AYUDA[rol]}</p>
+        )}
         {error && <p className="mt-2 text-[0.82rem] text-brasa-hondo">{error}</p>}
         {aviso && <p className="mt-2 text-[0.82rem] font-semibold text-ok">{aviso}</p>}
       </form>

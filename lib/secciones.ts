@@ -130,7 +130,22 @@ export function seccionesDe(
   // No se puede invitar a un mozo nuevo (la opción va detrás de
   // `tieneCocina`), pero los que ya están en la base siguen entrando: ven
   // lo mismo que un vendedor, que es lo único que este panel hace ahora.
-  return porCapacidad;
+
+  // LOS DOS PUESTOS NUEVOS SÍ SE FILTRAN (2026-09-17, pedido de Jonathan:
+  // "agregar al marketero un rol de marketing, otro de ventas").
+  //
+  // El backend ya los bloquea por ruta, así que esto no es la seguridad —es
+  // la claridad. Sin el filtro, el marketero ve "Reportes" y "Configuración"
+  // en el menú, entra, y se come un 403: parece que el panel está roto en vez
+  // de que ese puesto no lo incluye.
+  const PERMITIDAS: Record<string, readonly string[]> = {
+    // `/publicar` no se lista: vive DENTRO de /marketing como pestaña.
+    marketing: ["/inicio", "/marketing", "/comentarios", "/leads"],
+    ventas: ["/inicio", "/conversaciones", "/seguimiento", "/leads", "/oportunidades"],
+  };
+  const permitidas = rol ? PERMITIDAS[rol] : undefined;
+  if (!permitidas) return porCapacidad;
+  return porCapacidad.filter((s) => permitidas.includes(s.href));
 }
 
 /**

@@ -1,5 +1,6 @@
 "use client";
 
+import { OrigenLead } from "@/components/panel/OrigenLead";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -794,6 +795,14 @@ export default function ConversacionesPanel() {
                             </span>
                           ) : null}
                         </span>
+                        {/* DE QUE ANUNCIO VINO (2026-09-17). En la lista
+                            alcanza con el nombre: el costo se mira en la ficha,
+                            cuando ya se decidio abrirlo. */}
+                        {l.origen && l.origen.tipo !== "otro" && (
+                          <span className="mt-1 flex">
+                            <OrigenLead lead={l} compacto />
+                          </span>
+                        )}
                       </span>
                     </button>
                   );
@@ -1036,8 +1045,13 @@ export default function ConversacionesPanel() {
                 <p className="mt-1 text-[0.75rem] text-frio">
                   {NOMBRE_CANAL[lead.canalOrigen] ?? lead.canalOrigen}
                   {(lead as LeadLista).negocioNombre ? ` · ${(lead as LeadLista).negocioNombre}` : ""}
-                  {lead.origenEtiqueta ? ` · vino de: ${lead.origenEtiqueta}` : ""}
                 </p>
+                {/* DE DONDE VINO, CON NOMBRE Y COSTO (2026-09-17). Antes esta
+                    linea decia "vino de: ad:120255972775720311" -- el dato era
+                    correcto pero ilegible. */}
+                <div className="mt-2">
+                  <OrigenLead lead={lead} />
+                </div>
               </div>
 
               {/* Etapa del embudo (las del NEGOCIO, personalizables en

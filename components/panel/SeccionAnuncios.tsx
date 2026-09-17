@@ -6,6 +6,7 @@ import { MetricasAnuncios } from "@/components/panel/MetricasAnuncios";
 import { RendimientoAnuncios } from "@/components/panel/RendimientoAnuncios";
 import AnunciosPanel from "@/components/panel/AnunciosPanel";
 import { PublicosMeta } from "@/components/panel/PublicosMeta";
+import { OrigenDeLeads } from "@/components/panel/OrigenDeLeads";
 
 /**
  * ANUNCIOS, ORDENADO POR PREGUNTA (2026-09-17, pedido de Jonathan: "organiza
@@ -66,7 +67,15 @@ export function SeccionAnuncios({ tenant }: { tenant?: string } = {}) {
           estado propio, y dejarlo vivo escondido haría que un borrador a
           medias reapareciera sin que nadie lo pidiera. */}
       <div className="mt-4">
-        {solapa === "resumen" && <ReporteAnuncios tenant={tenant} />}
+        {solapa === "resumen" && (
+          <div className="space-y-4">
+            <ReporteAnuncios tenant={tenant} />
+            {/* DE DONDE TE ESCRIBEN (2026-09-17). Va en Resumen y no en "Que
+                funciono": aquel mide clics, este mide gente que escribio, y es
+                lo que responde si conviene el gasto. */}
+            <OrigenDeLeads tenant={tenant} />
+          </div>
+        )}
         {solapa === "detalle" && <MetricasAnuncios tenant={tenant} />}
         {solapa === "analisis" && <RendimientoAnuncios tenant={tenant} />}
         {solapa === "publicos" && <PublicosMeta tenant={tenant} />}

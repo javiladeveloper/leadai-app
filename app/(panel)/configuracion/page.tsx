@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, EMPRESA_GLOBAL } from "@/lib/auth";
+import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, EMPRESA_GLOBAL, leerEmpresaPredeterminada, guardarEmpresaPredeterminada } from "@/lib/auth";
 import { EtapasEditor } from "@/components/panel/EtapasEditor";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { AccionesDelBot } from "@/components/panel/AccionesDelBot";
@@ -74,6 +74,8 @@ function ConfiguracionInner() {
   // 2026-07-22: el recorte a captación es solo para AGRUPAR bandejas).
   const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
   const [tenantCfg, setTenantCfg] = useState("");
+  // Con cual abre el panel, que NO es lo mismo que en cual esta parado ahora.
+  const [predeterminada, setPredeterminada] = useState<string | null>(null);
   // Restaurante activo → la pestaña "Tu negocio" se queda con lo que su bot
   // usa de verdad; el pipeline de captación (etapas, ritmo) no se muestra.
   // Optimista: mientras no se sabe se muestran las secciones y después se
@@ -108,6 +110,8 @@ function ConfiguracionInner() {
     }
     if (t === "perfil" || t === "canales" || t === "negocio") setTab(t);
   }, [searchParams, router]);
+
+  useEffect(() => { setPredeterminada(leerEmpresaPredeterminada()); }, []);
 
   useEffect(() => {
     if (negocios.length === 0 || tenantCfg) return;
@@ -201,7 +205,31 @@ function ConfiguracionInner() {
 
       {/* Chips de negocio — solo donde la pantalla es DE un negocio. */}
       {eligeNegocioArriba && (
-        <BarraNegociosGlobal negocios={negocios} enfocado={tenantCfg} onElegir={elegirNegocio} />
+        <>
+          <BarraNegociosGlobal negocios={negocios} enfocado={tenantCfg} onElegir={elegirNegocio} />
+          {/* CON CUAL ABRE EL PANEL (2026-09-17, pedido de Jonathan). Va junto
+              a los chips y no en una pantalla aparte: se decide justo cuando
+              uno esta cambiando de negocio y se da cuenta de que siempre elige
+              el mismo. */}
+          {negocios.length > 1 && (
+            <label className="mt-2 flex items-center gap-2 text-[0.8rem] text-tinta-2">
+              <input
+                type="checkbox"
+                checked={predeterminada === tenantCfg}
+                onChange={(e) => {
+                  const v = e.target.checked ? tenantCfg : null;
+                  guardarEmpresaPredeterminada(v);
+                  setPredeterminada(v);
+                }}
+                className="accent-brasa"
+              />
+              Abrir el panel siempre en{" "}
+              <strong className="text-tinta">
+                {negocios.find((n) => n.tenantId === tenantCfg)?.nombre ?? "este negocio"}
+              </strong>
+            </label>
+          )}
+        </>
       )}
 
       {/* Contenido. Las pestañas de negocio esperan a que el negocio esté

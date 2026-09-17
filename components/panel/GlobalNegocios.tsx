@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { guardarEmpresaActiva, leerEmpresaActiva, tieneVariosNegocios, empresasVisibles, EMPRESA_GLOBAL } from "@/lib/auth";
+import { guardarEmpresaActiva, leerEmpresaActiva, tieneVariosNegocios, empresasVisibles, EMPRESA_GLOBAL, empresaInicial } from "@/lib/auth";
 import { negociosGlobal, type NegocioBandeja } from "@/lib/api";
 
 // Piezas del panel UNIFICADO (decisión 2026-07-22, iterada el mismo día): ya
@@ -31,7 +31,15 @@ export function useNegociosGlobal(habilitado = true) {
     if (!habilitado) return;
     negociosGlobal().then((lista) => {
       setNegocios(lista);
-      setEnfocado((prev) => prev || (lista[0]?.tenantId ?? ""));
+      // EN CUAL ARRANCA (2026-09-17, pedido de Jonathan: "debe haber una opcion
+      // para escoger negocio predeterminado... que siempre aparece digamos
+      // Sania primero, en todos lados").
+      //
+      // Antes era SIEMPRE `lista[0]`, o sea el orden que devolviera el backend:
+      // quien maneja cuatro negocios y trabaja todos los dias en uno tenia que
+      // elegirlo en cada seccion, cada vez. `empresaInicial` respeta primero lo
+      // que el dueño fijo como predeterminado.
+      setEnfocado((prev) => prev || (empresaInicial(lista) ?? ""));
       setCargando(false);
     });
   }, [habilitado]);
@@ -149,10 +157,9 @@ export function SeccionPorNegocio({ children }: { children: React.ReactNode }) {
       nombre: e.nombre,
     }));
     setNegocios(lista);
-    const activa = leerEmpresaActiva();
-    const valida =
-      activa && activa !== EMPRESA_GLOBAL && lista.some((n) => n.tenantId === activa);
-    const elegido = valida ? (activa as string) : (lista[0]?.tenantId ?? "");
+    // El predeterminado del dueño gana sobre la ultima empresa activa, que
+    // cambia sola cada vez que uno toca un chip.
+    const elegido = empresaInicial(lista) ?? "";
     if (elegido) {
       guardarEmpresaActiva(elegido);
       setTenant(elegido);

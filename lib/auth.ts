@@ -103,6 +103,61 @@ export function leerEmpresaActiva(): string | null {
   return localStorage.getItem(CLAVE_EMPRESA);
 }
 
+// ── NEGOCIO PREDETERMINADO (2026-09-17, pedido de Jonathan: "debe haber una
+// opcion para escoger negocio predeterminado, cosa que siempre aparece digamos
+// Sania primero, en todos lados") ──────────────────────────────────────────
+//
+// DISTINTO de la "empresa activa" de arriba, y por eso es otra clave: la activa
+// cambia sola cada vez que uno toca un chip o entra a una pantalla clavada a un
+// negocio. El predeterminado lo elige el dueño UNA vez y no se mueve solo --
+// es con cual abre el panel, no en cual quedo la ultima vez.
+//
+// Sin esto, quien maneja cuatro negocios y trabaja todos los dias en uno tiene
+// que elegirlo en cada seccion, cada vez.
+const CLAVE_PREDETERMINADA = "leadai.empresa.predeterminada";
+
+export function leerEmpresaPredeterminada(): string | null {
+  if (!esNavegador()) return null;
+  return localStorage.getItem(CLAVE_PREDETERMINADA);
+}
+
+export function guardarEmpresaPredeterminada(tenantId: string | null): void {
+  if (!esNavegador()) return;
+  if (tenantId) localStorage.setItem(CLAVE_PREDETERMINADA, tenantId);
+  else localStorage.removeItem(CLAVE_PREDETERMINADA);
+  // Las secciones ya montadas escuchan esto para re-elegir su chip sin que
+  // haya que recargar la pagina.
+  window.dispatchEvent(
+    new CustomEvent("leadai:predeterminada-cambiada", { detail: { tenantId } }),
+  );
+}
+
+/**
+ * Con que negocio tiene que abrir una seccion.
+ *
+ * El orden es el que espera el dueño: lo que el fijo como predeterminado gana,
+ * despues lo ultimo que estuvo mirando, y recien al final el primero de la
+ * lista. Cualquiera de los dos primeros se ignora si ya no esta entre sus
+ * negocios -- vendio uno, lo sacaron de un equipo -- porque si no la seccion
+ * arranca filtrando por algo que no existe y se ve vacia.
+ */
+export function empresaInicial(
+  negocios: { tenantId: string }[],
+  usarUltima = true,
+): string | undefined {
+  if (negocios.length === 0) return undefined;
+  const existe = (t: string | null) => !!t && negocios.some((n) => n.tenantId === t);
+
+  const pref = leerEmpresaPredeterminada();
+  if (existe(pref)) return pref!;
+
+  if (usarUltima) {
+    const activa = leerEmpresaActiva();
+    if (activa !== EMPRESA_GLOBAL && existe(activa)) return activa!;
+  }
+  return negocios[0].tenantId;
+}
+
 export function haySesion(): boolean {
   return leerSesion() !== null;
 }

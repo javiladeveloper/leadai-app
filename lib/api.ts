@@ -350,6 +350,21 @@ export interface Lead {
   borradorIA: string | null;
   nota: string | null;
   origenEtiqueta: string | null; // de dónde vino (ej. "comentario")
+  /**
+   * EL ORIGEN YA RESUELTO (2026-09-17). `origenEtiqueta` guarda el ad_id crudo
+   * de Meta ("ad:120255972775720311"), que no le dice nada a nadie. El backend
+   * lo cruza contra el historico de anuncios y devuelve esto: el nombre del
+   * anuncio y lo que costo este lead.
+   */
+  origen?: {
+    etiqueta: string;
+    tipo: "anuncio" | "link" | "manual" | "otro";
+    campania?: string;
+    gastoCentavos?: number;
+    costoCentavos?: number;
+    leadsDelAnuncio?: number;
+    adId?: string;
+  } | null;
   // Chatbot ON/OFF por conversación: true = el humano tomó este chat y la IA calla acá.
   botPausado?: boolean;
   // Etapa personalizada del embudo (id en las etapas del negocio) y asignación.
@@ -2247,6 +2262,35 @@ export async function listarPublicos(tenant?: string): Promise<PublicoSubido[]> 
   try {
     const r = await api<{ publicos: PublicoSubido[] }>("/anuncios/publicos", { tenant });
     return r.publicos ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export interface FilaOrigenLeads {
+  etiqueta: string;
+  tipo: "anuncio" | "link" | "manual" | "otro";
+  adId?: string;
+  campania?: string;
+  leads: number;
+  calientes: number;
+  gastoCentavos?: number;
+  costoPorLeadCentavos?: number;
+}
+
+/**
+ * DE DONDE VIENEN LOS LEADS (2026-09-17). Distinto del rendimiento de
+ * anuncios: aquel mide clics, este mide gente que efectivamente escribio.
+ */
+export async function origenDeLeads(
+  dias = 30,
+  tenant?: string,
+): Promise<FilaOrigenLeads[]> {
+  try {
+    const r = await api<{ origenes: FilaOrigenLeads[] }>(
+      `/anuncios/origen-leads?dias=${dias}`, { tenant },
+    );
+    return r.origenes ?? [];
   } catch {
     return [];
   }

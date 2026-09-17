@@ -2,9 +2,10 @@
 
 // Componente reutilizable: la página de Next no recibe la prop embebido.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion } from "@/lib/auth";
+import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 import { formatoEncabezadoOk, ACEPTA_ENCABEZADO, MENSAJE_FORMATO, AYUDA_FORMATO } from "@/lib/encabezado-plantilla";
 import { traducirErrorPlantilla } from "@/lib/errores-plantilla";
 import {
@@ -52,7 +53,7 @@ const ESTADO_PLANTILLA: Record<string, { texto: string; clase: string }> = {
  * mejor que doce chips seguidos, sobre todo para alguien que maneja tres o
  * cuatro negocios y entra a esta pantalla cada tanto.
  */
-const AUDIENCIAS: Array<{
+type GrupoAudiencia = {
   titulo: string;
   opciones: Array<{
     clave: string;
@@ -61,46 +62,99 @@ const AUDIENCIAS: Array<{
     filtro: Parameters<typeof listarLeads>[0];
     vacio: string;
   }>;
-}> = [
-  {
-    titulo: "Ya te compraron:",
-    opciones: [
-      { clave: "c1", etiqueta: "1 vez o más", ayuda: "Cualquiera con al menos un pedido entregado.",
-        filtro: { minPedidos: 1 }, vacio: "Todavía no hay clientes con pedidos entregados." },
-      { clave: "c2", etiqueta: "2 veces o más", ayuda: "Ya volvieron al menos una vez.",
-        filtro: { minPedidos: 2 }, vacio: "Nadie llegó a 2 pedidos todavía. Probá con menos." },
-      { clave: "c4", etiqueta: "4 veces o más", ayuda: "Tus clientes fieles: la audiencia que mejor convierte.",
-        filtro: { minPedidos: 4 }, vacio: "Nadie llegó a 4 pedidos todavía. Probá con menos." },
-    ],
-  },
-  {
-    titulo: "Se enfriaron:",
-    opciones: [
-      // La campaña que más rinde: el que ya te compró y dejó de venir vuelve
-      // mucho más barato que conseguir uno nuevo.
-      { clave: "i30", etiqueta: "Sin escribir hace 30 días", ayuda: "No dan señales hace un mes.",
-        filtro: { inactivoDias: 30 }, vacio: "Nadie lleva 30 días sin escribir. Buena señal." },
-      { clave: "i60", etiqueta: "60 días", ayuda: "Dos meses sin aparecer.",
-        filtro: { inactivoDias: 60 }, vacio: "Nadie lleva 60 días sin escribir." },
-      { clave: "i90", etiqueta: "90 días", ayuda: "Tres meses: a estos hay que reconquistarlos.",
-        filtro: { inactivoDias: 90 }, vacio: "Nadie lleva 90 días sin escribir." },
-    ],
-  },
-  {
-    titulo: "Por interés:",
-    opciones: [
-      { clave: "caliente", etiqueta: "Calientes", ayuda: "Mostraron intención clara de comprar.",
-        filtro: { nivel: "caliente" }, vacio: "No hay leads calientes ahora mismo." },
-      { clave: "tibio", etiqueta: "Tibios", ayuda: "Preguntaron pero no cerraron: los que más ganan con un empujón.",
-        filtro: { nivel: "tibio" }, vacio: "No hay leads tibios ahora mismo." },
-      { clave: "perdido", etiqueta: "Los que se perdieron", ayuda: "Marcados como perdidos: una oferta puede revivirlos.",
-        filtro: { estado: "perdido" }, vacio: "No hay leads marcados como perdidos." },
-    ],
-  },
-];
+};
+
+/**
+ * A QUIÉN LE ESCRIBO, EN EL IDIOMA DEL NEGOCIO (2026-09-17, pedido de
+ * Jonathan: "esto está enfocado a restaurantes, no está enfocado a nosotros").
+ *
+ * El primer grupo decía "Ya te compraron: 1 vez o más" y filtraba por
+ * `minPedidos` —PEDIDOS ENTREGADOS, del rubro comida. En una clínica ese
+ * contador es SIEMPRE cero: los tres chips más visibles del panel no
+ * seleccionaban a nadie, y encima hablaban de "compras" a alguien que atiende
+ * pacientes.
+ *
+ * Ahora el grupo se elige por capacidad, no se asume el rubro. Los otros dos
+ * —inactividad e interés— sirven igual en los dos mundos y no cambian.
+ */
+const GRUPO_PEDIDOS: GrupoAudiencia = {
+  titulo: "Ya te compraron:",
+  opciones: [
+    { clave: "c1", etiqueta: "1 vez o más", ayuda: "Cualquiera con al menos un pedido entregado.",
+      filtro: { minPedidos: 1 }, vacio: "Todavía no hay clientes con pedidos entregados." },
+    { clave: "c2", etiqueta: "2 veces o más", ayuda: "Ya volvieron al menos una vez.",
+      filtro: { minPedidos: 2 }, vacio: "Nadie llegó a 2 pedidos todavía. Probá con menos." },
+    { clave: "c4", etiqueta: "4 veces o más", ayuda: "Tus clientes fieles: la audiencia que mejor convierte.",
+      filtro: { minPedidos: 4 }, vacio: "Nadie llegó a 4 pedidos todavía. Probá con menos." },
+  ],
+};
+
+/**
+ * El equivalente para quien NO vende pedidos: una clínica, un gimnasio, una
+ * estética. Lo que reemplaza a "cuántas veces compró" es EN QUÉ TERMINÓ la
+ * conversación —si se cerró la venta o quedó a medio camino—, que es el dato
+ * que ese negocio sí tiene.
+ */
+const GRUPO_ETAPA: GrupoAudiencia = {
+  titulo: "Cómo terminó:",
+  opciones: [
+    { clave: "ganado", etiqueta: "Ya son clientes", ayuda: "Cerraron: vinieron o compraron. La audiencia que mejor responde.",
+      filtro: { estado: "ganado" }, vacio: "Todavía no hay ventas cerradas para escribirles." },
+    { clave: "escalado", etiqueta: "Quedaron a medias", ayuda: "Llegaron a hablar con alguien del equipo y no cerraron.",
+      filtro: { estado: "escalado" }, vacio: "No hay conversaciones a medio camino." },
+    { clave: "nutriendo", etiqueta: "Preguntaron y se fueron", ayuda: "El bot les respondió pero nunca avanzaron.",
+      filtro: { estado: "nutriendo" }, vacio: "No hay nadie en esa etapa." },
+  ],
+};
+
+const GRUPO_INACTIVOS: GrupoAudiencia = {
+  titulo: "Se enfriaron:",
+  opciones: [
+    // La campaña que más rinde: el que ya te compró y dejó de venir vuelve
+    // mucho más barato que conseguir uno nuevo.
+    { clave: "i30", etiqueta: "Sin escribir hace 30 días", ayuda: "No dan señales hace un mes.",
+      filtro: { inactivoDias: 30 }, vacio: "Nadie lleva 30 días sin escribir. Buena señal." },
+    { clave: "i60", etiqueta: "60 días", ayuda: "Dos meses sin aparecer.",
+      filtro: { inactivoDias: 60 }, vacio: "Nadie lleva 60 días sin escribir." },
+    { clave: "i90", etiqueta: "90 días", ayuda: "Tres meses: a estos hay que reconquistarlos.",
+      filtro: { inactivoDias: 90 }, vacio: "Nadie lleva 90 días sin escribir." },
+  ],
+};
+
+const GRUPO_INTERES: GrupoAudiencia = {
+  titulo: "Por interés:",
+  opciones: [
+    { clave: "caliente", etiqueta: "Calientes", ayuda: "Mostraron intención clara de comprar.",
+      filtro: { nivel: "caliente" }, vacio: "No hay leads calientes ahora mismo." },
+    { clave: "tibio", etiqueta: "Tibios", ayuda: "Preguntaron pero no cerraron: los que más ganan con un empujón.",
+      filtro: { nivel: "tibio" }, vacio: "No hay leads tibios ahora mismo." },
+    { clave: "perdido", etiqueta: "Los que se perdieron", ayuda: "Marcados como perdidos: una oferta puede revivirlos.",
+      filtro: { estado: "perdido" }, vacio: "No hay leads marcados como perdidos." },
+  ],
+};
+
+/**
+ * Los grupos que le sirven a ESTE negocio.
+ *
+ * `tieneCarta` es lo que distingue al que despacha pedidos. Mientras las
+ * capacidades cargan se muestra la versión de captación, que es lo que hoy
+ * usa el 100% de los negocios de este panel: un chip de más es menos grave
+ * que tres chips que no seleccionan a nadie.
+ */
+function audienciasDe(tieneCarta: boolean): GrupoAudiencia[] {
+  return [
+    tieneCarta ? GRUPO_PEDIDOS : GRUPO_ETAPA,
+    GRUPO_INACTIVOS,
+    GRUPO_INTERES,
+  ];
+}
 
 export default function CampaniasPanel({ embebido = false }: { embebido?: boolean } = {}) {
   const router = useRouter();
+  // Los chips de audiencia dependen del rubro: "1 vez o más" cuenta PEDIDOS
+  // entregados y en una clínica eso siempre da cero.
+  const caps = useCapacidadesOptimista();
+  const AUDIENCIAS = useMemo(() => audienciasDe(caps.tieneCarta), [caps.tieneCarta]);
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [campanias, setCampanias] = useState<CampaniaHSM[]>([]);

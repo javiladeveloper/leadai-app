@@ -65,6 +65,8 @@ export interface ConfigHorario {
   instagramUrl?: string | null;
   facebookUrl?: string | null;
   tiktokUrl?: string | null;
+  /** El WhatsApp del negocio, para armar los links wa.me con marca de origen. */
+  whatsappCarta?: string | null;
   /** El link corto de su carta. Sin esto no tiene qué promocionar. */
   slug?: string | null;
 
@@ -123,6 +125,7 @@ export async function obtenerHorario(tenant?: string): Promise<ConfigHorario | n
       instagramUrl: r.config.instagramUrl ?? null,
       facebookUrl: r.config.facebookUrl ?? null,
       tiktokUrl: r.config.tiktokUrl ?? null,
+      whatsappCarta: r.config.whatsappCarta ?? null,
       slug: r.config.slug ?? null,
       yapeNumero: r.config.yapeNumero ?? "",
       yapeNombre: r.config.yapeNombre ?? "",

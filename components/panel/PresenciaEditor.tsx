@@ -8,6 +8,7 @@ import {
 } from "@/lib/horario";
 import { guardarDatosNegocio, type DatosNegocio } from "@/lib/negocio";
 import { HeroSeccion } from "@/components/panel/HeroSeccion";
+import { LinksDeOrigen } from "@/components/panel/LinksDeOrigen";
 
 /**
  * TU NEGOCIO EN INTERNET (2026-08-27, pedido de Jonathan).
@@ -380,6 +381,11 @@ export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
           Con una sola alcanza. Aparecen como botones al final de tu página.
         </p>
       </Bloque>
+
+      {/* SABER QUE LUGAR SIRVE (2026-09-17). Va despues de las redes porque es
+          la consecuencia directa: ya pusiste tu link en TikTok, Instagram y un
+          flyer, y ahora hace falta saber cual de los tres te trae gente. */}
+      <LinksDeOrigen whatsapp={cfg.whatsappCarta} />
 
       {/* ── 4. MEDIR ── */}
       <Bloque

@@ -676,6 +676,43 @@ export async function obtenerReporteNegocio(): Promise<ReporteNegocio | null> {
   try { return await api<ReporteNegocio>("/reportes/negocio"); } catch { return null; }
 }
 
+/**
+ * QUE ANUNCIO DA DE COMER Y CUAL SOLO GASTA (2026-09-17).
+ *
+ * Cruza el gasto real de Meta con las ventas ENTREGADAS de los leads que trajo
+ * cada anuncio. `roas` en null significa "no pudimos leer el gasto", que es
+ * distinto de cero: cero es "gaste y no vendi".
+ */
+export interface FilaAnuncioReporte {
+  nombre: string;
+  origen: string;
+  leads: number;
+  compradores: number;
+  ventasCentavos: number;
+  conversion: number;
+  gastoCentavos: number;
+  roas: number | null;
+  costoPorVentaCentavos: number | null;
+}
+export interface ReporteAnuncios {
+  filas: FilaAnuncioReporte[];
+  organicos: { leads: number; compradores: number; ventasCentavos: number };
+  gastoTotalCentavos: number;
+  sinGasto: boolean;
+}
+export async function obtenerReporteAnuncios(
+  dias = 90,
+  tenant?: string,
+): Promise<ReporteAnuncios | null> {
+  try {
+    return await api<ReporteAnuncios>(`/reportes/anuncios?dias=${dias}`, { tenant });
+  } catch {
+    // El plan sin reportes avanzados devuelve 402: la pantalla lo trata como
+    // "no disponible" y no como un error roto.
+    return null;
+  }
+}
+
 // Simula un lead entrante desde un anuncio (para probar el tracking sin Meta).
 export async function simularLeadAd(campania: string): Promise<{ ok: boolean; error?: string }> {
   try {

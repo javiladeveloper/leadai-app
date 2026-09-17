@@ -11,6 +11,7 @@ import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 import AnunciosPanel from "@/components/panel/AnunciosPanel";
 import CampaniasPanel from "@/components/panel/CampaniasPanel";
 import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
+import { ReporteAnuncios } from "@/components/panel/ReporteAnuncios";
 import PublicarPanel from "@/components/panel/PublicarPanel";
 import { HeroSeccion, MarketingIlustracion } from "@/components/panel/HeroSeccion";
 
@@ -256,7 +257,16 @@ export default function MarketingPanel() {
       ) : mostrar === "publicar" ? (
         <PublicarPanel embebido />
       ) : mostrar === "anuncios" ? (
-        <AnunciosPanel embebido />
+        <>
+          {/* EL RESULTADO ANTES QUE LA HERRAMIENTA (2026-09-17). Quien entra a
+              Anuncios viene a decidir si sube o baja presupuesto, y eso se
+              responde con lo que ya pasó — no con el formulario para crear uno
+              nuevo. Por eso la tabla va arriba. */}
+          <ReporteAnuncios tenant={g.enfocado || undefined} />
+          <div className="mt-5">
+            <AnunciosPanel embebido />
+          </div>
+        </>
       ) : (
         <CampaniasPanel embebido />
       )}

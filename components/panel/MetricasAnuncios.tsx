@@ -51,7 +51,19 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
     );
   }
 
-  const anuncios = [...m.anuncios].sort((a, b) => b.personas - a.personas);
+  /**
+   * EL CACHE VIEJO NO TIENE LOS CAMPOS NUEVOS (2026-09-17).
+   *
+   * Las metricas se cachean 26 horas en Redis. Hasta el proximo refresco
+   * horario, lo guardado ANTES de este cambio no trae `personas`, `frecuencia`
+   * ni `cpm`, y pintarlos daria "0 personas · CPM S/0.00" — que se lee como
+   * "tu anuncio no llego a nadie" cuando en realidad llego a cientos.
+   *
+   * Un cero inventado es peor que decir que falta el dato: el primero lleva a
+   * apagar un anuncio que funciona.
+   */
+  const anuncios = [...(m.anuncios ?? [])].sort((a, b) => (b.personas ?? 0) - (a.personas ?? 0));
+  const sinDetalle = anuncios.length > 0 && anuncios.every((a) => a.personas === undefined);
   if (anuncios.length === 0) {
     return (
       <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
@@ -64,7 +76,7 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
     );
   }
 
-  const totalPersonas = anuncios.reduce((a, x) => a + x.personas, 0);
+  const totalPersonas = anuncios.reduce((a, x) => a + (x.personas ?? 0), 0);
 
   return (
     <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
@@ -75,10 +87,18 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
 
       {/* EL RESUMEN EN UNA FRASE, antes que la tabla. Es lo que el dueño
           quiere saber al entrar; el detalle lo mira quien se interesa. */}
-      <p className="mt-1 text-[0.88rem] text-tinta-2">
-        Gastaste <strong className="text-tinta">{soles(m.cuenta.gastoCentavos)}</strong> y
-        tu publicidad la vieron <strong className="text-tinta">{totalPersonas.toLocaleString("es-PE")} personas</strong>.
-      </p>
+      {sinDetalle ? (
+        <p className="mt-1 text-[0.88rem] text-tinta-2">
+          Gastaste <strong className="text-tinta">{soles(m.cuenta.gastoCentavos)}</strong>.
+          El detalle de cuánta gente lo vio aparece en la próxima actualización
+          (dentro de una hora).
+        </p>
+      ) : (
+        <p className="mt-1 text-[0.88rem] text-tinta-2">
+          Gastaste <strong className="text-tinta">{soles(m.cuenta.gastoCentavos)}</strong> y
+          tu publicidad la vieron <strong className="text-tinta">{totalPersonas.toLocaleString("es-PE")} personas</strong>.
+        </p>
+      )}
 
       <div className="mt-4 space-y-2">
         {anuncios.map((a) => {
@@ -94,7 +114,10 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-[0.88rem] font-semibold text-tinta">{a.nombre}</span>
                   <span className="mt-0.5 block text-[0.78rem] text-frio">
-                    {a.personas.toLocaleString("es-PE")} personas · {a.clics} tocaron · {soles(a.gastoCentavos)}
+                    {a.personas !== undefined
+                      ? `${a.personas.toLocaleString("es-PE")} personas · `
+                      : ""}
+                    {a.clics} {a.clics === 1 ? "tocó" : "tocaron"} · {soles(a.gastoCentavos)}
                   </span>
                 </div>
                 <span className={`shrink-0 rounded-chip px-2 py-0.5 text-[0.76rem] font-bold ${v.clase}`}>
@@ -109,21 +132,25 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
               {abierta && (
                 <div className="border-t border-linea px-3 py-3">
                   <dl className="space-y-2.5">
+                    {a.personas !== undefined && (
                     <Dato
                       titulo="Personas alcanzadas"
                       valor={a.personas.toLocaleString("es-PE")}
-                      ayuda={`Se mostró ${a.impresiones.toLocaleString("es-PE")} veces en total: cada persona lo vio ${a.frecuencia.toFixed(1)} ${a.frecuencia < 1.5 ? "vez" : "veces"} en promedio.`}
+                      ayuda={`Se mostró ${a.impresiones.toLocaleString("es-PE")} veces en total: cada persona lo vio ${(a.frecuencia ?? 0).toFixed(1)} ${(a.frecuencia ?? 0) < 1.5 ? "vez" : "veces"} en promedio.`}
                     />
+                    )}
+                    {a.ctr !== undefined && (
                     <Dato
                       titulo="Cuántos lo tocaron"
-                      valor={`${a.clics} de ${a.personas.toLocaleString("es-PE")}`}
+                      valor={`${a.clics} de ${(a.personas ?? 0).toLocaleString("es-PE")}`}
                       ayuda={
                         a.ctr >= 1
                           ? `${a.ctr.toFixed(1)}% — está bien, el promedio ronda el 1%.`
                           : `${a.ctr.toFixed(1)}% — bajo. El promedio ronda el 1%: la imagen o el texto no están enganchando.`
                       }
                     />
-                    {a.interacciones > 0 && (
+                    )}
+                    {(a.interacciones ?? 0) > 0 && (
                       <Dato
                         titulo="Reacciones y comentarios"
                         valor={String(a.interacciones)}
@@ -133,11 +160,11 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
                     <Dato
                       titulo="Lo que costó"
                       valor={soles(a.gastoCentavos)}
-                      ayuda={`${soles(a.cpmCentavos)} por cada mil veces que se mostró${a.clics > 0 ? ` · ${soles(Math.round(a.gastoCentavos / a.clics))} por cada persona que lo tocó` : ""}.`}
+                      ayuda={`${a.cpmCentavos !== undefined ? `${soles(a.cpmCentavos)} por cada mil veces que se mostró` : `${a.impresiones.toLocaleString("es-PE")} veces mostrado`}${a.clics > 0 ? ` · ${soles(Math.round(a.gastoCentavos / a.clics))} por cada persona que lo tocó` : ""}.`}
                     />
-                    {a.frecuencia >= 3 && (
+                    {(a.frecuencia ?? 0) >= 3 && (
                       <p className="rounded-lg bg-tibio-suave px-3 py-2 text-[0.8rem] text-tibio">
-                        <strong>Ojo:</strong> la misma gente ya lo vio {a.frecuencia.toFixed(1)} veces.
+                        <strong>Ojo:</strong> la misma gente ya lo vio {(a.frecuencia ?? 0).toFixed(1)} veces.
                         Cuando se repite tanto deja de funcionar y empieza a
                         molestar — conviene cambiar la imagen o ampliar el público.
                       </p>
@@ -191,6 +218,9 @@ function soles(centavos: number): string {
  */
 function veredicto(a: AnuncioMetricas): { texto: string; clase: string } {
   if (a.impresiones === 0) return { texto: "sin mostrar", clase: "bg-arena text-frio" };
+  // Con cache anterior al 17-sep no hay `ctr`: sin el no se puede juzgar, y
+  // un "flojo" inventado haria apagar un anuncio que quizas funciona.
+  if (a.ctr === undefined) return { texto: "activo", clase: "bg-arena text-tinta-2" };
   if (a.ctr >= 1.5) return { texto: "engancha", clase: "bg-ok/12 text-ok" };
   if (a.ctr >= 0.8) return { texto: "normal", clase: "bg-arena text-tinta-2" };
   return { texto: "flojo", clase: "bg-tibio-suave text-tibio" };

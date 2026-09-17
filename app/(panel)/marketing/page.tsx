@@ -8,12 +8,9 @@ import { obtenerMiPlan } from "@/lib/api";
 import { MarketingBloqueado } from "@/components/panel/MarketingBloqueado";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { useCapacidadesOptimista } from "@/lib/modo-negocio";
-import AnunciosPanel from "@/components/panel/AnunciosPanel";
 import CampaniasPanel from "@/components/panel/CampaniasPanel";
 import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
-import { ReporteAnuncios } from "@/components/panel/ReporteAnuncios";
-import { MetricasAnuncios } from "@/components/panel/MetricasAnuncios";
-import { RendimientoAnuncios } from "@/components/panel/RendimientoAnuncios";
+import { SeccionAnuncios } from "@/components/panel/SeccionAnuncios";
 import PublicarPanel from "@/components/panel/PublicarPanel";
 import { HeroSeccion, MarketingIlustracion } from "@/components/panel/HeroSeccion";
 
@@ -259,29 +256,7 @@ export default function MarketingPanel() {
       ) : mostrar === "publicar" ? (
         <PublicarPanel embebido />
       ) : mostrar === "anuncios" ? (
-        <>
-          {/* EL RESULTADO ANTES QUE LA HERRAMIENTA (2026-09-17). Quien entra a
-              Anuncios viene a decidir si sube o baja presupuesto, y eso se
-              responde con lo que ya pasó — no con el formulario para crear uno
-              nuevo. Por eso la tabla va arriba. */}
-          <ReporteAnuncios tenant={g.enfocado || undefined} />
-          {/* QUE PASO CON CADA ANUNCIO (2026-09-17). El ROAS de arriba dice
-              cual da de comer; esto dice POR QUE — a cuanta gente llego, si
-              enganchó, si ya se quemó de tanto repetirse. Es lo que el dueño
-              tendría que abrir el Ads Manager para ver. */}
-          <div className="mt-5">
-            <MetricasAnuncios tenant={g.enfocado || undefined} />
-          </div>
-          {/* QUE FUNCIONO (2026-09-17). Arriba esta cada anuncio por separado;
-              esto responde la pregunta de conjunto: cual rinde, si sigue
-              rindiendo, y a que hora y a que publico conviene gastar. */}
-          <div className="mt-5">
-            <RendimientoAnuncios tenant={g.enfocado || undefined} />
-          </div>
-          <div className="mt-5">
-            <AnunciosPanel embebido />
-          </div>
-        </>
+        <SeccionAnuncios tenant={g.enfocado || undefined} />
       ) : (
         <CampaniasPanel embebido />
       )}

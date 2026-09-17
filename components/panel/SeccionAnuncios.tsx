@@ -7,6 +7,7 @@ import { RendimientoAnuncios } from "@/components/panel/RendimientoAnuncios";
 import AnunciosPanel from "@/components/panel/AnunciosPanel";
 import { PublicosMeta } from "@/components/panel/PublicosMeta";
 import { OrigenDeLeads } from "@/components/panel/OrigenDeLeads";
+import { EmbudoAnuncios } from "@/components/panel/EmbudoAnuncios";
 
 /**
  * ANUNCIOS, ORDENADO POR PREGUNTA (2026-09-17, pedido de Jonathan: "organiza
@@ -74,6 +75,10 @@ export function SeccionAnuncios({ tenant }: { tenant?: string } = {}) {
                 funciono": aquel mide clics, este mide gente que escribio, y es
                 lo que responde si conviene el gasto. */}
             <OrigenDeLeads tenant={tenant} />
+            {/* DONDE SE PIERDE LA GENTE. Va despues porque responde la
+                pregunta que deja la anterior: si entraron pocos, en que paso
+                se cayeron los demas. */}
+            <EmbudoAnuncios tenant={tenant} />
           </div>
         )}
         {solapa === "detalle" && <MetricasAnuncios tenant={tenant} />}

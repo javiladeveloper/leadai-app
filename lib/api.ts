@@ -2267,6 +2267,36 @@ export async function listarPublicos(tenant?: string): Promise<PublicoSubido[]> 
   }
 }
 
+export interface PasoEmbudo {
+  etiqueta: string;
+  cantidad: number;
+  porcentaje: number | null;
+}
+
+export interface EmbudoAnuncio {
+  anuncioId: string;
+  nombre: string;
+  gastoCentavos: number;
+  pasos: PasoEmbudo[];
+  problema: "no_toca" | "no_abre" | "no_escribe" | "sano" | null;
+  consejo: string;
+  costoPorConversacionCentavos: number | null;
+}
+
+/**
+ * DONDE SE PIERDE LA PLATA DE CADA ANUNCIO (2026-09-17). Cruza el embudo de
+ * Meta con nuestros leads: sin esto "25 clics, 3 leads" se lee como un embudo
+ * malisimo, cuando la mayoria de esos clics ni llego al WhatsApp.
+ */
+export async function embudoAnuncios(tenant?: string): Promise<EmbudoAnuncio[]> {
+  try {
+    const r = await api<{ embudos: EmbudoAnuncio[] }>("/anuncios/embudo", { tenant });
+    return r.embudos ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export interface FilaOrigenLeads {
   etiqueta: string;
   tipo: "anuncio" | "link" | "manual" | "otro";

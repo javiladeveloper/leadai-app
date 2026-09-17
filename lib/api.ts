@@ -2109,6 +2109,15 @@ export interface AnuncioMetricas {
   fin?: string;
   presupuestoDiarioCentavos?: number;
   presupuestoTotalCentavos?: number;
+  /** A quien se le muestra: lo que el marketero decide y el dueno no ve. */
+  publico?: {
+    lugares: string;
+    edades: string;
+    genero: string;
+    objetivo: string;
+    publicoAutomatico: boolean;
+    conjunto: string;
+  };
 }
 export interface MetricasAds {
   actualizadoEn: string;

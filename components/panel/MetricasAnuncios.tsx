@@ -24,6 +24,16 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
   const [m, setM] = useState<MetricasAds | null>(null);
   const [cargando, setCargando] = useState(true);
   const [abierto, setAbierto] = useState<string | null>(null);
+  /**
+   * QUE ANUNCIOS MIRAR (2026-09-17, pedido de Jonathan: "necesitamos mas
+   * filtros").
+   *
+   * Con una campana nueva por semana la lista crece rapido, y lo que el dueno
+   * quiere saber casi siempre es una de dos cosas: que esta corriendo AHORA, o
+   * cual de los que ya terminaron funciono. Mezclarlos obliga a leer estado por
+   * estado.
+   */
+  const [filtro, setFiltro] = useState<'corriendo' | 'todos'>('corriendo');
 
   useEffect(() => {
     let vivo = true;
@@ -58,10 +68,14 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
    * daría "0 personas" — que se lee como "no llegó a nadie" cuando llegó a
    * cientos. Un cero inventado lleva a apagar un anuncio que funciona.
    */
-  const anuncios = [...(m.anuncios ?? [])].sort((a, b) => (b.personas ?? 0) - (a.personas ?? 0));
-  const sinDetalle = anuncios.length > 0 && anuncios.every((a) => a.personas === undefined);
+  const todos = [...(m.anuncios ?? [])].sort((a, b) => (b.personas ?? 0) - (a.personas ?? 0));
+  // "Corriendo" es ACTIVE de verdad: un anuncio encendido dentro de una
+  // campana pausada NO se esta mostrando, por mas que su propio estado diga
+  // ACTIVE. Ver `estado()` abajo.
+  const anuncios = filtro === 'corriendo' ? todos.filter((a) => a.estado === 'ACTIVE') : todos;
+  const sinDetalle = todos.length > 0 && todos.every((a) => a.personas === undefined);
 
-  if (anuncios.length === 0) {
+  if (todos.length === 0) {
     return (
       <Marco>
         <p className="mt-1 text-[0.85rem] text-frio">
@@ -72,8 +86,8 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
     );
   }
 
-  const totalPersonas = anuncios.reduce((a, x) => a + (x.personas ?? 0), 0);
-  const activos = anuncios.filter((a) => a.estado === "ACTIVE").length;
+  const totalPersonas = todos.reduce((a, x) => a + (x.personas ?? 0), 0);
+  const activos = todos.filter((a) => a.estado === "ACTIVE").length;
 
   return (
     <Marco derecha="últimos 30 días">
@@ -92,7 +106,36 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
         </p>
       )}
 
-      <div className="mt-4 space-y-2">
+      {/* DOS VISTAS, NO UN DESPLEGABLE DE SEIS ESTADOS. Lo que el dueño quiere
+          saber es una de dos cosas: qué se está mostrando ahora, o cómo le fue
+          a todo. Los estados intermedios de Meta (PAUSED, CAMPAIGN_PAUSED,
+          ARCHIVED) ya se ven en el chip de cada fila. */}
+      <div className="mt-3 flex gap-1.5">
+        {([
+          ['corriendo', `Corriendo (${activos})`],
+          ['todos', `Todos (${todos.length})`],
+        ] as const).map(([clave, etiqueta]) => (
+          <button
+            key={clave}
+            type="button"
+            onClick={() => setFiltro(clave)}
+            className={`rounded-chip px-3 py-1 text-[0.78rem] font-semibold transition ${
+              filtro === clave
+                ? "bg-brasa text-sobre-brasa"
+                : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-carta"
+            }`}
+          >
+            {etiqueta}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {anuncios.length === 0 && (
+          <p className="rounded-lg bg-arena/40 px-3 py-4 text-center text-[0.84rem] text-frio">
+            Ninguno de tus anuncios se está mostrando ahora mismo.
+          </p>
+        )}
         {anuncios.map((a) => (
           <Fila
             key={a.adId}
@@ -166,6 +209,26 @@ function Fila({ a, abierta, alTocar }: { a: AnuncioMetricas; abierta: boolean; a
               <p className="mt-1 whitespace-pre-line rounded-lg bg-carta px-3 py-2 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
                 {a.texto}
               </p>
+            </div>
+          )}
+
+          {/* A QUIEN SE LE MUESTRA (2026-09-17). Es lo que el marketero decide
+              y el dueño no ve. Va ARRIBA de los números: un anuncio puede
+              rendir mal porque apunta a la ciudad equivocada, y eso no se
+              deduce de ningún dato de rendimiento. */}
+          {a.publico && (
+            <div>
+              <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">A quién se le muestra</p>
+              <div className="mt-1 rounded-lg bg-carta px-3 py-2 ring-1 ring-linea">
+                <p className="text-[0.84rem] text-tinta">
+                  <b>{a.publico.lugares}</b> · {a.publico.edades} · {a.publico.genero}
+                </p>
+                <p className="mt-1 text-[0.78rem] text-frio">
+                  Meta lo optimiza para <b className="text-tinta-2">{a.publico.objetivo}</b>
+                  {a.publico.publicoAutomatico && " · amplía el público por su cuenta"}
+                  {a.publico.conjunto && ` · conjunto "${a.publico.conjunto}"`}
+                </p>
+              </div>
             </div>
           )}
 

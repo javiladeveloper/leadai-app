@@ -4,20 +4,21 @@ import { useEffect, useState } from "react";
 import { metricasAds, type MetricasAds, type AnuncioMetricas } from "@/lib/api";
 
 /**
- * TUS ANUNCIOS DE META, EXPLICADOS (2026-09-17, pedido de Jonathan: "alguien
- * que no conoce nada de Meta Ads, en vez de entrar ahí, en la app pueda ver
- * todo lo necesario").
+ * TUS ANUNCIOS DE META, SIN ENTRAR A META (2026-09-17, pedido de Jonathan:
+ * "trae todo lo importante para ver y no tenga tanta necesidad de ir a Meta").
  *
  * Meta muestra `reach`, `frequency`, `CPM` y `CTR` sin explicar ninguno, y
  * quien no vive en el Ads Manager no sabe cuál mirar ni qué número es bueno.
  * Acá cada dato viene con su significado en palabras y su veredicto.
  *
- * LO QUE CAMBIA RESPECTO DEL ADS MANAGER: el orden. Meta ordena por lo que
- * gastó; acá manda lo que le sirve al dueño — cuántas personas vieron el
- * anuncio y cuántas escribieron. El gasto va al lado, no al frente.
+ * LA IMAGEN Y EL TEXTO VAN PRIMERO, antes que los números. "estatico_2" es un
+ * nombre que no le recuerda nada al dueño dos semanas después; viendo la pieza
+ * sabe de cuál habla sin abrir nada.
  *
- * Muestra TODO lo de la cuenta, venga del panel o del Ads Manager: la mayoría
- * de los negocios arman sus anuncios en Meta y no por acá.
+ * EL ORDEN CAMBIA RESPECTO DEL ADS MANAGER: Meta ordena por gasto, acá manda a
+ * cuánta gente llegó. El gasto va al lado, no al frente.
+ *
+ * Incluye lo creado en el Ads Manager, que es como lo hace la mayoría.
  */
 export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
   const [m, setM] = useState<MetricasAds | null>(null);
@@ -37,151 +38,213 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
 
   if (cargando) return <div className="h-40 animate-pulse rounded-tarjeta bg-arena-2/70" />;
 
-  // Sin cuenta conectada no se muestra una tabla vacía: se dice qué falta.
   if (!m) {
     return (
-      <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
-        <h3 className="text-[1.05rem] font-bold text-tinta">Tus anuncios de Facebook e Instagram</h3>
+      <Marco>
         <p className="mt-1 text-[0.85rem] text-frio">
           Conecta tu cuenta publicitaria y vas a ver acá cuánto gastaste, a
           cuánta gente llegaste y qué anuncio funciona — sin entrar al
           administrador de Meta.
         </p>
-      </div>
+      </Marco>
     );
   }
 
   /**
-   * EL CACHE VIEJO NO TIENE LOS CAMPOS NUEVOS (2026-09-17).
+   * EL CACHÉ VIEJO NO TIENE LOS CAMPOS NUEVOS.
    *
-   * Las metricas se cachean 26 horas en Redis. Hasta el proximo refresco
-   * horario, lo guardado ANTES de este cambio no trae `personas`, `frecuencia`
-   * ni `cpm`, y pintarlos daria "0 personas · CPM S/0.00" — que se lee como
-   * "tu anuncio no llego a nadie" cuando en realidad llego a cientos.
-   *
-   * Un cero inventado es peor que decir que falta el dato: el primero lleva a
-   * apagar un anuncio que funciona.
+   * Las métricas se guardan 26 horas en Redis. Hasta el próximo refresco, lo
+   * cacheado antes de este cambio no trae `personas` ni la imagen, y pintarlos
+   * daría "0 personas" — que se lee como "no llegó a nadie" cuando llegó a
+   * cientos. Un cero inventado lleva a apagar un anuncio que funciona.
    */
   const anuncios = [...(m.anuncios ?? [])].sort((a, b) => (b.personas ?? 0) - (a.personas ?? 0));
   const sinDetalle = anuncios.length > 0 && anuncios.every((a) => a.personas === undefined);
+
   if (anuncios.length === 0) {
     return (
-      <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
-        <h3 className="text-[1.05rem] font-bold text-tinta">Tus anuncios de Facebook e Instagram</h3>
+      <Marco>
         <p className="mt-1 text-[0.85rem] text-frio">
           Tu cuenta está conectada, pero ninguno de tus anuncios tuvo actividad
           en los últimos 30 días.
         </p>
-      </div>
+      </Marco>
     );
   }
 
   const totalPersonas = anuncios.reduce((a, x) => a + (x.personas ?? 0), 0);
+  const activos = anuncios.filter((a) => a.estado === "ACTIVE").length;
 
   return (
-    <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-[1.05rem] font-bold text-tinta">Tus anuncios de Facebook e Instagram</h3>
-        <span className="text-[0.8rem] text-frio">últimos 30 días</span>
-      </div>
-
-      {/* EL RESUMEN EN UNA FRASE, antes que la tabla. Es lo que el dueño
-          quiere saber al entrar; el detalle lo mira quien se interesa. */}
+    <Marco derecha="últimos 30 días">
       {sinDetalle ? (
         <p className="mt-1 text-[0.88rem] text-tinta-2">
-          Gastaste <strong className="text-tinta">{soles(m.cuenta.gastoCentavos)}</strong>.
-          El detalle de cuánta gente lo vio aparece en la próxima actualización
-          (dentro de una hora).
+          Gastaste <b className="text-tinta">{soles(m.cuenta.gastoCentavos)}</b>.
+          El detalle aparece en la próxima actualización (dentro de una hora).
         </p>
       ) : (
         <p className="mt-1 text-[0.88rem] text-tinta-2">
-          Gastaste <strong className="text-tinta">{soles(m.cuenta.gastoCentavos)}</strong> y
-          tu publicidad la vieron <strong className="text-tinta">{totalPersonas.toLocaleString("es-PE")} personas</strong>.
+          Gastaste <b className="text-tinta">{soles(m.cuenta.gastoCentavos)}</b> y
+          tu publicidad la vieron <b className="text-tinta">{totalPersonas.toLocaleString("es-PE")} personas</b>.
+          {activos > 0
+            ? ` ${activos} ${activos === 1 ? "anuncio está corriendo" : "anuncios están corriendo"} ahora.`
+            : " Ninguno está corriendo ahora."}
         </p>
       )}
 
       <div className="mt-4 space-y-2">
-        {anuncios.map((a) => {
-          const v = veredicto(a);
-          const abierta = abierto === a.adId;
-          return (
-            <div key={a.adId} className="rounded-lg bg-arena/40 ring-1 ring-linea">
-              <button
-                type="button"
-                onClick={() => setAbierto(abierta ? null : a.adId)}
-                className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
-              >
-                <div className="min-w-0 flex-1">
-                  <span className="block truncate text-[0.88rem] font-semibold text-tinta">{a.nombre}</span>
-                  <span className="mt-0.5 block text-[0.78rem] text-frio">
-                    {a.personas !== undefined
-                      ? `${a.personas.toLocaleString("es-PE")} personas · `
-                      : ""}
-                    {a.clics} {a.clics === 1 ? "tocó" : "tocaron"} · {soles(a.gastoCentavos)}
-                  </span>
-                </div>
-                <span className={`shrink-0 rounded-chip px-2 py-0.5 text-[0.76rem] font-bold ${v.clase}`}>
-                  {v.texto}
-                </span>
-                <span className="shrink-0 text-frio">{abierta ? "−" : "+"}</span>
-              </button>
-
-              {/* EL DETALLE, solo si lo pide. Mostrar seis métricas de entrada
-                  a quien no sabe qué es un CPM es la razón por la que nadie
-                  entra al Ads Manager dos veces. */}
-              {abierta && (
-                <div className="border-t border-linea px-3 py-3">
-                  <dl className="space-y-2.5">
-                    {a.personas !== undefined && (
-                    <Dato
-                      titulo="Personas alcanzadas"
-                      valor={a.personas.toLocaleString("es-PE")}
-                      ayuda={`Se mostró ${a.impresiones.toLocaleString("es-PE")} veces en total: cada persona lo vio ${(a.frecuencia ?? 0).toFixed(1)} ${(a.frecuencia ?? 0) < 1.5 ? "vez" : "veces"} en promedio.`}
-                    />
-                    )}
-                    {a.ctr !== undefined && (
-                    <Dato
-                      titulo="Cuántos lo tocaron"
-                      valor={`${a.clics} de ${(a.personas ?? 0).toLocaleString("es-PE")}`}
-                      ayuda={
-                        a.ctr >= 1
-                          ? `${a.ctr.toFixed(1)}% — está bien, el promedio ronda el 1%.`
-                          : `${a.ctr.toFixed(1)}% — bajo. El promedio ronda el 1%: la imagen o el texto no están enganchando.`
-                      }
-                    />
-                    )}
-                    {(a.interacciones ?? 0) > 0 && (
-                      <Dato
-                        titulo="Reacciones y comentarios"
-                        valor={String(a.interacciones)}
-                        ayuda="Le gustó a la gente aunque no haya tocado el anuncio. Contenido que funciona."
-                      />
-                    )}
-                    <Dato
-                      titulo="Lo que costó"
-                      valor={soles(a.gastoCentavos)}
-                      ayuda={`${a.cpmCentavos !== undefined ? `${soles(a.cpmCentavos)} por cada mil veces que se mostró` : `${a.impresiones.toLocaleString("es-PE")} veces mostrado`}${a.clics > 0 ? ` · ${soles(Math.round(a.gastoCentavos / a.clics))} por cada persona que lo tocó` : ""}.`}
-                    />
-                    {(a.frecuencia ?? 0) >= 3 && (
-                      <p className="rounded-lg bg-tibio-suave px-3 py-2 text-[0.8rem] text-tibio">
-                        <strong>Ojo:</strong> la misma gente ya lo vio {(a.frecuencia ?? 0).toFixed(1)} veces.
-                        Cuando se repite tanto deja de funcionar y empieza a
-                        molestar — conviene cambiar la imagen o ampliar el público.
-                      </p>
-                    )}
-                    <p className="text-[0.76rem] text-frio">Campaña: {a.campania || "—"}</p>
-                  </dl>
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {anuncios.map((a) => (
+          <Fila
+            key={a.adId}
+            a={a}
+            abierta={abierto === a.adId}
+            alTocar={() => setAbierto(abierto === a.adId ? null : a.adId)}
+          />
+        ))}
       </div>
 
       <p className="mt-3 border-t border-linea pt-3 text-[0.78rem] text-frio">
         Se actualiza cada hora. Incluye los anuncios que crees acá y los que
         hagas directo en Facebook.
       </p>
+    </Marco>
+  );
+}
+
+function Marco({ children, derecha }: { children: React.ReactNode; derecha?: string }) {
+  return (
+    <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-[1.05rem] font-bold text-tinta">Tus anuncios de Facebook e Instagram</h3>
+        {derecha && <span className="text-[0.8rem] text-frio">{derecha}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Fila({ a, abierta, alTocar }: { a: AnuncioMetricas; abierta: boolean; alTocar: () => void }) {
+  const v = veredicto(a);
+  const est = estado(a.estado);
+  const dias = diasRestantes(a.fin);
+
+  return (
+    <div className="rounded-lg bg-arena/40 ring-1 ring-linea">
+      <button type="button" onClick={alTocar} className="flex w-full items-center gap-3 px-3 py-2.5 text-left">
+        {/* LA MINIATURA IDENTIFICA EL ANUNCIO de un vistazo, que es lo que el
+            nombre no hace. Sin imagen queda el espacio: alinea las filas. */}
+        {a.imagen ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={a.imagen} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-linea" />
+        ) : (
+          <div className="h-11 w-11 shrink-0 rounded-lg bg-arena-2 ring-1 ring-linea" />
+        )}
+        <div className="min-w-0 flex-1">
+          <span className="block truncate text-[0.88rem] font-semibold text-tinta">
+            {a.titulo?.trim() || a.nombre}
+          </span>
+          <span className="mt-0.5 block text-[0.78rem] text-frio">
+            {a.personas !== undefined ? `${a.personas.toLocaleString("es-PE")} personas · ` : ""}
+            {a.clics} {a.clics === 1 ? "tocó" : "tocaron"} · {soles(a.gastoCentavos)}
+          </span>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className={`rounded-chip px-2 py-0.5 text-[0.72rem] font-bold ${est.clase}`}>{est.texto}</span>
+          <span className={`rounded-chip px-2 py-0.5 text-[0.72rem] font-bold ${v.clase}`}>{v.texto}</span>
+        </div>
+        <span className="shrink-0 text-frio">{abierta ? "−" : "+"}</span>
+      </button>
+
+      {/* EL DETALLE, solo si lo pide. Mostrar ocho datos de entrada a quien no
+          sabe qué es un CPM es la razón por la que nadie abre el Ads Manager
+          dos veces. */}
+      {abierta && (
+        <div className="space-y-3 border-t border-linea px-3 py-3">
+          {a.texto && (
+            <div>
+              <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">Lo que dice tu anuncio</p>
+              <p className="mt-1 whitespace-pre-line rounded-lg bg-carta px-3 py-2 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
+                {a.texto}
+              </p>
+            </div>
+          )}
+
+          <dl className="space-y-2.5">
+            <Dato
+              titulo="Cuándo corre"
+              valor={dias !== null ? (dias > 0 ? `${dias} ${dias === 1 ? "día" : "días"} más` : "terminado") : "sin fecha de fin"}
+              ayuda={[
+                a.inicio ? `Empezó el ${fecha(a.inicio)}` : "",
+                a.fin ? `termina el ${fecha(a.fin)}` : "corre hasta que lo apagues",
+              ].filter(Boolean).join(", ") + "."}
+            />
+
+            {(a.presupuestoTotalCentavos ?? a.presupuestoDiarioCentavos) !== undefined && (
+              <Dato
+                titulo="Presupuesto"
+                valor={soles((a.presupuestoTotalCentavos ?? a.presupuestoDiarioCentavos)!)}
+                ayuda={
+                  a.presupuestoTotalCentavos !== undefined
+                    ? `En total para toda la campaña. Llevas gastado ${soles(a.gastoCentavos)}.`
+                    : `Por día. Llevas gastado ${soles(a.gastoCentavos)} en total.`
+                }
+              />
+            )}
+
+            {a.personas !== undefined && (
+              <Dato
+                titulo="Personas alcanzadas"
+                valor={a.personas.toLocaleString("es-PE")}
+                ayuda={`Se mostró ${a.impresiones.toLocaleString("es-PE")} veces: cada persona lo vio ${(a.frecuencia ?? 0).toFixed(1)} ${(a.frecuencia ?? 0) < 1.5 ? "vez" : "veces"} en promedio.`}
+              />
+            )}
+
+            {a.ctr !== undefined && (
+              <Dato
+                titulo="Cuántos lo tocaron"
+                valor={`${a.clics} de ${(a.personas ?? 0).toLocaleString("es-PE")}`}
+                ayuda={
+                  a.ctr >= 1
+                    ? `${a.ctr.toFixed(1)}% — está bien, el promedio ronda el 1%.`
+                    : `${a.ctr.toFixed(1)}% — bajo. El promedio ronda el 1%: la imagen o el texto no están enganchando.`
+                }
+              />
+            )}
+
+            {(a.interacciones ?? 0) > 0 && (
+              <Dato
+                titulo="Reacciones y comentarios"
+                valor={String(a.interacciones)}
+                ayuda="Le gustó a la gente aunque no haya tocado el anuncio. Contenido que funciona."
+              />
+            )}
+
+            <Dato
+              titulo="Lo que costó"
+              valor={soles(a.gastoCentavos)}
+              ayuda={
+                (a.cpmCentavos !== undefined
+                  ? `${soles(a.cpmCentavos)} por cada mil veces que se mostró`
+                  : `${a.impresiones.toLocaleString("es-PE")} veces mostrado`)
+                + (a.clics > 0 ? ` · ${soles(Math.round(a.gastoCentavos / a.clics))} por cada persona que lo tocó` : "")
+                + "."
+              }
+            />
+
+            {(a.frecuencia ?? 0) >= 3 && (
+              <p className="rounded-lg bg-tibio-suave px-3 py-2 text-[0.8rem] text-tibio">
+                <b>Ojo:</b> la misma gente ya lo vio {(a.frecuencia ?? 0).toFixed(1)} veces.
+                Cuando se repite tanto deja de funcionar y empieza a molestar —
+                conviene cambiar la imagen o ampliar el público.
+              </p>
+            )}
+
+            <p className="text-[0.76rem] text-frio">
+              Campaña: {a.campania || "—"} · Anuncio: {a.nombre}
+            </p>
+          </dl>
+        </div>
+      )}
     </div>
   );
 }
@@ -205,21 +268,62 @@ function soles(centavos: number): string {
   })}`;
 }
 
+/** ISO de Meta → "15 de sep". */
+function fecha(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString("es-PE", { day: "numeric", month: "short" });
+}
+
 /**
- * El veredicto de un anuncio, en dos palabras.
+ * Cuántos días le quedan. `null` si no tiene fecha de fin — que no es lo mismo
+ * que cero: significa que corre indefinidamente hasta que alguien lo apague.
+ */
+function diasRestantes(fin?: string): number | null {
+  if (!fin) return null;
+  const d = new Date(fin).getTime();
+  if (Number.isNaN(d)) return null;
+  return Math.max(0, Math.ceil((d - Date.now()) / 86_400_000));
+}
+
+/**
+ * El estado de Meta, en castellano.
+ *
+ * `CAMPAIGN_PAUSED` y `ADSET_PAUSED` importan tanto como `PAUSED`: el anuncio
+ * está encendido pero no se muestra porque lo pausaron más arriba, y eso desde
+ * la fila del anuncio no se ve. Sin traducirlo, el dueño cree que está
+ * corriendo.
+ */
+function estado(e?: string): { texto: string; clase: string } {
+  switch (e) {
+    case "ACTIVE": return { texto: "corriendo", clase: "bg-ok/12 text-ok" };
+    case "PAUSED": return { texto: "pausado", clase: "bg-arena text-frio" };
+    case "CAMPAIGN_PAUSED": return { texto: "campaña pausada", clase: "bg-arena text-frio" };
+    case "ADSET_PAUSED": return { texto: "conjunto pausado", clase: "bg-arena text-frio" };
+    case "PENDING_REVIEW": return { texto: "en revisión", clase: "bg-tibio-suave text-tibio" };
+    case "DISAPPROVED": return { texto: "rechazado", clase: "bg-calor-suave text-calor-hondo" };
+    case "ARCHIVED":
+    case "DELETED": return { texto: "archivado", clase: "bg-arena text-frio" };
+    default: return { texto: "—", clase: "bg-arena text-frio" };
+  }
+}
+
+/**
+ * El veredicto del anuncio, en una palabra.
  *
  * Mira el CTR —qué porcentaje de los que lo vieron lo tocaron— porque es la
  * única métrica que dice si el anuncio ENGANCHA, independiente del
- * presupuesto. Un anuncio de S/2 y uno de S/200 se comparan igual.
+ * presupuesto: uno de S/2 y uno de S/200 se comparan igual.
  *
- * El 1% no es un número inventado: es el promedio de Facebook para campañas de
- * tráfico y mensajes. Por debajo de 0.5% el problema casi siempre es la imagen
- * o el texto, no el público.
+ * El 1% es el promedio de Facebook para campañas de tráfico y mensajes. Por
+ * debajo de 0.8% el problema casi siempre es la imagen o el texto, no el
+ * público.
  */
 function veredicto(a: AnuncioMetricas): { texto: string; clase: string } {
   if (a.impresiones === 0) return { texto: "sin mostrar", clase: "bg-arena text-frio" };
-  // Con cache anterior al 17-sep no hay `ctr`: sin el no se puede juzgar, y
-  // un "flojo" inventado haria apagar un anuncio que quizas funciona.
+  // Con caché anterior al 17-sep no hay `ctr`: sin él no se puede juzgar, y un
+  // "flojo" inventado haría apagar un anuncio que quizás funciona.
   if (a.ctr === undefined) return { texto: "activo", clase: "bg-arena text-tinta-2" };
   if (a.ctr >= 1.5) return { texto: "engancha", clase: "bg-ok/12 text-ok" };
   if (a.ctr >= 0.8) return { texto: "normal", clase: "bg-arena text-tinta-2" };

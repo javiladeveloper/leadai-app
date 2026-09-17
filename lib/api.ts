@@ -2099,6 +2099,16 @@ export interface AnuncioMetricas {
   ctr: number;
   interacciones: number;
   clicsAlLink: number;
+  /** Lo que el cliente ve: sin esto el nombre del anuncio no le dice nada al dueno. */
+  imagen?: string;
+  titulo?: string;
+  texto?: string;
+  estado?: string;
+  inicio?: string;
+  /** Vacio = corre hasta que lo apaguen. */
+  fin?: string;
+  presupuestoDiarioCentavos?: number;
+  presupuestoTotalCentavos?: number;
 }
 export interface MetricasAds {
   actualizadoEn: string;

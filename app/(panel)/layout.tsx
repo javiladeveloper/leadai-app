@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/panel/Sidebar";
 import { HeaderPanel } from "@/components/panel/HeaderPanel";
 import { NavInferior } from "@/components/NavInferior";
 import { BarraSoporte } from "@/components/panel/BarraSoporte";
+import { BotonSoporte } from "@/components/panel/BotonSoporte";
 
 // Shell del panel de escritorio: Sidebar fijo (lg+) + Header, contenido ancho.
 // En mobile el sidebar se oculta y reaparece la NavInferior.
@@ -52,6 +53,9 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
         {/* Arriba de TODO: si estás en el negocio de otro, tenés que verlo
             antes que cualquier dato de esa pantalla. */}
         <BarraSoporte />
+        {/* Acompañamiento de los primeros 30 dias (2026-09-17). Se decide
+            solo: si el negocio ya cumplio el mes, no se pinta. */}
+        <BotonSoporte />
         <HeaderPanel />
         {/* `key={ruta}`: sin esto React reusa el nodo entre pantallas y la
             animación de entrada no vuelve a correr — el cambio se veria tan

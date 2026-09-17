@@ -8,6 +8,14 @@ export interface EmpresaResumen {
   rol: string;
   /** `captar_y_derivar`, `vender_pedidos`, `agendar_citas`, `matricular_socio`. Lo manda el backend. */
   objetivo?: string;
+  /**
+   * Cuando se creo el negocio, en ISO (2026-09-17). Lo usa el boton de
+   * soporte para saber si esta dentro de los primeros 30 dias.
+   *
+   * Opcional: una sesion guardada antes de este campo no lo trae, y tratarla
+   * como invalida sacaria al usuario del panel sin motivo.
+   */
+  creadoEn?: string;
 }
 
 /**

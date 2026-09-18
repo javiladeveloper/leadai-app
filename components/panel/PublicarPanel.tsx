@@ -14,6 +14,7 @@ import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, CabeceraFormulario, PublicarIlustracion } from "@/components/panel/HeroSeccion";
 import { PreviewRedes } from "@/components/panel/PreviewRedes";
+import { RendimientoPosts } from "@/components/panel/RendimientoPosts";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -669,6 +670,12 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
           </div>
         )}
       </div>
+
+      {/* QUÉ POST TRAE GENTE (2026-09-18). Va DEBAJO del historial y no
+          adentro: mide los posts de la red —publicados desde donde sea—, no
+          solo los que salieron de acá. Es la otra pregunta: no "qué publiqué"
+          sino "cuál funcionó". */}
+      <RendimientoPosts key={g.tenantLista ?? "activa"} tenant={g.tenantLista} />
     </div>
   );
 }

@@ -2506,3 +2506,77 @@ export async function pausarCampania(id: string, reanudar: boolean, tenant?: str
 
 export { API_URL };
 
+// ── QUÉ POST TRAE GENTE (2026-09-18) ─────────────────────────────────────────
+// Los posts recientes de Instagram y de la página de Facebook —publicados
+// desde donde sea— con los números de Meta y lo que pasó después en LeadAI.
+export type RedPost = "instagram" | "messenger";
+
+export interface PostConResultados {
+  canal: RedPost;
+  postExterno: string;
+  texto: string;
+  imagen?: string;
+  url?: string;
+  /** imagen | video | reel | carrusel | texto | enlace */
+  tipo: string;
+  publicadoEn: string;
+  reacciones: number;
+  /** Comentarios según Meta. */
+  comentarios: number;
+  /** Facebook siempre; Instagram solo con permiso de insights. */
+  compartidos?: number;
+  /** `undefined` = sin permiso todavía, NO cero. */
+  alcance?: number;
+  guardados?: number;
+  /** Comentarios que entraron por nuestro webhook. */
+  comentariosLeidos: number;
+  conIntencionCompra: number;
+  /** Personas distintas que abrieron conversación desde este post. */
+  leads: number;
+  leadsCalientes: number;
+  ventas: number;
+  /** Si salió desde LeadAI. */
+  publicacionId?: string;
+}
+
+export interface FaltantePosts {
+  canal: RedPost;
+  motivo: "sin_canal" | "sin_permiso" | "error";
+  detalle?: string;
+}
+
+export interface MetricasPosts {
+  actualizadoEn: string;
+  posts: PostConResultados[];
+  faltantes: FaltantePosts[];
+  alcanceDisponible: boolean;
+}
+
+export interface DetallePost {
+  post: PostConResultados;
+  dias: Array<{
+    dia: string; reacciones: number; comentarios: number; compartidos: number;
+    alcance: number | null; guardados: number | null;
+  }>;
+  comentarios: Array<{
+    id: string; autorNombre: string | null; texto: string; intencion: string | null;
+    respondido: boolean; respuestaTexto: string | null; dmAbierto: boolean; leadId: string | null; creadoEn: string;
+  }>;
+  leads: Array<{ id: string; nombre: string | null; nivelInteres: string; estado: string }>;
+  alcanceDisponible: boolean;
+}
+
+export async function metricasPosts(tenant?: string): Promise<MetricasPosts | null> {
+  try { return await api<MetricasPosts>("/publicaciones/redes", { tenant }); } catch { return null; }
+}
+
+/** Vuelve a leer de Meta ahora (el cron lo hace cada hora). */
+export async function refrescarMetricasPosts(tenant?: string): Promise<MetricasPosts | null> {
+  try { return await api<MetricasPosts>("/publicaciones/redes/refrescar", { method: "POST", tenant }); } catch { return null; }
+}
+
+export async function detallePost(canal: RedPost, postExterno: string, tenant?: string): Promise<DetallePost | null> {
+  try {
+    return await api<DetallePost>(`/publicaciones/redes/${canal}/${encodeURIComponent(postExterno)}`, { tenant });
+  } catch { return null; }
+}

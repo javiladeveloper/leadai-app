@@ -30,7 +30,7 @@ export function OrigenDeLeads({ tenant }: { tenant?: string } = {}) {
 
   if (filas.length === 0) {
     return (
-      <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+      <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
         <h3 className="text-[1.05rem] font-bold text-tinta">De dónde te escriben</h3>
         <p className="mt-1 text-[0.85rem] text-frio">
           Cuando te escriba gente desde un anuncio vas a ver acá de cuál vino
@@ -43,7 +43,7 @@ export function OrigenDeLeads({ tenant }: { tenant?: string } = {}) {
   const totalLeads = filas.reduce((a, f) => a + f.leads, 0);
 
   return (
-    <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+    <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h3 className="text-[1.05rem] font-bold text-tinta">De dónde te escriben</h3>
@@ -68,13 +68,13 @@ export function OrigenDeLeads({ tenant }: { tenant?: string } = {}) {
         </div>
       </div>
 
-      <div className="mt-4 space-y-1.5">
+      <div className="mt-5 space-y-2">
         {filas.map((f) => (
           <Fila key={f.adId ?? f.etiqueta} f={f} maximo={filas[0].leads} />
         ))}
       </div>
 
-      <p className="mt-3 text-[0.74rem] text-frio">
+      <p className="mt-4 text-[0.76rem] text-frio">
         El costo por persona es el gasto del anuncio dividido entre la gente que
         trajo. Lo que no vino de publicidad no tiene costo.
       </p>
@@ -94,7 +94,7 @@ function Fila({ f, maximo }: { f: FilaOrigenLeads; maximo: number }) {
   const icono = f.tipo === "anuncio" ? "📣" : f.tipo === "link" ? "🔗" : f.tipo === "manual" ? "✍️" : "💬";
 
   return (
-    <div className="rounded-lg bg-arena/40 px-3 py-2">
+    <div className="rounded-lg bg-arena/40 px-4 py-3">
       <div className="flex items-baseline justify-between gap-3">
         <span className="flex min-w-0 items-center gap-1.5">
           <span aria-hidden className="shrink-0">{icono}</span>

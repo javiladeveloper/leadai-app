@@ -50,7 +50,7 @@ export function EmbudoAnuncios({ tenant }: { tenant?: string } = {}) {
   if (filas.length === 0) return null;
 
   return (
-    <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+    <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
       <h3 className="text-[1.05rem] font-bold text-tinta">Dónde se te pierde la gente</h3>
       <p className="mt-1 text-[0.85rem] text-frio">
         No todos los que tocan tu anuncio llegan al WhatsApp: muchos solo dan
@@ -58,7 +58,7 @@ export function EmbudoAnuncios({ tenant }: { tenant?: string } = {}) {
         cambiar.
       </p>
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-5 space-y-3">
         {filas.map((f) => (
           <Fila key={f.anuncioId} f={f} />
         ))}
@@ -73,7 +73,7 @@ function Fila({ f }: { f: EmbudoAnuncio }) {
   const base = Math.max(f.pasos[0]?.cantidad ?? 0, 1);
 
   return (
-    <div className="rounded-lg bg-arena/40 px-3 py-3">
+    <div className="rounded-lg bg-arena/40 px-4 py-3.5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="truncate text-[0.88rem] font-semibold text-tinta">{f.nombre}</span>
         <span className="flex items-center gap-2">
@@ -86,7 +86,7 @@ function Fila({ f }: { f: EmbudoAnuncio }) {
         </span>
       </div>
 
-      <div className="mt-2 space-y-1">
+      <div className="mt-3 space-y-1.5">
         {f.pasos.map((p) => <Paso key={p.etiqueta} p={p} base={base} />)}
       </div>
 
@@ -101,7 +101,7 @@ function Fila({ f }: { f: EmbudoAnuncio }) {
         </p>
       )}
 
-      <p className="mt-1.5 text-[0.8rem] text-frio">{f.consejo}</p>
+      <p className="mt-2.5 text-[0.82rem] text-frio">{f.consejo}</p>
     </div>
   );
 }
@@ -117,7 +117,7 @@ function Paso({ p, base }: { p: PasoEmbudo; base: number }) {
   const ancho = Math.max(2, Math.round((p.cantidad / base) * 100));
   return (
     <div className="flex items-center gap-2">
-      <span className="w-40 shrink-0 truncate text-[0.78rem] text-tinta-2">{p.etiqueta}</span>
+      <span className="w-44 shrink-0 truncate text-[0.8rem] text-tinta-2">{p.etiqueta}</span>
       <div className="h-3.5 flex-1 overflow-hidden rounded bg-arena">
         <div className="h-full rounded bg-brasa/70" style={{ width: `${ancho}%` }} />
       </div>

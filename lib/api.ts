@@ -2171,6 +2171,10 @@ export interface FilaRanking {
   ctr: number;
   tendencia: 'subiendo' | 'estable' | 'cayendo' | null;
   dias: number;
+  /** Cuanta gente ESCRIBIO por este anuncio (2026-09-18). Decide el orden. */
+  leads: number;
+  /** Lo que costo cada uno. `null` si todavia no trajo ninguno. */
+  costoPorLeadCentavos: number | null;
 }
 export interface Desglose {
   etiqueta: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { metricasAds, type MetricasAds, type AnuncioMetricas, cambiarEstadoAnuncio } from "@/lib/api";
+import { metricasAds, type MetricasAds, type AnuncioMetricas, cambiarEstadoAnuncio, cambiarEstadoCampania } from "@/lib/api";
 
 /**
  * TUS ANUNCIOS DE META, SIN ENTRAR A META (2026-09-17, pedido de Jonathan:
@@ -447,6 +447,11 @@ function ControlEncendido({ a, alCambiar }: { a: AnuncioMetricas; alCambiar: () 
   const [trabajando, setTrabajando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
+  // `campaniaCaida`: el anuncio está encendido pero SU CAMPAÑA está pausada, así
+  // que no se muestra. Lo detecta el estado CAMPAIGN_PAUSED de Meta, o la
+  // respuesta al encender el anuncio. Arreglarlo es prender la campaña entera,
+  // no el anuncio — por eso lleva su propio botón.
+  const [campaniaCaida, setCampaniaCaida] = useState(a.estado === "CAMPAIGN_PAUSED");
   const corriendo = a.estado === "ACTIVE";
 
   async function cambiar(estado: "ACTIVE" | "PAUSED") {
@@ -456,9 +461,10 @@ function ControlEncendido({ a, alCambiar }: { a: AnuncioMetricas; alCambiar: () 
     try {
       const r = await cambiarEstadoAnuncio(a.adId, estado);
       // El anuncio puede quedar ACTIVE y seguir sin mostrarse, porque lo
-      // apagado es la campaña. Decirlo evita esperar resultados de algo que no
-      // está corriendo.
+      // apagado es la campaña. En vez de solo avisarlo, se ofrece el botón para
+      // arreglarlo en el acto (ver `reactivarCampania`).
       if (estado === "ACTIVE" && r.campaniaPausada) {
+        setCampaniaCaida(true);
         setAviso("Quedó encendido, pero su campaña está pausada: todavía no se muestra.");
       }
       alCambiar();
@@ -469,8 +475,44 @@ function ControlEncendido({ a, alCambiar }: { a: AnuncioMetricas; alCambiar: () 
     }
   }
 
+  // Prende la CAMPAÑA entera (no el anuncio). Es lo que destraba el caso
+  // "encendido pero no se muestra": sin esto, había que entrar al Ads Manager.
+  async function reactivarCampania() {
+    if (!a.campaniaId) { setAviso("No pudimos identificar la campaña. Prueba desde el administrador de Meta."); return; }
+    setTrabajando(true);
+    setAviso(null);
+    try {
+      await cambiarEstadoCampania(a.campaniaId, "ACTIVE");
+      setCampaniaCaida(false);
+      setAviso("Campaña reactivada. Ahora sí se empieza a mostrar.");
+      alCambiar();
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : "No se pudo reactivar la campaña");
+    } finally {
+      setTrabajando(false);
+    }
+  }
+
   return (
     <div className="rounded-lg bg-carta px-3 py-2.5 ring-1 ring-linea">
+      {/* LA CAMPAÑA PAUSADA MANDA (2026-09-18): si la campaña está caída, el
+          anuncio no se muestra aunque esté ACTIVE. Se ofrece prender la campaña
+          entera aquí mismo, en vez de mandar al dueño al Ads Manager. */}
+      {campaniaCaida && (
+        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-tibio-suave px-3 py-2">
+          <span className="text-[0.8rem] text-tibio">
+            Su campaña está pausada: aunque el anuncio esté encendido, no se muestra.
+          </span>
+          <button
+            type="button"
+            disabled={trabajando}
+            onClick={() => void reactivarCampania()}
+            className="rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-bold text-sobre-brasa transition hover:opacity-90 disabled:opacity-50"
+          >
+            {trabajando ? "Reactivando…" : "Reactivar campaña"}
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-[0.84rem] text-tinta-2">
           {corriendo ? "Se está mostrando y gastando" : "Está pausado, no gasta"}

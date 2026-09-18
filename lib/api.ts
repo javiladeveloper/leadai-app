@@ -2131,6 +2131,8 @@ export interface AnuncioMetricas {
   adId: string;
   nombre: string;
   campania: string;
+  /** El ID de la campaña: para encender/apagar la campaña entera. */
+  campaniaId?: string;
   impresiones: number;
   clics: number;
   gastoCentavos: number;

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { puedeAbrirConversacion } from "@/lib/auth";
 import type { Temperatura } from "@/lib/tipos";
 import { haceTexto } from "@/lib/leads";
 import { ChipTemp } from "./ChipTemp";
@@ -32,13 +33,27 @@ const AVATAR_TEMP: Record<string, string> = {
 export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
   const urgente = lead.urgente ?? false;
   const inicial = lead.nombre.trim().charAt(0).toUpperCase() || "?";
-  return (
-    <Link
-      href={`/conversacion/${lead.id}`}
-      className={`block rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] transition active:scale-[0.99] ${
-        urgente ? "ring-2 ring-calor/60" : "ring-1 ring-linea"
-      }`}
-    >
+
+  /**
+   * MARKETING VE LA LISTA PERO NO ABRE LA CONVERSACION (2026-09-18, pregunta
+   * de Jonathan: "si el presiona alguno lo lleva a la conversacion o no pasa
+   * nada con su rol").
+   *
+   * Pasaba lo peor de los dos mundos: la tarjeta se veia clickeable, navegaba,
+   * y del otro lado el backend devolvia 403 -- una pantalla de error, sin
+   * explicacion. El bloqueo es correcto (son consultas de pacientes), lo que
+   * estaba mal era no decirlo.
+   *
+   * Sin link y con el motivo a la vista: se entiende que no es un error sino
+   * un permiso que ese puesto no tiene.
+   */
+  const puedeAbrir = puedeAbrirConversacion();
+  const clases = `block rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ${
+    puedeAbrir ? "transition active:scale-[0.99]" : ""
+  } ${urgente ? "ring-2 ring-calor/60" : "ring-1 ring-linea"}`;
+
+  const cuerpo = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span
@@ -77,6 +92,25 @@ export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
           )}
         </div>
       )}
+    </>
+  );
+
+  // Sin permiso NO se envuelve en <Link>: una tarjeta que navega a un 403 se
+  // lee como que el producto esta roto, no como un permiso que no se tiene.
+  if (!puedeAbrir) {
+    return (
+      <div className={clases}>
+        {cuerpo}
+        <p className="mt-3 border-t border-linea pt-2.5 text-[0.78rem] text-frio">
+          Las conversaciones las atiende el equipo de ventas.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <Link href={`/conversacion/${lead.id}`} className={clases}>
+      {cuerpo}
     </Link>
   );
 }

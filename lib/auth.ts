@@ -316,6 +316,23 @@ export function salirDeSoporte(): void {
  * como "sin restricción": el backend es el que manda —bloquea con 403 aunque
  * la UI falle—, así que equivocarse acá muestra de más, nunca de menos.
  */
+/**
+ * ¿ESTE PUESTO PUEDE ABRIR UNA CONVERSACIÓN? (2026-09-18, pregunta de Jonathan:
+ * "si él presiona alguno lo lleva a la conversación o no pasa nada con su rol").
+ *
+ * MARKETING NO. Ve la LISTA de leads —para medir si su publicidad trajo gente—
+ * pero no los mensajes: son consultas de pacientes de una clínica, y quien hace
+ * la publicidad suele ser gente de afuera. El backend ya devuelve 403 en
+ * `/leads/:id`, así que sin esto la tarjeta navegaba a una pantalla de error.
+ *
+ * Se listan los roles que NO pueden, no los que sí: un rol nuevo entra sin
+ * restricción —igual que en el backend— en vez de quedarse sin poder abrir
+ * nada.
+ */
+export function puedeAbrirConversacion(rol?: string): boolean {
+  return (rol ?? rolEnEmpresaActiva()) !== "marketing";
+}
+
 export function rolEnEmpresaActiva(): string | undefined {
   const sesion = leerSesion();
   if (!sesion) return undefined;

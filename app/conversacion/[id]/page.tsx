@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { haySesion } from "@/lib/auth";
+import { haySesion, puedeAbrirConversacion } from "@/lib/auth";
 import {
   obtenerLead,
   accionLead,
@@ -93,6 +93,10 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     if (!haySesion()) router.replace("/");
+    // MARKETING NO ABRE CONVERSACIONES (2026-09-18). La tarjeta ya no lo lleva
+    // aca, pero la URL escrita a mano o un link viejo si: sin esto se comia un
+    // 403 y una pantalla de error.
+    else if (!puedeAbrirConversacion()) router.replace("/leads");
     else setListo(true);
   }, [router]);
 

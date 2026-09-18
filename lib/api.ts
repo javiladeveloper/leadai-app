@@ -873,6 +873,13 @@ export interface MiPlan {
   ritmoSeguimiento: RitmoSeguimiento;
   comentariosActivo: boolean;
   comentariosMensaje: string;
+  // Rescate del que preguntó y no volvió (2026-09-17).
+  rescateActivo?: boolean;
+  rescateMensaje?: string;
+  rescateNivelMinimo?: "caliente" | "tibio";
+  // Seguimiento del lead escalado que no agendó (2026-09-18).
+  seguimientoEscaladoActivo?: boolean;
+  seguimientoEscaladoMensaje?: string;
   comisionTipo: "porcentaje" | "fijo";
   comisionValor: number;
   features: FeaturesPlan;
@@ -901,6 +908,11 @@ export async function guardarMiPlan(cfg: {
   ritmoSeguimiento?: RitmoSeguimiento;
   comentariosActivo?: boolean;
   comentariosMensaje?: string;
+  rescateActivo?: boolean;
+  rescateMensaje?: string;
+  rescateNivelMinimo?: "caliente" | "tibio";
+  seguimientoEscaladoActivo?: boolean;
+  seguimientoEscaladoMensaje?: string;
   comisionTipo?: "porcentaje" | "fijo";
   comisionValor?: number;
 }): Promise<{ ok: boolean; error?: string }> {

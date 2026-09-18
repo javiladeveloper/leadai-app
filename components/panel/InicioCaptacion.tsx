@@ -82,13 +82,29 @@ export function InicioCaptacion() {
   const cargar = useCallback(async () => {
     setEstado("cargando");
     try {
-      // El resumen es lo esencial; uso y recientes son secundarios (best-effort).
+      /**
+       * NINGUNA LLAMADA TUMBA LA PANTALLA (2026-09-18, reporte de Jonathan: su
+       * marketero entro por primera vez y vio "No pudimos cargar tus datos").
+       *
+       * `obtenerResumen()` era la unica sin `.catch`, asi que un 403 -un rol
+       * sin permiso para esa ruta- dejaba Inicio en ERROR, no degradado: ni el
+       * saludo, ni los leads recientes, nada. Era la primera impresion del
+       * producto para un puesto nuevo.
+       *
+       * Ahora el resumen tambien es best-effort y la pantalla se arma con lo
+       * que si pudo traer. El estado 'error' queda para cuando NADA cargo, que
+       * es el unico caso donde "recarga" es un consejo util.
+       */
       const [r, u, l, rn] = await Promise.all([
-        obtenerResumen(),
+        obtenerResumen().catch(() => null),
         obtenerUso().catch(() => null),
         leadsRecientes(3).catch(() => []),
         obtenerReporteNegocio().catch(() => null), // best-effort (gated por plan)
       ]);
+      if (r === null && u === null && l.length === 0 && rn === null) {
+        setEstado('error');
+        return;
+      }
       setResumen(r);
       setUso(u);
       setRecientes(l);

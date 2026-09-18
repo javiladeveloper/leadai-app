@@ -10,6 +10,7 @@ import {
   publicarAnuncioMeta, subirMediaPost, canalesAd,
   type ObjetivoAd, type PublicoAd, type RecomPresupuesto, type Anuncio, type CanalAd,
   bolsaAnuncios, type BolsaAnuncios,
+  publicosEnMeta, type PublicoEnMeta,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
@@ -68,6 +69,11 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
   const [canal, setCanal] = useState("todos");
   const [zona, setZona] = useState("Todo Perú");
   const [edadMin, setEdadMin] = useState("18");
+  // PUBLICOS PROPIOS (2026-09-18, pedido de Jonathan: "si quiero tirar otra
+  // campania pero que no le llegue a ellos, como se hace").
+  const [misPublicos, setMisPublicos] = useState<PublicoEnMeta[]>([]);
+  const [incluir, setIncluir] = useState<string[]>([]);
+  const [excluir, setExcluir] = useState<string[]>([]);
   const [edadMax, setEdadMax] = useState("55");
   const [total, setTotal] = useState("100");
   const [dias, setDias] = useState("7");
@@ -116,6 +122,9 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
       publicoSugeridoAd(g.tenantLista).then((p) => {
         setPublico(p);
         if (p) { setEdadMin(String(p.edadMin)); setEdadMax(String(p.edadMax)); }
+        // Solo los LISTOS: ofrecer uno que Meta todavia procesa haria armar un
+        // anuncio que no se muestra a nadie.
+        void publicosEnMeta(g.tenantLista).then((ps) => setMisPublicos(ps.filter((x) => x.listo)));
       });
     }
     // Las ubicaciones se piden en el mismo paso: es donde el dueño decide a
@@ -175,6 +184,8 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
         edadMin: Number(edadMin),
         edadMax: Number(edadMax),
         intereses: publico?.intereses ?? [],
+        incluirPublicos: incluir.length ? incluir : undefined,
+        excluirPublicos: excluir.length ? excluir : undefined,
       },
       presupuestoTotal: Number(total),
       dias: Number(dias),
@@ -487,6 +498,59 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                   )}
                 </div>
               </div>
+
+              {/* TUS PROPIAS LISTAS (2026-09-18). Lo que mas rinde es incluir
+                  el SIMILAR y excluir la lista original: Meta busca parecidos
+                  sin cobrarte por los que ya tenes. */}
+              {misPublicos.length > 0 && (
+                <div className="mt-4 border-t border-linea pt-4">
+                  <label className="text-[0.85rem] font-bold text-tinta">Tus públicos</label>
+                  <p className="mt-0.5 text-[0.8rem] text-frio">
+                    Mostrale el anuncio solo a tu lista, o evitá a quienes ya
+                    contactaste.
+                  </p>
+
+                  <div className="mt-3 space-y-2">
+                    {misPublicos.map((pb) => (
+                      <div key={pb.id} className="flex flex-wrap items-center justify-between gap-2 rounded-tarjeta bg-arena/40 px-3 py-2">
+                        <span className="min-w-0 truncate text-[0.85rem] text-tinta">
+                          {pb.nombre}
+                          {pb.personas !== null && (
+                            <span className="text-frio"> · {pb.personas.toLocaleString("es-PE")}</span>
+                          )}
+                        </span>
+                        <span className="flex shrink-0 gap-1.5">
+                          {([
+                            ["incluir", "Mostrar", incluir, setIncluir, excluir, setExcluir],
+                            ["excluir", "Evitar", excluir, setExcluir, incluir, setIncluir],
+                          ] as const).map(([clave, texto, lista, set, otra, setOtra]) => {
+                            const activo = lista.includes(pb.id);
+                            return (
+                              <button
+                                key={clave}
+                                type="button"
+                                onClick={() => {
+                                  // Un publico no puede estar en los dos lados:
+                                  // Meta lo rechaza y el anuncio no sale.
+                                  set(activo ? lista.filter((x) => x !== pb.id) : [...lista, pb.id]);
+                                  if (!activo && otra.includes(pb.id)) setOtra(otra.filter((x) => x !== pb.id));
+                                }}
+                                className={`rounded-chip px-2.5 py-1 text-[0.76rem] font-bold transition ${
+                                  activo
+                                    ? clave === "incluir" ? "bg-brasa text-sobre-brasa" : "bg-tibio text-carta"
+                                    : "bg-arena text-tinta-2 ring-1 ring-linea hover:text-tinta"
+                                }`}
+                              >
+                                {texto}
+                              </button>
+                            );
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

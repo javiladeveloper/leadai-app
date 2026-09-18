@@ -2017,7 +2017,16 @@ export async function crearAnuncio(input: {
   texto: string;
   mediaUrl?: string;
   publicacionId?: string;
-  publico: { zona?: string; edadMin?: number; edadMax?: number; intereses?: string[] };
+  publico: {
+    zona?: string; edadMin?: number; edadMax?: number; intereses?: string[];
+    /**
+     * PUBLICOS PROPIOS (2026-09-18). `incluir` = solo a esa gente; `excluir` =
+     * a esa gente no, aunque entre por edad o zona. Excluir es lo que permite
+     * la segunda campaña sin repetirle a quien ya contactaste.
+     */
+    incluirPublicos?: string[];
+    excluirPublicos?: string[];
+  };
   presupuestoTotal: number;
   dias: number;
   /** Dónde aparece. Sin valor: 'todos' (Meta reparte y optimiza solo). */
@@ -2269,6 +2278,58 @@ export async function listarPublicos(tenant?: string): Promise<PublicoSubido[]> 
   } catch {
     return [];
   }
+}
+
+/**
+ * PRENDER Y APAGAR DESDE EL PANEL (2026-09-18). `campaniaPausada` es lo que
+ * evita el "ya esta corriendo" falso: un anuncio ACTIVE dentro de una campaña
+ * pausada NO se muestra.
+ */
+export interface ResultadoControlAd {
+  ok: boolean;
+  estado?: "ACTIVE" | "PAUSED";
+  campaniaPausada?: boolean;
+}
+
+export async function cambiarEstadoAnuncio(
+  anuncioId: string, estado: "ACTIVE" | "PAUSED", tenant?: string,
+): Promise<ResultadoControlAd> {
+  return api<ResultadoControlAd>(`/anuncios/${anuncioId}/estado`, {
+    method: "PATCH", body: JSON.stringify({ estado }), tenant,
+  });
+}
+
+export async function cambiarEstadoCampania(
+  campaniaId: string, estado: "ACTIVE" | "PAUSED", tenant?: string,
+): Promise<ResultadoControlAd> {
+  return api<ResultadoControlAd>(`/anuncios/campania/${campaniaId}/estado`, {
+    method: "PATCH", body: JSON.stringify({ estado }), tenant,
+  });
+}
+
+export interface PublicoEnMeta {
+  id: string;
+  nombre: string;
+  tipo: string;
+  /** A cuánta gente matcheó Meta. `null` mientras procesa. */
+  personas: number | null;
+  estado: string;
+  creadoEn: string | null;
+  listo: boolean;
+}
+
+/** Los públicos TAL COMO LOS VE META: cuánta gente matcheó y si ya sirven. */
+export async function publicosEnMeta(tenant?: string): Promise<PublicoEnMeta[]> {
+  try {
+    const r = await api<{ publicos: PublicoEnMeta[] }>("/anuncios/publicos/meta", { tenant });
+    return r.publicos ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function borrarPublico(publicoId: string, tenant?: string): Promise<{ ok: boolean }> {
+  return api<{ ok: boolean }>(`/anuncios/publicos/${publicoId}`, { method: "DELETE", tenant });
 }
 
 export interface PasoEmbudo {

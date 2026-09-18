@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  revisarPublico, crearPublico, listarPublicos,
-  type RevisionPublico, type PublicoSubido,
+  revisarPublico, crearPublico, listarPublicos, publicosEnMeta, borrarPublico,
+  type RevisionPublico, type PublicoSubido, type PublicoEnMeta,
 } from "@/lib/api";
 
 /**
@@ -36,11 +36,16 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
   const [subiendo, setSubiendo] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null);
   const [historial, setHistorial] = useState<PublicoSubido[]>([]);
+  // Lo que Meta ya tiene: cuanta gente matcheo y si se puede usar. Es otra cosa
+  // que el historial -aquel dice que se mando, este que paso despues.
+  const [enMeta, setEnMeta] = useState<PublicoEnMeta[]>([]);
+  const [refresco, setRefresco] = useState(0);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void listarPublicos(tenant).then(setHistorial);
-  }, [tenant]);
+    void publicosEnMeta(tenant).then(setEnMeta);
+  }, [tenant, refresco]);
 
   async function cargar(f: File) {
     const texto = await f.text();
@@ -77,6 +82,7 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
         setArchivo("");
         if (input.current) input.current.value = "";
         setHistorial(await listarPublicos(tenant));
+        setEnMeta(await publicosEnMeta(tenant));
       }
     } catch (e) {
       setResultado({ ok: false, texto: e instanceof Error ? e.message : "No se pudo subir" });
@@ -169,6 +175,12 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
         )}
       </div>
 
+      {/* Los de Meta van ANTES del historial: son los que se pueden usar hoy;
+          el historial es el registro de lo que se mando. */}
+      {enMeta.length > 0 && (
+        <EnMeta filas={enMeta} alBorrar={() => setRefresco((n) => n + 1)} />
+      )}
+
       {historial.length > 0 && <Historial filas={historial} />}
     </div>
   );
@@ -198,6 +210,117 @@ function Revision({ r }: { r: RevisionPublico }) {
           Meta pide al menos {r.minimo} y este archivo llega a {r.contactos}.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * LOS PÚBLICOS TAL COMO LOS VE META (2026-09-18, pedido de Jonathan: "podemos
+ * ver el csv que subimos y luego bajarlo para ya no tener que llegar a esas
+ * personas").
+ *
+ * Es DISTINTO del historial de abajo: aquel dice qué se mandó, este dice qué
+ * pasó después. Subir 708 contactos y que Meta encuentre 300 es lo normal —no
+ * todos tienen ese teléfono registrado en su cuenta— pero sin ese segundo
+ * número parece que se perdieron.
+ */
+function EnMeta({ filas, alBorrar }: { filas: PublicoEnMeta[]; alBorrar: () => void }) {
+  const [borrando, setBorrando] = useState<string | null>(null);
+  const [confirmar, setConfirmar] = useState<string | null>(null);
+
+  async function borrar(id: string) {
+    setBorrando(id);
+    setConfirmar(null);
+    try {
+      await borrarPublico(id);
+      alBorrar();
+    } finally {
+      setBorrando(null);
+    }
+  }
+
+  return (
+    <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
+      <h3 className="text-[1.05rem] font-bold text-tinta">Tus públicos en Meta</h3>
+      <p className="mt-1 text-[0.85rem] text-frio">
+        Estos ya se pueden usar para segmentar un anuncio. Meta siempre
+        encuentra a menos gente de la que subiste: no todos tienen ese número
+        registrado en su cuenta.
+      </p>
+
+      <div className="mt-5 space-y-2">
+        {filas.map((f) => (
+          <div key={f.id} className="rounded-lg bg-arena/40 px-4 py-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-[0.88rem] font-semibold text-tinta">{f.nombre}</span>
+                {f.tipo === "LOOKALIKE" && (
+                  <span className="rounded-chip bg-brasa/12 px-1.5 py-0.5 text-[0.7rem] font-bold text-brasa">
+                    similares
+                  </span>
+                )}
+              </span>
+              <span
+                className={`rounded-chip px-2 py-0.5 text-[0.72rem] font-bold ${
+                  f.listo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
+                }`}
+              >
+                {f.listo ? "listo para usar" : f.estado}
+              </span>
+            </div>
+
+            <p className="mt-1.5 text-[0.84rem] text-tinta-2">
+              {f.personas !== null ? (
+                <>
+                  Meta encontró a <strong className="text-tinta">
+                    {f.personas.toLocaleString("es-PE")} personas
+                  </strong>
+                </>
+              ) : (
+                // Nunca "0 personas": mientras procesa, Meta no informa el
+                // tamaño, y un cero se leería como que no matcheó a nadie.
+                <span className="text-frio">Meta todavía lo está procesando (tarda unas horas)</span>
+              )}
+            </p>
+
+            {/* BORRAR PIDE CONFIRMACIÓN. Meta desactiva los anuncios que usaban
+                ese público: no rompe nada, pero dejan de mostrarse, y eso no se
+                puede deshacer sin volver a subir la lista. */}
+            <div className="mt-2">
+              {confirmar === f.id ? (
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="text-[0.78rem] text-tibio">
+                    Los anuncios que lo usen dejarán de mostrarse.
+                  </span>
+                  <button
+                    type="button"
+                    disabled={borrando === f.id}
+                    onClick={() => void borrar(f.id)}
+                    className="rounded-chip bg-tibio px-2.5 py-1 text-[0.76rem] font-bold text-carta transition hover:opacity-90 disabled:opacity-50"
+                  >
+                    {borrando === f.id ? "Sacando…" : "Sí, sacarlo"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmar(null)}
+                    className="text-[0.76rem] font-semibold text-frio hover:text-tinta"
+                  >
+                    Cancelar
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmar(f.id)}
+                  className="text-[0.78rem] font-semibold text-frio transition hover:text-tibio"
+                >
+                  Sacar de Meta
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

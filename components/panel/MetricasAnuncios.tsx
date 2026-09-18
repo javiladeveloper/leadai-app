@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { metricasAds, type MetricasAds, type AnuncioMetricas } from "@/lib/api";
+import { metricasAds, type MetricasAds, type AnuncioMetricas, cambiarEstadoAnuncio } from "@/lib/api";
 
 /**
  * TUS ANUNCIOS DE META, SIN ENTRAR A META (2026-09-17, pedido de Jonathan:
@@ -35,6 +35,10 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
    */
   const [filtro, setFiltro] = useState<'corriendo' | 'todos'>('corriendo');
 
+  // Se rehace al prender o apagar: el estado que muestra la fila tiene que ser
+  // el de Meta, no el que creemos haber dejado.
+  const [refresco, setRefresco] = useState(0);
+
   useEffect(() => {
     let vivo = true;
     setCargando(true);
@@ -44,7 +48,7 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
       setCargando(false);
     });
     return () => { vivo = false; };
-  }, [tenant]);
+  }, [tenant, refresco]);
 
   if (cargando) return <div className="h-40 animate-pulse rounded-tarjeta bg-arena-2/70" />;
 
@@ -142,6 +146,7 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
             a={a}
             abierta={abierto === a.adId}
             alTocar={() => setAbierto(abierto === a.adId ? null : a.adId)}
+            alCambiar={() => setRefresco((n) => n + 1)}
           />
         ))}
       </div>
@@ -166,7 +171,7 @@ function Marco({ children, derecha }: { children: React.ReactNode; derecha?: str
   );
 }
 
-function Fila({ a, abierta, alTocar }: { a: AnuncioMetricas; abierta: boolean; alTocar: () => void }) {
+function Fila({ a, abierta, alTocar, alCambiar }: { a: AnuncioMetricas; abierta: boolean; alTocar: () => void; alCambiar: () => void }) {
   const v = veredicto(a);
   const est = estado(a.estado);
   const dias = diasRestantes(a.fin);
@@ -203,6 +208,11 @@ function Fila({ a, abierta, alTocar }: { a: AnuncioMetricas; abierta: boolean; a
           dos veces. */}
       {abierta && (
         <div className="space-y-3 border-t border-linea px-3 py-3">
+          {/* PRENDER O APAGAR (2026-09-18). Va PRIMERO porque es lo unico
+              accionable del detalle: el resto son numeros para mirar. Antes el
+              panel decia "conviene pausarlo" y pausarlo era abrir Meta. */}
+          <ControlEncendido a={a} alCambiar={alCambiar} />
+
           {a.texto && (
             <div>
               <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">Lo que dice tu anuncio</p>
@@ -391,4 +401,92 @@ function veredicto(a: AnuncioMetricas): { texto: string; clase: string } {
   if (a.ctr >= 1.5) return { texto: "engancha", clase: "bg-ok/12 text-ok" };
   if (a.ctr >= 0.8) return { texto: "normal", clase: "bg-arena text-tinta-2" };
   return { texto: "flojo", clase: "bg-tibio-suave text-tibio" };
+}
+
+/**
+ * PRENDER O APAGAR UN ANUNCIO (2026-09-18, pedido de Jonathan: "podemos también
+ * encender una campaña, apagarla desde LeadAI").
+ *
+ * El panel venía diciendo "este anuncio viene cayendo, conviene pausarlo" y
+ * para pausarlo había que abrir Meta: el consejo acá, la acción en otra
+ * herramienta.
+ *
+ * PIDE CONFIRMACIÓN AL PRENDER, no al pausar. Prender empieza a gastar plata de
+ * verdad; pausar solo deja de gastarla, y pedir confirmación para dejar de
+ * gastar convierte la salida de emergencia en un trámite.
+ */
+function ControlEncendido({ a, alCambiar }: { a: AnuncioMetricas; alCambiar: () => void }) {
+  const [trabajando, setTrabajando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [confirmando, setConfirmando] = useState(false);
+  const corriendo = a.estado === "ACTIVE";
+
+  async function cambiar(estado: "ACTIVE" | "PAUSED") {
+    setTrabajando(true);
+    setAviso(null);
+    setConfirmando(false);
+    try {
+      const r = await cambiarEstadoAnuncio(a.adId, estado);
+      // El anuncio puede quedar ACTIVE y seguir sin mostrarse, porque lo
+      // apagado es la campaña. Decirlo evita esperar resultados de algo que no
+      // está corriendo.
+      if (estado === "ACTIVE" && r.campaniaPausada) {
+        setAviso("Quedó encendido, pero su campaña está pausada: todavía no se muestra.");
+      }
+      alCambiar();
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : "No se pudo cambiar el estado");
+    } finally {
+      setTrabajando(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg bg-carta px-3 py-2.5 ring-1 ring-linea">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[0.84rem] text-tinta-2">
+          {corriendo ? "Se está mostrando y gastando" : "Está pausado, no gasta"}
+        </span>
+
+        {corriendo ? (
+          <button
+            type="button"
+            disabled={trabajando}
+            onClick={() => void cambiar("PAUSED")}
+            className="rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:text-tinta disabled:opacity-50"
+          >
+            {trabajando ? "Pausando…" : "Pausar"}
+          </button>
+        ) : confirmando ? (
+          <span className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={trabajando}
+              onClick={() => void cambiar("ACTIVE")}
+              className="rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-bold text-sobre-brasa transition hover:opacity-90 disabled:opacity-50"
+            >
+              {trabajando ? "Encendiendo…" : "Sí, empezar a gastar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmando(false)}
+              className="text-[0.8rem] font-semibold text-frio hover:text-tinta"
+            >
+              Cancelar
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmando(true)}
+            className="rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-bold text-sobre-brasa transition hover:opacity-90"
+          >
+            Encender
+          </button>
+        )}
+      </div>
+
+      {aviso && <p className="mt-2 text-[0.78rem] text-tibio">{aviso}</p>}
+    </div>
+  );
 }

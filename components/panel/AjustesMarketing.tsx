@@ -275,9 +275,11 @@ function TopeGastoCard({ plan, onChange }: CardProps) {
 
   return (
     <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-      <h3 className="text-[1.02rem] font-bold text-tinta">Tope de gasto por anuncio</h3>
+      <h3 className="text-[1.02rem] font-bold text-tinta">Tope de gasto en publicidad</h3>
       <p className="mt-0.5 text-[0.82rem] text-frio">
-        El máximo que un anuncio puede gastar. Al crear uno, no te deja pasarte de este monto. {sinTope && "Ahora no hay tope."}
+        Tu límite de gasto. Hace dos cosas: al crear un anuncio no te deja poner un
+        presupuesto mayor, y si el gasto real se acerca (te avisamos al 80%) o pasa
+        este monto, te llega un WhatsApp. {sinTope && "Ahora no hay tope."}
       </p>
       <div className="mt-3 flex items-center gap-2">
         <span className="text-[0.9rem] font-semibold text-tinta-2">S/</span>

@@ -233,11 +233,39 @@ function Fila({ a, abierta, alTocar, alCambiar }: { a: AnuncioMetricas; abierta:
                 <p className="text-[0.84rem] text-tinta">
                   <b>{a.publico.lugares}</b> · {a.publico.edades} · {a.publico.genero}
                 </p>
+                {/* LA SEGMENTACIÓN DETALLADA (2026-09-18, Jonathan: "también
+                    debes mostrar la segmentación"). Intereses, cargos y
+                    carreras son lo que más decide a quién le llega, y no se
+                    veía nada de eso. */}
+                {(a.publico.segmentacion ?? []).map((s) => (
+                  <p key={s.tipo} className="mt-1 text-[0.8rem] text-tinta-2">
+                    <span className="font-semibold text-tinta">{s.tipo}:</span> {s.valores.join(", ")}
+                  </p>
+                ))}
+                {(a.publico.publicos ?? []).length > 0 && (
+                  <p className="mt-1 text-[0.8rem] text-tinta-2">
+                    <span className="font-semibold text-tinta">Públicos:</span> {a.publico.publicos!.join(", ")}
+                  </p>
+                )}
+                {(a.publico.excluidos ?? []).length > 0 && (
+                  <p className="mt-1 text-[0.8rem] text-tinta-2">
+                    <span className="font-semibold text-tinta">No se le muestra a:</span> {a.publico.excluidos!.join(", ")}
+                  </p>
+                )}
                 <p className="mt-1 text-[0.78rem] text-frio">
                   Meta lo optimiza para <b className="text-tinta-2">{a.publico.objetivo}</b>
-                  {a.publico.publicoAutomatico && " · amplía el público por su cuenta"}
                   {a.publico.conjunto && ` · conjunto "${a.publico.conjunto}"`}
                 </p>
+                {/* ADVANTAGE+ (2026-09-18): el panel decía "18 a 65 años" porque
+                    leía el control de Meta y no la sugerencia que el marketero
+                    ve en el Ads Manager. Con Advantage+ la edad, el género y
+                    los intereses son sugerencias; lo único fijo es el mínimo. */}
+                {a.publico.publicoAutomatico && (
+                  <p className="mt-1 text-[0.78rem] text-frio">
+                    Público Advantage+: la edad, el género y los intereses son sugerencias, Meta puede salirse de ellas
+                    {a.publico.edadMinima !== undefined && ` (nunca a menores de ${a.publico.edadMinima})`}.
+                  </p>
+                )}
               </div>
             </div>
           )}

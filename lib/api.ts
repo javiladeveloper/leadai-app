@@ -2141,6 +2141,19 @@ export interface AnuncioMetricas {
     objetivo: string;
     publicoAutomatico: boolean;
     conjunto: string;
+    /**
+     * LA SEGMENTACION COMPLETA (2026-09-18, Jonathan: "revisa bien... tambien
+     * debes mostrar la segmentacion"). Opcionales porque el backend cachea las
+     * metricas una hora y el panel puede leer una lectura anterior al cambio.
+     */
+    /** Con Advantage+ lo unico fijo es este minimo; el resto son sugerencias. */
+    edadMinima?: number;
+    /** Intereses, cargos, carreras... por tipo. */
+    segmentacion?: Array<{ tipo: string; valores: string[] }>;
+    /** Publicos personalizados incluidos. */
+    publicos?: string[];
+    /** A quien NO se le muestra. */
+    excluidos?: string[];
   };
 }
 export interface MetricasAds {

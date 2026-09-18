@@ -270,7 +270,9 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
     }
     const pesoMB = file.size / (1024 * 1024);
     if (esVideo && pesoMB > 50) {
-      setMsg(`Tu video pesa ${pesoMB.toFixed(0)}MB y el máximo es 50MB. Compréndelo o graba uno más corto.`);
+      // 50MB es el tope del storage (plan free de Supabase), no de TikTok.
+      // "Compréndelo" era una errata por "comprímelo" (2026-09-18).
+      setMsg(`Tu video pesa ${pesoMB.toFixed(0)}MB y el máximo es 50MB. Comprímelo antes de subirlo: TikTok e Instagram lo vuelven a comprimir igual, así que exportarlo a 1080p con menos calidad no se nota.`);
       return;
     }
     if (!esVideo && pesoMB > 8) {

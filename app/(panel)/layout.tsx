@@ -37,8 +37,31 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
     // del negocio ajeno: el modo soporte se activaba bien y moría en el
     // primer render. `empresasVisibles()` sí cuenta el negocio del soporte,
     // que es justo el que está mirando.
+    /**
+     * ANTES DE EXPULSAR, PREGUNTAR AL BACKEND (2026-09-18, bug que reporto
+     * Jonathan: su marketero acepto la invitacion y seguia cayendo en el
+     * onboarding aun despues de arreglarlo en la raiz y en /invitacion).
+     *
+     * Este era el TERCER lugar que decide con la lista guardada en
+     * localStorage, y el que faltaba: quien entra directo a una URL del panel
+     * -o vuelve a una pestaña abierta- no pasa por la raiz, asi que los otros
+     * dos arreglos no lo alcanzaban.
+     *
+     * Solo se consulta cuando la lista esta VACIA: el resto de las cargas del
+     * panel no paga un viaje mas al servidor.
+     */
     if (leerSesion() && empresasVisibles().length === 0) {
-      router.replace(esSuperAdmin() ? "/admin" : "/bienvenida");
+      void refrescarSesion()
+        .catch(() => undefined)
+        .then(() => {
+          // Si el backend confirma que no tiene ninguna, ahi si corresponde
+          // el onboarding.
+          if (empresasVisibles().length === 0) {
+            router.replace(esSuperAdmin() ? "/admin" : "/bienvenida");
+            return;
+          }
+          setListo(true);
+        });
       return;
     }
     setListo(true);

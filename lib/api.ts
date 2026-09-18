@@ -2326,6 +2326,19 @@ export async function origenDeLeads(
   }
 }
 
+export interface EstadoAnuncios {
+  conectada: boolean;
+  paginaLista: boolean;
+}
+
+/**
+ * ¿HAY CUENTA DE ANUNCIOS? (2026-09-18). Verificado: 34 de 36 negocios NO la
+ * tienen, y sin este dato todos veian cinco pestañas vacias sin saber por que.
+ */
+export async function estadoAnuncios(tenant?: string): Promise<EstadoAnuncios | null> {
+  try { return await api<EstadoAnuncios>("/anuncios/estado", { tenant }); } catch { return null; }
+}
+
 export interface BolsaAnuncios {
   bonoCentavos: number;
   bonoPlanCentavos: number;

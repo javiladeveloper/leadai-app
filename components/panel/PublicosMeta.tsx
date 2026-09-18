@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  revisarPublico, crearPublico, listarPublicos, publicosEnMeta, borrarPublico,
+  revisarPublico, crearPublico, listarPublicos, publicosEnMeta, borrarPublico, crearRetargeting,
   type RevisionPublico, type PublicoSubido, type PublicoEnMeta,
 } from "@/lib/api";
 
@@ -175,6 +175,12 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
         )}
       </div>
 
+      {/* RETARGETING (2026-09-18): volver a mostrarle el anuncio a quien ya te
+          visitó. Va después de "subir contactos" y antes de "los de Meta"
+          porque es la otra forma de armar un público — con el pixel, sin subir
+          nada. El público que crea aparece solo en la lista de abajo. */}
+      <Retargeting tenant={tenant} alCrear={() => setRefresco((n) => n + 1)} />
+
       {/* Los de Meta van ANTES del historial: son los que se pueden usar hoy;
           el historial es el registro de lo que se mando. */}
       {enMeta.length > 0 && (
@@ -193,6 +199,87 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
  * mitad casi siempre tiene la columna equivocada, y ese número es la única
  * pista de que algo salió mal.
  */
+/**
+ * VOLVER A IMPACTAR A QUIEN YA TE VISITÓ (2026-09-18).
+ *
+ * El dueño solo elige "cuánto tiempo atrás" y aprieta un botón. Nada de jerga
+ * de Meta (pixel WEBSITE, retention_days): "los que entraron en los últimos 30
+ * días" se entiende sin explicar. El pixel ya está puesto en Presencia; si
+ * falta, el backend lo dice claro.
+ */
+const VENTANAS = [
+  { dias: 7, etiqueta: "última semana" },
+  { dias: 14, etiqueta: "últimas 2 semanas" },
+  { dias: 30, etiqueta: "último mes" },
+  { dias: 90, etiqueta: "últimos 3 meses" },
+];
+
+function Retargeting({ tenant, alCrear }: { tenant?: string; alCrear: () => void }) {
+  const [dias, setDias] = useState(30);
+  const [creando, setCreando] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function crear() {
+    setCreando(true);
+    setMsg(null);
+    const r = await crearRetargeting({ dias }, tenant);
+    setCreando(false);
+    if (r.ok) {
+      setMsg({ ok: true, texto: "¡Listo! El público aparece abajo. Ya puedes usarlo al crear un anuncio." });
+      alCrear();
+    } else {
+      setMsg({ ok: false, texto: r.error ?? "No se pudo crear el público." });
+    }
+  }
+
+  return (
+    <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+      <h3 className="text-[1.05rem] font-bold text-tinta">Volver a mostrarle tu anuncio a quien ya te visitó</h3>
+      <p className="mt-1 text-[0.85rem] text-frio">
+        Mucha gente entra a tu página y no escribe la primera vez. Con esto le
+        muestras tu anuncio de nuevo — ya te conoce, solo le faltó el empujón. Es
+        de lo más rentable: no pagas por gente nueva.
+      </p>
+
+      <label className="mt-4 block text-[0.78rem] font-bold uppercase tracking-wide text-frio">
+        ¿A quién? Los que entraron en…
+      </label>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {VENTANAS.map((v) => (
+          <button
+            key={v.dias}
+            type="button"
+            onClick={() => setDias(v.dias)}
+            className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
+              dias === v.dias ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-carta"
+            }`}
+          >
+            {v.etiqueta}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[0.76rem] text-frio">
+        Menos tiempo = gente más caliente pero público más chico. Un mes suele ser buen equilibrio.
+      </p>
+
+      <button
+        type="button"
+        onClick={() => void crear()}
+        disabled={creando}
+        className="mt-4 w-full rounded-chip bg-brasa px-4 py-2.5 text-[0.88rem] font-bold text-sobre-brasa transition hover:opacity-90 disabled:opacity-50"
+      >
+        {creando ? "Creando…" : "Crear este público"}
+      </button>
+
+      {msg && (
+        <p className={`mt-3 rounded-lg px-3 py-2 text-[0.84rem] ${msg.ok ? "bg-ok/12 text-ok" : "bg-tibio-suave text-tibio"}`}>
+          {msg.texto}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Revision({ r }: { r: RevisionPublico }) {
   return (
     <div className="mt-4 rounded-lg bg-arena/50 px-4 py-3">
@@ -257,6 +344,11 @@ function EnMeta({ filas, alBorrar }: { filas: PublicoEnMeta[]; alBorrar: () => v
                 {f.tipo === "LOOKALIKE" && (
                   <span className="rounded-chip bg-brasa/12 px-1.5 py-0.5 text-[0.7rem] font-bold text-brasa">
                     similares
+                  </span>
+                )}
+                {f.tipo === "WEBSITE" && (
+                  <span className="rounded-chip bg-brasa/12 px-1.5 py-0.5 text-[0.7rem] font-bold text-brasa">
+                    visitaron tu web
                   </span>
                 )}
               </span>

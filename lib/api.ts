@@ -2303,6 +2303,26 @@ export async function crearPublico(
   });
 }
 
+/**
+ * Retargeting (2026-09-18): crea un público de "gente que visitó la web" desde
+ * el pixel. No sube datos de nadie — solo le dice a Meta que arme esa lista.
+ */
+export async function crearRetargeting(
+  datos: { dias: number; nombre?: string },
+  tenant?: string,
+): Promise<{ ok: boolean; publicoId?: string; error?: string }> {
+  try {
+    const r = await api<{ ok?: boolean; publicoId?: string }>("/anuncios/publicos/retargeting", {
+      method: "POST",
+      body: JSON.stringify(datos),
+      tenant,
+    });
+    return { ok: true, publicoId: r.publicoId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear el público." };
+  }
+}
+
 export async function listarPublicos(tenant?: string): Promise<PublicoSubido[]> {
   try {
     const r = await api<{ publicos: PublicoSubido[] }>("/anuncios/publicos", { tenant });

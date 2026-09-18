@@ -11,6 +11,7 @@ import { useCapacidadesOptimista } from "@/lib/modo-negocio";
 import CampaniasPanel from "@/components/panel/CampaniasPanel";
 import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
 import { SeccionAnuncios } from "@/components/panel/SeccionAnuncios";
+import { AjustesMarketing } from "@/components/panel/AjustesMarketing";
 import PublicarPanel from "@/components/panel/PublicarPanel";
 import { HeroSeccion, MarketingIlustracion } from "@/components/panel/HeroSeccion";
 
@@ -32,7 +33,7 @@ import { HeroSeccion, MarketingIlustracion } from "@/components/panel/HeroSeccio
  * historial del navegador no puede terminar en 404.
  */
 
-type Pestania = "anuncios" | "campanias" | "presencia" | "publicar";
+type Pestania = "anuncios" | "campanias" | "presencia" | "publicar" | "automatico";
 
 export default function MarketingPanel() {
   const router = useRouter();
@@ -52,6 +53,7 @@ export default function MarketingPanel() {
     t === "campanias" ? "campanias"
     : t === "presencia" ? "presencia"
     : t === "publicar" ? "publicar"
+    : t === "automatico" ? "automatico"
     : "anuncios";
   const [pestania, setPestania] = useState<Pestania>(inicial);
 
@@ -185,7 +187,7 @@ export default function MarketingPanel() {
           Eran cuatro chips de texto: "Anuncios", "Campañas"… nombres que no
           dicen qué hace cada uno. Ahora cada una lleva su icono y su frase, así
           se elige por lo que se quiere LOGRAR y no por adivinar el nombre. */}
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4" role="tablist">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3" role="tablist">
         {([
           { id: "anuncios", label: "Anuncios", ayuda: "Traer gente nueva", icono: <IconoMegafono />, cap: "tieneAnuncios" },
           { id: "campanias", label: "Campañas", ayuda: "Hacer que vuelvan", icono: <IconoRepetir />, cap: "tieneCampanias" },
@@ -198,6 +200,9 @@ export default function MarketingPanel() {
           // Sin `cap`: no depende del rubro. Un negocio con dirección quiere
           // que lo encuentren, venda comida o dé consultas.
           { id: "presencia", label: "Presencia", ayuda: "Que te encuentren", icono: <IconoUbicacion />, cap: null },
+          // Lo que el sistema hace solo: rescate, seguimiento, alertas, tope.
+          // Sin `cap`: son automatizaciones de leads/ads que le sirven a cualquiera.
+          { id: "automatico", label: "Automático", ayuda: "Que trabaje por ti", icono: <IconoRayo />, cap: null },
         ] as const).filter((p) => p.cap === null || caps[p.cap]).map((p) => {
           const activa = mostrar === p.id;
           return (
@@ -257,6 +262,8 @@ export default function MarketingPanel() {
         <PublicarPanel embebido />
       ) : mostrar === "anuncios" ? (
         <SeccionAnuncios tenant={g.enfocado || undefined} />
+      ) : mostrar === "automatico" ? (
+        <AjustesMarketing key={g.enfocado || "activa"} />
       ) : (
         <CampaniasPanel embebido />
       )}
@@ -305,6 +312,14 @@ function IconoUbicacion() {
     <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z" />
       <circle cx="12" cy="10" r="2.6" />
+    </svg>
+  );
+}
+
+function IconoRayo() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 2L4.5 13.5H11l-1 8.5L18.5 10.5H12l1-8.5z" />
     </svg>
   );
 }

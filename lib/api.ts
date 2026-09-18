@@ -880,6 +880,9 @@ export interface MiPlan {
   // Seguimiento del lead escalado que no agendó (2026-09-18).
   seguimientoEscaladoActivo?: boolean;
   seguimientoEscaladoMensaje?: string;
+  // Alertas de anuncios (a qué WhatsApp) y tope de gasto (2026-09-17).
+  alertasAnunciosA?: string | null;
+  adsTopeMax?: number;
   comisionTipo: "porcentaje" | "fijo";
   comisionValor: number;
   features: FeaturesPlan;
@@ -913,6 +916,8 @@ export async function guardarMiPlan(cfg: {
   rescateNivelMinimo?: "caliente" | "tibio";
   seguimientoEscaladoActivo?: boolean;
   seguimientoEscaladoMensaje?: string;
+  alertasAnunciosA?: string | null;
+  adsTopeMax?: number;
   comisionTipo?: "porcentaje" | "fijo";
   comisionValor?: number;
 }): Promise<{ ok: boolean; error?: string }> {

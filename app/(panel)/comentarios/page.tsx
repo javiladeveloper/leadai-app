@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion } from "@/lib/auth";
-import { listarComentarios, simularComentario, type Comentario } from "@/lib/api";
+import { listarComentarios, listarCanales, simularComentario, type Comentario } from "@/lib/api";
+import { redesDeComentarios, textoRedes } from "@/lib/comentarios-estado";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { AjustesComentarios } from "@/components/panel/AjustesComentarios";
@@ -31,6 +32,12 @@ export default function ComentariosPanel() {
   const [texto, setTexto] = useState("");
   const [simulando, setSimulando] = useState(false);
   const [ultimo, setUltimo] = useState<{ intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string } | null>(null);
+  /**
+   * QUÉ REDES DE COMENTARIOS TIENE ESTE NEGOCIO (2026-09-18). `null` mientras
+   * se lee. Jonathan, con Instagram y Facebook conectados en Sania: "me sigue
+   * apareciendo este mensaje" — el aviso de conectar estaba fijo en la página.
+   */
+  const [redes, setRedes] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -44,7 +51,14 @@ export default function ComentariosPanel() {
   const cargar = useCallback(async () => {
     setEstado("cargando");
     try {
-      setComentarios(await listarComentarios(g.tenantLista));
+      // Los canales se leen junto con el log: sin ellos no se sabe si el aviso
+      // que corresponde es "conecta tus redes" o "ya están conectadas".
+      const [lista, canales] = await Promise.all([
+        listarComentarios(g.tenantLista),
+        listarCanales(g.tenantLista),
+      ]);
+      setComentarios(lista);
+      setRedes(redesDeComentarios(canales));
       setEstado("ok");
     } catch {
       setEstado("error");
@@ -92,11 +106,20 @@ export default function ComentariosPanel() {
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
       )}
 
-      {/* Aviso: conexión real pendiente de Meta */}
-      <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
-        📸 La captación automática de comentarios de Instagram/Facebook se activa cuando conectes
-        tus redes (requiere la aprobación de Meta). Mientras tanto, prueba cómo responde la IA aquí abajo.
-      </div>
+      {/* El aviso depende de las redes: el de conectar solo si no hay ninguna
+          (2026-09-18). Antes era fijo y Sania lo veía con las dos conectadas. */}
+      {redes !== null && redes.length === 0 && (
+        <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
+          📸 La captación automática de comentarios de Instagram/Facebook se activa cuando conectes
+          tus redes. Mientras tanto, prueba cómo responde la IA aquí abajo.
+        </div>
+      )}
+      {redes !== null && redes.length > 0 && (
+        <div className="rounded-tarjeta bg-brasa-suave/40 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-brasa/20">
+          ✅ {textoRedes(redes)} {redes.length > 1 ? "conectados" : "conectado"}: cuando alguien comente una
+          publicación con intención de compra, la IA le responde e invita al privado.
+        </div>
+      )}
 
       {/* Ajustes: activar/desactivar + mensaje personalizado */}
       <AjustesComentarios />
@@ -151,7 +174,9 @@ export default function ComentariosPanel() {
                   </p>
                 </div>
                 <p className="mt-1.5 text-[0.76rem] text-frio">
-                  (Es una simulación — el envío real a Instagram se activa al conectar tus redes.)
+                  {redes && redes.length > 0
+                    ? "(Es una simulación: no se publica nada en tus redes.)"
+                    : "(Es una simulación — el envío real a Instagram se activa al conectar tus redes.)"}
                 </p>
               </>
             ) : (
@@ -173,7 +198,16 @@ export default function ComentariosPanel() {
             <p className="font-semibold text-tinta">No pudimos cargar los comentarios. Recarga.</p>
           </div>
         )}
-        {estado === "ok" && comentarios.length === 0 && (
+        {estado === "ok" && comentarios.length === 0 && redes && redes.length > 0 && (
+          <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
+            <p className="text-[1.02rem] font-bold text-tinta">Todavía no llegó ningún comentario con intención de compra</p>
+            <p className="mt-1 text-[0.88rem] text-frio">
+              Cuando alguien comente tus publicaciones de {textoRedes(redes)}, aparece aquí.
+              Los comentarios anteriores a la conexión no llegan.
+            </p>
+          </div>
+        )}
+        {estado === "ok" && comentarios.length === 0 && (!redes || redes.length === 0) && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Todavía no hay comentarios captados</p>
             <p className="mt-1 text-[0.88rem] text-frio">

@@ -6,7 +6,7 @@ import { haySesion, leerSesion, guardarSesion } from "@/lib/auth";
 import { hayGoogle, renderBotonGoogle } from "@/lib/google";
 import { entrarConGoogle, entrarConEmail, entrarDemo } from "@/lib/sesion";
 import { precalentarCapacidades } from "@/lib/modo-negocio";
-import { ApiError } from "@/lib/api";
+import { ApiError, refrescarSesion } from "@/lib/api";
 import { IconoRayo, IconoGoogle } from "@/components/Iconos";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 
@@ -109,6 +109,29 @@ export default function Login() {
     if (haySesion()) {
       // El menú necesita /capacidades: pedirlo YA, en paralelo al redirect.
       precalentarCapacidades();
+
+      /**
+       * ANTES DE MANDAR AL ONBOARDING, PREGUNTAR AL BACKEND (2026-09-18, bug
+       * que reporto Jonathan: su marketero acepto la invitacion y termino en
+       * la pantalla de CREAR UN NEGOCIO).
+       *
+       * La decision de abajo mira `sesion.empresas` de localStorage, que se
+       * guarda en el LOGIN. Si a esa persona la suman a un negocio DESPUES
+       * -una invitacion aceptada, un negocio creado desde otro dispositivo- la
+       * lista guardada sigue vacia y termina creando un negocio propio.
+       *
+       * Solo se consulta cuando la lista esta VACIA: es el unico caso donde
+       * equivocarse manda a la pantalla incorrecta, y asi el resto de los
+       * ingresos no paga un viaje mas al servidor.
+       */
+      const sinEmpresas = (leerSesion()?.empresas ?? []).length === 0;
+      if (sinEmpresas) {
+        void refrescarSesion()
+          .catch(() => undefined)
+          .then(() => router.replace(destinoTrasEntrar()));
+        return;
+      }
+
       router.replace(destinoTrasEntrar());
       return;
     }

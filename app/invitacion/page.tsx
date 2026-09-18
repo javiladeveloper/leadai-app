@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion, leerSesion } from "@/lib/auth";
-import { aceptarInvitacion, mirarInvitacion, type InvitacionAbierta } from "@/lib/api";
+import { aceptarInvitacion, mirarInvitacion, refrescarSesion, type InvitacionAbierta } from "@/lib/api";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 
 /**
@@ -81,6 +81,26 @@ export default function InvitacionPage() {
       return;
     }
     sessionStorage.removeItem("invitacion_token");
+
+    /**
+     * REFRESCAR LA SESION ANTES DE ENTRAR (2026-09-18, bug que reporto
+     * Jonathan: su marketero acepto la invitacion y el panel lo mando a CREAR
+     * UN NEGOCIO).
+     *
+     * La invitacion se aceptaba bien en el backend -la membresia quedaba
+     * creada- pero la sesion guardada en el navegador seguia diciendo "cero
+     * empresas", porque se habia guardado en el LOGIN, antes de aceptar.
+     *
+     * Y la raiz del panel decide a donde mandarte mirando esa lista: con cero
+     * empresas manda al onboarding. Asi que quien aceptaba una invitacion
+     * terminaba en la pantalla de crear un negocio propio -- justo lo
+     * contrario de lo que acababa de hacer.
+     *
+     * `await` y no `void`: el redirect tiene que salir DESPUES de que la
+     * sesion este al dia, o la carrera se pierde igual.
+     */
+    await refrescarSesion().catch(() => undefined);
+
     setEstado("ok");
     setTimeout(() => router.replace(destinoDe()), 1200);
   }, [token, router, datos, destinoDe]);

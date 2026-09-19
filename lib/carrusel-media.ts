@@ -126,3 +126,35 @@ export function faltaParaPublicar(estado: {
   if (estado.programar && !estado.fecha) falta.push('pon la fecha y hora');
   return falta;
 }
+
+/**
+ * EL PROGRESO DE LA SUBIDA (2026-09-19).
+ *
+ * "Cuando coloco guardar... no sé si está subiendo o si se colgó". Antes el
+ * botón decía "Subiendo…" y ese texto no se movía: con 5 imágenes se veía
+ * igual el segundo 1 que el 40, así que no había forma de distinguir una
+ * subida lenta de una caída.
+ *
+ * `hechos` son los que YA terminaron; el que está en curso es `hechos + 1`.
+ */
+export interface ProgresoSubida {
+  hechos: number;
+  total: number;
+}
+
+/** "Subiendo 2 de 5…" — con un solo archivo no se numera, sería ruido. */
+export function textoProgreso(p: ProgresoSubida | null): string {
+  if (!p || p.total === 0) return 'Subiendo…';
+  if (p.total === 1) return 'Subiendo…';
+  return `Subiendo ${Math.min(p.hechos + 1, p.total)} de ${p.total}…`;
+}
+
+/**
+ * Porcentaje para la barra. Arranca en 8% aunque no haya terminado ninguno:
+ * una barra en cero se lee como "no pasó nada" justo cuando sí empezó.
+ */
+export function porcentajeProgreso(p: ProgresoSubida | null): number {
+  if (!p || p.total === 0) return 0;
+  const crudo = (p.hechos / p.total) * 100;
+  return Math.max(8, Math.round(crudo));
+}

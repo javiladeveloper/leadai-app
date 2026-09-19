@@ -171,3 +171,45 @@ test('faltando varias cosas se listan todas, en orden de la pantalla', () => {
   assert.match(f[0], /texto/i);
   assert.match(f[1], /red/i);
 });
+
+/**
+ * EL PROGRESO DE LA SUBIDA (2026-09-19).
+ *
+ * "Cuando coloco guardar... no sé si está subiendo o si se colgó". El botón
+ * decía "Subiendo…" y ese texto no se movía: con 5 imágenes se veía igual el
+ * segundo 1 que el 40.
+ */
+import { textoProgreso, porcentajeProgreso } from '../lib/carrusel-media.ts';
+
+test('con varias, el texto dice cuál va de cuántas', () => {
+  assert.equal(textoProgreso({ hechos: 0, total: 5 }), 'Subiendo 1 de 5…');
+  assert.equal(textoProgreso({ hechos: 2, total: 5 }), 'Subiendo 3 de 5…');
+});
+
+test('el número no se pasa del total en la última', () => {
+  assert.equal(textoProgreso({ hechos: 5, total: 5 }), 'Subiendo 5 de 5…');
+});
+
+test('con un solo archivo no se numera: sería ruido', () => {
+  assert.equal(textoProgreso({ hechos: 0, total: 1 }), 'Subiendo…');
+});
+
+test('sin progreso todavía, el texto genérico', () => {
+  assert.equal(textoProgreso(null), 'Subiendo…');
+  assert.equal(textoProgreso({ hechos: 0, total: 0 }), 'Subiendo…');
+});
+
+test('la barra avanza con lo que ya terminó', () => {
+  assert.equal(porcentajeProgreso({ hechos: 1, total: 4 }), 25);
+  assert.equal(porcentajeProgreso({ hechos: 2, total: 4 }), 50);
+  assert.equal(porcentajeProgreso({ hechos: 4, total: 4 }), 100);
+});
+
+// Una barra en cero se lee como "no pasó nada" justo cuando sí empezó.
+test('arranca visible aunque no haya terminado ninguna', () => {
+  assert.equal(porcentajeProgreso({ hechos: 0, total: 5 }), 8);
+});
+
+test('sin progreso la barra está en cero', () => {
+  assert.equal(porcentajeProgreso(null), 0);
+});

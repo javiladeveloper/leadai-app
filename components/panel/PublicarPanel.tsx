@@ -11,7 +11,10 @@ import {
   type Publicacion, type PlantillaPost,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
-import { MAX_MEDIA, revisarTanda, tipoMediaDe, moverEn, faltaParaPublicar } from "@/lib/carrusel-media";
+import {
+  MAX_MEDIA, revisarTanda, tipoMediaDe, moverEn, faltaParaPublicar,
+  textoProgreso, porcentajeProgreso, type ProgresoSubida,
+} from "@/lib/carrusel-media";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, CabeceraFormulario, PublicarIlustracion } from "@/components/panel/HeroSeccion";
 import { PreviewRedes } from "@/components/panel/PreviewRedes";
@@ -145,6 +148,9 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
   const [programar, setProgramar] = useState(false);
   const [fecha, setFecha] = useState("");
   const [subiendo, setSubiendo] = useState(false);
+  // Cuántas van de cuántas, para que la espera se vea avanzar en vez de un
+  // "Subiendo…" quieto que no distingue lento de colgado.
+  const [progreso, setProgreso] = useState<ProgresoSubida | null>(null);
   const [publicando, setPublicando] = useState(false);
   const [msg, setMsg] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -305,11 +311,17 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
     if (!veredicto.ok) { setMsg(veredicto.motivo); return; }
 
     setSubiendo(true);
+    setProgreso({ hechos: 0, total: elegidos.length });
     const urlsNuevas: string[] = [];
     for (const file of elegidos) {
       const r = await subirUno(file);
-      if (r.error) { setSubiendo(false); setMsg(r.error); if (urlsNuevas.length) setMediaUrls((p) => [...p, ...urlsNuevas]); return; }
+      if (r.error) {
+        setSubiendo(false); setProgreso(null); setMsg(r.error);
+        if (urlsNuevas.length) setMediaUrls((p) => [...p, ...urlsNuevas]);
+        return;
+      }
       urlsNuevas.push(r.url!);
+      setProgreso({ hechos: urlsNuevas.length, total: elegidos.length });
       // El tipo y la meta los define la PORTADA (el primero de todos).
       if (mediaUrls.length === 0 && urlsNuevas.length === 1) {
         setTipoMedia(r.tipo === "video" ? "video" : "imagen");
@@ -318,6 +330,7 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
     }
     setMediaUrls((prev) => [...prev, ...urlsNuevas]);
     setSubiendo(false);
+    setProgreso(null);
   }
 
   function quitarMedia() {
@@ -495,8 +508,26 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
               disabled={subiendo}
               className="rounded-tarjeta border border-dashed border-linea px-4 py-3 text-[0.84rem] font-semibold text-frio transition hover:border-brasa/40 hover:text-tinta-2 disabled:opacity-50"
             >
-              {subiendo ? "Subiendo…" : "📷 Agregar imágenes o un video"}
+              {subiendo ? textoProgreso(progreso) : "📷 Agregar imágenes o un video"}
             </button>
+          )}
+
+          {/* QUE SE VEA AVANZAR (2026-09-19, Jonathan: "no sé si está subiendo
+              o si se colgó"). Antes el único aviso era la palabra "Subiendo…",
+              que con 5 imágenes se veía igual el segundo 1 que el 40. */}
+          {subiendo && (
+            <div className="mt-2" role="status" aria-live="polite">
+              <div className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-brasa/30 border-t-brasa" />
+                <span className="text-[0.82rem] font-semibold text-tinta-2">{textoProgreso(progreso)}</span>
+              </div>
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-arena">
+                <div
+                  className="h-full rounded-full bg-brasa transition-[width] duration-300"
+                  style={{ width: `${porcentajeProgreso(progreso)}%` }}
+                />
+              </div>
+            </div>
           )}
 
           {/* LAS LÁMINAS DEL CARRUSEL, EN ORDEN.
@@ -691,6 +722,17 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
             Para publicar falta: <b className="text-tinta">{falta.join(" · ")}</b>.
           </p>
         )}
+        {/* PUBLICAR TARDA, sobre todo un carrusel: Instagram crea un contenedor
+            por lámina y recién después publica. Sin este aviso el botón se
+            queda en "Publicando…" y parece colgado. */}
+        {publicando && (
+          <p className="mt-4 flex items-center gap-2 rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.84rem] text-tinta-2 ring-1 ring-linea" role="status" aria-live="polite">
+            <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-brasa/30 border-t-brasa" />
+            {mediaUrls.length > 1
+              ? `Publicando tu carrusel de ${mediaUrls.length} láminas… Instagram las sube una por una, puede tardar unos segundos.`
+              : "Publicando… no cierres esta pantalla."}
+          </p>
+        )}
         <div className="mt-5 flex items-center gap-3">
           <button
             onClick={publicar}
@@ -698,7 +740,12 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
             title={falta.length > 0 ? `Falta: ${falta.join(", ")}` : undefined}
             className="rounded-chip bg-brasa px-6 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
           >
-            {publicando ? "Guardando…" : subiendo ? "Subiendo…" : programar ? "Programar post" : "Publicar ahora"}
+            {publicando || subiendo ? (
+              <span className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-sobre-brasa/30 border-t-sobre-brasa" />
+                {publicando ? "Publicando…" : textoProgreso(progreso)}
+              </span>
+            ) : programar ? "Programar post" : "Publicar ahora"}
           </button>
           {msg && <span className="text-[0.84rem] font-semibold text-tinta-2">{msg}</span>}
         </div>

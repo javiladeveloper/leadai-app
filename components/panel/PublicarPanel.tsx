@@ -578,7 +578,7 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
               redes={redes}
               negocio={nombreNegocio}
               texto={texto}
-              mediaUrl={mediaUrl}
+              mediaUrls={mediaUrls}
               tipoMedia={tipoMedia}
               cuando={
                 programar && fecha

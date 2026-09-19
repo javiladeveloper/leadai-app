@@ -31,7 +31,7 @@ export function PreviewRedes({
   redes,
   negocio,
   texto,
-  mediaUrl,
+  mediaUrls,
   tipoMedia,
   cuando,
 }: {
@@ -39,7 +39,12 @@ export function PreviewRedes({
   redes: string[];
   negocio: string;
   texto: string;
-  mediaUrl: string | null;
+  /**
+   * TODAS las láminas, en orden (2026-09-19). Antes era `mediaUrl` (una): un
+   * carrusel se previsualizaba como si fuera un post de una sola foto, así que
+   * no había forma de revisar las otras láminas antes de publicar.
+   */
+  mediaUrls: string[];
   tipoMedia: "imagen" | "video" | null;
   /** "Ahora" o la fecha programada. */
   cuando: string;
@@ -88,7 +93,7 @@ export function PreviewRedes({
           inicial={inicial}
           negocio={negocio}
           texto={texto}
-          mediaUrl={mediaUrl}
+          mediaUrls={mediaUrls}
           tipoMedia={tipoMedia}
         />
       )}
@@ -97,7 +102,7 @@ export function PreviewRedes({
           inicial={inicial}
           negocio={negocio}
           texto={texto}
-          mediaUrl={mediaUrl}
+          mediaUrls={mediaUrls}
           tipoMedia={tipoMedia}
           cuando={cuando}
         />
@@ -106,7 +111,7 @@ export function PreviewRedes({
         <PreviewTikTok
           negocio={negocio}
           texto={texto}
-          mediaUrl={mediaUrl}
+          mediaUrls={mediaUrls}
           tipoMedia={tipoMedia}
         />
       )}
@@ -131,21 +136,79 @@ function SinMedia({ alto = "aspect-square" }: { alto?: string }) {
   );
 }
 
+/**
+ * La media del post. Con varias láminas es un CARRUSEL NAVEGABLE, no solo la
+ * portada (2026-09-19): las redes dejan deslizar y el dueño tiene que poder
+ * revisar la lámina 5 —donde suele ir el CTA— antes de publicar, no después.
+ *
+ * Los puntitos y el contador imitan lo que Instagram muestra de verdad, así
+ * que también sirven de recordatorio de que el post ES un carrusel.
+ */
 function Media({
-  mediaUrl,
+  mediaUrls,
   tipoMedia,
   clase,
 }: {
-  mediaUrl: string | null;
+  mediaUrls: string[];
   tipoMedia: "imagen" | "video" | null;
   clase: string;
 }) {
-  if (!mediaUrl) return null;
-  if (tipoMedia === "video") {
-    return <video src={mediaUrl} muted playsInline loop autoPlay className={clase} />;
-  }
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={mediaUrl} alt="" className={clase} />;
+  const [i, setI] = useState(0);
+  if (mediaUrls.length === 0) return null;
+
+  // Si se quitó una lámina, el índice puede quedar fuera: se cae a la última.
+  const idx = Math.min(i, mediaUrls.length - 1);
+  const actual = mediaUrls[idx];
+  const varias = mediaUrls.length > 1;
+
+  const media = tipoMedia === "video"
+    ? <video src={actual} muted playsInline loop autoPlay className={clase} />
+    // eslint-disable-next-line @next/next/no-img-element
+    : <img src={actual} alt={varias ? `Lámina ${idx + 1} de ${mediaUrls.length}` : ""} className={clase} />;
+
+  if (!varias) return media;
+
+  return (
+    <div className="relative">
+      {media}
+      {/* Contador arriba a la derecha, como en Instagram. */}
+      <span className="absolute right-2 top-2 rounded-chip bg-black/60 px-2 py-0.5 text-[0.7rem] font-semibold text-white">
+        {idx + 1}/{mediaUrls.length}
+      </span>
+      {idx > 0 && (
+        <button
+          type="button"
+          onClick={() => setI(idx - 1)}
+          aria-label="Lámina anterior"
+          className="absolute left-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-[0.85rem] font-bold text-[#262626] shadow transition hover:bg-white"
+        >
+          ‹
+        </button>
+      )}
+      {idx < mediaUrls.length - 1 && (
+        <button
+          type="button"
+          onClick={() => setI(idx + 1)}
+          aria-label="Lámina siguiente"
+          className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-[0.85rem] font-bold text-[#262626] shadow transition hover:bg-white"
+        >
+          ›
+        </button>
+      )}
+      {/* Los puntitos: dónde estoy dentro del carrusel. */}
+      <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1">
+        {mediaUrls.map((u, n) => (
+          <button
+            key={u}
+            type="button"
+            onClick={() => setI(n)}
+            aria-label={`Ver la lámina ${n + 1}`}
+            className={`h-1.5 w-1.5 rounded-full transition ${n === idx ? "bg-white" : "bg-white/50"}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -155,10 +218,10 @@ function Media({
  * CORTAR de una foto vertical, que es justo la sorpresa que queremos evitar.
  */
 function PreviewInstagram({
-  inicial, negocio, texto, mediaUrl, tipoMedia,
+  inicial, negocio, texto, mediaUrls, tipoMedia,
 }: {
   inicial: string; negocio: string; texto: string;
-  mediaUrl: string | null; tipoMedia: "imagen" | "video" | null;
+  mediaUrls: string[]; tipoMedia: "imagen" | "video" | null;
 }) {
   return (
     <div className="max-w-[320px] overflow-hidden rounded-xl bg-white ring-1 ring-linea">
@@ -171,8 +234,8 @@ function PreviewInstagram({
         </p>
         <span className="ml-auto text-[1rem] leading-none text-[#262626]">⋯</span>
       </div>
-      {mediaUrl ? (
-        <Media mediaUrl={mediaUrl} tipoMedia={tipoMedia} clase="aspect-square w-full object-cover" />
+      {mediaUrls.length > 0 ? (
+        <Media mediaUrls={mediaUrls} tipoMedia={tipoMedia} clase="aspect-square w-full object-cover" />
       ) : (
         <SinMedia />
       )}
@@ -195,10 +258,10 @@ function PreviewInstagram({
 
 /** FACEBOOK: horizontal, y el texto se corta con "Ver más" a las ~3 líneas. */
 function PreviewFacebook({
-  inicial, negocio, texto, mediaUrl, tipoMedia, cuando,
+  inicial, negocio, texto, mediaUrls, tipoMedia, cuando,
 }: {
   inicial: string; negocio: string; texto: string;
-  mediaUrl: string | null; tipoMedia: "imagen" | "video" | null; cuando: string;
+  mediaUrls: string[]; tipoMedia: "imagen" | "video" | null; cuando: string;
 }) {
   const largo = texto.trim().length > 160;
   return (
@@ -220,8 +283,8 @@ function PreviewFacebook({
           {largo && <span className="text-[#65676b]"> Ver más</span>}
         </p>
       )}
-      {mediaUrl ? (
-        <Media mediaUrl={mediaUrl} tipoMedia={tipoMedia} clase="max-h-64 w-full bg-black object-contain" />
+      {mediaUrls.length > 0 ? (
+        <Media mediaUrls={mediaUrls} tipoMedia={tipoMedia} clase="max-h-64 w-full bg-black object-contain" />
       ) : (
         <SinMedia alto="aspect-[4/3]" />
       )}
@@ -241,16 +304,16 @@ function PreviewFacebook({
  * franjas negras enormes, y eso solo se entiende viéndolo.
  */
 function PreviewTikTok({
-  negocio, texto, mediaUrl, tipoMedia,
+  negocio, texto, mediaUrls, tipoMedia,
 }: {
   negocio: string; texto: string;
-  mediaUrl: string | null; tipoMedia: "imagen" | "video" | null;
+  mediaUrls: string[]; tipoMedia: "imagen" | "video" | null;
 }) {
   return (
     <div className="relative max-w-[220px] overflow-hidden rounded-xl bg-black ring-1 ring-linea">
       <div className="aspect-[9/16] w-full">
-        {mediaUrl ? (
-          <Media mediaUrl={mediaUrl} tipoMedia={tipoMedia} clase="h-full w-full object-contain" />
+        {mediaUrls.length > 0 ? (
+          <Media mediaUrls={mediaUrls} tipoMedia={tipoMedia} clase="h-full w-full object-contain" />
         ) : (
           <div className="grid h-full place-items-center px-4 text-center text-[0.78rem] text-white/60">
             TikTok necesita un video vertical

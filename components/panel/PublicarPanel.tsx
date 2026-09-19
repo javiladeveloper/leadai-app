@@ -11,7 +11,7 @@ import {
   type Publicacion, type PlantillaPost,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
-import { MAX_MEDIA, revisarTanda, tipoMediaDe, moverEn } from "@/lib/carrusel-media";
+import { MAX_MEDIA, revisarTanda, tipoMediaDe, moverEn, faltaParaPublicar } from "@/lib/carrusel-media";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, CabeceraFormulario, PublicarIlustracion } from "@/components/panel/HeroSeccion";
 import { PreviewRedes } from "@/components/panel/PreviewRedes";
@@ -348,6 +348,8 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
     lista: chequeosDeRed(r, ctx),
   }));
   const hayBloqueo = chequeos.some((c) => c.lista.some((x) => x.nivel === "bloqueo"));
+  // Lo que falta para poder publicar, dicho en vez de un botón gris y mudo.
+  const falta = faltaParaPublicar({ texto, cantidadMedia: mediaUrls.length, redes, programar, fecha });
 
   async function publicar() {
     if (!texto.trim() || redes.length === 0 || publicando || subiendo) return;
@@ -681,10 +683,19 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
             📣 Este post saldrá en las redes de <strong className="text-tinta">{nombreNegocio}</strong>.
           </p>
         )}
+        {/* QUÉ FALTA, DICHO (2026-09-19). El botón gris no explicaba nada y
+            había que adivinar; ahora la lista se ve sin pasar el mouse, que en
+            el celular no existe. */}
+        {falta.length > 0 && (
+          <p className="mt-4 rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
+            Para publicar falta: <b className="text-tinta">{falta.join(" · ")}</b>.
+          </p>
+        )}
         <div className="mt-5 flex items-center gap-3">
           <button
             onClick={publicar}
-            disabled={publicando || subiendo || hayBloqueo || !texto.trim() || redes.length === 0 || (programar && !fecha)}
+            disabled={publicando || subiendo || hayBloqueo || falta.length > 0}
+            title={falta.length > 0 ? `Falta: ${falta.join(", ")}` : undefined}
             className="rounded-chip bg-brasa px-6 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
           >
             {publicando ? "Guardando…" : subiendo ? "Subiendo…" : programar ? "Programar post" : "Publicar ahora"}

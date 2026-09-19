@@ -94,3 +94,35 @@ export function moverEn<T>(lista: T[], i: number, delta: number): T[] {
   [q[i], q[j]] = [q[j], q[i]];
   return q;
 }
+
+/**
+ * QUÉ FALTA PARA PODER PUBLICAR (2026-09-19).
+ *
+ * El botón se apagaba en silencio: Jonathan armó su carrusel, vio "Publicar"
+ * gris y tuvo que preguntar qué faltaba ("¿tengo que poner un texto arriba?").
+ * Si le pasa a quien conoce el sistema, a un cliente lo deja atascado.
+ *
+ * Devuelve la lista de lo que falta, en el orden en que se llena la pantalla,
+ * para decirlo en vez de dejarlo adivinar. Vacía = se puede publicar.
+ */
+export function faltaParaPublicar(estado: {
+  texto: string;
+  cantidadMedia: number;
+  redes: string[];
+  programar: boolean;
+  fecha: string;
+}): string[] {
+  const falta: string[] = [];
+  if (!estado.texto.trim()) falta.push('escribe el texto del post');
+  if (estado.redes.length === 0) falta.push('elige al menos una red');
+  // Instagram no publica sin imagen ni video; se nombra la red para que se
+  // entienda que es requisito de ella y no un capricho nuestro.
+  if (estado.redes.includes('instagram') && estado.cantidadMedia === 0) {
+    falta.push('agrega una imagen o video (Instagram lo exige)');
+  }
+  if (estado.redes.includes('tiktok') && estado.cantidadMedia === 0) {
+    falta.push('agrega un video (TikTok solo publica videos)');
+  }
+  if (estado.programar && !estado.fecha) falta.push('pon la fecha y hora');
+  return falta;
+}

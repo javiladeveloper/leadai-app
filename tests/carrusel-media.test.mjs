@@ -114,3 +114,60 @@ test('mover fuera de los bordes no rompe ni cambia nada', () => {
 test('no elegir nada no es un error', () => {
   assert.deepEqual(revisarTanda([], vacio), { ok: true });
 });
+
+/**
+ * QUÉ FALTA PARA PUBLICAR (2026-09-19).
+ *
+ * El botón se apagaba en silencio: Jonathan armó su carrusel, lo vio gris y
+ * tuvo que preguntar "¿tengo que poner un texto arriba?". Esto prueba que lo
+ * que falta se pueda decir en vez de dejarlo adivinar.
+ */
+import { faltaParaPublicar } from '../lib/carrusel-media.ts';
+
+const base = { texto: 'Hola', cantidadMedia: 1, redes: ['instagram'], programar: false, fecha: '' };
+
+test('con todo puesto no falta nada: se puede publicar', () => {
+  assert.deepEqual(faltaParaPublicar(base), []);
+});
+
+test('sin texto lo dice (el caso real de Jonathan)', () => {
+  const f = faltaParaPublicar({ ...base, texto: '   ' });
+  assert.equal(f.length, 1);
+  assert.match(f[0], /texto/i);
+});
+
+test('sin redes lo dice', () => {
+  const f = faltaParaPublicar({ ...base, redes: [] });
+  assert.match(f.join(' '), /al menos una red/i);
+});
+
+test('Instagram sin media: lo pide nombrando la red', () => {
+  const f = faltaParaPublicar({ ...base, cantidadMedia: 0 });
+  assert.match(f.join(' '), /Instagram/);
+});
+
+test('TikTok sin media: pide un video', () => {
+  const f = faltaParaPublicar({ ...base, redes: ['tiktok'], cantidadMedia: 0 });
+  assert.match(f.join(' '), /video/i);
+  assert.match(f.join(' '), /TikTok/);
+});
+
+test('Facebook solo con texto sí se puede: no exige media', () => {
+  assert.deepEqual(faltaParaPublicar({ ...base, redes: ['messenger'], cantidadMedia: 0 }), []);
+});
+
+test('programar sin fecha lo dice', () => {
+  const f = faltaParaPublicar({ ...base, programar: true, fecha: '' });
+  assert.match(f.join(' '), /fecha/i);
+});
+
+test('programar CON fecha no falta nada', () => {
+  assert.deepEqual(faltaParaPublicar({ ...base, programar: true, fecha: '2026-10-01T10:00' }), []);
+});
+
+test('faltando varias cosas se listan todas, en orden de la pantalla', () => {
+  const f = faltaParaPublicar({ texto: '', cantidadMedia: 0, redes: [], programar: true, fecha: '' });
+  assert.equal(f.length, 3); // texto, redes, fecha (sin redes no se pide media de ninguna)
+  assert.match(f[0], /texto/i);
+  assert.match(f[1], /red/i);
+});

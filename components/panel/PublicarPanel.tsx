@@ -11,6 +11,7 @@ import {
   type Publicacion, type PlantillaPost,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { MAX_MEDIA, revisarTanda, tipoMediaDe, moverEn } from "@/lib/carrusel-media";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, CabeceraFormulario, PublicarIlustracion } from "@/components/panel/HeroSeccion";
 import { PreviewRedes } from "@/components/panel/PreviewRedes";
@@ -123,7 +124,21 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
 
   // Editor
   const [texto, setTexto] = useState("");
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  /**
+   * CARRUSEL: VARIAS IMÁGENES EN UN POST (2026-09-19, pedido de Jonathan
+   * "¿puedo subir varias imágenes?" al ir a publicar las piezas de Sania).
+   *
+   * Antes esto era `mediaUrl` (una sola) aunque el backend ya aceptaba hasta
+   * 10 en `mediaUrls` y el tipo "carrusel": un carrusel de 5 láminas —la pieza
+   * mejor armada que tenía— no se podía subir desde acá.
+   *
+   * Es una LISTA ORDENADA porque en un carrusel el orden ES el contenido (la
+   * lámina 1 engancha, la 5 cierra con el CTA). `mediaUrl` se conserva como
+   * derivado (la primera) para el preview y las validaciones por red, que
+   * miran la portada — que es lo que la gente ve en el feed.
+   */
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const mediaUrl = mediaUrls[0] ?? null;
   const [tipoMedia, setTipoMedia] = useState<"imagen" | "video">("imagen");
   const [meta, setMeta] = useState<MetaMedia | null>(null);
   const [redes, setRedes] = useState<string[]>([]);
@@ -254,59 +269,75 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
     setTexto(pl.ejemplo || "");
   }
 
-  async function elegirArchivo(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // permite volver a elegir el mismo archivo
-    if (!file) return;
-    setMsg("");
-
-    // Validar ANTES de subir: tipo y peso se saben acá mismo, sin esperar al
-    // servidor (un video de 80MB tardaría un minuto en subir para nada).
+  /** Sube UN archivo (ya validado por `revisarTanda`) y devuelve su url. */
+  async function subirUno(file: File): Promise<{ url?: string; tipo?: string; meta?: MetaMedia; error?: string }> {
     const esVideo = file.type.startsWith("video/");
-    const tiposOk = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime"];
-    if (!tiposOk.includes(file.type)) {
-      setMsg("Formato no permitido: usa JPG, PNG, WebP, MP4 o MOV.");
-      return;
-    }
     const pesoMB = file.size / (1024 * 1024);
-    if (esVideo && pesoMB > 50) {
-      // 50MB es el tope del storage (plan free de Supabase), no de TikTok.
-      // "Compréndelo" era una errata por "comprímelo" (2026-09-18).
-      setMsg(`Tu video pesa ${pesoMB.toFixed(0)}MB y el máximo es 50MB. Comprímelo antes de subirlo: TikTok e Instagram lo vuelven a comprimir igual, así que exportarlo a 1080p con menos calidad no se nota.`);
-      return;
-    }
-    if (!esVideo && pesoMB > 8) {
-      setMsg(`Tu imagen pesa ${pesoMB.toFixed(1)}MB y el máximo es 8MB.`);
-      return;
-    }
-
-    // Duración y orientación del video, leídas en el navegador.
     let m: MetaMedia = { pesoMB, duracionSeg: null, ancho: null, alto: null };
     if (esVideo) {
       const v = await leerMetaVideo(file);
       if (v) m = { pesoMB, ...v };
     }
+    const dataUrl = await new Promise<string>((ok, no) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result));
+      r.onerror = () => no(new Error("No se pudo leer el archivo."));
+      r.readAsDataURL(file);
+    });
+    const r = await subirMediaPost(dataUrl, g.tenantLista);
+    if (!r.ok || !r.url) return { error: r.error ?? `No se pudo subir "${file.name}".` };
+    return { url: r.url, tipo: r.tipoMedia, meta: m };
+  }
+
+  async function elegirArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const elegidos = Array.from(e.target.files ?? []);
+    e.target.value = ""; // permite volver a elegir el mismo archivo
+    if (elegidos.length === 0) return;
+    setMsg("");
+
+    // Las reglas de qué se puede combinar viven en `lib/carrusel-media.ts`
+    // (probadas aparte): un video va solo, hasta MAX_MEDIA imágenes, y tipo y
+    // peso se revisan acá antes de gastar la subida.
+    const veredicto = revisarTanda(
+      elegidos.map((f) => ({ nombre: f.name, tipoMime: f.type, pesoMB: f.size / (1024 * 1024) })),
+      { cantidad: mediaUrls.length, esVideo: tipoMedia === "video" },
+    );
+    if (!veredicto.ok) { setMsg(veredicto.motivo); return; }
 
     setSubiendo(true);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const r = await subirMediaPost(String(reader.result), g.tenantLista);
-      setSubiendo(false);
-      if (r.ok && r.url) {
-        setMediaUrl(r.url);
-        setTipoMedia(r.tipoMedia === "video" ? "video" : "imagen");
-        setMeta(m);
-      } else {
-        setMsg(r.error ?? "No se pudo subir el archivo.");
+    const urlsNuevas: string[] = [];
+    for (const file of elegidos) {
+      const r = await subirUno(file);
+      if (r.error) { setSubiendo(false); setMsg(r.error); if (urlsNuevas.length) setMediaUrls((p) => [...p, ...urlsNuevas]); return; }
+      urlsNuevas.push(r.url!);
+      // El tipo y la meta los define la PORTADA (el primero de todos).
+      if (mediaUrls.length === 0 && urlsNuevas.length === 1) {
+        setTipoMedia(r.tipo === "video" ? "video" : "imagen");
+        setMeta(r.meta ?? null);
       }
-    };
-    reader.readAsDataURL(file);
+    }
+    setMediaUrls((prev) => [...prev, ...urlsNuevas]);
+    setSubiendo(false);
   }
 
   function quitarMedia() {
-    setMediaUrl(null);
+    setMediaUrls([]);
     setTipoMedia("imagen");
     setMeta(null);
+  }
+
+  /** Quita UNA lámina del carrusel sin tocar las demás. */
+  function quitarUna(i: number) {
+    setMediaUrls((prev) => {
+      const q = prev.filter((_, n) => n !== i);
+      if (q.length === 0) { setTipoMedia("imagen"); setMeta(null); }
+      return q;
+    });
+  }
+
+  /** Mueve una lámina en el orden: en un carrusel el orden es el contenido. */
+  function moverMedia(i: number, delta: number) {
+    setMediaUrls((prev) => moverEn(prev, i, delta));
   }
 
   // Chequeos de las redes elegidas (para el panel de requisitos y el guard).
@@ -326,8 +357,8 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
     setMsg("");
     const r = await crearPublicacion({
       texto: texto.trim(),
-      mediaUrls: mediaUrl ? [mediaUrl] : [],
-      tipoMedia,
+      mediaUrls,
+      tipoMedia: tipoMediaDe(mediaUrls.length, tipoMedia === "video"),
       canales: redes,
       programadaPara: programar && fecha ? new Date(fecha).toISOString() : undefined,
     }, g.tenantLista);
@@ -455,18 +486,83 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
 
         {/* Media */}
         <div className="mt-3">
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" onChange={elegirArchivo} className="hidden" />
-          {!mediaUrl && (
+          <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" onChange={elegirArchivo} className="hidden" />
+          {mediaUrls.length === 0 && (
             <button
               onClick={() => fileRef.current?.click()}
               disabled={subiendo}
               className="rounded-tarjeta border border-dashed border-linea px-4 py-3 text-[0.84rem] font-semibold text-frio transition hover:border-brasa/40 hover:text-tinta-2 disabled:opacity-50"
             >
-              {subiendo ? "Subiendo…" : "📷 Agregar imagen o video"}
+              {subiendo ? "Subiendo…" : "📷 Agregar imágenes o un video"}
             </button>
           )}
+
+          {/* LAS LÁMINAS DEL CARRUSEL, EN ORDEN.
+              Se numeran y se pueden mover porque en un carrusel el orden ES el
+              contenido: la 1 engancha y la última cierra con el CTA. Sin ver el
+              orden, el dueño publica un carrusel que empieza por el final. */}
+          {mediaUrls.length > 0 && tipoMedia !== "video" && (
+            <div className="mt-2">
+              <div className="flex flex-wrap gap-2">
+                {mediaUrls.map((u, i) => (
+                  <div key={u} className="relative">
+                    <img src={u} alt={`Lámina ${i + 1}`} className="h-20 w-20 rounded-tarjeta object-cover ring-1 ring-linea" />
+                    <span className="absolute left-1 top-1 rounded-chip bg-tinta/85 px-1.5 text-[0.68rem] font-bold text-carta">
+                      {i + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => quitarUna(i)}
+                      aria-label={`Quitar lámina ${i + 1}`}
+                      className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-tinta text-[0.7rem] font-bold text-carta transition hover:bg-alerta-hondo"
+                    >
+                      ×
+                    </button>
+                    {mediaUrls.length > 1 && (
+                      <div className="mt-1 flex justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => moverMedia(i, -1)}
+                          disabled={i === 0}
+                          aria-label={`Mover la lámina ${i + 1} antes`}
+                          className="rounded-chip bg-arena px-1.5 text-[0.7rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-carta disabled:opacity-30"
+                        >
+                          ←
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moverMedia(i, 1)}
+                          disabled={i === mediaUrls.length - 1}
+                          aria-label={`Mover la lámina ${i + 1} después`}
+                          className="rounded-chip bg-arena px-1.5 text-[0.7rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-carta disabled:opacity-30"
+                        >
+                          →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {mediaUrls.length < MAX_MEDIA && (
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    disabled={subiendo}
+                    aria-label="Agregar más imágenes"
+                    className="h-20 w-20 rounded-tarjeta border border-dashed border-linea text-[1.3rem] font-semibold text-frio transition hover:border-brasa/40 hover:text-tinta-2 disabled:opacity-50"
+                  >
+                    {subiendo ? "…" : "+"}
+                  </button>
+                )}
+              </div>
+              {mediaUrls.length > 1 && (
+                <p className="mt-1.5 text-[0.72rem] text-tinta-2">
+                  Carrusel de <b className="text-tinta">{mediaUrls.length} láminas</b>. Se publican en este orden; la 1 es la portada.
+                </p>
+              )}
+            </div>
+          )}
+
           <p className="mt-1.5 text-[0.72rem] text-frio">
-            Imágenes hasta 8MB (JPG, PNG, WebP) · videos hasta 50MB (MP4, MOV).
+            Hasta {MAX_MEDIA} imágenes de 8MB (JPG, PNG, WebP) para un carrusel · o un video de 50MB (MP4, MOV).
           </p>
         </div>
 

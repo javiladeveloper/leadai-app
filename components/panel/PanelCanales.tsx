@@ -450,15 +450,20 @@ export function PanelCanales() {
                   </p>
                   <div className="mt-3 space-y-2">
                     {pendientes.map((c) => (
+                      /* Igual que las cuentas ya conectadas: en el celular se
+                         apila para que el nombre y el ID se lean ENTEROS. Acá
+                         importa más todavía —es la pantalla donde se elige una
+                         página entre varias, y el ID es lo único que las
+                         distingue cuando dos se llaman parecido—. */
                       <div
                         key={c.cuentaExterna}
-                        className="flex items-center justify-between gap-3 rounded-lg bg-carta px-3.5 py-2.5"
+                        className="flex flex-col gap-2 rounded-lg bg-carta px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-[0.88rem] font-semibold text-tinta">
+                          <p className="text-[0.88rem] font-semibold text-tinta sm:truncate">
                             {c.nombre ?? c.cuentaExterna}
                           </p>
-                          <p className="text-[0.72rem] text-frio tabular-nums">{c.cuentaExterna}</p>
+                          <p className="break-all text-[0.72rem] text-frio tabular-nums">{c.cuentaExterna}</p>
                         </div>
                         <button
                           type="button"
@@ -484,11 +489,22 @@ export function PanelCanales() {
                 <div className="space-y-2">
                   <p className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">Cuentas conectadas</p>
                   {conexiones.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg bg-arena/40 px-3.5 py-2.5">
+                    /* EN EL CELULAR SE APILA (2026-09-20). Con los botones al
+                       costado y `shrink-0`, en 390px no quedaba ancho para el
+                       texto: el nombre salía "Norac …" y el ID "1206670…".
+                       Ese ID es justo lo que hay que poder LEER —es lo que Meta
+                       pide ver en el video del App Review, y lo que identifica
+                       la cuenta cuando alguien tiene varias—. Apilado se ve
+                       entero; desde `sm` vuelve a la fila de siempre. */
+                    <div key={c.id} className="flex flex-col gap-2 rounded-lg bg-arena/40 px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-[0.9rem] font-semibold text-tinta">{c.nombre || c.cuentaExterna}</p>
-                        <p className="truncate text-[0.75rem] text-frio">
-                          {c.cuentaExterna} · conectada el {new Date(c.creadoEn).toLocaleDateString("es-PE")}
+                        <p className="text-[0.9rem] font-semibold text-tinta sm:truncate">{c.nombre || c.cuentaExterna}</p>
+                        <p className="text-[0.75rem] text-frio sm:truncate">
+                          {/* El ID no se parte a la mitad: `break-all` lo deja
+                              caer entero en dos líneas antes que recortarlo. */}
+                          <span className="break-all tabular-nums">{c.cuentaExterna}</span>
+                          {" · conectada el "}
+                          {new Date(c.creadoEn).toLocaleDateString("es-PE")}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">

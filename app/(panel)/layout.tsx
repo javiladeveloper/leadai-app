@@ -83,9 +83,14 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
         {/* `key={ruta}`: sin esto React reusa el nodo entre pantallas y la
             animación de entrada no vuelve a correr — el cambio se veria tan
             seco como antes. */}
+        {/* AIRE ABAJO PARA EL BOTON FLOTANTE (2026-09-20). El botón de ayuda
+            flota en `bottom-20 right-4` y se comía la esquina de la última
+            tarjeta —en Canales tapaba el "Desconectar" de la cuenta—. El
+            padding deja que el contenido termine ARRIBA del botón en vez de
+            debajo; en pantalla grande el botón sube y hace falta menos. */}
         <main
           key={ruta}
-          className="pantalla-entra min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+          className="pantalla-entra min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-24 lg:pb-16"
         >
           {children}
         </main>

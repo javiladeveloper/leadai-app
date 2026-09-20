@@ -111,7 +111,9 @@ function leerMetaVideo(file: File): Promise<{ duracionSeg: number; ancho: number
  * de negocios. Mismo patrón que Anuncios y Campañas — la pantalla no se
  * reescribe, solo deja de repetir lo que ya está arriba.
  */
-export default function PublicarPanel({ embebido = false }: { embebido?: boolean } = {}) {
+export default function PublicarPanel(
+  { embebido = false, tenant }: { embebido?: boolean; tenant?: string } = {},
+) {
   const router = useRouter();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
@@ -157,7 +159,24 @@ export default function PublicarPanel({ embebido = false }: { embebido?: boolean
 
   // Modo global: el publicador entero trabaja sobre el negocio enfocado en la
   // barra (lista, subida y creación viajan con su tenant explícito).
-  const g = useSeccionGlobal();
+  const gPropio = useSeccionGlobal();
+  /**
+   * EL NEGOCIO LO MANDA EL PADRE CUANDO VA EMBEBIDO (2026-09-20).
+   *
+   * Bug de Jonathan: "cuando cambio de negocio en marketing, en publicar no se
+   * cambia — me sigue apareciendo las de Sania". `useSeccionGlobal()` guarda el
+   * negocio enfocado en un `useState` PROPIO de cada componente, así que dentro
+   * de /marketing había dos: el de la barra de chips y el de este panel. Tocar
+   * un chip cambiaba el de la barra y este no se enteraba, dejando en pantalla
+   * los datos del negocio anterior — lo más peligroso que puede hacer esta
+   * pantalla, porque se publica en la red del negocio equivocado.
+   *
+   * Mismo patrón que `SeccionAnuncios` y `PresenciaEditor`, que ya reciben
+   * `tenant` del padre.
+   */
+  const g = embebido
+    ? { ...gPropio, tenantLista: tenant, enfocado: tenant ?? "", listaLista: true }
+    : gPropio;
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }

@@ -149,7 +149,9 @@ function audienciasDe(tieneCarta: boolean): GrupoAudiencia[] {
   ];
 }
 
-export default function CampaniasPanel({ embebido = false }: { embebido?: boolean } = {}) {
+export default function CampaniasPanel(
+  { embebido = false, tenant }: { embebido?: boolean; tenant?: string } = {},
+) {
   const router = useRouter();
   // Los chips de audiencia dependen del rubro: "1 vez o más" cuenta PEDIDOS
   // entregados y en una clínica eso siempre da cero.
@@ -260,7 +262,13 @@ export default function CampaniasPanel({ embebido = false }: { embebido?: boolea
   const [pEnviando, setPEnviando] = useState(false);
   const [borrando, setBorrando] = useState<string | null>(null);
 
-  const g = useSeccionGlobal();
+  const gPropio = useSeccionGlobal();
+  // Embebido en /marketing, el negocio lo manda el padre: si no, esta pantalla
+  // mantiene su propio "enfocado" y queda desincronizada de los chips de
+  // arriba (ver el comentario largo en PublicarPanel, 2026-09-20).
+  const g = embebido
+    ? { ...gPropio, tenantLista: tenant, enfocado: tenant ?? "", listaLista: true }
+    : gPropio;
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }

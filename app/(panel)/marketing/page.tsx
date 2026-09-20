@@ -259,13 +259,13 @@ export default function MarketingPanel() {
          */
         <PresenciaEditor key={g.enfocado || "activa"} tenant={g.enfocado || undefined} />
       ) : mostrar === "publicar" ? (
-        <PublicarPanel embebido />
+        <PublicarPanel embebido key={g.enfocado || "activa"} tenant={g.enfocado || undefined} />
       ) : mostrar === "anuncios" ? (
         <SeccionAnuncios tenant={g.enfocado || undefined} />
       ) : mostrar === "automatico" ? (
         <AjustesMarketing key={g.enfocado || "activa"} />
       ) : (
-        <CampaniasPanel embebido />
+        <CampaniasPanel embebido key={g.enfocado || "activa"} tenant={g.enfocado || undefined} />
       )}
     </div>
   );

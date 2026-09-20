@@ -86,8 +86,14 @@ export function RendimientoPosts({ tenant }: { tenant?: string } = {}) {
         {m.faltantes.map((f) => (
           <p key={f.canal} className="mt-1 text-[0.88rem] text-tinta-2">
             <b className="text-tinta">{RED[f.canal]}:</b>{" "}
+            {/* NO PROMETER UNA APROBACIÓN QUE QUIZÁS NO LLEGUE (2026-09-20).
+                Decía "Meta todavía está revisando el permiso… cuando lo
+                apruebe esto se llena solo", y con eso Jonathan esperó una
+                aprobación que no iba a arreglar nada: el error real era que
+                pedíamos un endpoint con otro permiso. Ahora se dice lo que
+                se sabe —Meta no habilitó la lectura— sin inventar el porqué. */}
             {f.motivo === "sin_permiso"
-              ? "Meta todavía está revisando el permiso para leer tus publicaciones. Cuando lo apruebe, esto se llena solo."
+              ? "Meta todavía no habilita la lectura de estas publicaciones. Se llena solo en cuanto lo haga."
               : f.detalle ?? "No se pudo leer."}
           </p>
         ))}
@@ -125,7 +131,7 @@ export function RendimientoPosts({ tenant }: { tenant?: string } = {}) {
             <p>El <b className="text-tinta">alcance</b> (cuánta gente vio cada post) aparece cuando Meta apruebe el permiso que está revisando.</p>
           )}
           {faltanRedes.map((f) => (
-            <p key={f.canal}><b className="text-tinta">{RED[f.canal]}:</b> {f.motivo === "sin_permiso" ? "Meta todavía revisa el permiso para leer estas publicaciones." : f.detalle}</p>
+            <p key={f.canal}><b className="text-tinta">{RED[f.canal]}:</b> {f.motivo === "sin_permiso" ? "Meta todavía no habilita la lectura de estas publicaciones." : f.detalle}</p>
           ))}
         </div>
       )}

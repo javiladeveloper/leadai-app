@@ -1757,12 +1757,47 @@ export async function subirMediaPost(
   }
 }
 
+/**
+ * Lo que la cuenta de TikTok conectada permite elegir (2026-09-20).
+ *
+ * TikTok exige que la privacidad la elija una persona y que las interacciones
+ * que la cuenta no admite se muestren deshabilitadas. Solo TikTok sabe eso,
+ * cuenta por cuenta, asi que el compositor lo pregunta al marcar TikTok.
+ */
+export interface OpcionesTikTok {
+  conectado: boolean;
+  usuario?: string | null;
+  apodo?: string | null;
+  fotoPerfil?: string | null;
+  privacidades?: string[];
+  comentarioDesactivado?: boolean;
+  duetoDesactivado?: boolean;
+  stitchDesactivado?: boolean;
+  duracionMaxSeg?: number | null;
+}
+
+export async function opcionesTikTok(tenant?: string): Promise<OpcionesTikTok> {
+  try {
+    return await api<OpcionesTikTok>('/publicaciones/tiktok/opciones', { tenant });
+  } catch {
+    return { conectado: false };
+  }
+}
+
+export interface AjustesTikTok {
+  privacidad: string;
+  desactivarComentario?: boolean;
+  desactivarDueto?: boolean;
+  desactivarStitch?: boolean;
+}
+
 export async function crearPublicacion(input: {
   texto: string;
   mediaUrls?: string[];
   tipoMedia?: string;
   canales: string[];
   programadaPara?: string;
+  ajustesTikTok?: AjustesTikTok;
 }, tenant?: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/publicaciones", { method: "POST", body: input, tenant });

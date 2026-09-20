@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import { haySesion, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import {
   listarPublicaciones, plantillasPost, subirMediaPost, crearPublicacion,
-  listarCanales, borrarPublicacion,
-  type Publicacion, type PlantillaPost,
+  listarCanales, borrarPublicacion, opcionesTikTok,
+  type Publicacion, type PlantillaPost, type OpcionesTikTok,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import {
@@ -33,6 +33,17 @@ const REDES = [
   // ve el dueño; puede hacerlo público a mano) — límite de TikTok, no nuestro.
   { id: "tiktok", label: "TikTok (video)" },
 ];
+
+/**
+ * Los niveles de privacidad de TikTok, dichos como los entiende un negocio.
+ * Las claves son las que devuelve su API y viajan tal cual al publicar.
+ */
+const NOMBRE_PRIVACIDAD: Record<string, string> = {
+  PUBLIC_TO_EVERYONE: "Público — lo ve cualquiera",
+  MUTUAL_FOLLOW_FRIENDS: "Amigos — solo quienes se siguen mutuamente",
+  FOLLOWER_OF_CREATOR: "Seguidores — solo quienes te siguen",
+  SELF_ONLY: "Solo yo — privado",
+};
 
 const ESTADO_POST: Record<string, { texto: string; clase: string }> = {
   borrador: { texto: "Borrador", clase: "bg-arena text-frio" },
@@ -153,6 +164,17 @@ export default function PublicarPanel(
   // Cuántas van de cuántas, para que la espera se vea avanzar en vez de un
   // "Subiendo…" quieto que no distingue lento de colgado.
   const [progreso, setProgreso] = useState<ProgresoSubida | null>(null);
+  /**
+   * OPCIONES DE TIKTOK (2026-09-20). Se piden al marcar TikTok como destino:
+   * TikTok exige que la privacidad la elija el dueño (sin valor por defecto)
+   * y que las interacciones que su cuenta no permite salgan deshabilitadas.
+   */
+  const [tiktok, setTiktok] = useState<OpcionesTikTok | null>(null);
+  const [ttPrivacidad, setTtPrivacidad] = useState("");
+  const [ttComercial, setTtComercial] = useState(false);
+  const [ttComentario, setTtComentario] = useState(false);
+  const [ttDueto, setTtDueto] = useState(false);
+  const [ttStitch, setTtStitch] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [msg, setMsg] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -287,6 +309,28 @@ export default function PublicarPanel(
     setRedes((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
+  /**
+   * Al marcar TikTok se le pregunta a TikTok QUE permite esta cuenta.
+   *
+   * Nada se preselecciona: la privacidad arranca vacia a proposito porque
+   * TikTok lo exige ("there should be no default value"), y el boton de
+   * publicar queda bloqueado hasta que el dueño elija una.
+   */
+  const quiereTikTok = redes.includes("tiktok");
+  useEffect(() => {
+    if (!quiereTikTok) { setTiktok(null); setTtPrivacidad(""); return; }
+    let vivo = true;
+    void opcionesTikTok(g.tenantLista).then((o) => {
+      if (!vivo) return;
+      setTiktok(o);
+      // Lo que la cuenta no permite se fuerza a desactivado, no a elegible.
+      if (o.comentarioDesactivado) setTtComentario(true);
+      if (o.duetoDesactivado) setTtDueto(true);
+      if (o.stitchDesactivado) setTtStitch(true);
+    });
+    return () => { vivo = false; };
+  }, [quiereTikTok, g.tenantLista]);
+
   function usarPlantilla(pl: PlantillaPost) {
     // Inserta el texto LISTO de la plantilla (sin IA): el dueño reemplaza los
     // [corchetes] con sus datos y ya.
@@ -387,6 +431,12 @@ export default function PublicarPanel(
     if (!texto.trim() || redes.length === 0 || publicando || subiendo) return;
     const bloqueo = chequeos.flatMap((c) => c.lista).find((x) => x.nivel === "bloqueo");
     if (bloqueo) { setMsg(bloqueo.texto); return; }
+    // TikTok EXIGE que la privacidad la elija una persona, sin valor por
+    // defecto: sin eso no se manda nada.
+    if (quiereTikTok && tiktok?.conectado && !ttPrivacidad) {
+      setMsg("Elige quién puede ver el video en TikTok antes de publicar.");
+      return;
+    }
     setPublicando(true);
     setMsg("");
     const r = await crearPublicacion({
@@ -395,6 +445,15 @@ export default function PublicarPanel(
       tipoMedia: tipoMediaDe(mediaUrls.length, tipoMedia === "video"),
       canales: redes,
       programadaPara: programar && fecha ? new Date(fecha).toISOString() : undefined,
+      // Lo que eligio el dueño para TikTok. Solo viaja si TikTok es destino.
+      ajustesTikTok: quiereTikTok && ttPrivacidad
+        ? {
+            privacidad: ttPrivacidad,
+            desactivarComentario: ttComentario,
+            desactivarDueto: ttDueto,
+            desactivarStitch: ttStitch,
+          }
+        : undefined,
     }, g.tenantLista);
     setPublicando(false);
     if (r.ok) {
@@ -689,6 +748,81 @@ export default function PublicarPanel(
               );
             })}
           </div>
+
+          {/*
+            OPCIONES DE TIKTOK (2026-09-20). TikTok no deja que la app decida
+            por el creador: la privacidad la elige una persona, sin valor por
+            defecto, y las interacciones que su cuenta no permite salen
+            deshabilitadas. Sin este bloque la auditoria de Direct Post se
+            rechaza.
+          */}
+          {quiereTikTok && tiktok?.conectado && (
+            <div className="mt-3 rounded-tarjeta border border-arena bg-arena/25 p-3">
+              <div className="mb-2 flex items-center gap-2">
+                {tiktok.fotoPerfil && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={tiktok.fotoPerfil} alt="" className="h-7 w-7 rounded-full object-cover" />
+                )}
+                <p className="text-[0.85rem] font-bold text-tinta">
+                  Se publicará en TikTok como{" "}
+                  <span className="text-brasa-texto">@{tiktok.usuario ?? "tu cuenta"}</span>
+                </p>
+              </div>
+
+              <label className="mb-1 block text-[0.8rem] font-semibold text-tinta-2">
+                ¿Quién puede ver este video? <span className="text-coral">*</span>
+              </label>
+              <select
+                value={ttPrivacidad}
+                onChange={(e) => setTtPrivacidad(e.target.value)}
+                className="w-full rounded-tarjeta border border-arena bg-carta px-3 py-2 text-[0.85rem] text-tinta"
+              >
+                <option value="">Elige una opción…</option>
+                {(tiktok.privacidades ?? []).map((p) => (
+                  <option key={p} value={p}>{NOMBRE_PRIVACIDAD[p] ?? p}</option>
+                ))}
+              </select>
+
+              <div className="mt-3 space-y-1.5">
+                {([
+                  ["comentario", "Permitir comentarios", ttComentario, setTtComentario, tiktok.comentarioDesactivado],
+                  ["dueto", "Permitir dúos", ttDueto, setTtDueto, tiktok.duetoDesactivado],
+                  ["stitch", "Permitir stitch", ttStitch, setTtStitch, tiktok.stitchDesactivado],
+                ] as const).map(([k, label, valor, set, bloqueado]) => (
+                  <label
+                    key={k}
+                    className={`flex items-center gap-2 text-[0.82rem] ${bloqueado ? "text-frio/60" : "text-tinta-2"}`}
+                    title={bloqueado ? "Tu cuenta de TikTok no permite esto" : undefined}
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={Boolean(bloqueado)}
+                      checked={!valor}
+                      onChange={(e) => set(!e.target.checked)}
+                    />
+                    {label}
+                    {bloqueado && <span className="text-[0.72rem]">· no disponible en tu cuenta</span>}
+                  </label>
+                ))}
+              </div>
+
+              <label className="mt-3 flex items-start gap-2 text-[0.82rem] text-tinta-2">
+                <input type="checkbox" checked={ttComercial} onChange={(e) => setTtComercial(e.target.checked)} className="mt-0.5" />
+                <span>
+                  Este video promociona una marca o un producto
+                  <span className="block text-[0.74rem] text-frio">
+                    Márcalo si es contenido comercial tuyo o de un tercero.
+                  </span>
+                </span>
+              </label>
+
+              <p className="mt-3 border-t border-arena pt-2 text-[0.74rem] leading-snug text-frio">
+                {ttComercial
+                  ? "Al publicar aceptas la Confirmación de uso de música de marca de TikTok (Branded Content Policy y Music Usage Confirmation)."
+                  : "Al publicar aceptas la Confirmación de uso de música de TikTok (Music Usage Confirmation)."}
+              </p>
+            </div>
+          )}
 
           {/* REQUISITOS por red elegida: qué falta o qué conviene ajustar */}
           {chequeos.some((c) => c.lista.length > 0) && (

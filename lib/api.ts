@@ -1764,6 +1764,54 @@ export async function subirMediaPost(
  * que la cuenta no admite se muestren deshabilitadas. Solo TikTok sabe eso,
  * cuenta por cuenta, asi que el compositor lo pregunta al marcar TikTok.
  */
+/**
+ * Cuentas publicitarias de TikTok conectadas a este negocio (2026-09-21).
+ *
+ * Es OTRA integracion que el canal de publicar: esta es la Marketing API, y
+ * sirve para que los leads de los formularios de anuncios de TikTok caigan
+ * solos en el panel en vez de quedarse en TikTok Ads Manager.
+ */
+export interface CuentaTikTokAds {
+  id: string;
+  advertiserId: string;
+  nombre: string | null;
+  creadoEn: string;
+}
+
+export async function listarTiktokAds(
+  tenant?: string,
+): Promise<{ configurado: boolean; cuentas: CuentaTikTokAds[] }> {
+  try {
+    return await api<{ configurado: boolean; cuentas: CuentaTikTokAds[] }>(
+      '/canales/tiktok-ads', { tenant },
+    );
+  } catch {
+    return { configurado: false, cuentas: [] };
+  }
+}
+
+export async function urlTiktokAds(tenant?: string): Promise<string | null> {
+  try {
+    const r = await api<{ url: string | null }>('/canales/tiktok-ads/url', { tenant });
+    return r.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function desconectarTiktokAds(
+  advertiserId: string, tenant?: string,
+): Promise<{ ok: boolean }> {
+  try {
+    return await api<{ ok: boolean }>(
+      `/canales/tiktok-ads/${encodeURIComponent(advertiserId)}`,
+      { method: 'DELETE', tenant },
+    );
+  } catch {
+    return { ok: false };
+  }
+}
+
 export interface OpcionesTikTok {
   conectado: boolean;
   usuario?: string | null;

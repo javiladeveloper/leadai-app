@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   listarCanales, obtenerUrlOAuth, actualizarCanal, eliminarCanal, liberarCanal,
   cuentasPendientes, elegirCuenta,
-  type Canal, type TipoCanal, type CuentaPendiente,
+  listarTiktokAds, urlTiktokAds, desconectarTiktokAds,
+  type Canal, type TipoCanal, type CuentaPendiente, type CuentaTikTokAds,
 } from "@/lib/api";
 import { leerSesion, leerEmpresaActiva } from "@/lib/auth";
 import { listarSucursales, type Sucursal } from "@/lib/cocina";
@@ -59,13 +60,56 @@ export function PanelCanales() {
   // marca CUÁL de las cuentas pendientes se está guardando.
   const [eligiendo, setEligiendo] = useState("");
   const [errorElegir, setErrorElegir] = useState("");
+  /**
+   * CUENTAS PUBLICITARIAS DE TIKTOK (2026-09-21).
+   *
+   * Es OTRA integracion que el canal de publicar videos: esta es la Marketing
+   * API, y sirve para que los leads de los formularios de anuncios de TikTok
+   * caigan solos en el panel en vez de quedarse en TikTok Ads Manager. El
+   * backend ya la tenia completa; faltaba el boton.
+   */
+  const [tiktokAds, setTiktokAds] = useState<CuentaTikTokAds[]>([]);
+  const [adsConfigurado, setAdsConfigurado] = useState(false);
 
   async function cargar() {
     setCargando(true);
-    const [cs, ls] = await Promise.all([listarCanales(), listarSucursales()]);
+    const [cs, ls, ads] = await Promise.all([
+      listarCanales(), listarSucursales(), listarTiktokAds(),
+    ]);
     setCanales(cs);
     setLocales(ls);
+    setTiktokAds(ads.cuentas);
+    setAdsConfigurado(ads.configurado);
     setCargando(false);
+  }
+
+  /** Abre el portal de TikTok Ads para autorizar la cuenta publicitaria. */
+  async function conectarTiktokAds() {
+    const url = await urlTiktokAds();
+    if (!url) {
+      setErrorConexion(
+        "No pudimos abrir la conexion con TikTok Ads. Revisa tu internet y toca de nuevo.",
+      );
+      return;
+    }
+    // Mismo criterio que el resto de canales: en el celular por redireccion,
+    // en escritorio por popup (ver conectarOAuth).
+    if (comoAbrirConexion(enCelular) === "redireccion") {
+      fuiAAutorizar.current = true;
+      window.location.href = url;
+      return;
+    }
+    const w = 520, h = 720;
+    const x = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
+    const y = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
+    const popup = window.open(url, "conectar-tiktok-ads", `popup=yes,width=${w},height=${h},left=${x},top=${y}`);
+    if (!popup) window.open(url, "_blank");
+  }
+
+  async function quitarTiktokAds(advertiserId: string) {
+    if (!window.confirm("¿Desconectar esta cuenta publicitaria? Los leads que ya entraron se quedan en el panel.")) return;
+    await desconectarTiktokAds(advertiserId);
+    cargar();
   }
 
   /** Se revisa después de cada OAuth: si quedaron varias, hay que elegir. */
@@ -573,6 +617,66 @@ export function PanelCanales() {
                   mensajes directos no llegan al panel (TikTok aún no lo permite a nadie).
                   Tus conversaciones siguen por WhatsApp, Instagram y Messenger.
                 </p>
+              )}
+
+              {/*
+                CUENTA PUBLICITARIA DE TIKTOK (2026-09-21).
+                Es OTRA conexion que la de arriba: aquella publica videos,
+                esta trae los LEADS de los formularios de tus anuncios para
+                que caigan en el panel y el bot los atienda, en vez de
+                quedarse en TikTok Ads Manager. El backend ya la tenia
+                completa desde hace semanas; faltaba el boton.
+              */}
+              {red.tipo === "tiktok" && adsConfigurado && (
+                <div className="mt-4 rounded-xl border border-arena bg-carta p-3.5">
+                  <p className="text-[0.88rem] font-bold text-tinta">Anuncios de TikTok</p>
+                  <p className="mt-0.5 text-[0.8rem] text-frio">
+                    Conecta tu cuenta publicitaria y los leads de tus formularios de
+                    anuncios entran solos al panel, listos para que el bot los atienda.
+                  </p>
+
+                  {tiktokAds.length > 0 ? (
+                    <div className="mt-3 space-y-2">
+                      {tiktokAds.map((a) => (
+                        <div
+                          key={a.id}
+                          className="flex flex-col gap-2 rounded-lg bg-arena/40 px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-[0.88rem] font-semibold text-tinta sm:truncate">
+                              {a.nombre || "Cuenta publicitaria"}
+                            </p>
+                            <p className="text-[0.74rem] text-frio">
+                              <span className="break-all tabular-nums">{a.advertiserId}</span>
+                              {" · conectada el "}
+                              {new Date(a.creadoEn).toLocaleDateString("es-PE")}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => quitarTiktokAds(a.advertiserId)}
+                            className="shrink-0 rounded-chip px-2 py-1 text-[0.72rem] font-semibold text-frio transition hover:bg-alerta/10 hover:text-alerta"
+                          >
+                            Desconectar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={conectarTiktokAds}
+                        className="mt-3 inline-flex items-center gap-2 rounded-tarjeta bg-arena px-4 py-2 text-[0.88rem] font-semibold text-tinta transition hover:bg-arena/70"
+                      >
+                        Conectar cuenta publicitaria
+                      </button>
+                      <p className="mt-2 text-[0.75rem] text-frio">
+                        {enCelular
+                          ? "Te llevamos a TikTok para que autorices, y vuelves acá al terminar."
+                          : "Se abre una ventana de TikTok para que autorices tu cuenta de anuncios."}
+                      </p>
+                    </>
+                  )}
+                </div>
               )}
             </>
           )}

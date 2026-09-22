@@ -27,6 +27,40 @@ import {
  * viajan al backend solo cuando se aprieta el botón. No se guarda ninguna
  * copia: lo que queda registrado es el recuento, no la lista.
  */
+/**
+ * El archivo como texto, venga como venga. Excel guarda "Texto Unicode" en
+ * UTF-16: leído como UTF-8 cada dígito queda separado por un byte nulo y
+ * ningún número se reconoce — el caso silencioso más probable de "subí el CSV
+ * y no pasó nada". Se detecta por el BOM o por la cantidad de nulos.
+ */
+async function leerTexto(f: File): Promise<string> {
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  if (bytes.length >= 2) {
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder("utf-16le").decode(bytes);
+    if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder("utf-16be").decode(bytes);
+  }
+  const muestra = bytes.subarray(0, Math.min(bytes.length, 4096));
+  let nulos = 0;
+  for (const b of muestra) if (b === 0) nulos++;
+  if (nulos > muestra.length / 8) {
+    return new TextDecoder(muestra[0] === 0 ? "utf-16be" : "utf-16le").decode(bytes);
+  }
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+/**
+ * Se toma cualquier cosa que parezca un teléfono, en cualquier columna: un
+ * CSV exportado de otra herramienta rara vez tiene la columna donde uno
+ * espera, y pedirle al dueño que la acomode es pedirle que edite un CSV.
+ */
+export function extraerTelefonos(texto: string): string[] {
+  return texto
+    .split(/\r?\n/)
+    .flatMap((l) => l.split(/[,;\t]/))
+    .map((c) => c.replace(/^"|"$/g, "").trim())
+    .filter((c) => /\d{6,}/.test(c.replace(/\D/g, "")));
+}
+
 export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
   const [telefonos, setTelefonos] = useState<string[]>([]);
   const [archivo, setArchivo] = useState("");
@@ -35,6 +69,9 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
   const [revision, setRevision] = useState<RevisionPublico | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null);
+  // Mientras el backend cuenta los teléfonos: sin esto, entre elegir el archivo
+  // y ver el número no pasaba nada visible (2026-09-22).
+  const [revisando, setRevisando] = useState(false);
   const [historial, setHistorial] = useState<PublicoSubido[]>([]);
   // Lo que Meta ya tiene: cuanta gente matcheo y si se puede usar. Es otra cosa
   // que el historial -aquel dice que se mando, este que paso despues.
@@ -47,21 +84,43 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
     void publicosEnMeta(tenant).then(setEnMeta);
   }, [tenant, refresco]);
 
+  /**
+   * CADA CAMINO TERMINA EN UN MENSAJE (2026-09-22, Jonathan: "subí el csv con
+   * contactos, pero cómo suben a Meta no entiendo").
+   *
+   * Subió el archivo, vio su nombre en el recuadro y nada más. El botón de
+   * "Crear el público en Meta" solo aparece DESPUÉS de la revisión, y la
+   * revisión fallaba en silencio: si el archivo no traía nada que pareciera
+   * un teléfono, o si el backend contestaba con error (sin plan, sin cuenta,
+   * red), `cargar` tiraba y nadie lo mostraba. Ahora cada rama dice qué pasó
+   * y qué hacer.
+   */
   async function cargar(f: File) {
-    const texto = await f.text();
     setArchivo(f.name);
     setResultado(null);
-    // Se toma cualquier cosa que parezca un teléfono, en cualquier columna: un
-    // CSV exportado de otra herramienta rara vez tiene la columna donde uno
-    // espera, y pedirle al dueño que la acomode es pedirle que edite un CSV.
-    const crudos = texto
-      .split(/\r?\n/)
-      .flatMap((l) => l.split(/[,;\t]/))
-      .map((c) => c.replace(/^"|"$/g, "").trim())
-      .filter((c) => /\d{6,}/.test(c.replace(/\D/g, "")));
-    setTelefonos(crudos);
-    if (!nombre) setNombre(f.name.replace(/\.[^.]+$/, ""));
-    setRevision(crudos.length > 0 ? await revisarPublico(crudos, tenant) : null);
+    setRevision(null);
+    setTelefonos([]);
+    setRevisando(true);
+    try {
+      const crudos = extraerTelefonos(await leerTexto(f));
+      setTelefonos(crudos);
+      if (!nombre) setNombre(f.name.replace(/\.[^.]+$/, ""));
+      if (crudos.length === 0) {
+        setResultado({
+          ok: false,
+          texto: "No encontré teléfonos en ese archivo. Tiene que ser un CSV o TXT con una columna de números (ej. 987654321 o +51 987 654 321), un contacto por fila.",
+        });
+        return;
+      }
+      setRevision(await revisarPublico(crudos, tenant));
+    } catch (e) {
+      setResultado({
+        ok: false,
+        texto: `No pude revisar el archivo: ${e instanceof Error ? e.message : "error desconocido"}`,
+      });
+    } finally {
+      setRevisando(false);
+    }
   }
 
   async function subir() {
@@ -111,6 +170,18 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
           />
           {archivo || "Elegí un archivo CSV con los teléfonos"}
         </label>
+        {/* Qué va a pasar después: sin esto, el archivo cargado parecía el
+            final del camino (2026-09-22). */}
+        {!revision && !revisando && !resultado && (
+          <p className="mt-2 text-center text-[0.76rem] text-frio">
+            Primero te muestro cuántos contactos sirven; recién ahí aparece el botón para crear el público en Meta.
+          </p>
+        )}
+        {revisando && (
+          <p className="mt-3 rounded-lg bg-arena/50 px-4 py-3 text-[0.85rem] text-tinta-2">
+            Revisando los teléfonos del archivo…
+          </p>
+        )}
 
         {revision && <Revision r={revision} />}
 

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cerrarSesion, EMPRESA_GLOBAL } from "@/lib/auth";
+import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cerrarSesion, empresaInicial } from "@/lib/auth";
 import { misEmpresas } from "@/lib/api";
 import { IconoChevron } from "@/components/Iconos";
 import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
@@ -27,9 +27,12 @@ export function HeaderPanel() {
       if (lista.length === 0) return; // error o sin datos: conservar el cache
       const s = leerSesion();
       if (s) guardarSesion({ ...s, empresas: lista });
-      const activa = leerEmpresaActiva();
-      const valida = activa && activa !== EMPRESA_GLOBAL && lista.some((e) => e.tenantId === activa);
-      if (!valida) guardarEmpresaActiva(lista[0].tenantId);
+      // CON CUÁL ABRE EL PANEL (2026-09-22). Antes, si la activa no servía,
+      // caía a `lista[0]` —el orden del backend— y el predeterminado que el
+      // dueño fijó en Configuración no contaba acá. `empresaInicial` lo pone
+      // primero; sin predeterminado conserva la activa válida como siempre.
+      const inicial = empresaInicial(lista);
+      if (inicial && inicial !== leerEmpresaActiva()) guardarEmpresaActiva(inicial);
     });
   }, []);
 

@@ -73,10 +73,32 @@ export default function MarketingPanel() {
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
-    obtenerMiPlan()
-      .then((p) => setTieneMarketing(p?.features?.marketing ?? true))
-      .catch(() => setTieneMarketing(true));
   }, [router]);
+
+  /**
+   * EL CANDADO ES DEL NEGOCIO ENFOCADO, NO DE LA EMPRESA ACTIVA (2026-09-22,
+   * bug de Jonathan: "a veces me sale error al entrar a Marketing como si no
+   * tuviera plan, tengo que cambiar varias veces el negocio para que agarre").
+   *
+   * `obtenerMiPlan()` sin tenant preguntaba por la EMPRESA ACTIVA: la que
+   * quedó del último chip que tocó en cualquier otra sección. Si esa era un
+   * negocio sin plan Full, Marketing entero mostraba el candado aunque los
+   * chips de acá apuntaran a Sania. Y "cambiar varias veces de negocio" era
+   * exactamente lo que movía la activa hasta que caía en uno con plan.
+   *
+   * Ahora se pregunta por el negocio enfocado, se vuelve a preguntar al
+   * cambiarlo, y no se pregunta hasta saber cuál es (`resuelto`).
+   */
+  const tenantPlan = g.modoGlobal ? g.enfocado : undefined;
+  useEffect(() => {
+    if (!g.resuelto || (g.modoGlobal && !g.enfocado)) return;
+    let vivo = true;
+    setTieneMarketing(null);
+    obtenerMiPlan(tenantPlan || undefined)
+      .then((p) => { if (vivo) setTieneMarketing(p?.features?.marketing ?? true); })
+      .catch(() => { if (vivo) setTieneMarketing(true); });
+    return () => { vivo = false; };
+  }, [g.resuelto, g.modoGlobal, g.enfocado, tenantPlan]);
 
   function elegir(p: Pestania) {
     setPestania(p);
@@ -142,8 +164,15 @@ export default function MarketingPanel() {
   if (tieneMarketing === false) {
     // MÁS ANCHO QUE EL RESTO (max-w-4xl vs 3xl) porque las cuatro tarjetas van
     // en grilla de dos: con 3xl quedan angostas y el texto se parte feo.
+    //
+    // LOS CHIPS SE QUEDAN (2026-09-22): el candado es de ESTE negocio; con
+    // varios, el dueño tiene que poder pasar al que sí tiene plan sin salir
+    // de la sección.
     return (
-      <div className="mx-auto max-w-4xl px-5 py-6 lg:px-8">
+      <div className="mx-auto max-w-4xl space-y-4 px-5 py-6 lg:px-8">
+        {g.modoGlobal && (
+          <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
+        )}
         <MarketingBloqueado nombreNegocio={nombreNegocio} />
       </div>
     );

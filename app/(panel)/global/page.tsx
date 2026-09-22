@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { haySesion, leerEmpresaActiva, guardarEmpresaActiva } from "@/lib/auth";
+import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, filtroInicialDeBandeja } from "@/lib/auth";
 import {
   listarBandejaGlobal,
   obtenerReporteGlobal,
@@ -72,6 +72,13 @@ function GlobalPanelInner() {
   const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
   const [reporte, setReporte] = useState<ReporteGlobal | null>(null);
   const [filtroNegocio, setFiltroNegocio] = useState<string>("todos");
+  // Arranca en el predeterminado del dueño si fijó uno (2026-09-22). Una vez.
+  const [filtroInicializado, setFiltroInicializado] = useState(false);
+  useEffect(() => {
+    if (filtroInicializado || negocios.length === 0) return;
+    setFiltroInicializado(true);
+    setFiltroNegocio(filtroInicialDeBandeja(negocios, "todos"));
+  }, [negocios, filtroInicializado]);
   const [filtroNivel, setFiltroNivel] = useState<FiltroNivel>("todos");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoLead>("todos");
   const [busqueda, setBusqueda] = useState("");

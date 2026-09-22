@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, EMPRESA_GLOBAL, leerEmpresaPredeterminada, guardarEmpresaPredeterminada } from "@/lib/auth";
+import { haySesion, guardarEmpresaActiva, empresaInicial, leerEmpresaPredeterminada, guardarEmpresaPredeterminada } from "@/lib/auth";
 import { EtapasEditor } from "@/components/panel/EtapasEditor";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { AccionesDelBot } from "@/components/panel/AccionesDelBot";
@@ -115,10 +115,10 @@ function ConfiguracionInner() {
 
   useEffect(() => {
     if (negocios.length === 0 || tenantCfg) return;
-    const activa = leerEmpresaActiva();
-    const valida =
-      activa && activa !== EMPRESA_GLOBAL && negocios.some((n) => n.tenantId === activa);
-    const elegido = valida ? (activa as string) : negocios[0].tenantId;
+    // El predeterminado del dueño gana; después la última activa válida; al
+    // final el primero de la lista (2026-09-22, misma regla que las demás
+    // secciones).
+    const elegido = empresaInicial(negocios) ?? negocios[0].tenantId;
     guardarEmpresaActiva(elegido);
     setTenantCfg(elegido);
   }, [negocios, tenantCfg]);

@@ -4,7 +4,7 @@ import { OrigenLead } from "@/components/panel/OrigenLead";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { haySesion, esModoGlobal, guardarEmpresaActiva, leerSesion } from "@/lib/auth";
+import { haySesion, esModoGlobal, guardarEmpresaActiva, leerSesion, filtroInicialDeBandeja } from "@/lib/auth";
 import { SkeletonLista, SkeletonChat } from "@/components/Skeletons";
 import {
   listarLeads,
@@ -118,6 +118,16 @@ export default function ConversacionesPanel() {
   // Filtros de la bandeja: negocio ("" = todos), buzón (todos/míos/sin
   // asignar), etapa (id custom; "" = todas) y búsqueda.
   const [filtroNegocio, setFiltroNegocio] = useState("");
+  // ARRANCA EN EL PREDETERMINADO (2026-09-22, pedido de Jonathan: "si pongo
+  // Sania por defecto, todo debe filtrar correctamente en todas las partes").
+  // La bandeja abría siempre en "Todos"; ahora, si el dueño fijó un negocio,
+  // abre filtrada por ese. Una sola vez: después manda el chip que toque.
+  const filtroInicializado = useRef(false);
+  useEffect(() => {
+    if (filtroInicializado.current || negocios.length === 0) return;
+    filtroInicializado.current = true;
+    setFiltroNegocio(filtroInicialDeBandeja(negocios, ""));
+  }, [negocios]);
   const [filtroBuzon, setFiltroBuzon] = useState<"" | "mios" | "sin">("");
   const [filtroEtapa, setFiltroEtapa] = useState("");
   const [busqueda, setBusqueda] = useState("");

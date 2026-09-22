@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { haySesion, esModoGlobal, guardarEmpresaActiva } from "@/lib/auth";
+import { haySesion, esModoGlobal, guardarEmpresaActiva, filtroInicialDeBandeja } from "@/lib/auth";
 import {
   listarLeads,
   listarBandejaGlobal,
@@ -61,6 +61,14 @@ export default function SeguimientoPanel() {
   // leads con su tenantId, así que cambiar de chip es instantáneo.
   const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
   const [filtroNegocio, setFiltroNegocio] = useState("");
+  // Arranca en el predeterminado del dueño si fijó uno (2026-09-22); si no,
+  // en "Todos mis negocios" como siempre. Una sola vez.
+  const filtroInicializado = useRef(false);
+  useEffect(() => {
+    if (filtroInicializado.current || negocios.length === 0) return;
+    filtroInicializado.current = true;
+    setFiltroNegocio(filtroInicialDeBandeja(negocios, ""));
+  }, [negocios]);
   // Buscador del tablero: por nombre, contacto o resumen de la IA (cliente).
   const [busqueda, setBusqueda] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);

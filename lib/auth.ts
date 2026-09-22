@@ -166,6 +166,36 @@ export function empresaInicial(
   return negocios[0].tenantId;
 }
 
+/**
+ * EL PREDETERMINADO VA PRIMERO EN CADA LISTA DE NEGOCIOS (2026-09-22, pedido
+ * de Jonathan: "si pongo Sania por defecto... debería empezar con Sania").
+ *
+ * Fijar un predeterminado ya decidía en cuál ABRE cada sección, pero los
+ * chips seguían en el orden que devolviera el backend: Sania elegido y en
+ * tercer lugar. Es el mismo negocio en todos lados, así que va adelante en
+ * todos lados. Sin predeterminado, o si ya no está en la lista, no se toca
+ * el orden.
+ */
+export function conPredeterminadaPrimero<T extends { tenantId: string }>(negocios: T[]): T[] {
+  const pref = leerEmpresaPredeterminada();
+  if (!pref) return negocios;
+  const i = negocios.findIndex((n) => n.tenantId === pref);
+  if (i <= 0) return negocios;
+  return [negocios[i], ...negocios.slice(0, i), ...negocios.slice(i + 1)];
+}
+
+/**
+ * Con qué filtro arranca una BANDEJA que puede mostrar todo junto
+ * (Conversaciones, Seguimiento, Leads): con el predeterminado si el dueño
+ * fijó uno y está en la lista; si no, con "todos" (`sinFiltro`). Es la misma
+ * regla que `empresaInicial`, pero sin caer al primero de la lista: en una
+ * bandeja "todos" es una vista válida, no un vacío.
+ */
+export function filtroInicialDeBandeja(negocios: { tenantId: string }[], sinFiltro: string): string {
+  const pref = leerEmpresaPredeterminada();
+  return pref && negocios.some((n) => n.tenantId === pref) ? pref : sinFiltro;
+}
+
 export function haySesion(): boolean {
   return leerSesion() !== null;
 }

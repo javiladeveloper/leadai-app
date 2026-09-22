@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { guardarEmpresaActiva, leerEmpresaActiva, tieneVariosNegocios, empresasVisibles, EMPRESA_GLOBAL, empresaInicial } from "@/lib/auth";
+import { guardarEmpresaActiva, leerEmpresaActiva, tieneVariosNegocios, empresasVisibles, EMPRESA_GLOBAL, empresaInicial, conPredeterminadaPrimero } from "@/lib/auth";
 import { negociosGlobal, type NegocioBandeja } from "@/lib/api";
 
 // Piezas del panel UNIFICADO (decisión 2026-07-22, iterada el mismo día): ya
@@ -44,6 +44,18 @@ export function useNegociosGlobal(habilitado = true) {
     });
   }, [habilitado]);
 
+  // Si el dueño cambia el predeterminado en Configuración con esta sección
+  // montada, se re-enfoca sin recargar (2026-09-22). `auth.ts` emite el
+  // evento; hasta ahora nadie lo escuchaba.
+  useEffect(() => {
+    const alCambiar = (e: Event) => {
+      const t = (e as CustomEvent<{ tenantId: string | null }>).detail?.tenantId;
+      if (t) setEnfocado(t);
+    };
+    window.addEventListener("leadai:predeterminada-cambiada", alCambiar);
+    return () => window.removeEventListener("leadai:predeterminada-cambiada", alCambiar);
+  }, []);
+
   return { negocios, enfocado, setEnfocado, cargando };
 }
 
@@ -53,11 +65,16 @@ export function useNegociosGlobal(habilitado = true) {
 export function useSeccionGlobal() {
   // Se resuelve en efecto (localStorage) para no romper la hidratación.
   const [modoGlobal, setModoGlobal] = useState(false);
-  useEffect(() => setModoGlobal(tieneVariosNegocios()), []);
+  // `resuelto`: ya se leyó localStorage. Antes de eso `modoGlobal` es `false`
+  // aunque el usuario tenga cuatro negocios, y quien consulte algo "del
+  // negocio" en ese instante pregunta por el equivocado (2026-09-22).
+  const [resuelto, setResuelto] = useState(false);
+  useEffect(() => { setModoGlobal(tieneVariosNegocios()); setResuelto(true); }, []);
   const { negocios, enfocado, setEnfocado, cargando } = useNegociosGlobal(modoGlobal);
 
   return {
     modoGlobal,
+    resuelto,
     negocios,
     enfocado,
     setEnfocado,
@@ -93,6 +110,8 @@ export function BarraNegociosGlobal({
 }) {
   // Con 0 o 1 negocio no hay nada que filtrar: la barra sería ruido.
   if (negocios.length < 2) return null;
+  // El predeterminado del dueño va primero, en todas las barras (2026-09-22).
+  const ordenados = conPredeterminadaPrimero(negocios);
   return (
     <div className="space-y-1.5">
       <p className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
@@ -109,7 +128,7 @@ export function BarraNegociosGlobal({
             {todosLabel}
           </button>
         )}
-        {negocios.map((n) => {
+        {ordenados.map((n) => {
           const pista = deshabilitados?.[n.tenantId];
           return (
             <button

@@ -896,9 +896,12 @@ export async function obtenerCatalogo(): Promise<Catalogo | null> {
   }
 }
 
-export async function obtenerMiPlan(): Promise<MiPlan | null> {
+// `tenant`: el plan de ESE negocio, no de la empresa activa (2026-09-22).
+// Marketing lo necesita: el candado se decide por el negocio enfocado en sus
+// chips, y la activa puede ser otro negocio que quedó de otra sección.
+export async function obtenerMiPlan(tenant?: string): Promise<MiPlan | null> {
   try {
-    return await api<MiPlan>("/mi-plan");
+    return await api<MiPlan>("/mi-plan", { tenant });
   } catch {
     return null;
   }

@@ -13,7 +13,7 @@ export default function AccesoInmobiliaria() {
     try {
       const q = new URLSearchParams(location.search);
       const challenge = q.get("challenge"), state = q.get("state");
-      if (!window.opener || !challenge || !/^[A-Za-z0-9_-]{43}$/.test(challenge) || !state || !/^[a-f0-9]{64}$/.test(state)) throw new Error("Abre este acceso desde la web de la demo.");
+      if (!challenge || !/^[A-Za-z0-9_-]{43}$/.test(challenge) || !state || !/^[a-f0-9]{64}$/.test(state)) throw new Error("Abre este acceso desde la web de la demo.");
       const sesion = leerSesion();
       if (!sesion) throw new Error("Inicia sesión en LeadAI y vuelve a abrir el acceso desde la demo.");
       const respuesta = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "https://api.leadai-pe.com"}/demo/inmobiliaria/ticket`, {
@@ -21,8 +21,8 @@ export default function AccesoInmobiliaria() {
       });
       const datos = await respuesta.json();
       if (!respuesta.ok) throw new Error(datos.mensaje ?? "Este negocio no tiene habilitada la demo.");
-      window.opener.postMessage({ tipo: "inmobiliaria-ticket", ticket: datos.ticket, state }, DESTINO);
       setListo(true);
+      window.location.assign(DESTINO);
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo conectar."); }
     finally { setOcupado(false); }
   }

@@ -95,10 +95,24 @@ function aTarjeta(lead: LeadLista, conEtiqueta: boolean): TarjetaLeadProps {
 // Burbuja espera (lib/tipos: autor/texto/haceMinutos). "saliente" es lo que
 // mandamos nosotros (o la IA en automático) → se muestra a la derecha, "tu".
 // "entrante" es lo que escribió el lead → izquierda.
+/**
+ * QUIÉN ESCRIBIÓ CADA SALIENTE (2026-09-22, pedido de Jonathan). Antes todo
+ * saliente era "tu": el mensaje que mandaste desde tu celular y el que
+ * respondió la IA se veían iguales, y en una conversación escalada nadie sabía
+ * quién había dicho qué. El backend guarda `origen`: una persona (panel,
+ * celular por coexistencia, o un borrador que aprobó) es "tu"; la IA y los
+ * textos fijos son "bot". Sin origen (mensajes viejos) se deja como estaba.
+ */
+const ORIGENES_PERSONA = new Set(["humano", "ia_aprobada", "ia_editada"]);
+export function autorDe(m: { direccion: string; origen?: string | null }): MensajeUI["autor"] {
+  if (m.direccion !== "saliente") return "lead";
+  return !m.origen || ORIGENES_PERSONA.has(m.origen) ? "tu" : "bot";
+}
+
 function aBurbuja(m: MensajeApi): MensajeUI {
   return {
     id: m.id,
-    autor: m.direccion === "saliente" ? "tu" : "lead",
+    autor: autorDe(m),
     texto: m.contenido,
     haceMinutos: minutosDesde(m.creadoEn),
   };

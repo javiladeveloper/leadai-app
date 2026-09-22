@@ -44,10 +44,13 @@ function minutosDesde(iso: string): number {
 // Burbuja espera (lib/tipos: autor/texto/haceMinutos). "saliente" es lo que
 // mandamos nosotros (o la IA en automático) → se muestra a la derecha, "tu".
 // "entrante" es lo que escribió el lead → izquierda.
+// Una persona (panel, celular, borrador aprobado) es "tu"; la IA y los textos
+// fijos son "bot" (2026-09-22). Sin origen (mensajes viejos), como antes.
+const ORIGENES_PERSONA = new Set(["humano", "ia_aprobada", "ia_editada"]);
 function aBurbuja(m: MensajeApi): MensajeUI {
   return {
     id: m.id,
-    autor: m.direccion === "saliente" ? "tu" : "lead",
+    autor: m.direccion !== "saliente" ? "lead" : !m.origen || ORIGENES_PERSONA.has(m.origen) ? "tu" : "bot",
     texto: m.contenido,
     haceMinutos: minutosDesde(m.creadoEn),
   };

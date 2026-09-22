@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   revisarPublico, crearPublico, listarPublicos, publicosEnMeta, borrarPublico, crearRetargeting,
-  type RevisionPublico, type PublicoSubido, type PublicoEnMeta,
+  agregarAPublico, contarLeadsParaPublico, crearPublicoDesdeLeads,
+  type RevisionPublico, type PublicoSubido, type PublicoEnMeta, type SegmentoLeads, type ConteoLeadsPublico,
 } from "@/lib/api";
 import { extraerTelefonos } from "@/lib/publicos";
 
@@ -54,6 +55,10 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
   const [archivo, setArchivo] = useState("");
   const [nombre, setNombre] = useState("");
   const [conSimilar, setConSimilar] = useState(true);
+  // A DÓNDE VA LA LISTA (2026-09-22): "nuevo" crea un público; un id agrega
+  // los contactos a ese público que ya existe en Meta. Antes cada subida
+  // creaba uno nuevo y dos con el mismo nombre no se juntaban.
+  const [destino, setDestino] = useState<"nuevo" | string>("nuevo");
   const [revision, setRevision] = useState<RevisionPublico | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null);
@@ -115,15 +120,23 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
     }
   }
 
+  const agregando = destino !== "nuevo";
+  const publicoDestino = enMeta.find((p) => p.id === destino);
+
   async function subir() {
-    if (!revision?.alcanza || !nombre.trim()) return;
+    if (!revision) return;
+    if (agregando ? revision.contactos === 0 : (!revision.alcanza || !nombre.trim())) return;
     setSubiendo(true);
     setResultado(null);
     try {
-      const r = await crearPublico(
-        { nombre: nombre.trim(), telefonos, origen: archivo, conSimilar },
-        tenant,
-      );
+      const r = agregando
+        ? await agregarAPublico(
+            destino, { nombre: publicoDestino?.nombre ?? "", telefonos, origen: archivo }, tenant,
+          )
+        : await crearPublico(
+            { nombre: nombre.trim(), telefonos, origen: archivo, conSimilar },
+            tenant,
+          );
       setResultado({ ok: r.ok, texto: r.mensaje });
       if (r.ok) {
         // Se limpia la lista apenas Meta la acepta: no hay razón para tenerla
@@ -175,50 +188,83 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
           </p>
         )}
 
-        {revision && <Revision r={revision} />}
+        {revision && <Revision r={revision} agregando={agregando} />}
 
-        {revision?.alcanza && (
+        {revision && (revision.alcanza || (agregando && revision.contactos > 0)) && (
           <div className="mt-4 space-y-3 border-t border-linea pt-4">
-            <div>
-              <label className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">
-                Cómo se va a llamar en Meta
-              </label>
-              <input
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                maxLength={80}
-                placeholder="Clínicas Lima"
-                className="mt-1 w-full rounded-lg bg-arena px-3 py-2 text-[0.88rem] text-tinta ring-1 ring-linea outline-none focus:ring-brasa"
-              />
-            </div>
+            {/* ¿NUEVO O SUMAR A UNO? Solo cuando ya hay públicos propios en
+                Meta; sin ellos la única opción es crear. */}
+            {enMeta.some((p) => p.tipo === "CUSTOM") && (
+              <div>
+                <label className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">
+                  A dónde va esta lista
+                </label>
+                <select
+                  value={destino}
+                  onChange={(e) => setDestino(e.target.value)}
+                  className="mt-1 w-full rounded-lg bg-arena px-3 py-2 text-[0.88rem] text-tinta ring-1 ring-linea outline-none focus:ring-brasa"
+                >
+                  <option value="nuevo">Crear un público nuevo</option>
+                  {enMeta.filter((p) => p.tipo === "CUSTOM").map((p) => (
+                    <option key={p.id} value={p.id}>Agregar a «{p.nombre}»</option>
+                  ))}
+                </select>
+                {agregando && (
+                  <p className="mt-1 text-[0.76rem] text-frio">
+                    Se suman a los que ya tiene; los repetidos no se duplican.
+                  </p>
+                )}
+              </div>
+            )}
 
-            <label className="flex items-start gap-2 text-[0.85rem] text-tinta-2">
-              <input
-                type="checkbox"
-                checked={conSimilar}
-                onChange={(e) => setConSimilar(e.target.checked)}
-                disabled={!revision.alcanzaParaSimilar}
-                className="mt-0.5 accent-brasa disabled:opacity-40"
-              />
-              <span className={revision.alcanzaParaSimilar ? "" : "opacity-50"}>
-                Buscar también gente parecida
-                <span className="block text-[0.78rem] text-frio">
-                  {revision.alcanzaParaSimilar
-                    ? "Meta arma un público nuevo con cuentas similares a las de tu lista. Es donde suele estar el alcance."
-                    : `Hace falta ${revision.minimoSimilar} contactos para esto y tenés ${revision.contactos}.`}
+            {!agregando && (
+              <div>
+                <label className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">
+                  Cómo se va a llamar en Meta
+                </label>
+                <input
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  maxLength={80}
+                  placeholder="Clínicas Lima · sep 2026"
+                  className="mt-1 w-full rounded-lg bg-arena px-3 py-2 text-[0.88rem] text-tinta ring-1 ring-linea outline-none focus:ring-brasa"
+                />
+              </div>
+            )}
+
+            {!agregando && (
+              <label className="flex items-start gap-2 text-[0.85rem] text-tinta-2">
+                <input
+                  type="checkbox"
+                  checked={conSimilar}
+                  onChange={(e) => setConSimilar(e.target.checked)}
+                  disabled={!revision.alcanzaParaSimilar}
+                  className="mt-0.5 accent-brasa disabled:opacity-40"
+                />
+                <span className={revision.alcanzaParaSimilar ? "" : "opacity-50"}>
+                  Buscar también gente parecida
+                  <span className="block text-[0.78rem] text-frio">
+                    {revision.alcanzaParaSimilar
+                      ? "Meta arma un público nuevo con cuentas similares a las de tu lista. Es donde suele estar el alcance."
+                      : `Hace falta ${revision.minimoSimilar} contactos para esto y tenés ${revision.contactos}.`}
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
+            )}
 
             {/* NADA SE MANDA HASTA ACÁ. El botón es el consentimiento: son
                 datos de terceros y de Meta un público no se desmanda. */}
             <button
               type="button"
               onClick={() => void subir()}
-              disabled={subiendo || !nombre.trim()}
+              disabled={subiendo || (!agregando && !nombre.trim())}
               className="w-full rounded-chip bg-brasa px-4 py-2.5 text-[0.88rem] font-bold text-sobre-brasa transition hover:opacity-90 disabled:opacity-50"
             >
-              {subiendo ? "Subiendo…" : `Crear el público en Meta con ${revision.contactos} contactos`}
+              {subiendo
+                ? "Subiendo…"
+                : agregando
+                  ? `Agregar ${revision.contactos} contactos a «${publicoDestino?.nombre ?? ""}»`
+                  : `Crear el público en Meta con ${revision.contactos} contactos`}
             </button>
             <p className="text-center text-[0.76rem] text-frio">
               Los teléfonos viajan cifrados y no se guardan. Queda registrado qué
@@ -237,6 +283,10 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
           </p>
         )}
       </div>
+
+      {/* TUS LEADS COMO PÚBLICO (2026-09-22): la gente que ya te escribió es el
+          público más caliente que tienes, y sus teléfonos ya están en la base. */}
+      <LeadsComoPublico tenant={tenant} alCrear={() => setRefresco((n) => n + 1)} />
 
       {/* RETARGETING (2026-09-18): volver a mostrarle el anuncio a quien ya te
           visitó. Va después de "subir contactos" y antes de "los de Meta"
@@ -343,7 +393,7 @@ function Retargeting({ tenant, alCrear }: { tenant?: string; alCrear: () => void
   );
 }
 
-function Revision({ r }: { r: RevisionPublico }) {
+function Revision({ r, agregando = false }: { r: RevisionPublico; agregando?: boolean }) {
   return (
     <div className="mt-4 rounded-lg bg-arena/50 px-4 py-3">
       <p className="text-[0.95rem] font-bold text-tinta">
@@ -355,9 +405,157 @@ function Revision({ r }: { r: RevisionPublico }) {
           un número que se pueda usar.
         </p>
       )}
-      {!r.alcanza && (
+      {/* El mínimo de 100 es para CREAR un público; a uno existente se le
+          puede sumar cualquier cantidad. */}
+      {!r.alcanza && !agregando && (
         <p className="mt-2 text-[0.82rem] font-semibold text-tibio">
-          Meta pide al menos {r.minimo} y este archivo llega a {r.contactos}.
+          Meta pide al menos {r.minimo} para crear un público nuevo y este archivo llega a {r.contactos}. Si ya tienes uno, puedes agregárselos.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * TUS LEADS COMO PÚBLICO (2026-09-22).
+ *
+ * "Escribieron y no cerraron" es el retargeting más barato que existe: ya
+ * conocen el negocio y les faltó el empujón. "Compraron" sirve para excluirlos
+ * de la captación o como la mejor semilla de un similar. Primero se cuenta sin
+ * mandar nada; el botón es el consentimiento, igual que con el CSV.
+ */
+const SEGMENTOS: { id: SegmentoLeads; etiqueta: string; ayuda: string }[] = [
+  { id: "no_cerraron", etiqueta: "Escribieron y no cerraron", ayuda: "Para volver a impactarlos" },
+  { id: "ganados", etiqueta: "Compraron", ayuda: "Para excluirlos o buscar parecidos" },
+  { id: "todos", etiqueta: "Todos los que escribieron", ayuda: "" },
+];
+const VENTANAS_LEADS = [30, 90, 180, 365];
+
+function LeadsComoPublico({ tenant, alCrear }: { tenant?: string; alCrear: () => void }) {
+  const [segmento, setSegmento] = useState<SegmentoLeads>("no_cerraron");
+  const [dias, setDias] = useState(90);
+  const [conteo, setConteo] = useState<ConteoLeadsPublico | null | undefined>(undefined);
+  const [nombre, setNombre] = useState("");
+  const [conSimilar, setConSimilar] = useState(false);
+  const [creando, setCreando] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    setConteo(undefined);
+    void contarLeadsParaPublico(segmento, dias, tenant).then((c) => {
+      if (!vivo) return;
+      setConteo(c);
+      if (c) setNombre(c.nombreSugerido);
+    });
+    return () => { vivo = false; };
+  }, [segmento, dias, tenant]);
+
+  async function crear() {
+    if (!conteo?.alcanza) return;
+    setCreando(true);
+    setMsg(null);
+    try {
+      const r = await crearPublicoDesdeLeads({ segmento, dias, nombre: nombre.trim() || undefined, conSimilar }, tenant);
+      setMsg({ ok: r.ok, texto: r.mensaje });
+      if (r.ok) alCrear();
+    } catch (e) {
+      setMsg({ ok: false, texto: e instanceof Error ? e.message : "No se pudo crear el público." });
+    } finally {
+      setCreando(false);
+    }
+  }
+
+  const chip = (activo: boolean) =>
+    `rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
+      activo ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-carta"
+    }`;
+
+  return (
+    <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+      <h3 className="text-[1.05rem] font-bold text-tinta">Tus leads como público</h3>
+      <p className="mt-1 text-[0.85rem] text-frio">
+        La gente que ya te escribió es tu público más caliente, y sus teléfonos ya
+        están acá. Elige a quiénes y Meta arma el público sin subir ningún archivo.
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {SEGMENTOS.map((s) => (
+          <button key={s.id} type="button" onClick={() => setSegmento(s.id)} title={s.ayuda} className={chip(segmento === s.id)}>
+            {s.etiqueta}
+          </button>
+        ))}
+      </div>
+      <label className="mt-3 block text-[0.78rem] font-bold uppercase tracking-wide text-frio">
+        De los últimos…
+      </label>
+      <div className="mt-1.5 flex flex-wrap gap-2">
+        {VENTANAS_LEADS.map((d) => (
+          <button key={d} type="button" onClick={() => setDias(d)} className={chip(dias === d)}>
+            {d === 365 ? "12 meses" : `${d} días`}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 rounded-lg bg-arena/50 px-4 py-3">
+        {conteo === undefined ? (
+          <p className="text-[0.85rem] text-frio">Contando…</p>
+        ) : conteo === null ? (
+          <p className="text-[0.85rem] text-tibio">No pude contar tus leads. Recarga.</p>
+        ) : (
+          <>
+            <p className="text-[0.95rem] font-bold text-tinta">
+              {conteo.contactos.toLocaleString("es-PE")} contactos
+            </p>
+            {!conteo.alcanza && (
+              <p className="mt-1 text-[0.82rem] font-semibold text-tibio">
+                Meta pide al menos {conteo.minimo}. Prueba con más tiempo o con «Todos los que escribieron».
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {conteo?.alcanza && (
+        <div className="mt-3 space-y-3">
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            maxLength={80}
+            className="w-full rounded-lg bg-arena px-3 py-2 text-[0.88rem] text-tinta ring-1 ring-linea outline-none focus:ring-brasa"
+          />
+          <label className="flex items-start gap-2 text-[0.85rem] text-tinta-2">
+            <input
+              type="checkbox"
+              checked={conSimilar}
+              onChange={(e) => setConSimilar(e.target.checked)}
+              disabled={!conteo.alcanzaParaSimilar}
+              className="mt-0.5 accent-brasa disabled:opacity-40"
+            />
+            <span className={conteo.alcanzaParaSimilar ? "" : "opacity-50"}>
+              Buscar también gente parecida
+              {!conteo.alcanzaParaSimilar && (
+                <span className="block text-[0.78rem] text-frio">Hace falta {conteo.minimoSimilar} contactos.</span>
+              )}
+            </span>
+          </label>
+          <button
+            type="button"
+            onClick={() => void crear()}
+            disabled={creando}
+            className="w-full rounded-chip bg-brasa px-4 py-2.5 text-[0.88rem] font-bold text-sobre-brasa transition hover:opacity-90 disabled:opacity-50"
+          >
+            {creando ? "Creando…" : `Crear el público con ${conteo.contactos} contactos`}
+          </button>
+          <p className="text-center text-[0.76rem] text-frio">
+            Quien pidió que no le escriban no entra. Los teléfonos viajan cifrados.
+          </p>
+        </div>
+      )}
+
+      {msg && (
+        <p className={`mt-3 rounded-lg px-3 py-2 text-[0.84rem] ${msg.ok ? "bg-ok/12 text-ok" : "bg-tibio-suave text-tibio"}`}>
+          {msg.texto}
         </p>
       )}
     </div>

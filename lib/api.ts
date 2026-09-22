@@ -3,13 +3,18 @@
 // empresa activa. El token y la empresa se guardan en el navegador (ver auth.ts).
 
 import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, EMPRESA_GLOBAL, type EmpresaResumen, empresasSinRestaurantes } from "./auth";
+import { cuerpoParaFetch } from "./cuerpo";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  status: number;
+  // Sin "parameter property" (`public status`): los tests corren este archivo
+  // con `--experimental-strip-types`, que no la soporta (2026-09-22).
+  constructor(status: number, message: string) {
     super(message);
     this.name = "ApiError";
+    this.status = status;
   }
 }
 
@@ -52,12 +57,8 @@ export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
     res = await fetch(`${API_URL}${ruta}`, {
       method,
       headers,
-      // UN STRING YA ES JSON (2026-09-22). Siete funciones de este archivo
-      // —los públicos de Meta, el retargeting, prender/apagar anuncios— pasaban
-      // `body: JSON.stringify({...})`, y acá se volvía a serializar: al backend
-      // le llegaba un string JSON y zod contestaba "Expected object, received
-      // string". Nunca habían funcionado. Se acepta las dos formas.
-      body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
+      // Un string ya es JSON: se acepta las dos formas (ver lib/cuerpo.ts).
+      body: cuerpoParaFetch(body),
       // Solo la activación de placas lo usa: acepta la cookie de dueño que
       // planta el backend (reconoce este navegador al tocar su propia placa).
       credentials: conCookies ? "include" : "same-origin",
@@ -2473,6 +2474,50 @@ export async function publicosEnMeta(tenant?: string): Promise<PublicoEnMeta[]> 
 
 export async function borrarPublico(publicoId: string, tenant?: string): Promise<{ ok: boolean }> {
   return api<{ ok: boolean }>(`/anuncios/publicos/${publicoId}`, { method: "DELETE", tenant });
+}
+
+/**
+ * SUMAR A UN PÚBLICO QUE YA EXISTE (2026-09-22, pregunta de Jonathan: "si
+ * subo después otro, ¿se reemplazan?"). No se reemplazaban: cada subida
+ * creaba uno nuevo. Con esto la segunda tanda se agrega al mismo.
+ */
+export async function agregarAPublico(
+  publicoId: string,
+  datos: { nombre: string; telefonos: string[]; origen: string },
+  tenant?: string,
+): Promise<ResultadoPublico> {
+  return api<ResultadoPublico>(`/anuncios/publicos/${publicoId}/agregar`, { method: "POST", body: datos, tenant });
+}
+
+/** TUS LEADS COMO PÚBLICO (2026-09-22): los teléfonos ya están en la base. */
+export type SegmentoLeads = "no_cerraron" | "ganados" | "todos";
+
+export interface ConteoLeadsPublico {
+  contactos: number;
+  alcanza: boolean;
+  alcanzaParaSimilar: boolean;
+  minimo: number;
+  minimoSimilar: number;
+  nombreSugerido: string;
+}
+
+export async function contarLeadsParaPublico(
+  segmento: SegmentoLeads, dias: number, tenant?: string,
+): Promise<ConteoLeadsPublico | null> {
+  try {
+    return await api<ConteoLeadsPublico>(
+      `/anuncios/publicos/desde-leads/contar?segmento=${segmento}&dias=${dias}`, { tenant },
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function crearPublicoDesdeLeads(
+  datos: { segmento: SegmentoLeads; dias: number; nombre?: string; conSimilar: boolean },
+  tenant?: string,
+): Promise<ResultadoPublico> {
+  return api<ResultadoPublico>("/anuncios/publicos/desde-leads", { method: "POST", body: datos, tenant });
 }
 
 export interface PasoEmbudo {

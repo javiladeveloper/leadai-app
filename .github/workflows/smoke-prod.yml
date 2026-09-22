@@ -1,0 +1,29 @@
+# SMOKE TEST CONTRA PRODUCCIÓN (2026-09-22).
+#
+# Tres veces al día (7:00, 13:00 y 19:00 hora Perú) recorre el camino real del
+# panel contra api.leadai-pe.com y falla si algo no responde como debe. GitHub
+# avisa por correo cuando un run programado falla.
+#
+# Secrets del repo (Settings → Secrets → Actions):
+#   SMOKE_EMAIL / SMOKE_PASSWORD  un usuario de prueba con UN negocio. Sin
+#   ellos solo se revisa la salud pública (/health y /health/ads).
+name: Smoke prod
+on:
+  schedule:
+    - cron: "0 12,18,0 * * *"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Recorrer prod
+        env:
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: node scripts/smoke-prod.mjs

@@ -5,6 +5,7 @@ import {
   revisarPublico, crearPublico, listarPublicos, publicosEnMeta, borrarPublico, crearRetargeting,
   type RevisionPublico, type PublicoSubido, type PublicoEnMeta,
 } from "@/lib/api";
+import { extraerTelefonos } from "@/lib/publicos";
 
 /**
  * TUS PROPIOS CONTACTOS COMO PÚBLICO DE META (2026-09-17, pedido de Jonathan:
@@ -46,19 +47,6 @@ async function leerTexto(f: File): Promise<string> {
     return new TextDecoder(muestra[0] === 0 ? "utf-16be" : "utf-16le").decode(bytes);
   }
   return new TextDecoder("utf-8").decode(bytes);
-}
-
-/**
- * Se toma cualquier cosa que parezca un teléfono, en cualquier columna: un
- * CSV exportado de otra herramienta rara vez tiene la columna donde uno
- * espera, y pedirle al dueño que la acomode es pedirle que edite un CSV.
- */
-export function extraerTelefonos(texto: string): string[] {
-  return texto
-    .split(/\r?\n/)
-    .flatMap((l) => l.split(/[,;\t]/))
-    .map((c) => c.replace(/^"|"$/g, "").trim())
-    .filter((c) => /\d{6,}/.test(c.replace(/\D/g, "")));
 }
 
 export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
@@ -112,6 +100,10 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
         });
         return;
       }
+      // Solo viajan los teléfonos únicos, ya como dígitos (ver lib/publicos.ts):
+      // el archivo de Google Places traía coordenadas, ids y direcciones y el
+      // POST pesaba varios megas — el backend lo cortaba y el navegador veía
+      // "no pudimos conectar" (2026-09-22).
       setRevision(await revisarPublico(crudos, tenant));
     } catch (e) {
       setResultado({

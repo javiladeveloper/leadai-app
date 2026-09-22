@@ -52,7 +52,12 @@ export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
     res = await fetch(`${API_URL}${ruta}`, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      // UN STRING YA ES JSON (2026-09-22). Siete funciones de este archivo
+      // —los públicos de Meta, el retargeting, prender/apagar anuncios— pasaban
+      // `body: JSON.stringify({...})`, y acá se volvía a serializar: al backend
+      // le llegaba un string JSON y zod contestaba "Expected object, received
+      // string". Nunca habían funcionado. Se acepta las dos formas.
+      body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
       // Solo la activación de placas lo usa: acepta la cookie de dueño que
       // planta el backend (reconoce este navegador al tocar su propia placa).
       credentials: conCookies ? "include" : "same-origin",

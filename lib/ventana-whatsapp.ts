@@ -1,9 +1,15 @@
 /**
  * LA VENTANA DE WHATSAPP DE CADA CHAT (2026-09-25).
  *
- * Caso Edith: se le mandó un saludo y dos videos y nada llegó. Había escrito
- * hacía tres días, y WhatsApp solo entrega mensajes normales dentro de las
- * 24 h desde el último mensaje del cliente (72 h si llegó por un anuncio).
+ * Caso Edith: se le mandó un saludo y dos videos y nada llegó. WhatsApp solo
+ * entrega mensajes normales dentro de las 24 h desde el último mensaje del
+ * cliente.
+ *
+ * EL ANUNCIO NO LA ALARGA (2026-09-25). Primero se mostraban 72 h para quien
+ * llegó por un anuncio, y el chip de Edith decía "quedan 1 h" cuando lo que se
+ * le mandó ya no le llegaba. Las 72 h de Meta son para que los mensajes salgan
+ * sin costo, no para texto libre: la ventana es de 24 h para todos. De dónde
+ * vino se sigue mostrando porque sirve para saber cómo llegó.
  *
  * Jonathan: "necesito ver en cada chat cuál es su ventana de tiempo… hay
  * algunos que nos escriben directamente, otros llegan por publicidad". Esto
@@ -13,7 +19,7 @@
  */
 export interface Ventana {
   abierta: boolean;
-  /** 24 (escribió directo) o 72 (llegó por un anuncio). */
+  /** Siempre 24: el anuncio no alarga la ventana del texto libre. */
   horas: number;
   /** "llegó por un anuncio" / "escribió directo". */
   origen: string;
@@ -30,7 +36,7 @@ export function ventanaWhatsApp(
 ): Ventana | null {
   if (lead.canalOrigen !== "whatsapp") return null;
   const deAnuncio = Boolean(lead.adsClickId) || (lead.origenEtiqueta ?? "").startsWith("ad:");
-  const horas = deAnuncio ? 72 : 24;
+  const horas = 24;
   const origen = deAnuncio ? "llegó por un anuncio" : "escribió directo";
   if (!ultimoEntranteEn) return { abierta: false, horas, origen, cuando: "nunca te escribió", quedan: 0 };
   const pasaron = (ahora - new Date(ultimoEntranteEn).getTime()) / 3_600_000;

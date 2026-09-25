@@ -5,8 +5,8 @@ import type { Ventana } from "@/lib/ventana-whatsapp";
  * LA VENTANA DE WHATSAPP, A LA VISTA EN CADA CHAT (2026-09-25).
  *
  * Jonathan: "necesito ver en cada chat cuál es su ventana de tiempo". El chip
- * va en la cabecera: abierta o cerrada, cuánto le queda y si es de 24 h
- * (escribió directo) o de 72 h (llegó por un anuncio). Se pone ámbar cuando
+ * va en la cabecera: abierta o cerrada, cuánto le queda (24 h desde su último
+ * mensaje) y cómo llegó (directo o por un anuncio). Se pone ámbar cuando
  * quedan menos de 3 horas: es el momento de escribirle si hay algo pendiente.
  */
 export function ChipVentana({ ventana }: { ventana: Ventana }) {

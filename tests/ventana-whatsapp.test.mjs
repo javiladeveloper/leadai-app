@@ -23,12 +23,15 @@ test('Darwin escribió hace 30 min → abierta, quedan 23 h', () => {
   assert.equal(v.cuando, 'quedan 23 h');
 });
 
-test('quien llegó por un anuncio tiene 72 h', () => {
-  const v = ventanaWhatsApp({ ...wa, origenEtiqueta: 'ad:120' }, '2026-09-23T15:00:00Z', ahora);
-  assert.equal(v.abierta, true);
-  assert.equal(v.horas, 72);
+/**
+ * EL ANUNCIO NO ALARGA LA VENTANA (2026-09-25): Edith llegó por un anuncio, el
+ * chip decía "quedan 1 h" con 72 h, y lo que se le mandó no le llegó.
+ */
+test('quien llegó por un anuncio también tiene 24 h', () => {
+  const v = ventanaWhatsApp({ ...wa, origenEtiqueta: 'ad:120' }, '2026-09-22T17:54:00Z', ahora);
+  assert.equal(v.abierta, false);
+  assert.equal(v.horas, 24);
   assert.equal(v.origen, 'llegó por un anuncio');
-  assert.equal(v.cuando, 'quedan 24 h');
 });
 
 test('por cerrarse, en minutos', () => {

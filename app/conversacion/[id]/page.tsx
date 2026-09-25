@@ -22,6 +22,8 @@ import { NotaLead } from "@/components/panel/NotaLead";
 import { Burbuja } from "@/components/Burbuja";
 import { IconoChevron, IconoMic, IconoEnviar } from "@/components/Iconos";
 import { AdjuntarMedia } from "@/components/AdjuntarMedia";
+import { VentanaWhatsApp } from "@/components/VentanaWhatsApp";
+import { ventanaWhatsApp } from "@/lib/ventana-whatsapp";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
 import { useChatAlFinal } from "@/lib/useChatAlFinal";
@@ -194,6 +196,9 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
 
   useChatAlFinal(lead ? id : null, lead?.mensajes.at(-1)?.id, finRef);
   const tramo = lead ? tramoVisible(lead.mensajes, mostrar, lead.totalMensajes) : null;
+  // La ventana de 24 h de WhatsApp (caso Edith): cerrada, el chat lo dice.
+  const ventana = lead ? ventanaWhatsApp(lead, lead.ultimoEntranteEn) : null;
+  const ventanaCerrada = Boolean(ventana && !ventana.abierta);
 
   /** "Ver mensajes anteriores": más de lo que llegó y, si no alcanza, más del backend. */
   async function cargarAnteriores() {
@@ -291,6 +296,9 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
   // Composición (textarea + enviar/mic) — compartida entre mobile y desktop.
   const composicion = (
     <div className="space-y-2">
+      {lead && ventana && (
+        <VentanaWhatsApp ventana={ventana} leadId={lead.id} nombre={lead.nombre} alEnviar={() => void cargar()} />
+      )}
       {/* Respuestas de un toque: tocá una y se pone en el mensaje, listo para
           enviar o editar. Se aprenden de lo que más usas. */}
       {frases.length > 0 && !texto.trim() && (
@@ -313,6 +321,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           leadId={lead.id}
           canal={lead.canalOrigen}
           caption={texto}
+          bloqueado={ventanaCerrada ? "La conversación está cerrada: primero manda una plantilla" : undefined}
           alEnviar={() => { setTexto(""); void cargar(); }}
         />
       )}
@@ -327,8 +336,9 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           }
         }}
         rows={1}
-        placeholder={dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
-        className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+        disabled={ventanaCerrada}
+        placeholder={ventanaCerrada ? "No le va a llegar: primero manda una plantilla" : dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
+        className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa disabled:opacity-60"
       />
       {/* Botón de dictado por voz (hablar en vez de escribir). Solo si el
           navegador lo soporta. Mientras escucha, pulsa en coral. */}
@@ -424,7 +434,14 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
             </div>
           )}
           {(tramo?.visibles ?? lead.mensajes).map((m) => (
-            <Burbuja key={m.id} m={aBurbuja(m)} />
+            <div key={m.id}>
+              <Burbuja m={aBurbuja(m)} />
+              {m.direccion === "saliente" && m.estado === "fallido" && (
+                <p className="mt-0.5 text-right text-[0.72rem] font-semibold text-calor">
+                  ⚠️ {m.motivoFallo ?? "No se pudo entregar"}
+                </p>
+              )}
+            </div>
           ))}
 
           {/* Borrador listo para enviar */}

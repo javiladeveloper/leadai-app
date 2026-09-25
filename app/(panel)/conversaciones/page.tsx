@@ -34,6 +34,8 @@ import { Burbuja } from "@/components/Burbuja";
 import { ChipTemp } from "@/components/ChipTemp";
 import { IconoMic, IconoEnviar } from "@/components/Iconos";
 import { AdjuntarMedia } from "@/components/AdjuntarMedia";
+import { VentanaWhatsApp } from "@/components/VentanaWhatsApp";
+import { ventanaWhatsApp } from "@/lib/ventana-whatsapp";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { useCapacidades } from "@/lib/modo-negocio";
 import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
@@ -542,6 +544,9 @@ export default function ConversacionesPanel() {
   const leadAbierto = lead && lead.id === seleccionadoId ? lead : null;
   useChatAlFinal(seleccionadoId, leadAbierto?.mensajes.at(-1)?.id, finRef, chatRef);
   const tramo = leadAbierto ? tramoVisible(leadAbierto.mensajes, mostrar, leadAbierto.totalMensajes) : null;
+  // La ventana de 24 h de WhatsApp (caso Edith): cerrada, el chat lo dice.
+  const ventana = leadAbierto ? ventanaWhatsApp(leadAbierto, leadAbierto.ultimoEntranteEn) : null;
+  const ventanaCerrada = Boolean(ventana && !ventana.abierta);
 
   /** "Ver mensajes anteriores": más de lo que llegó y, si no alcanza, más del backend. */
   async function cargarAnteriores() {
@@ -948,7 +953,7 @@ export default function ConversacionesPanel() {
                     <Burbuja m={aBurbuja(m)} />
                     {m.direccion === "saliente" && m.estado === "fallido" && (
                       <p className="mt-0.5 text-right text-[0.72rem] font-semibold text-calor">
-                        ⚠️ No se pudo entregar — revisa el canal en Configuración
+                        ⚠️ {m.motivoFallo ?? "No se pudo entregar — revisa el canal en Configuración"}
                       </p>
                     )}
                   </div>
@@ -987,6 +992,15 @@ export default function ConversacionesPanel() {
 
               {/* Compositor en DOS filas: herramientas de IA arriba (compactas),
                   campo de escribir abajo a TODO el ancho. */}
+              {ventana && (
+                <VentanaWhatsApp
+                  ventana={ventana}
+                  leadId={lead.id}
+                  tenant={tenantSel}
+                  nombre={lead.nombre}
+                  alEnviar={() => { if (seleccionadoId) void cargarLead(seleccionadoId, tenantSel); }}
+                />
+              )}
               <div className="space-y-2 border-t border-linea bg-carta px-3 py-2.5">
                 <div className="flex items-center gap-2">
                   {/* "Asistente IA" solo donde la IA REDACTA (2026-08-19).
@@ -1040,6 +1054,7 @@ export default function ConversacionesPanel() {
                     tenant={tenantSel}
                     canal={lead.canalOrigen}
                     caption={texto}
+                    bloqueado={ventanaCerrada ? "La conversación está cerrada: primero manda una plantilla" : undefined}
                     alEnviar={() => { setTexto(""); if (seleccionadoId) void cargarLead(seleccionadoId, tenantSel); }}
                   />
                   <textarea
@@ -1053,8 +1068,9 @@ export default function ConversacionesPanel() {
                       }
                     }}
                     rows={1}
-                    placeholder={dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
-                    className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
+                    disabled={ventanaCerrada}
+                    placeholder={ventanaCerrada ? "No le va a llegar: primero manda una plantilla" : dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
+                    className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa disabled:opacity-60"
                   />
                   {dictado.soportado && (
                     <button

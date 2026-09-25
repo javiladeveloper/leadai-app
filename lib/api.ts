@@ -420,6 +420,8 @@ export interface Mensaje {
   creadoEn: string;
   // Estado del envío ('enviado' | 'fallido'): el panel marca los fallidos.
   estado?: string;
+  /** Por qué WhatsApp no lo entregó (fuera de las 24 h, número sin WhatsApp…). */
+  motivoFallo?: string;
   origen?: string; // ia | ia_aprobada | ia_editada | humano | fija | sistema
 }
 
@@ -427,6 +429,9 @@ export interface LeadDetalle extends Lead {
   mensajes: Mensaje[];
   /** Con `ultimos`: cuántos mensajes tiene la conversación en total. */
   totalMensajes?: number;
+  /** Cuándo escribió el cliente por última vez: abre o cierra la ventana de 24 h. */
+  ultimoEntranteEn?: string | null;
+  adsClickId?: string | null;
 }
 
 export interface Comision {
@@ -642,6 +647,37 @@ export async function enviarMediaLead(
     return { ok: true, comprimido: r?.comprimido, pesoMB: r?.pesoMB };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo enviar el archivo." };
+  }
+}
+
+/** Una plantilla aprobada, para reabrir la conversación pasadas las 24 h. */
+export interface PlantillaLead {
+  nombre: string;
+  idioma: string;
+  categoria: string;
+  cuerpo: string;
+  variables: number;
+}
+
+export async function listarPlantillasLead(id: string, tenant?: string): Promise<PlantillaLead[]> {
+  try {
+    const r = await api<{ plantillas: PlantillaLead[] }>(`/leads/${id}/plantillas`, { tenant });
+    return r?.plantillas ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function enviarPlantillaLead(
+  id: string,
+  p: { nombre: string; idioma: string; parametros: string[]; cuerpo: string },
+  tenant?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/leads/${id}/plantilla`, { method: "POST", body: p, tenant });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo enviar la plantilla." };
   }
 }
 

@@ -15,11 +15,13 @@ import { pesoLegible, revisarAdjunto } from "@/lib/media-chat";
  * Solo WhatsApp por ahora: Instagram y Messenger todavía mandan solo texto.
  */
 export function AdjuntarMedia({
-  leadId, tenant, canal, caption, alEnviar,
+  leadId, tenant, canal, caption, alEnviar, bloqueado,
 }: {
   leadId: string;
   tenant?: string;
   canal: string;
+  /** Por qué no se puede adjuntar ahora (p. ej. la ventana de 24 h cerrada). */
+  bloqueado?: string;
   /** Lo escrito en el cuadro: va como pie de la foto o el video. */
   caption: string;
   /** Tras enviar: limpiar el cuadro y recargar la conversación. */
@@ -31,6 +33,7 @@ export function AdjuntarMedia({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const soloWhatsApp = canal !== "whatsapp";
+  const motivoBloqueo = soloWhatsApp ? "Por ahora las fotos y los videos se envían solo por WhatsApp" : bloqueado;
 
   useEffect(() => () => { if (vista) URL.revokeObjectURL(vista); }, [vista]);
 
@@ -83,9 +86,9 @@ export function AdjuntarMedia({
       <button
         type="button"
         onClick={() => input.current?.click()}
-        disabled={soloWhatsApp || enviando}
+        disabled={Boolean(motivoBloqueo) || enviando}
         aria-label="Adjuntar foto o video"
-        title={soloWhatsApp ? "Por ahora las fotos y los videos se envían solo por WhatsApp" : "Adjuntar foto o video"}
+        title={motivoBloqueo ?? "Adjuntar foto o video"}
         className="flex h-12 w-12 items-center justify-center rounded-full bg-arena text-[1.3rem] text-tinta-2 ring-1 ring-linea transition hover:bg-arena-2 disabled:opacity-40"
       >
         📎

@@ -33,6 +33,7 @@ import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { Burbuja } from "@/components/Burbuja";
 import { ChipTemp } from "@/components/ChipTemp";
 import { IconoMic, IconoEnviar } from "@/components/Iconos";
+import { AdjuntarMedia } from "@/components/AdjuntarMedia";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { useCapacidades } from "@/lib/modo-negocio";
 import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
@@ -1034,6 +1035,13 @@ export default function ConversacionesPanel() {
                   )}
                 </div>
                 <div className="flex items-end gap-2">
+                  <AdjuntarMedia
+                    leadId={lead.id}
+                    tenant={tenantSel}
+                    canal={lead.canalOrigen}
+                    caption={texto}
+                    alEnviar={() => { setTexto(""); if (seleccionadoId) void cargarLead(seleccionadoId, tenantSel); }}
+                  />
                   <textarea
                     ref={textareaRef}
                     value={texto}

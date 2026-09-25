@@ -1,6 +1,7 @@
 import type { Mensaje } from "@/lib/tipos";
 import { haceTexto } from "@/lib/leads";
 import { IconoMic } from "./Iconos";
+import { mediaDelTexto } from "@/lib/media-chat";
 
 // Una burbuja de chat. El autor define alineación y color:
 //  · lead → izquierda, superficie clara
@@ -9,6 +10,8 @@ import { IconoMic } from "./Iconos";
 export function Burbuja({ m }: { m: Mensaje }) {
   const mio = m.autor === "tu";
   const bot = m.autor === "bot";
+  // Foto o video mandado desde el chat (2026-09-25): se ve, no el link.
+  const media = mediaDelTexto(m.texto);
 
   const clase = mio
     ? "bg-brasa text-carta rounded-br-md"
@@ -33,7 +36,17 @@ export function Burbuja({ m }: { m: Mensaje }) {
             <IconoMic className="h-3.5 w-3.5" /> Nota de voz · transcripta
           </span>
         )}
-        {m.texto}
+        {media ? (
+          <span className="flex flex-col gap-1.5">
+            {media.tipo === "video" ? (
+              <video src={media.url} controls preload="metadata" className="max-h-72 w-full rounded-xl bg-black/20" />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- archivo de nuestro storage, no un asset de Next.
+              <img src={media.url} alt={media.caption ?? "Foto enviada"} className="max-h-72 w-full rounded-xl object-cover" />
+            )}
+            {media.caption && <span>{media.caption}</span>}
+          </span>
+        ) : m.texto}
       </div>
       <span className="mt-1 px-1 text-[0.68rem] text-frio">{haceTexto(m.haceMinutos)}</span>
     </div>

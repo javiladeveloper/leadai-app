@@ -21,6 +21,7 @@ import { AccionesContacto } from "@/components/AccionesContacto";
 import { NotaLead } from "@/components/panel/NotaLead";
 import { Burbuja } from "@/components/Burbuja";
 import { IconoChevron, IconoMic, IconoEnviar } from "@/components/Iconos";
+import { AdjuntarMedia } from "@/components/AdjuntarMedia";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
 import { useChatAlFinal } from "@/lib/useChatAlFinal";
@@ -307,6 +308,14 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
         </div>
       )}
       <div className="flex items-end gap-2">
+      {lead && (
+        <AdjuntarMedia
+          leadId={lead.id}
+          canal={lead.canalOrigen}
+          caption={texto}
+          alEnviar={() => { setTexto(""); void cargar(); }}
+        />
+      )}
       <textarea
         ref={textareaRef}
         value={texto}

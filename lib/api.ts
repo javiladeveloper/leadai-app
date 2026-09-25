@@ -628,6 +628,23 @@ export async function obtenerLead(id: string, tenant?: string, ultimos?: number)
   }
 }
 
+/**
+ * Manda una FOTO o un VIDEO por WhatsApp desde el chat (2026-09-25). El
+ * servidor lo convierte y comprime para WhatsApp; puede tardar unos segundos.
+ */
+export async function enviarMediaLead(
+  id: string, archivo: string, caption?: string, tenant?: string,
+): Promise<{ ok: boolean; error?: string; comprimido?: boolean; pesoMB?: number }> {
+  try {
+    const r = await api<{ ok: boolean; comprimido?: boolean; pesoMB?: number }>(`/leads/${id}/media`, {
+      method: "POST", body: { archivo, ...(caption?.trim() ? { caption: caption.trim() } : {}) }, tenant,
+    });
+    return { ok: true, comprimido: r?.comprimido, pesoMB: r?.pesoMB };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo enviar el archivo." };
+  }
+}
+
 export async function accionLead(
   id: string,
   accion: {

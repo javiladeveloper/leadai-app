@@ -1694,6 +1694,7 @@ export interface PublicacionDestino {
   canal: string;
   estado: string; // pendiente | publicada | fallida
   error?: string | null; // por qué falló (se muestra en el historial)
+  formato?: "post" | "historia"; // 2026-09-25: historias
 }
 export interface Publicacion {
   id: string;
@@ -1855,6 +1856,8 @@ export async function crearPublicacion(input: {
   canales: string[];
   programadaPara?: string;
   ajustesTikTok?: AjustesTikTok;
+  /** Post/Reel, historia o los dos (2026-09-25). Sin él, post como siempre. */
+  formato?: "post" | "historia" | "ambos";
 }, tenant?: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/publicaciones", { method: "POST", body: input, tenant });

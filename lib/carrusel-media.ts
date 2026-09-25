@@ -111,9 +111,11 @@ export function faltaParaPublicar(estado: {
   redes: string[];
   programar: boolean;
   fecha: string;
+  formato?: FormatoPublicacion;
 }): string[] {
   const falta: string[] = [];
-  if (!estado.texto.trim()) falta.push('escribe el texto del post');
+  // Una historia sola no lleva texto: Meta no lo muestra.
+  if (!estado.texto.trim() && estado.formato !== 'historia') falta.push('escribe el texto del post');
   if (estado.redes.length === 0) falta.push('elige al menos una red');
   // Instagram no publica sin imagen ni video; se nombra la red para que se
   // entienda que es requisito de ella y no un capricho nuestro.
@@ -157,4 +159,66 @@ export function porcentajeProgreso(p: ProgresoSubida | null): number {
   if (!p || p.total === 0) return 0;
   const crudo = (p.hechos / p.total) * 100;
   return Math.max(8, Math.round(crudo));
+}
+
+/**
+ * HISTORIAS (2026-09-25, Jonathan: "¿podemos subir historias?").
+ *
+ * Hasta hoy todo video salía como Reel. Una historia tiene sus propias
+ * reglas y conviene decirlas ANTES de publicar, no con un error de Meta:
+ *  - solo Instagram y Facebook (TikTok no tiene historias),
+ *  - UNA foto o UN video, nada de carrusel,
+ *  - no muestra el texto,
+ *  - hasta 60 segundos y vertical 9:16.
+ * "Ambos" publica el post de siempre y además la historia.
+ */
+export type FormatoPublicacion = 'post' | 'historia' | 'ambos';
+
+export const FORMATOS: { id: FormatoPublicacion; label: string; ayuda: string }[] = [
+  { id: 'post', label: 'Post / Reel', ayuda: 'Queda en tu perfil. El video sale como Reel.' },
+  { id: 'historia', label: 'Historia', ayuda: 'Dura 24 horas. No muestra el texto.' },
+  { id: 'ambos', label: 'Post e historia', ayuda: 'Sale en tu perfil y también como historia.' },
+];
+
+/** "Historia publicada", "Post e historia programados": concuerda con lo que salió. */
+export function mensajeTrasPublicar(formato: FormatoPublicacion, programar: boolean): string {
+  if (formato === 'historia') return programar ? 'Historia programada' : 'Historia publicada';
+  if (formato === 'ambos') return programar ? 'Post e historia programados' : 'Post e historia publicados';
+  return programar ? 'Post programado' : 'Post publicado';
+}
+
+/** Máximo que aceptamos para un video de historia. */
+export const SEG_MAX_HISTORIA = 60;
+
+export type ChequeoHistoria = { nivel: 'bloqueo' | 'aviso'; texto: string };
+
+export function chequeosDeHistoria(e: {
+  formato: FormatoPublicacion;
+  redes: string[];
+  cantidadMedia: number;
+  esVideo: boolean;
+  duracionSeg?: number | null;
+  ancho?: number | null;
+  alto?: number | null;
+}): ChequeoHistoria[] {
+  if (e.formato === 'post') return [];
+  const c: ChequeoHistoria[] = [];
+  if (!e.redes.some((r) => r === 'instagram' || r === 'messenger')) {
+    c.push({ nivel: 'bloqueo', texto: 'Las historias salen en Instagram y Facebook: elige al menos una de las dos.' });
+  }
+  if (e.formato === 'historia' && e.redes.includes('tiktok')) {
+    c.push({ nivel: 'bloqueo', texto: 'TikTok no tiene historias: quítalo o elige "Post e historia".' });
+  }
+  if (e.cantidadMedia === 0) {
+    c.push({ nivel: 'bloqueo', texto: 'La historia necesita una foto o un video.' });
+  } else if (e.cantidadMedia > 1) {
+    c.push({ nivel: 'bloqueo', texto: 'Una historia lleva una sola foto o un solo video: deja solo uno.' });
+  }
+  if (e.esVideo && e.duracionSeg != null && e.duracionSeg > SEG_MAX_HISTORIA) {
+    c.push({ nivel: 'bloqueo', texto: `Una historia dura hasta ${SEG_MAX_HISTORIA} segundos y este video dura ${Math.round(e.duracionSeg)}.` });
+  }
+  if (e.ancho && e.alto && e.ancho > e.alto) {
+    c.push({ nivel: 'aviso', texto: 'Es horizontal: en la historia se verá con franjas (lo ideal es vertical 9:16).' });
+  }
+  return c;
 }

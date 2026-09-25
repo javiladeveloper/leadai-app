@@ -26,6 +26,8 @@ import { useState } from "react";
  */
 
 type RedId = "instagram" | "messenger" | "tiktok";
+/** Lo que se puede previsualizar: cada red, y la historia (2026-09-25). */
+type Vista = RedId | "historia";
 
 export function PreviewRedes({
   redes,
@@ -34,6 +36,7 @@ export function PreviewRedes({
   mediaUrls,
   tipoMedia,
   cuando,
+  formato = "post",
 }: {
   /** Las que eligió publicar. Vacío = se muestra Instagram como referencia. */
   redes: string[];
@@ -48,12 +51,17 @@ export function PreviewRedes({
   tipoMedia: "imagen" | "video" | null;
   /** "Ahora" o la fecha programada. */
   cuando: string;
+  /** Post, historia o los dos: la historia tiene su propia pestaña. */
+  formato?: "post" | "historia" | "ambos";
 }) {
   const disponibles = (["instagram", "messenger", "tiktok"] as RedId[]).filter(
-    (r) => redes.includes(r),
+    (r) => redes.includes(r) && !(formato === "historia" && r === "tiktok"),
   );
-  const lista = disponibles.length > 0 ? disponibles : (["instagram"] as RedId[]);
-  const [ver, setVer] = useState<RedId>(lista[0]);
+  const posts: Vista[] = formato === "historia"
+    ? []
+    : disponibles.length > 0 ? disponibles : ["instagram"];
+  const lista: Vista[] = formato === "post" ? posts : [...posts, "historia"];
+  const [ver, setVer] = useState<Vista>(lista[0]);
   // Si desmarcó la red que estaba viendo, se cae a la primera disponible en
   // vez de mostrar un preview de una red a la que ya no va a publicar.
   const activa = lista.includes(ver) ? ver : lista[0];
@@ -115,15 +123,63 @@ export function PreviewRedes({
           tipoMedia={tipoMedia}
         />
       )}
+      {activa === "historia" && (
+        <PreviewHistoria
+          inicial={inicial}
+          negocio={negocio}
+          mediaUrl={mediaUrls[0] ?? null}
+          tipoMedia={tipoMedia}
+        />
+      )}
     </div>
   );
 }
 
-const NOMBRE: Record<RedId, string> = {
+const NOMBRE: Record<Vista, string> = {
   instagram: "Instagram",
   messenger: "Facebook",
   tiktok: "TikTok",
+  historia: "Historia",
 };
+
+/**
+ * LA HISTORIA (2026-09-25). Pantalla completa vertical 9:16, sin texto: lo
+ * que el dueño tiene que ver es cómo recorta su foto y que el copy no sale.
+ * Es igual en Instagram y en Facebook, por eso es una sola pestaña.
+ */
+function PreviewHistoria({
+  inicial, negocio, mediaUrl, tipoMedia,
+}: { inicial: string; negocio: string; mediaUrl: string | null; tipoMedia: "imagen" | "video" | null }) {
+  return (
+    <div>
+      <div className="relative mx-auto aspect-[9/16] w-full max-w-[240px] overflow-hidden rounded-[18px] bg-black ring-1 ring-linea">
+        {mediaUrl ? (
+          tipoMedia === "video" ? (
+            <video src={mediaUrl} className="h-full w-full object-cover" muted playsInline controls />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={mediaUrl} alt="Vista de la historia" className="h-full w-full object-cover" />
+          )
+        ) : (
+          <SinMedia alto="h-full" />
+        )}
+        <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent px-2.5 pb-6 pt-2">
+          <div className="h-0.5 w-full rounded-full bg-white/40">
+            <div className="h-full w-1/3 rounded-full bg-white" />
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-brasa text-[0.7rem] font-bold text-carta">{inicial}</span>
+            <span className="text-[0.74rem] font-semibold text-white">{negocio || "Tu negocio"}</span>
+            <span className="text-[0.7rem] text-white/70">· ahora</span>
+          </div>
+        </div>
+      </div>
+      <p className="mt-2 text-center text-[0.74rem] text-frio">
+        Así sale en Instagram y en Facebook. La historia no muestra el texto y dura 24 horas.
+      </p>
+    </div>
+  );
+}
 
 /** El hueco cuando todavía no subió nada: sin foto no hay nada que mostrar. */
 function SinMedia({ alto = "aspect-square" }: { alto?: string }) {

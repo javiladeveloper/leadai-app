@@ -14,6 +14,7 @@ import { SkeletonLista } from "@/components/Skeletons";
 import {
   MAX_MEDIA, revisarTanda, tipoMediaDe, moverEn, faltaParaPublicar,
   textoProgreso, porcentajeProgreso, type ProgresoSubida,
+  FORMATOS, chequeosDeHistoria, mensajeTrasPublicar, type FormatoPublicacion,
 } from "@/lib/carrusel-media";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, CabeceraFormulario, PublicarIlustracion } from "@/components/panel/HeroSeccion";
@@ -98,6 +99,17 @@ function chequeosDeRed(
   return c;
 }
 
+// Lee ancho y alto de una foto antes de subirla (para el aviso de historia horizontal).
+function leerMedidasImagen(file: File): Promise<{ ancho: number; alto: number } | null> {
+  return new Promise((resolver) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { resolver({ ancho: img.naturalWidth, alto: img.naturalHeight }); URL.revokeObjectURL(url); };
+    img.onerror = () => { resolver(null); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
+}
+
 // Lee duración y dimensiones de un video ANTES de subirlo (object URL local).
 function leerMetaVideo(file: File): Promise<{ duracionSeg: number; ancho: number; alto: number } | null> {
   return new Promise((resolver) => {
@@ -158,6 +170,8 @@ export default function PublicarPanel(
   const [tipoMedia, setTipoMedia] = useState<"imagen" | "video">("imagen");
   const [meta, setMeta] = useState<MetaMedia | null>(null);
   const [redes, setRedes] = useState<string[]>([]);
+  // Post/Reel, historia o los dos (2026-09-25).
+  const [formato, setFormato] = useState<FormatoPublicacion>("post");
   const [programar, setProgramar] = useState(false);
   const [fecha, setFecha] = useState("");
   const [subiendo, setSubiendo] = useState(false);
@@ -346,6 +360,11 @@ export default function PublicarPanel(
     if (esVideo) {
       const v = await leerMetaVideo(file);
       if (v) m = { pesoMB, ...v };
+    } else {
+      // Las medidas de la foto sirven para avisar que una historia horizontal
+      // sale con franjas.
+      const d = await leerMedidasImagen(file);
+      if (d) m = { ...m, ...d };
     }
     const dataUrl = await new Promise<string>((ok, no) => {
       const r = new FileReader();
@@ -423,13 +442,18 @@ export default function PublicarPanel(
     label: REDES.find((x) => x.id === r)?.label ?? r,
     lista: chequeosDeRed(r, ctx),
   }));
-  const hayBloqueo = chequeos.some((c) => c.lista.some((x) => x.nivel === "bloqueo"));
+  const historia = chequeosDeHistoria({
+    formato, redes, cantidadMedia: mediaUrls.length, esVideo: tipoMedia === "video",
+    duracionSeg: meta?.duracionSeg, ancho: meta?.ancho, alto: meta?.alto,
+  });
+  const hayBloqueo = chequeos.some((c) => c.lista.some((x) => x.nivel === "bloqueo"))
+    || historia.some((x) => x.nivel === "bloqueo");
   // Lo que falta para poder publicar, dicho en vez de un botón gris y mudo.
-  const falta = faltaParaPublicar({ texto, cantidadMedia: mediaUrls.length, redes, programar, fecha });
+  const falta = faltaParaPublicar({ texto, cantidadMedia: mediaUrls.length, redes, programar, fecha, formato });
 
   async function publicar() {
-    if (!texto.trim() || redes.length === 0 || publicando || subiendo) return;
-    const bloqueo = chequeos.flatMap((c) => c.lista).find((x) => x.nivel === "bloqueo");
+    if ((!texto.trim() && formato !== "historia") || redes.length === 0 || publicando || subiendo) return;
+    const bloqueo = [...chequeos.flatMap((c) => c.lista), ...historia].find((x) => x.nivel === "bloqueo");
     if (bloqueo) { setMsg(bloqueo.texto); return; }
     // TikTok EXIGE que la privacidad la elija una persona, sin valor por
     // defecto: sin eso no se manda nada.
@@ -444,6 +468,7 @@ export default function PublicarPanel(
       mediaUrls,
       tipoMedia: tipoMediaDe(mediaUrls.length, tipoMedia === "video"),
       canales: redes,
+      formato,
       programadaPara: programar && fecha ? new Date(fecha).toISOString() : undefined,
       // Lo que eligio el dueño para TikTok. Solo viaja si TikTok es destino.
       ajustesTikTok: quiereTikTok && ttPrivacidad
@@ -458,7 +483,7 @@ export default function PublicarPanel(
     setPublicando(false);
     if (r.ok) {
       setTexto(""); quitarMedia(); setProgramar(false); setFecha("");
-      setMsg(programar ? "✓ Post programado" : "✓ Post publicado");
+      setMsg(`✓ ${mensajeTrasPublicar(formato, programar)}`);
       cargar();
     } else {
       setMsg(r.error ?? "No se pudo publicar.");
@@ -691,6 +716,7 @@ export default function PublicarPanel(
               texto={texto}
               mediaUrls={mediaUrls}
               tipoMedia={tipoMedia}
+              formato={formato}
               cuando={
                 programar && fecha
                   ? new Date(fecha).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })
@@ -748,6 +774,30 @@ export default function PublicarPanel(
               );
             })}
           </div>
+
+          {/* PUBLICAR COMO (2026-09-25). Hasta hoy todo video salía como Reel;
+              ahora también puede salir como historia, o las dos cosas. */}
+          <p className="mb-2 mt-4 text-[0.9rem] font-bold text-tinta">Publicar como</p>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Publicar como">
+            {FORMATOS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="radio"
+                aria-checked={formato === f.id}
+                onClick={() => setFormato(f.id)}
+                className={`rounded-chip px-4 py-2 text-[0.85rem] font-semibold transition ${
+                  formato === f.id ? "bg-brasa text-carta" : "bg-arena/70 text-tinta-2 hover:bg-arena"
+                }`}
+              >
+                {formato === f.id ? "✓ " : ""}{f.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[0.76rem] text-frio">
+            {FORMATOS.find((f) => f.id === formato)?.ayuda}
+            {formato !== "post" && " Las historias salen en Instagram y Facebook: una sola foto o un video de hasta 60 segundos, mejor vertical."}
+          </p>
 
           {/*
             OPCIONES DE TIKTOK (2026-09-20). TikTok no deja que la app decida
@@ -825,9 +875,9 @@ export default function PublicarPanel(
           )}
 
           {/* REQUISITOS por red elegida: qué falta o qué conviene ajustar */}
-          {chequeos.some((c) => c.lista.length > 0) && (
+          {(chequeos.some((c) => c.lista.length > 0) || historia.length > 0) && (
             <div className="mt-3 space-y-1.5">
-              {chequeos.flatMap((c) =>
+              {[...chequeos, { red: "historia", lista: historia }].flatMap((c) =>
                 c.lista.map((x, i) => (
                   <p
                     key={`${c.red}-${i}`}
@@ -950,6 +1000,7 @@ export default function PublicarPanel(
                       {p.destinos.map((d) => (
                         <span key={d.id} className="rounded-full bg-arena px-2 py-0.5 font-semibold">
                           {d.canal === "instagram" ? "Instagram" : d.canal === "tiktok" ? "TikTok" : "Página de FB"}
+                          {d.formato === "historia" ? " · historia" : ""}
                           {d.estado === "publicada" ? " ✓" : d.estado === "fallida" ? " ✕" : ""}
                         </span>
                       ))}
@@ -960,7 +1011,8 @@ export default function PublicarPanel(
                     {/* POR QUÉ falló (antes el error quedaba escondido en la BD) */}
                     {errores.map((d) => (
                       <p key={d.id} className="mt-1.5 rounded-tarjeta bg-alerta-suave px-2.5 py-1.5 text-[0.76rem] text-alerta-hondo">
-                        {d.canal === "tiktok" ? "TikTok" : d.canal === "instagram" ? "Instagram" : "Facebook"}: {d.error}
+                        {d.canal === "tiktok" ? "TikTok" : d.canal === "instagram" ? "Instagram" : "Facebook"}
+                        {d.formato === "historia" ? " (historia)" : ""}: {d.error}
                       </p>
                     ))}
                   </div>

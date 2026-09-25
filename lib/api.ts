@@ -425,6 +425,8 @@ export interface Mensaje {
 
 export interface LeadDetalle extends Lead {
   mensajes: Mensaje[];
+  /** Con `ultimos`: cuántos mensajes tiene la conversación en total. */
+  totalMensajes?: number;
 }
 
 export interface Comision {
@@ -615,9 +617,11 @@ export async function leadsRecientes(n = 5): Promise<Lead[]> {
   }
 }
 
-export async function obtenerLead(id: string, tenant?: string): Promise<LeadDetalle | null> {
+export async function obtenerLead(id: string, tenant?: string, ultimos?: number): Promise<LeadDetalle | null> {
   try {
-    return await api<LeadDetalle>(`/leads/${id}`, { tenant });
+    // `ultimos`: solo los N más recientes (ver lib/chat-tramos.ts). Sin él,
+    // todo el historial, como siempre.
+    return await api<LeadDetalle>(`/leads/${id}${ultimos ? `?ultimos=${ultimos}` : ""}`, { tenant });
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return null;
     throw e;
@@ -1695,6 +1699,8 @@ export interface PublicacionDestino {
   estado: string; // pendiente | publicada | fallida
   error?: string | null; // por qué falló (se muestra en el historial)
   formato?: "post" | "historia"; // 2026-09-25: historias
+  /** Id en la red: en TikTok es el publish_id para consultar el estado. */
+  postExterno?: string | null;
 }
 export interface Publicacion {
   id: string;
@@ -1832,6 +1838,9 @@ export interface OpcionesTikTok {
   duetoDesactivado?: boolean;
   stitchDesactivado?: boolean;
   duracionMaxSeg?: number | null;
+  /** `false` = TikTok dice que la cuenta no puede publicar ahora (tope diario, bloqueo). */
+  puedePublicar?: boolean;
+  motivoNoPuede?: string;
 }
 
 export async function opcionesTikTok(tenant?: string): Promise<OpcionesTikTok> {
@@ -1847,6 +1856,24 @@ export interface AjustesTikTok {
   desactivarComentario?: boolean;
   desactivarDueto?: boolean;
   desactivarStitch?: boolean;
+  /** Contenido comercial (2026-09-25): promociona tu propio negocio. */
+  marcaPropia?: boolean;
+  /** Contenido comercial: promociona a un tercero (colaboración pagada). */
+  contenidoDeMarca?: boolean;
+}
+
+/** En qué va un video mandado a TikTok (tarda unos minutos en procesarse). */
+export type EstadoTikTok =
+  | { estado: "procesando" }
+  | { estado: "publicado" }
+  | { estado: "fallido"; motivo: string };
+
+export async function estadoTikTok(publishId: string, tenant?: string): Promise<EstadoTikTok | null> {
+  try {
+    return await api<EstadoTikTok>(`/publicaciones/tiktok/estado/${encodeURIComponent(publishId)}`, { tenant });
+  } catch {
+    return null;
+  }
 }
 
 export async function crearPublicacion(input: {
@@ -1858,10 +1885,10 @@ export async function crearPublicacion(input: {
   ajustesTikTok?: AjustesTikTok;
   /** Post/Reel, historia o los dos (2026-09-25). Sin él, post como siempre. */
   formato?: "post" | "historia" | "ambos";
-}, tenant?: string): Promise<{ ok: boolean; error?: string }> {
+}, tenant?: string): Promise<{ ok: boolean; error?: string; publicacion?: Publicacion | null }> {
   try {
-    await api("/publicaciones", { method: "POST", body: input, tenant });
-    return { ok: true };
+    const r = await api<{ publicacion?: Publicacion | null }>("/publicaciones", { method: "POST", body: input, tenant });
+    return { ok: true, publicacion: r?.publicacion ?? null };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo crear" };
   }

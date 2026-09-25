@@ -22,6 +22,8 @@ import { NotaLead } from "@/components/panel/NotaLead";
 import { Burbuja } from "@/components/Burbuja";
 import { IconoChevron, IconoMic, IconoEnviar } from "@/components/Iconos";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
+import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
+import { useChatAlFinal } from "@/lib/useChatAlFinal";
 
 type Estado = "cargando" | "ok" | "error" | "no-encontrado";
 
@@ -68,6 +70,10 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // El chat por tramos y abierto en el último mensaje (ver lib/chat-tramos.ts).
+  const [mostrar, setMostrar] = useState(MENSAJES_VISIBLES);
+  const pedidosRef = useRef(MENSAJES_A_PEDIR);
+  const finRef = useRef<HTMLDivElement>(null);
   // Dictado por voz: al hablar, agrega lo dicho al final del mensaje.
   const dictado = useDictado((fragmento) =>
     setTexto((t) => (t ? `${t} ${fragmento}` : fragmento)),
@@ -112,7 +118,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
 
   const cargar = useCallback(async () => {
     try {
-      const r = await obtenerLead(id);
+      const r = await obtenerLead(id, undefined, pedidosRef.current);
       if (r) {
         setLead(r);
         setEstado("ok");
@@ -183,6 +189,20 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
       setAccionError(r.error ?? "No se pudo registrar la venta.");
     }
     setEnviando(false);
+  }
+
+  useChatAlFinal(lead ? id : null, lead?.mensajes.at(-1)?.id, finRef);
+  const tramo = lead ? tramoVisible(lead.mensajes, mostrar, lead.totalMensajes) : null;
+
+  /** "Ver mensajes anteriores": más de lo que llegó y, si no alcanza, más del backend. */
+  async function cargarAnteriores() {
+    if (!lead) return;
+    const r = verAnteriores({ mostrar, cargados: lead.mensajes.length, pedidos: pedidosRef.current, total: lead.totalMensajes });
+    setMostrar(r.mostrar);
+    if (r.pedir) {
+      pedidosRef.current = r.pedir;
+      await cargar();
+    }
   }
 
   if (!listo) return null;
@@ -383,7 +403,18 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           {lead.mensajes.length === 0 && (
             <p className="text-center text-frio">Todavía no hay mensajes en esta conversación.</p>
           )}
-          {lead.mensajes.map((m) => (
+          {tramo && tramo.anteriores > 0 && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => void cargarAnteriores()}
+                className="rounded-chip bg-carta px-3 py-1 text-[0.76rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
+              >
+                ↑ Ver mensajes anteriores ({tramo.anteriores} más)
+              </button>
+            </div>
+          )}
+          {(tramo?.visibles ?? lead.mensajes).map((m) => (
             <Burbuja key={m.id} m={aBurbuja(m)} />
           ))}
 
@@ -411,6 +442,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
           )}
+          <div ref={finRef} />
         </main>
 
         {accionError && (

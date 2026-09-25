@@ -35,6 +35,8 @@ import { ChipTemp } from "@/components/ChipTemp";
 import { IconoMic, IconoEnviar } from "@/components/Iconos";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { useCapacidades } from "@/lib/modo-negocio";
+import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
+import { useChatAlFinal } from "@/lib/useChatAlFinal";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -183,6 +185,12 @@ export default function ConversacionesPanel() {
   const [reiniciarConfirm, setReiniciarConfirm] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // El chat por tramos y abierto en el último mensaje (ver lib/chat-tramos.ts).
+  const [mostrar, setMostrar] = useState(MENSAJES_VISIBLES);
+  const pedidosRef = useRef(MENSAJES_A_PEDIR);
+  const abiertoRef = useRef<string | null>(null);
+  const chatRef = useRef<HTMLElement>(null);
+  const finRef = useRef<HTMLDivElement>(null);
   const dictado = useDictado((fragmento) =>
     setTexto((t) => (t ? `${t} ${fragmento}` : fragmento)),
   );
@@ -271,7 +279,10 @@ export default function ConversacionesPanel() {
 
   const cargarLead = useCallback(async (id: string, tenant?: string) => {
     try {
-      const r = await obtenerLead(id, tenant);
+      const r = await obtenerLead(id, tenant, pedidosRef.current);
+      // Una respuesta lenta de OTRO chat no pisa al que está abierto (mismo
+      // arreglo que la bandeja de Sania).
+      if (abiertoRef.current && abiertoRef.current !== id) return;
       setLead(r);
       setEstadoLead("ok");
       // Si el backend ya no encuentra este lead (404 → null), no dejamos la
@@ -305,6 +316,9 @@ export default function ConversacionesPanel() {
 
   useEffect(() => {
     if (!seleccionadoId) return;
+    abiertoRef.current = seleccionadoId;
+    pedidosRef.current = MENSAJES_A_PEDIR;
+    setMostrar(MENSAJES_VISIBLES);
     setEstadoLead("cargando");
     setVentaAbierta(false);
     setAccionError(null);
@@ -522,6 +536,21 @@ export default function ConversacionesPanel() {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 1500);
     });
+  }
+
+  const leadAbierto = lead && lead.id === seleccionadoId ? lead : null;
+  useChatAlFinal(seleccionadoId, leadAbierto?.mensajes.at(-1)?.id, finRef, chatRef);
+  const tramo = leadAbierto ? tramoVisible(leadAbierto.mensajes, mostrar, leadAbierto.totalMensajes) : null;
+
+  /** "Ver mensajes anteriores": más de lo que llegó y, si no alcanza, más del backend. */
+  async function cargarAnteriores() {
+    if (!leadAbierto || !seleccionadoId) return;
+    const r = verAnteriores({ mostrar, cargados: leadAbierto.mensajes.length, pedidos: pedidosRef.current, total: leadAbierto.totalMensajes });
+    setMostrar(r.mostrar);
+    if (r.pedir) {
+      pedidosRef.current = r.pedir;
+      await cargarLead(seleccionadoId, tenantSel);
+    }
   }
 
   if (!listo) return null;
@@ -898,11 +927,22 @@ export default function ConversacionesPanel() {
               )}
 
               {/* Burbujas del chat */}
-              <main className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+              <main ref={chatRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
                 {lead.mensajes.length === 0 && (
                   <p className="text-center text-frio">Todavía no hay mensajes en esta conversación.</p>
                 )}
-                {lead.mensajes.map((m) => (
+                {tramo && tramo.anteriores > 0 && (
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => void cargarAnteriores()}
+                      className="rounded-chip bg-carta px-3 py-1 text-[0.76rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
+                    >
+                      ↑ Ver mensajes anteriores ({tramo.anteriores} más)
+                    </button>
+                  </div>
+                )}
+                {(tramo?.visibles ?? lead.mensajes).map((m) => (
                   <div key={m.id}>
                     <Burbuja m={aBurbuja(m)} />
                     {m.direccion === "saliente" && m.estado === "fallido" && (
@@ -937,6 +977,7 @@ export default function ConversacionesPanel() {
                     </div>
                   </div>
                 )}
+                <div ref={finRef} />
               </main>
 
               {accionError && (

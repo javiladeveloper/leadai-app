@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { haySesion, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import {
   listarPublicaciones, plantillasPost, subirMediaPost, crearPublicacion,
-  listarCanales, borrarPublicacion, opcionesTikTok,
+  listarCanales, borrarPublicacion, opcionesTikTok, estadoTikTok,
   type Publicacion, type PlantillaPost, type OpcionesTikTok,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -185,10 +185,25 @@ export default function PublicarPanel(
    */
   const [tiktok, setTiktok] = useState<OpcionesTikTok | null>(null);
   const [ttPrivacidad, setTtPrivacidad] = useState("");
+  /**
+   * AUDIT DE DIRECT POST RECHAZADO (2026-09-24). Tres cosas del compositor
+   * incumplían la guía de TikTok y se corrigen acá:
+   * · comentarios/dúos/stitch salían MARCADOS por defecto ("none should be
+   *   checked by default");
+   * · el contenido comercial era un solo check sin "Tu marca" / "Contenido
+   *   de marca" ni sus etiquetas, y no llegaba a TikTok;
+   * · no se respetaba la duración máxima de la cuenta ni se avisaba que el
+   *   video tarda unos minutos en aparecer (ni se seguía su estado).
+   */
   const [ttComercial, setTtComercial] = useState(false);
-  const [ttComentario, setTtComentario] = useState(false);
-  const [ttDueto, setTtDueto] = useState(false);
-  const [ttStitch, setTtStitch] = useState(false);
+  const [ttMarcaPropia, setTtMarcaPropia] = useState(false);
+  const [ttDeMarca, setTtDeMarca] = useState(false);
+  const [ttPermiteComentario, setTtPermiteComentario] = useState(false);
+  const [ttPermiteDueto, setTtPermiteDueto] = useState(false);
+  const [ttPermiteStitch, setTtPermiteStitch] = useState(false);
+  /** En qué va el último video mandado a TikTok (TikTok lo procesa unos minutos). */
+  const [ttEstado, setTtEstado] = useState<"" | "procesando" | "publicado" | "fallido">("");
+  const [ttEstadoMotivo, setTtEstadoMotivo] = useState("");
   const [publicando, setPublicando] = useState(false);
   const [msg, setMsg] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -337,10 +352,11 @@ export default function PublicarPanel(
     void opcionesTikTok(g.tenantLista).then((o) => {
       if (!vivo) return;
       setTiktok(o);
-      // Lo que la cuenta no permite se fuerza a desactivado, no a elegible.
-      if (o.comentarioDesactivado) setTtComentario(true);
-      if (o.duetoDesactivado) setTtDueto(true);
-      if (o.stitchDesactivado) setTtStitch(true);
+      // Nada arranca permitido: el dueño lo prende a mano. Lo que la cuenta
+      // no permite queda apagado y en gris.
+      setTtPermiteComentario(false);
+      setTtPermiteDueto(false);
+      setTtPermiteStitch(false);
     });
     return () => { vivo = false; };
   }, [quiereTikTok, g.tenantLista]);
@@ -457,9 +473,9 @@ export default function PublicarPanel(
     if (bloqueo) { setMsg(bloqueo.texto); return; }
     // TikTok EXIGE que la privacidad la elija una persona, sin valor por
     // defecto: sin eso no se manda nada.
-    if (quiereTikTok && tiktok?.conectado && !ttPrivacidad) {
-      setMsg("Elige quién puede ver el video en TikTok antes de publicar.");
-      return;
+    if (quiereTikTok && tiktok?.conectado) {
+      const errTt = errorTikTok();
+      if (errTt) { setMsg(errTt); return; }
     }
     setPublicando(true);
     setMsg("");
@@ -474,9 +490,11 @@ export default function PublicarPanel(
       ajustesTikTok: quiereTikTok && ttPrivacidad
         ? {
             privacidad: ttPrivacidad,
-            desactivarComentario: ttComentario,
-            desactivarDueto: ttDueto,
-            desactivarStitch: ttStitch,
+            desactivarComentario: !ttPermiteComentario,
+            desactivarDueto: !ttPermiteDueto,
+            desactivarStitch: !ttPermiteStitch,
+            marcaPropia: ttComercial && ttMarcaPropia,
+            contenidoDeMarca: ttComercial && ttDeMarca,
           }
         : undefined,
     }, g.tenantLista);
@@ -484,10 +502,48 @@ export default function PublicarPanel(
     if (r.ok) {
       setTexto(""); quitarMedia(); setProgramar(false); setFecha("");
       setMsg(`✓ ${mensajeTrasPublicar(formato, programar)}`);
+      // TikTok procesa el video unos minutos: se sigue su estado para que el
+      // dueño sepa si ya salió o si falló (lo exige la guía de Direct Post).
+      const ttDestino = r.publicacion?.destinos.find((d) => d.canal === "tiktok" && d.postExterno);
+      if (ttDestino?.postExterno) seguirTikTok(ttDestino.postExterno);
       cargar();
     } else {
       setMsg(r.error ?? "No se pudo publicar.");
     }
+  }
+
+  /** Lo que impide publicar en TikTok, dicho claro; `null` si está todo. */
+  function errorTikTok(): string | null {
+    if (!tiktok?.conectado) return null;
+    if (tiktok.puedePublicar === false) {
+      return tiktok.motivoNoPuede ?? "Tu cuenta de TikTok no puede publicar ahora. Intenta más tarde.";
+    }
+    if (!ttPrivacidad) return "Elige quién puede ver el video en TikTok antes de publicar.";
+    if (tiktok.duracionMaxSeg && meta?.duracionSeg != null && meta.duracionSeg > tiktok.duracionMaxSeg) {
+      return `Tu cuenta de TikTok acepta videos de hasta ${Math.floor(tiktok.duracionMaxSeg / 60)} min ${tiktok.duracionMaxSeg % 60}s. Este es más largo.`;
+    }
+    if (ttComercial && !ttMarcaPropia && !ttDeMarca) {
+      return "Indica si tu video promociona tu propio negocio, a un tercero o a ambos.";
+    }
+    if (ttComercial && ttDeMarca && ttPrivacidad === "SELF_ONLY") {
+      return "Un video de colaboración pagada no puede ser privado en TikTok.";
+    }
+    return null;
+  }
+
+  function seguirTikTok(publishId: string) {
+    setTtEstado("procesando");
+    setTtEstadoMotivo("");
+    let intentos = 0;
+    const tic = async () => {
+      intentos += 1;
+      const e = await estadoTikTok(publishId, g.tenantLista);
+      if (e?.estado === "publicado") { setTtEstado("publicado"); return; }
+      if (e?.estado === "fallido") { setTtEstado("fallido"); setTtEstadoMotivo(e.motivo); return; }
+      // Hasta ~5 minutos; después queda "procesando" y el historial lo dirá.
+      if (intentos < 30) setTimeout(tic, 10_000);
+    };
+    setTimeout(tic, 5_000);
   }
 
   async function borrar(p: Publicacion) {
@@ -815,63 +871,166 @@ export default function PublicarPanel(
                 )}
                 <p className="text-[0.85rem] font-bold text-tinta">
                   Se publicará en TikTok como{" "}
-                  <span className="text-brasa-texto">@{tiktok.usuario ?? "tu cuenta"}</span>
+                  <span className="text-brasa-texto">{tiktok.apodo || tiktok.usuario || "tu cuenta"}</span>
+                  {tiktok.usuario && tiktok.apodo && (
+                    <span className="font-normal text-frio"> (@{tiktok.usuario})</span>
+                  )}
                 </p>
               </div>
 
-              <label className="mb-1 block text-[0.8rem] font-semibold text-tinta-2">
-                ¿Quién puede ver este video? <span className="text-coral">*</span>
-              </label>
-              <select
-                value={ttPrivacidad}
-                onChange={(e) => setTtPrivacidad(e.target.value)}
-                className="w-full rounded-tarjeta border border-arena bg-carta px-3 py-2 text-[0.85rem] text-tinta"
-              >
-                <option value="">Elige una opción…</option>
-                {(tiktok.privacidades ?? []).map((p) => (
-                  <option key={p} value={p}>{NOMBRE_PRIVACIDAD[p] ?? p}</option>
-                ))}
-              </select>
-
-              <div className="mt-3 space-y-1.5">
-                {([
-                  ["comentario", "Permitir comentarios", ttComentario, setTtComentario, tiktok.comentarioDesactivado],
-                  ["dueto", "Permitir dúos", ttDueto, setTtDueto, tiktok.duetoDesactivado],
-                  ["stitch", "Permitir stitch", ttStitch, setTtStitch, tiktok.stitchDesactivado],
-                ] as const).map(([k, label, valor, set, bloqueado]) => (
-                  <label
-                    key={k}
-                    className={`flex items-center gap-2 text-[0.82rem] ${bloqueado ? "text-frio/60" : "text-tinta-2"}`}
-                    title={bloqueado ? "Tu cuenta de TikTok no permite esto" : undefined}
+              {tiktok.puedePublicar === false ? (
+                <p className="rounded-tarjeta bg-alerta-suave px-3 py-2 text-[0.82rem] text-alerta-hondo">
+                  ⛔ {tiktok.motivoNoPuede ?? "Tu cuenta de TikTok no puede publicar ahora. Intenta más tarde."}
+                </p>
+              ) : (
+                <>
+                  <label className="mb-1 block text-[0.8rem] font-semibold text-tinta-2">
+                    ¿Quién puede ver este video? <span className="text-coral">*</span>
+                  </label>
+                  <select
+                    value={ttPrivacidad}
+                    onChange={(e) => setTtPrivacidad(e.target.value)}
+                    className="w-full rounded-tarjeta border border-arena bg-carta px-3 py-2 text-[0.85rem] text-tinta"
                   >
+                    <option value="" disabled>Elige una opción…</option>
+                    {(tiktok.privacidades ?? []).map((p) => {
+                      // Colaboración pagada no admite "solo yo" (regla de TikTok).
+                      const bloqueada = p === "SELF_ONLY" && ttComercial && ttDeMarca;
+                      return (
+                        <option
+                          key={p}
+                          value={p}
+                          disabled={bloqueada}
+                          title={bloqueada ? "Un video de colaboración pagada no puede ser privado." : undefined}
+                        >
+                          {NOMBRE_PRIVACIDAD[p] ?? p}{bloqueada ? " (no disponible para colaboración pagada)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {tiktok.duracionMaxSeg ? (
+                    <p className="mt-1 text-[0.72rem] text-frio">
+                      Tu cuenta acepta videos de hasta {Math.floor(tiktok.duracionMaxSeg / 60)} min
+                      {tiktok.duracionMaxSeg % 60 ? ` ${tiktok.duracionMaxSeg % 60}s` : ""}.
+                    </p>
+                  ) : null}
+
+                  <p className="mt-3 text-[0.8rem] font-semibold text-tinta-2">Qué pueden hacer otras personas</p>
+                  <div className="mt-1 space-y-1.5">
+                    {([
+                      ["comentario", "Permitir comentarios", ttPermiteComentario, setTtPermiteComentario, tiktok.comentarioDesactivado],
+                      ["dueto", "Permitir dúos", ttPermiteDueto, setTtPermiteDueto, tiktok.duetoDesactivado],
+                      ["stitch", "Permitir stitch", ttPermiteStitch, setTtPermiteStitch, tiktok.stitchDesactivado],
+                    ] as const).map(([k, label, valor, set, bloqueado]) => (
+                      <label
+                        key={k}
+                        className={`flex items-center gap-2 text-[0.82rem] ${bloqueado ? "text-frio/60" : "text-tinta-2"}`}
+                        title={bloqueado ? "Tu cuenta de TikTok no permite esto" : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={Boolean(bloqueado)}
+                          checked={!bloqueado && valor}
+                          onChange={(e) => set(e.target.checked)}
+                        />
+                        {label}
+                        {bloqueado && <span className="text-[0.72rem]">· desactivado en tu cuenta de TikTok</span>}
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* Contenido comercial: apagado por defecto (regla de TikTok). */}
+                  <label className="mt-3 flex items-start gap-2 text-[0.82rem] text-tinta-2">
                     <input
                       type="checkbox"
-                      disabled={Boolean(bloqueado)}
-                      checked={!valor}
-                      onChange={(e) => set(!e.target.checked)}
+                      role="switch"
+                      checked={ttComercial}
+                      onChange={(e) => {
+                        setTtComercial(e.target.checked);
+                        if (!e.target.checked) { setTtMarcaPropia(false); setTtDeMarca(false); }
+                      }}
+                      className="mt-0.5"
                     />
-                    {label}
-                    {bloqueado && <span className="text-[0.72rem]">· no disponible en tu cuenta</span>}
+                    <span>
+                      Declarar contenido comercial
+                      <span className="block text-[0.74rem] text-frio">
+                        Indica si este video promociona tu negocio, una marca, un producto o un servicio.
+                      </span>
+                    </span>
                   </label>
-                ))}
-              </div>
+                  {ttComercial && (
+                    <div className="ml-6 mt-1.5 space-y-1.5">
+                      <label className="flex items-start gap-2 text-[0.82rem] text-tinta-2">
+                        <input type="checkbox" checked={ttMarcaPropia} onChange={(e) => setTtMarcaPropia(e.target.checked)} className="mt-0.5" />
+                        <span>
+                          Tu marca
+                          <span className="block text-[0.74rem] text-frio">Promocionas tu propio negocio.</span>
+                        </span>
+                      </label>
+                      <label
+                        className={`flex items-start gap-2 text-[0.82rem] ${ttPrivacidad === "SELF_ONLY" ? "text-frio/60" : "text-tinta-2"}`}
+                        title={ttPrivacidad === "SELF_ONLY" ? "Un video de colaboración pagada no puede ser privado." : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={ttDeMarca}
+                          disabled={ttPrivacidad === "SELF_ONLY"}
+                          onChange={(e) => setTtDeMarca(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>
+                          Contenido de marca
+                          <span className="block text-[0.74rem] text-frio">
+                            {ttPrivacidad === "SELF_ONLY"
+                              ? "No disponible con visibilidad «Solo yo»: un video de colaboración pagada no puede ser privado."
+                              : "Promocionas a otra marca o a un tercero."}
+                          </span>
+                        </span>
+                      </label>
+                      {(ttMarcaPropia || ttDeMarca) ? (
+                        <p className="rounded-tarjeta bg-carta px-2.5 py-1.5 text-[0.76rem] text-tinta-2">
+                          Tu video se etiquetará como{" "}
+                          <strong>{ttDeMarca ? "«Colaboración pagada»" : "«Contenido promocional»"}</strong>.
+                        </p>
+                      ) : (
+                        <p className="text-[0.74rem] text-coral">
+                          Debes indicar si tu contenido promociona tu negocio, a un tercero o a ambos.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-              <label className="mt-3 flex items-start gap-2 text-[0.82rem] text-tinta-2">
-                <input type="checkbox" checked={ttComercial} onChange={(e) => setTtComercial(e.target.checked)} className="mt-0.5" />
-                <span>
-                  Este video promociona una marca o un producto
-                  <span className="block text-[0.74rem] text-frio">
-                    Márcalo si es contenido comercial tuyo o de un tercero.
-                  </span>
-                </span>
-              </label>
-
-              <p className="mt-3 border-t border-arena pt-2 text-[0.74rem] leading-snug text-frio">
-                {ttComercial
-                  ? "Al publicar aceptas la Confirmación de uso de música de marca de TikTok (Branded Content Policy y Music Usage Confirmation)."
-                  : "Al publicar aceptas la Confirmación de uso de música de TikTok (Music Usage Confirmation)."}
-              </p>
+                  <p className="mt-3 border-t border-arena pt-2 text-[0.74rem] leading-snug text-frio">
+                    Al publicar, aceptas{" "}
+                    {ttComercial && ttDeMarca && (
+                      <>
+                        la{" "}
+                        <a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noreferrer" className="underline">
+                          Política de Contenido de Marca
+                        </a>{" "}y{" "}
+                      </>
+                    )}
+                    la{" "}
+                    <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noreferrer" className="underline">
+                      Confirmación de Uso de Música
+                    </a>{" "}
+                    de TikTok. Después de publicar, el video puede tardar unos minutos en procesarse y aparecer en tu perfil.
+                  </p>
+                </>
+              )}
             </div>
+          )}
+
+          {ttEstado && (
+            <p
+              className={`mt-3 rounded-tarjeta px-3 py-2 text-[0.82rem] ${
+                ttEstado === "fallido" ? "bg-alerta-suave text-alerta-hondo" : "bg-arena/40 text-tinta-2"
+              }`}
+            >
+              {ttEstado === "procesando" && "⏳ TikTok está procesando tu video. Puede tardar unos minutos en aparecer en tu perfil."}
+              {ttEstado === "publicado" && "✓ Tu video ya está publicado en TikTok."}
+              {ttEstado === "fallido" && `⛔ TikTok no pudo publicar el video (${ttEstadoMotivo}).`}
+            </p>
           )}
 
           {/* REQUISITOS por red elegida: qué falta o qué conviene ajustar */}
@@ -939,8 +1098,14 @@ export default function PublicarPanel(
         <div className="mt-5 flex items-center gap-3">
           <button
             onClick={publicar}
-            disabled={publicando || subiendo || hayBloqueo || falta.length > 0}
-            title={falta.length > 0 ? `Falta: ${falta.join(", ")}` : undefined}
+            disabled={publicando || subiendo || hayBloqueo || falta.length > 0 || Boolean(quiereTikTok && errorTikTok())}
+            title={
+              falta.length > 0
+                ? `Falta: ${falta.join(", ")}`
+                : quiereTikTok && ttComercial && !ttMarcaPropia && !ttDeMarca
+                  ? "Debes indicar si tu contenido promociona tu negocio, a un tercero o a ambos."
+                  : (quiereTikTok && errorTikTok()) || undefined
+            }
             className="rounded-chip bg-brasa px-6 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
           >
             {publicando || subiendo ? (

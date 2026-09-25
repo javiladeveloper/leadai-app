@@ -1,166 +1,44 @@
 "use client";
-import { useEffect, useState } from "react";
-import { enviarPlantillaLead, listarPlantillasLead, type PlantillaLead } from "@/lib/api";
-import { rellenar, variablesDe, type Ventana } from "@/lib/ventana-whatsapp";
+import type { Ventana } from "@/lib/ventana-whatsapp";
 
 /**
- * EL AVISO DE LA VENTANA CERRADA Y LA PLANTILLA PARA REABRIRLA (2026-09-25,
- * caso Edith: "debería avisarme").
+ * LA VENTANA DE WHATSAPP, A LA VISTA EN CADA CHAT (2026-09-25).
  *
- * Cuando el cliente no escribe hace más de 24 h, WhatsApp no entrega mensajes
- * normales. En vez de dejar escribir algo que no va a llegar, el chat lo dice
- * y ofrece una plantilla aprobada: si el cliente contesta, la ventana se
- * vuelve a abrir y se le puede escribir normal.
+ * Jonathan: "necesito ver en cada chat cuál es su ventana de tiempo". El chip
+ * va en la cabecera: abierta o cerrada, cuánto le queda y si es de 24 h
+ * (escribió directo) o de 72 h (llegó por un anuncio). Se pone ámbar cuando
+ * quedan menos de 3 horas: es el momento de escribirle si hay algo pendiente.
  */
-export function VentanaWhatsApp({
-  ventana, leadId, tenant, nombre, alEnviar,
-}: {
-  ventana: Ventana;
-  leadId: string;
-  tenant?: string;
-  /** Nombre del cliente, para prellenar la primera variable. */
-  nombre?: string | null;
-  alEnviar: () => void;
-}) {
-  const [abierto, setAbierto] = useState(false);
-  const [plantillas, setPlantillas] = useState<PlantillaLead[] | null>(null);
-  const [elegida, setElegida] = useState<PlantillaLead | null>(null);
-  const [valores, setValores] = useState<string[]>([]);
-  const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [listo, setListo] = useState(false);
+export function ChipVentana({ ventana }: { ventana: Ventana }) {
+  const porCerrar = ventana.abierta && ventana.quedan < 3;
+  const clase = !ventana.abierta
+    ? "bg-alerta-suave text-alerta-hondo ring-alerta/30"
+    : porCerrar
+      ? "bg-tibio-suave text-tibio ring-tibio/30"
+      : "bg-ok/10 text-ok ring-ok/30";
+  return (
+    <span
+      title={`Ventana de ${ventana.horas} h: ${ventana.origen}. WhatsApp solo entrega mensajes normales dentro de ella.`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.72rem] font-bold ring-1 ${clase}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${ventana.abierta ? (porCerrar ? "bg-tibio" : "bg-ok") : "bg-alerta"}`} />
+      {ventana.abierta ? "Ventana abierta" : "Ventana cerrada"} · {ventana.cuando}
+      <span className="font-semibold opacity-80">({ventana.horas} h, {ventana.origen})</span>
+    </span>
+  );
+}
 
-  useEffect(() => {
-    if (!abierto || plantillas) return;
-    let vivo = true;
-    void listarPlantillasLead(leadId, tenant).then((p) => { if (vivo) setPlantillas(p); });
-    return () => { vivo = false; };
-  }, [abierto, plantillas, leadId, tenant]);
-
-  function elegir(p: PlantillaLead) {
-    setElegida(p);
-    setError(null);
-    const primerNombre = (nombre ?? "").trim().split(/\s+/)[0] ?? "";
-    setValores(Array.from({ length: variablesDe(p.cuerpo) }, (_, i) => (i === 0 ? primerNombre : "")));
-  }
-
-  async function enviar() {
-    if (!elegida || enviando) return;
-    if (valores.some((v) => !v.trim())) { setError("Completa los datos de la plantilla antes de enviarla."); return; }
-    setEnviando(true);
-    setError(null);
-    const r = await enviarPlantillaLead(leadId, {
-      nombre: elegida.nombre, idioma: elegida.idioma, parametros: valores.map((v) => v.trim()), cuerpo: elegida.cuerpo,
-    }, tenant);
-    setEnviando(false);
-    if (r.ok) {
-      setListo(true);
-      setAbierto(false);
-      setElegida(null);
-      alEnviar();
-    } else {
-      setError(r.error ?? "No se pudo enviar la plantilla.");
-    }
-  }
-
+/** Con la ventana cerrada: por qué no se puede escribir, arriba del cuadro de texto. */
+export function AvisoVentanaCerrada({ ventana }: { ventana: Ventana }) {
   if (ventana.abierta) return null;
-
   return (
     <div className="border-t border-linea bg-tibio-suave/60 px-4 py-2.5">
       <p className="text-[0.84rem] font-semibold text-tinta">
-        ⏳ Te escribió por última vez {ventana.desde}: WhatsApp no le va a entregar mensajes normales ni archivos.
+        ⏳ La ventana de {ventana.horas} h {ventana.cuando === "nunca te escribió" ? "nunca se abrió: el cliente nunca te escribió" : ventana.cuando}.
       </p>
       <p className="mt-0.5 text-[0.78rem] text-tinta-2">
-        {listo
-          ? "Plantilla enviada. Cuando te conteste, vas a poder escribirle normal."
-          : `Pasadas ${ventana.horas} h solo llega una plantilla aprobada. Si te contesta, se vuelve a abrir la conversación.`}
+        WhatsApp no le va a entregar mensajes ni archivos. Cuando el cliente vuelva a escribirte, se abre de nuevo.
       </p>
-      {!abierto ? (
-        <button
-          type="button"
-          onClick={() => setAbierto(true)}
-          className="mt-2 rounded-chip bg-brasa px-3.5 py-1.5 text-[0.8rem] font-bold text-sobre-brasa transition active:scale-[0.98]"
-        >
-          📨 Mandar una plantilla
-        </button>
-      ) : (
-        <div className="mt-2 space-y-2 rounded-tarjeta bg-carta p-3 ring-1 ring-linea">
-          {plantillas === null && (
-            <p className="flex items-center gap-2 text-[0.8rem] text-tinta-2" role="status">
-              <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-brasa/30 border-t-brasa" />
-              Buscando tus plantillas aprobadas…
-            </p>
-          )}
-          {plantillas?.length === 0 && (
-            <p className="text-[0.8rem] text-tinta-2">
-              No tienes plantillas aprobadas por Meta todavía. Créalas en Campañas → Plantillas (Meta tarda unos minutos en aprobarlas).
-            </p>
-          )}
-          {plantillas && plantillas.length > 0 && !elegida && (
-            <div className="max-h-56 space-y-1.5 overflow-y-auto">
-              {plantillas.map((p) => (
-                <button
-                  key={`${p.nombre}-${p.idioma}`}
-                  type="button"
-                  onClick={() => elegir(p)}
-                  className="w-full rounded-xl bg-arena/60 px-3 py-2 text-left ring-1 ring-linea transition hover:bg-arena"
-                >
-                  <span className="block text-[0.78rem] font-bold text-tinta">
-                    {p.nombre} <span className="font-semibold text-frio">· {p.categoria === "UTILITY" ? "servicio" : "marketing"}</span>
-                  </span>
-                  <span className="line-clamp-2 text-[0.78rem] text-tinta-2">{p.cuerpo}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {elegida && (
-            <div className="space-y-2">
-              <p className="whitespace-pre-wrap rounded-xl bg-arena/60 px-3 py-2 text-[0.82rem] text-tinta ring-1 ring-linea">
-                {rellenar(elegida.cuerpo, valores)}
-              </p>
-              {valores.map((v, i) => (
-                <input
-                  key={i}
-                  value={v}
-                  onChange={(e) => setValores((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
-                  placeholder={`Dato {{${i + 1}}}`}
-                  className="w-full rounded-xl bg-arena/60 px-3 py-2 text-[0.84rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
-                />
-              ))}
-              <p className="text-[0.72rem] text-frio">Meta cobra cada plantilla al negocio (marketing ~S/0.23, servicio menos).</p>
-              {enviando ? (
-                <p className="flex items-center gap-2 text-[0.8rem] font-semibold text-tinta-2" role="status" aria-live="polite">
-                  <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-brasa/30 border-t-brasa" />
-                  Enviando la plantilla…
-                </p>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void enviar()}
-                    className="flex-1 rounded-chip bg-brasa px-3 py-2 text-[0.82rem] font-bold text-sobre-brasa transition active:scale-[0.98]"
-                  >
-                    Enviar plantilla
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setElegida(null)}
-                    className="rounded-chip px-3 py-2 text-[0.82rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
-                  >
-                    Elegir otra
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          {error && <p className="text-[0.78rem] font-semibold text-alerta-hondo" role="alert">{error}</p>}
-          {!elegida && (
-            <button type="button" onClick={() => setAbierto(false)} className="text-[0.76rem] font-semibold text-frio underline">
-              Cerrar
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

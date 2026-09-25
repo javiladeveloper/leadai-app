@@ -22,7 +22,7 @@ import { NotaLead } from "@/components/panel/NotaLead";
 import { Burbuja } from "@/components/Burbuja";
 import { IconoChevron, IconoMic, IconoEnviar } from "@/components/Iconos";
 import { AdjuntarMedia } from "@/components/AdjuntarMedia";
-import { VentanaWhatsApp } from "@/components/VentanaWhatsApp";
+import { AvisoVentanaCerrada, ChipVentana } from "@/components/VentanaWhatsApp";
 import { ventanaWhatsApp } from "@/lib/ventana-whatsapp";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
@@ -296,9 +296,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
   // Composición (textarea + enviar/mic) — compartida entre mobile y desktop.
   const composicion = (
     <div className="space-y-2">
-      {lead && ventana && (
-        <VentanaWhatsApp ventana={ventana} leadId={lead.id} nombre={lead.nombre} alEnviar={() => void cargar()} />
-      )}
+      {ventana && <AvisoVentanaCerrada ventana={ventana} />}
       {/* Respuestas de un toque: tocá una y se pone en el mensaje, listo para
           enviar o editar. Se aprenden de lo que más usas. */}
       {frases.length > 0 && !texto.trim() && (
@@ -321,7 +319,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
           leadId={lead.id}
           canal={lead.canalOrigen}
           caption={texto}
-          bloqueado={ventanaCerrada ? "La conversación está cerrada: primero manda una plantilla" : undefined}
+          bloqueado={ventanaCerrada ? "La ventana de WhatsApp está cerrada: no le va a llegar" : undefined}
           alEnviar={() => { setTexto(""); void cargar(); }}
         />
       )}
@@ -337,7 +335,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
         }}
         rows={1}
         disabled={ventanaCerrada}
-        placeholder={ventanaCerrada ? "No le va a llegar: primero manda una plantilla" : dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
+        placeholder={ventanaCerrada ? "Ventana cerrada: WhatsApp no se lo va a entregar" : dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
         className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa disabled:opacity-60"
       />
       {/* Botón de dictado por voz (hablar en vez de escribir). Solo si el
@@ -391,6 +389,7 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
                 <BadgeCanal canal={lead.canalOrigen} tamano="chico" />
                 <p className="truncate text-[0.78rem] text-frio">{lead.contactoExterno}</p>
               </div>
+              {ventana && <div className="mt-1"><ChipVentana ventana={ventana} /></div>}
             </div>
             <AccionesContacto canal={lead.canalOrigen} contacto={lead.contactoExterno} compacto />
             <ChipTemp t={lead.nivelInteres} />

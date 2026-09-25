@@ -650,37 +650,6 @@ export async function enviarMediaLead(
   }
 }
 
-/** Una plantilla aprobada, para reabrir la conversación pasadas las 24 h. */
-export interface PlantillaLead {
-  nombre: string;
-  idioma: string;
-  categoria: string;
-  cuerpo: string;
-  variables: number;
-}
-
-export async function listarPlantillasLead(id: string, tenant?: string): Promise<PlantillaLead[]> {
-  try {
-    const r = await api<{ plantillas: PlantillaLead[] }>(`/leads/${id}/plantillas`, { tenant });
-    return r?.plantillas ?? [];
-  } catch {
-    return [];
-  }
-}
-
-export async function enviarPlantillaLead(
-  id: string,
-  p: { nombre: string; idioma: string; parametros: string[]; cuerpo: string },
-  tenant?: string,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    await api(`/leads/${id}/plantilla`, { method: "POST", body: p, tenant });
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "No se pudo enviar la plantilla." };
-  }
-}
-
 export async function accionLead(
   id: string,
   accion: {

@@ -1,19 +1,26 @@
 /**
- * LA VENTANA DE 24 HORAS DE WHATSAPP (2026-09-25, caso Edith).
+ * LA VENTANA DE WHATSAPP DE CADA CHAT (2026-09-25).
  *
- * Jonathan le mandó a Edith un saludo y dos videos; ninguno llegó. Ella había
- * escrito hacía tres días y WhatsApp solo entrega mensajes normales dentro de
- * las 24 h desde el último mensaje del cliente. Pasado eso, solo una
- * plantilla aprobada. El panel no lo decía: "debería avisarme".
+ * Caso Edith: se le mandó un saludo y dos videos y nada llegó. Había escrito
+ * hacía tres días, y WhatsApp solo entrega mensajes normales dentro de las
+ * 24 h desde el último mensaje del cliente (72 h si llegó por un anuncio).
  *
- * Quien vino por un anuncio de WhatsApp tiene 72 h (misma regla que usan los
- * seguimientos del bot, ver nutricion.ts en el backend).
+ * Jonathan: "necesito ver en cada chat cuál es su ventana de tiempo… hay
+ * algunos que nos escriben directamente, otros llegan por publicidad". Esto
+ * calcula, para un chat, si está abierta, cuánto le queda y de qué tipo es.
+ * La misma regla usa el backend para no programar seguimientos que no van a
+ * llegar (ventana-meta.ts, nutricion.ts).
  */
 export interface Ventana {
   abierta: boolean;
-  /** Para el aviso: "hace 3 días", "nunca te escribió". */
-  desde: string;
+  /** 24 (escribió directo) o 72 (llegó por un anuncio). */
   horas: number;
+  /** "llegó por un anuncio" / "escribió directo". */
+  origen: string;
+  /** Abierta: "quedan 18 h". Cerrada: "se cerró hace 2 días". */
+  cuando: string;
+  /** Horas que le quedan (0 si está cerrada): para el color del aviso. */
+  quedan: number;
 }
 
 export function ventanaWhatsApp(
@@ -22,24 +29,18 @@ export function ventanaWhatsApp(
   ahora: number = Date.now(),
 ): Ventana | null {
   if (lead.canalOrigen !== "whatsapp") return null;
-  const horas = lead.adsClickId || (lead.origenEtiqueta ?? "").startsWith("ad:") ? 72 : 24;
-  if (!ultimoEntranteEn) return { abierta: false, desde: "nunca te escribió", horas };
+  const deAnuncio = Boolean(lead.adsClickId) || (lead.origenEtiqueta ?? "").startsWith("ad:");
+  const horas = deAnuncio ? 72 : 24;
+  const origen = deAnuncio ? "llegó por un anuncio" : "escribió directo";
+  if (!ultimoEntranteEn) return { abierta: false, horas, origen, cuando: "nunca te escribió", quedan: 0 };
   const pasaron = (ahora - new Date(ultimoEntranteEn).getTime()) / 3_600_000;
-  return { abierta: pasaron < horas, desde: haceCuanto(pasaron), horas };
+  const quedan = horas - pasaron;
+  if (quedan > 0) return { abierta: true, horas, origen, cuando: `quedan ${duracion(quedan)}`, quedan };
+  return { abierta: false, horas, origen, cuando: `se cerró hace ${duracion(-quedan)}`, quedan: 0 };
 }
 
-function haceCuanto(horas: number): string {
-  if (horas < 1) return "hace un momento";
-  if (horas < 48) return `hace ${Math.floor(horas)} h`;
-  return `hace ${Math.floor(horas / 24)} días`;
-}
-
-/** Cuántas variables {{n}} tiene el texto de una plantilla. */
-export function variablesDe(cuerpo: string): number {
-  return Math.max(0, ...[...cuerpo.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1])));
-}
-
-/** El texto de la plantilla con las variables puestas, como lo va a ver el cliente. */
-export function rellenar(cuerpo: string, valores: string[]): string {
-  return cuerpo.replace(/\{\{(\d+)\}\}/g, (_, n: string) => valores[Number(n) - 1]?.trim() || `{{${n}}}`);
+function duracion(horas: number): string {
+  if (horas < 1) return `${Math.max(1, Math.round(horas * 60))} min`;
+  if (horas < 48) return `${Math.floor(horas)} h`;
+  return `${Math.floor(horas / 24)} días`;
 }

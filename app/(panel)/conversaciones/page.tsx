@@ -34,7 +34,7 @@ import { Burbuja } from "@/components/Burbuja";
 import { ChipTemp } from "@/components/ChipTemp";
 import { IconoMic, IconoEnviar } from "@/components/Iconos";
 import { AdjuntarMedia } from "@/components/AdjuntarMedia";
-import { VentanaWhatsApp } from "@/components/VentanaWhatsApp";
+import { AvisoVentanaCerrada, ChipVentana } from "@/components/VentanaWhatsApp";
 import { ventanaWhatsApp } from "@/lib/ventana-whatsapp";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { useCapacidades } from "@/lib/modo-negocio";
@@ -897,6 +897,7 @@ export default function ConversacionesPanel() {
                       )}
                       <span>{NOMBRE_CANAL[lead.canalOrigen] ?? lead.canalOrigen}</span>
                     </p>
+                    {ventana && <div className="mt-1"><ChipVentana ventana={ventana} /></div>}
                   </div>
                   {/* La TEMPERATURA es de quien CALIFICA: un cliente que
                       pide comida no está "frío" ni "caliente", está pidiendo.
@@ -992,15 +993,7 @@ export default function ConversacionesPanel() {
 
               {/* Compositor en DOS filas: herramientas de IA arriba (compactas),
                   campo de escribir abajo a TODO el ancho. */}
-              {ventana && (
-                <VentanaWhatsApp
-                  ventana={ventana}
-                  leadId={lead.id}
-                  tenant={tenantSel}
-                  nombre={lead.nombre}
-                  alEnviar={() => { if (seleccionadoId) void cargarLead(seleccionadoId, tenantSel); }}
-                />
-              )}
+              {ventana && <AvisoVentanaCerrada ventana={ventana} />}
               <div className="space-y-2 border-t border-linea bg-carta px-3 py-2.5">
                 <div className="flex items-center gap-2">
                   {/* "Asistente IA" solo donde la IA REDACTA (2026-08-19).
@@ -1054,7 +1047,7 @@ export default function ConversacionesPanel() {
                     tenant={tenantSel}
                     canal={lead.canalOrigen}
                     caption={texto}
-                    bloqueado={ventanaCerrada ? "La conversación está cerrada: primero manda una plantilla" : undefined}
+                    bloqueado={ventanaCerrada ? "La ventana de WhatsApp está cerrada: no le va a llegar" : undefined}
                     alEnviar={() => { setTexto(""); if (seleccionadoId) void cargarLead(seleccionadoId, tenantSel); }}
                   />
                   <textarea
@@ -1069,7 +1062,7 @@ export default function ConversacionesPanel() {
                     }}
                     rows={1}
                     disabled={ventanaCerrada}
-                    placeholder={ventanaCerrada ? "No le va a llegar: primero manda una plantilla" : dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
+                    placeholder={ventanaCerrada ? "Ventana cerrada: WhatsApp no se lo va a entregar" : dictado.soportado ? "Escribe o toca 🎤 para hablar…" : "Escribe tu mensaje…"}
                     className="max-h-28 flex-1 resize-none rounded-2xl bg-arena px-3.5 py-2.5 text-[0.98rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa disabled:opacity-60"
                   />
                   {dictado.soportado && (

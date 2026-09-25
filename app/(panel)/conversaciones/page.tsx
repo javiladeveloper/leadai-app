@@ -7,9 +7,9 @@ import Link from "next/link";
 import { haySesion, esModoGlobal, guardarEmpresaActiva, leerSesion, filtroInicialDeBandeja } from "@/lib/auth";
 import { SkeletonLista, SkeletonChat } from "@/components/Skeletons";
 import {
-  listarLeads,
-  listarBandejaGlobal,
   obtenerLead,
+  paginaLeads,
+  paginaBandejaGlobal,
   accionLead,
   actualizarLead,
   reiniciarLead,
@@ -40,6 +40,7 @@ import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { useCapacidades } from "@/lib/modo-negocio";
 import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
 import { useChatAlFinal } from "@/lib/useChatAlFinal";
+import { agregarPaginaVieja, horaDe, mezclarPaginaReciente, separadorDeDia } from "@/lib/bandeja-rapida";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -120,6 +121,8 @@ function aBurbuja(m: MensajeApi): MensajeUI {
     autor: autorDe(m),
     texto: m.contenido,
     haceMinutos: minutosDesde(m.creadoEn),
+    hora: horaDe(m.creadoEn),
+    enviando: m.estado === "enviando",
   };
 }
 
@@ -262,29 +265,77 @@ export default function ConversacionesPanel() {
     return () => { vivo = false; };
   }, [filtroNegocio]);
 
+  // LA BANDEJA POR PÁGINAS (2026-09-25, ver lib/bandeja-rapida.ts): antes se
+  // bajaban hasta 20 páginas en serie antes de mostrar nada, y otra vez en
+  // cada sondeo de 4 s.
+  // Modo global: conversaciones de TODOS los negocios de captación con su
+  // etiqueta. Modo empresa: solo la activa, como siempre.
+  const pedirPagina = useCallback(async (cursor: string | null) => {
+    if (esModoGlobal()) {
+      const r = await paginaBandejaGlobal(cursor);
+      setNegocios(r.negocios);
+      return r as { items: LeadLista[]; siguienteCursor: string | null };
+    }
+    return (await paginaLeads(cursor)) as { items: LeadLista[]; siguienteCursor: string | null };
+  }, []);
+
+  // Una carga completa nueva cancela la anterior (p. ej. al volver a entrar).
+  const cargaRef = useRef(0);
+
+  /** Todo: la primera página al toque y el resto detrás, sin bloquear. */
   const cargarLista = useCallback(async () => {
+    const gen = ++cargaRef.current;
     try {
-      // Modo global: conversaciones de TODOS los negocios de captación con su
-      // etiqueta. Modo empresa: solo la activa, como siempre.
-      if (esModoGlobal()) {
-        const r = await listarBandejaGlobal();
-        setLeads(r.leads);
-        setNegocios(r.negocios);
-      } else {
-        setLeads(await listarLeads());
+      let r = await pedirPagina(null);
+      if (gen !== cargaRef.current) return;
+      setLeads(r.items);
+      setEstadoLista("ok");
+      for (let pagina = 1; pagina < 20 && r.siguienteCursor; pagina++) {
+        r = await pedirPagina(r.siguienteCursor);
+        if (gen !== cargaRef.current) return;
+        const nuevos = r.items;
+        setLeads((prev) => agregarPaginaVieja(prev, nuevos));
       }
+    } catch (e) {
+      void e;
+      if (gen === cargaRef.current) setEstadoLista((prev) => (prev === "ok" ? "ok" : "error"));
+    }
+  }, [pedirPagina]);
+
+  /** Sondeo y tras cada acción: solo lo que se movió (la primera página). */
+  const cargarReciente = useCallback(async () => {
+    try {
+      const r = await pedirPagina(null);
+      setLeads((prev) => mezclarPaginaReciente(prev, r.items));
       setEstadoLista("ok");
     } catch (e) {
       void e;
-      setEstadoLista("error");
     }
+  }, [pedirPagina]);
+
+  // CAMBIAR DE CHAT AL INSTANTE (2026-09-25, mismo arreglo que Sania): lo ya
+  // abierto se pinta desde memoria mientras se actualiza, y pasar el mouse por
+  // una conversación la precarga.
+  const cacheRef = useRef(new Map<string, LeadDetalle>());
+  const guardarEnCache = useCallback((id: string, l: LeadDetalle) => {
+    const cache = cacheRef.current;
+    cache.delete(id);
+    cache.set(id, l);
+    if (cache.size > 40) cache.delete(cache.keys().next().value as string);
   }, []);
+  const precargar = useCallback((l: LeadLista) => {
+    if (cacheRef.current.has(l.id)) return;
+    void obtenerLead(l.id, l.tenantId, MENSAJES_A_PEDIR)
+      .then((r) => { if (r) guardarEnCache(l.id, r); })
+      .catch(() => {});
+  }, [guardarEnCache]);
 
   const cargarLead = useCallback(async (id: string, tenant?: string) => {
     try {
       const r = await obtenerLead(id, tenant, pedidosRef.current);
       // Una respuesta lenta de OTRO chat no pisa al que está abierto (mismo
       // arreglo que la bandeja de Sania).
+      if (r) guardarEnCache(id, r);
       if (abiertoRef.current && abiertoRef.current !== id) return;
       setLead(r);
       setEstadoLead("ok");
@@ -295,7 +346,7 @@ export default function ConversacionesPanel() {
       void e;
       setEstadoLead("error");
     }
-  }, []);
+  }, [guardarEnCache]);
 
   // Selección desde la columna izquierda (desktop). En modo global guarda
   // también el tenant del lead para las llamadas del chat.
@@ -322,7 +373,13 @@ export default function ConversacionesPanel() {
     abiertoRef.current = seleccionadoId;
     pedidosRef.current = MENSAJES_A_PEDIR;
     setMostrar(MENSAJES_VISIBLES);
-    setEstadoLead("cargando");
+    const guardado = cacheRef.current.get(seleccionadoId);
+    if (guardado) {
+      setLead(guardado);
+      setEstadoLead("ok");
+    } else {
+      setEstadoLead("cargando");
+    }
     setVentaAbierta(false);
     setAccionError(null);
     setNotaEdit(null);
@@ -355,19 +412,28 @@ export default function ConversacionesPanel() {
   // 4s: que el mensaje entrante y la respuesta del bot se sientan EN VIVO
   // (con 10s la conversación se percibía congelada — feedback 2026-08-04).
   usePolling(() => {
-    cargarLista();
+    cargarReciente();
     if (seleccionadoId && !enviando && notaEdit === null) cargarLead(seleccionadoId, tenantSel);
   }, 4000);
 
   async function enviarRespuesta() {
     if (!seleccionadoId || !texto.trim() || enviando) return;
+    const escrito = texto.trim();
     setEnviando(true);
     setAccionError(null);
-    const r = await accionLead(seleccionadoId, { tipo: "responder", texto: texto.trim() }, tenantSel);
+    // Se ve en el chat apenas se manda, sin esperar al servidor (2026-09-25).
+    const provisional: MensajeApi = {
+      id: `enviando-${Date.now()}`, direccion: "saliente", contenido: escrito,
+      canal: lead?.canalOrigen ?? "whatsapp", creadoEn: new Date().toISOString(), origen: "humano", estado: "enviando",
+    };
+    setLead((l) => (l && l.id === seleccionadoId ? { ...l, mensajes: [...l.mensajes, provisional] } : l));
+    setTexto("");
+    const r = await accionLead(seleccionadoId, { tipo: "responder", texto: escrito }, tenantSel);
     if (r.ok) {
-      setTexto("");
       await cargarLead(seleccionadoId, tenantSel);
     } else {
+      setLead((l) => (l ? { ...l, mensajes: l.mensajes.filter((m) => m.id !== provisional.id) } : l));
+      setTexto(escrito);
       setAccionError(r.error ?? "No se pudo enviar la respuesta.");
     }
     setEnviando(false);
@@ -452,7 +518,7 @@ export default function ConversacionesPanel() {
     const r = await reiniciarLead(lead.id, tenantSel);
     if (r.ok) {
       setReiniciarConfirm(false);
-      await Promise.all([cargarLead(lead.id, tenantSel), cargarLista()]);
+      await Promise.all([cargarLead(lead.id, tenantSel), cargarReciente()]);
     } else {
       setAccionError(r.error ?? "No se pudo reiniciar el chat.");
     }
@@ -467,7 +533,7 @@ export default function ConversacionesPanel() {
     setAccionError(null);
     const r = await accionLead(seleccionadoId, { tipo: "mover_etapa", etapaId }, tenantSel);
     if (r.ok) {
-      await Promise.all([cargarLead(seleccionadoId, tenantSel), cargarLista()]);
+      await Promise.all([cargarLead(seleccionadoId, tenantSel), cargarReciente()]);
     } else {
       setAccionError(r.error ?? "No se pudo mover de etapa.");
     }
@@ -480,7 +546,7 @@ export default function ConversacionesPanel() {
     setEnviando(true);
     const r = await accionLead(lead.id, { tipo: "asignar", asignarA: usuarioId }, tenantSel);
     if (r.ok) {
-      await Promise.all([cargarLead(lead.id, tenantSel), cargarLista()]);
+      await Promise.all([cargarLead(lead.id, tenantSel), cargarReciente()]);
     } else {
       setAccionError(r.error ?? "No se pudo cambiar la asignación.");
     }
@@ -494,7 +560,7 @@ export default function ConversacionesPanel() {
     const r = await accionLead(seleccionadoId, { tipo: "descartar" }, tenantSel);
     if (r.ok) {
       setDescartarConfirm(false);
-      await Promise.all([cargarLead(seleccionadoId, tenantSel), cargarLista()]);
+      await Promise.all([cargarLead(seleccionadoId, tenantSel), cargarReciente()]);
     } else {
       setAccionError(r.error ?? "No se pudo descartar.");
     }
@@ -526,7 +592,7 @@ export default function ConversacionesPanel() {
       setVentaAbierta(false);
       setMontoVenta("");
       await cargarLead(seleccionadoId, tenantSel);
-      await cargarLista();
+      await cargarReciente();
     } else {
       setAccionError(r.error ?? "No se pudo registrar la venta.");
     }
@@ -814,6 +880,7 @@ export default function ConversacionesPanel() {
                     <button
                       key={l.id}
                       onClick={() => seleccionar(l)}
+                      onMouseEnter={() => precargar(l)}
                       className={`flex w-full items-start gap-2.5 border-b border-linea/60 px-3 py-2.5 text-left transition ${
                         activo ? "bg-brasa/10" : "hover:bg-arena/60"
                       }`}
@@ -949,8 +1016,15 @@ export default function ConversacionesPanel() {
                     </button>
                   </div>
                 )}
-                {(tramo?.visibles ?? lead.mensajes).map((m) => (
+                {(tramo?.visibles ?? lead.mensajes).map((m, i, lista) => (
                   <div key={m.id}>
+                    {separadorDeDia(m.creadoEn, lista[i - 1]?.creadoEn) && (
+                      <p className="my-1 text-center">
+                        <span className="rounded-full bg-carta px-3 py-0.5 text-[0.72rem] font-bold text-frio ring-1 ring-linea">
+                          {separadorDeDia(m.creadoEn, lista[i - 1]?.creadoEn)}
+                        </span>
+                      </p>
+                    )}
                     <Burbuja m={aBurbuja(m)} />
                     {m.direccion === "saliente" && m.estado === "fallido" && (
                       <p className="mt-0.5 text-right text-[0.72rem] font-semibold text-calor">

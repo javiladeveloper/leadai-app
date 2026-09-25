@@ -611,6 +611,25 @@ export async function listarBandejaGlobal(filtros?: {
   return { negocios, leads };
 }
 
+/**
+ * UNA PÁGINA de la bandeja (2026-09-25): la bandeja muestra la primera apenas
+ * llega y suma las demás detrás (ver lib/bandeja-rapida.ts), en vez de esperar
+ * a bajar las 20 en serie.
+ */
+export async function paginaLeads(cursor: string | null): Promise<{ items: Lead[]; siguienteCursor: string | null }> {
+  const qs = new URLSearchParams({ limit: "100" });
+  if (cursor) qs.set("cursor", cursor);
+  return api(`/leads?${qs.toString()}`);
+}
+
+export async function paginaBandejaGlobal(
+  cursor: string | null,
+): Promise<{ negocios: NegocioBandeja[]; items: LeadGlobal[]; siguienteCursor: string | null }> {
+  const qs = new URLSearchParams({ limit: "100" });
+  if (cursor) qs.set("cursor", cursor);
+  return api(`/bandeja-global?${qs.toString()}`, { conEmpresa: false });
+}
+
 // Solo los últimos N leads (primera página) — para "Actividad reciente" del
 // Inicio sin pagar el costo de paginar toda la bandeja.
 export async function leadsRecientes(n = 5): Promise<Lead[]> {

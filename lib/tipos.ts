@@ -33,6 +33,10 @@ export interface Mensaje {
   autor: Autor;
   texto: string;
   haceMinutos: number;
+  /** "14:05" (2026-09-25): con los separadores de día, la hora dice más que "hace 3 d". */
+  hora?: string;
+  /** Mandado recién, todavía sin confirmar por el servidor. */
+  enviando?: boolean;
   // nota de voz transcripta
   esVoz?: boolean;
 }

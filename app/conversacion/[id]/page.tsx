@@ -27,6 +27,7 @@ import { ventanaWhatsApp } from "@/lib/ventana-whatsapp";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
 import { useChatAlFinal } from "@/lib/useChatAlFinal";
+import { horaDe, separadorDeDia } from "@/lib/bandeja-rapida";
 
 type Estado = "cargando" | "ok" | "error" | "no-encontrado";
 
@@ -58,6 +59,8 @@ function aBurbuja(m: MensajeApi): MensajeUI {
     autor: m.direccion !== "saliente" ? "lead" : !m.origen || ORIGENES_PERSONA.has(m.origen) ? "tu" : "bot",
     texto: m.contenido,
     haceMinutos: minutosDesde(m.creadoEn),
+    hora: horaDe(m.creadoEn),
+    enviando: m.estado === "enviando",
   };
 }
 
@@ -149,13 +152,22 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
 
   async function enviarRespuesta() {
     if (!texto.trim() || enviando) return;
+    const escrito = texto.trim();
     setEnviando(true);
     setAccionError(null);
-    const r = await accionLead(id, { tipo: "responder", texto: texto.trim() });
+    // Se ve en el chat apenas se manda, sin esperar al servidor (2026-09-25).
+    const provisional: MensajeApi = {
+      id: `enviando-${Date.now()}`, direccion: "saliente", contenido: escrito,
+      canal: lead?.canalOrigen ?? "whatsapp", creadoEn: new Date().toISOString(), origen: "humano", estado: "enviando",
+    };
+    setLead((l) => (l ? { ...l, mensajes: [...l.mensajes, provisional] } : l));
+    setTexto("");
+    const r = await accionLead(id, { tipo: "responder", texto: escrito });
     if (r.ok) {
-      setTexto("");
       await cargar();
     } else {
+      setLead((l) => (l ? { ...l, mensajes: l.mensajes.filter((m) => m.id !== provisional.id) } : l));
+      setTexto(escrito);
       setAccionError(r.error ?? "No se pudo enviar la respuesta.");
     }
     setEnviando(false);
@@ -432,8 +444,15 @@ export default function ConversacionPage({ params }: { params: Promise<{ id: str
               </button>
             </div>
           )}
-          {(tramo?.visibles ?? lead.mensajes).map((m) => (
+          {(tramo?.visibles ?? lead.mensajes).map((m, i, lista) => (
             <div key={m.id}>
+              {separadorDeDia(m.creadoEn, lista[i - 1]?.creadoEn) && (
+                <p className="my-1 text-center">
+                  <span className="rounded-full bg-carta px-3 py-0.5 text-[0.72rem] font-bold text-frio ring-1 ring-linea">
+                    {separadorDeDia(m.creadoEn, lista[i - 1]?.creadoEn)}
+                  </span>
+                </p>
+              )}
               <Burbuja m={aBurbuja(m)} />
               {m.direccion === "saliente" && m.estado === "fallido" && (
                 <p className="mt-0.5 text-right text-[0.72rem] font-semibold text-calor">

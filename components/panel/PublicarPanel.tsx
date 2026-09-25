@@ -501,7 +501,17 @@ export default function PublicarPanel(
     setPublicando(false);
     if (r.ok) {
       setTexto(""); quitarMedia(); setProgramar(false); setFecha("");
-      setMsg(`✓ ${mensajeTrasPublicar(formato, programar)}`);
+      // El POST responde 200 aunque una red rechace: el resultado real está en
+      // cada destino. Decir "publicado" cuando TikTok lo rebotó es mentirle al
+      // dueño (y TikTok lo mira en su audit).
+      const fallidos = (r.publicacion?.destinos ?? []).filter((d) => d.estado === "fallida");
+      const nombreRed = (c: string) => (c === "tiktok" ? "TikTok" : c === "instagram" ? "Instagram" : "Facebook");
+      if (fallidos.length > 0) {
+        const redesFallidas = [...new Set(fallidos.map((d) => nombreRed(d.canal)))].join(" y ");
+        setMsg(`⛔ No se publicó en ${redesFallidas}: ${fallidos[0].error ?? "la red lo rechazó"}`);
+      } else {
+        setMsg(`✓ ${mensajeTrasPublicar(formato, programar)}`);
+      }
       // TikTok procesa el video unos minutos: se sigue su estado para que el
       // dueño sepa si ya salió o si falló (lo exige la guía de Direct Post).
       const ttDestino = r.publicacion?.destinos.find((d) => d.canal === "tiktok" && d.postExterno);

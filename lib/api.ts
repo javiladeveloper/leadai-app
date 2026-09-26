@@ -1304,7 +1304,7 @@ export async function subirFotoVendedor(imagen: string): Promise<{ ok: boolean; 
 }
 
 // ── Equipo (trabajadores del negocio) ──────────────────────
-export type RolMiembro = "owner" | "admin" | "agente" | "ventas" | "marketing" | "mozo" | "cocina";
+export type RolMiembro = "owner" | "admin" | "agente" | "ventas" | "marketing" | "mozo" | "cocina" | "operador";
 export interface MiembroEquipo { usuarioId: string; email: string; nombre: string | null; rol: RolMiembro }
 export interface InvitacionPendiente { id: string; email: string; rol: RolMiembro; token: string; creadoEn: string }
 
@@ -1329,6 +1329,55 @@ export async function quitarMiembro(usuarioId: string): Promise<{ ok: boolean; e
   catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo quitar" }; }
 }
 
+// ── Negocio exportado a una vendedora (2026-09-25) ─────────
+// El dueño "exporta" su negocio a una vendedora: ella opera una COPIA propia
+// (su cuenta, su suscripción) con el mismo bot; el original sigue siendo del
+// dueño y las conversaciones de la copia son de SU empresa, no de la de él.
+
+export interface AjustesVendedora {
+  nombreVendedora?: string;
+  linkAgenda?: string;
+  telefonoLlamadas?: string;
+  horario?: string;
+}
+
+export async function exportarNegocio(
+  email: string,
+  nombreVendedora: string,
+): Promise<{ ok: boolean; token?: string; correoEnviado?: boolean; error?: string }> {
+  try {
+    const r = await api<{ token: string; correoEnviado: boolean }>("/equipo/exportar", {
+      method: "POST",
+      body: { email, nombreVendedora },
+    });
+    return { ok: true, ...r };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo exportar" };
+  }
+}
+
+export async function estadoExportacion(
+  tenant?: string,
+): Promise<{ exportado: boolean; origenNombre?: string; ajustes: AjustesVendedora | null }> {
+  try {
+    return await api("/exportacion/estado", { tenant });
+  } catch {
+    return { exportado: false, ajustes: null };
+  }
+}
+
+export async function guardarAjustesVendedora(
+  a: AjustesVendedora,
+  tenant?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/exportacion/ajustes", { method: "PUT", body: a, tenant });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
+}
+
 /**
  * QUÉ DICE ESTA INVITACIÓN, sin necesidad de tener cuenta (2026-08-21).
  *
@@ -1343,6 +1392,12 @@ export interface InvitacionAbierta {
   negocio: string;
   rol: RolMiembro;
   email: string;
+  /**
+   * `equipo` (invitación normal, se une AL negocio) o `exportacion` (crea una
+   * COPIA del negocio a nombre de quien acepta — ver `exportarNegocio`).
+   * Opcional: un backend viejo no lo manda y se trata como `equipo`.
+   */
+  tipo?: "equipo" | "exportacion";
 }
 
 export async function mirarInvitacion(

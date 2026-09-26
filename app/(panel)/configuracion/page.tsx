@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { haySesion, guardarEmpresaActiva, empresaInicial, leerEmpresaPredeterminada, guardarEmpresaPredeterminada } from "@/lib/auth";
+import { haySesion, guardarEmpresaActiva, empresaInicial, leerEmpresaPredeterminada, guardarEmpresaPredeterminada, rolEnEmpresaActiva } from "@/lib/auth";
 import { EtapasEditor } from "@/components/panel/EtapasEditor";
 import { PlaybookEditor } from "@/components/panel/PlaybookEditor";
 import { AccionesDelBot } from "@/components/panel/AccionesDelBot";
@@ -22,8 +22,10 @@ import { PlanConsumo } from "@/components/panel/PlanConsumo";
 import { ConfigComision } from "@/components/panel/ConfigComision";
 import { MiPerfilVendedorPanel } from "@/components/panel/MiPerfilVendedor";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
+import { AjustesVendedora } from "@/components/panel/AjustesVendedora";
 import { useCapacidadesOptimista, type Capacidades } from "@/lib/modo-negocio";
 import { empresasVisibles } from "@/lib/auth";
+import { estadoExportacion } from "@/lib/api";
 import type { NegocioBandeja } from "@/lib/api";
 
 // Configuración del panel unificado (decisión 2026-07-22): TODO lo
@@ -83,11 +85,27 @@ function ConfiguracionInner() {
   // parpadeo que Jonathan reportó.
   const caps = useCapacidadesOptimista();
 
+  // NEGOCIO EXPORTADO (2026-09-25): si este negocio es una copia exportada,
+  // el bot lo configura el dueño original — el backend responde 403 a los
+  // cambios de playbook aunque el panel los muestre, así que acá se ocultan.
+  const [exportacion, setExportacion] = useState<{ exportado: boolean; origenNombre?: string } | null>(null);
+  const rol = rolEnEmpresaActiva();
+  const esOperador = rol === "operador";
+
   useEffect(() => {
     setNegocios(
       empresasVisibles().map((e) => ({ tenantId: e.tenantId, nombre: e.nombre })),
     );
   }, []);
+
+  useEffect(() => {
+    if (!tenantCfg) return;
+    let vivo = true;
+    void estadoExportacion(tenantCfg).then((r) => {
+      if (vivo) setExportacion({ exportado: r.exportado, origenNombre: r.origenNombre });
+    });
+    return () => { vivo = false; };
+  }, [tenantCfg]);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -129,6 +147,28 @@ function ConfiguracionInner() {
   }
 
   if (!listo) return null;
+
+  // OPERADORA DE UN NEGOCIO EXPORTADO (2026-09-25): no configura el bot —eso
+  // lo hace el dueño original—, solo pone sus propios datos. Ninguna otra
+  // sección de acá le sirve, y varias le devolverían 403 si las tocara.
+  if (esOperador) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 px-5 py-6 lg:px-8">
+        <header>
+          <p className="eyebrow">Ajustes</p>
+          <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Configuración</h1>
+          <p className="mt-1 text-[0.92rem] text-frio">Tus datos para atender este negocio.</p>
+        </header>
+        {exportacion?.exportado && (
+          <p className="rounded-tarjeta bg-arena-2/60 px-4 py-3 text-[0.86rem] leading-snug text-tinta-2 ring-1 ring-linea">
+            La configuración del bot la administra <b>{exportacion.origenNombre ?? "el dueño original"}</b>.
+            Los cambios que haga ahí se aplican aquí automáticamente.
+          </p>
+        )}
+        <AjustesVendedora tenant={tenantCfg || undefined} />
+      </div>
+    );
+  }
 
   const tabDeNegocio = tab !== "perfil";
   /**
@@ -247,6 +287,20 @@ function ConfiguracionInner() {
         // animación corre de nuevo. Sin eso, cambiar de pestaña es un corte
         // seco y no se ve que el contenido es OTRO.
         <div key={`${tenantCfg}-${tab}`} className="surge space-y-5">
+          {/* NEGOCIO EXPORTADO, visto por el dueño/admin (2026-09-25): arriba
+              de todo, en cualquier pestaña — la vendedora edita sus propios
+              datos, y el playbook de este negocio queda oculto más abajo
+              (el backend igual lo bloquearía con 403). Canales sigue visible:
+              necesitan conectar el número de WhatsApp de la copia. */}
+          {exportacion?.exportado && (
+            <>
+              <p className="rounded-tarjeta bg-arena-2/60 px-4 py-3 text-[0.86rem] leading-snug text-tinta-2 ring-1 ring-linea">
+                La configuración del bot la administra <b>{exportacion.origenNombre ?? "el dueño original"}</b>.
+                Los cambios que haga ahí se aplican aquí automáticamente.
+              </p>
+              <AjustesVendedora tenant={tenantCfg} />
+            </>
+          )}
           {/* EL HERO DE CADA PESTAÑA (2026-08-27, Jonathan: "esa ventana se ve
               horrible, plana, sin vida... pon animaciones, imágenes, sé más
               creativo, para cada uno: canales, plan y consumo, perfil"). */}
@@ -280,8 +334,12 @@ function ConfiguracionInner() {
                   es del bot. Acá quedan el nombre y el rubro (identidad); el
                   tono, qué vende, preguntas clave, señales y objeciones se
                   editan en la pestaña Bot. Nada queda vacío y cada cosa está
-                  donde uno la busca. */}
-              <PlaybookEditor parte="identidad" />
+                  donde uno la busca.
+
+                  NEGOCIO EXPORTADO (2026-09-25): oculto — lo edita el dueño
+                  original en su propia copia; el backend igual responde 403
+                  si se intenta escribir acá. */}
+              {!exportacion?.exportado && <PlaybookEditor parte="identidad" />}
               {/* LAS ETAPAS NO SON DEL BOT (2026-08-27, Jonathan: "etapas del
                   embudo yo creo que no iría en el bot").
                   Tiene razón, y la auditoría lo confirma: `etapasEmbudo` solo
@@ -326,8 +384,12 @@ function ConfiguracionInner() {
               </Seccion>
               {/* Y ACÁ, CÓMO LO DICE. Tono, por qué elegirte, qué vendes,
                   preguntas clave, señales y objeciones. El nombre y el rubro se
-                  quedaron en "Tu negocio": son identidad, no guion. */}
-              <PlaybookEditor parte="guion" />
+                  quedaron en "Tu negocio": son identidad, no guion.
+
+                  NEGOCIO EXPORTADO (2026-09-25): oculto — lo edita el dueño
+                  original en su propia copia; el backend igual responde 403
+                  si se intenta escribir acá. */}
+              {!exportacion?.exportado && <PlaybookEditor parte="guion" />}
               {/* "QUÉ RESPONDE TU BOT" SE MUDÓ DE CANALES (2026-08-27). Estaba
                   ahí porque se agregó pensando en el momento de conectar el
                   WhatsApp, pero es lo que MÁS habla del bot: buscarlo en la

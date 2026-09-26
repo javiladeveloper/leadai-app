@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion } from "@/lib/auth";
+import { haySesion, rolEnEmpresaActiva, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import { useCapacidades } from "@/lib/modo-negocio";
 import {
-  obtenerEquipo, invitarMiembro, cancelarInvitacion, quitarMiembro, obtenerMiPlan,
+  obtenerEquipo, invitarMiembro, cancelarInvitacion, quitarMiembro, obtenerMiPlan, exportarNegocio,
   type MiembroEquipo, type InvitacionPendiente,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -53,6 +53,20 @@ function EquipoPanel() {
   const [linkCopiado, setLinkCopiado] = useState("");
   const [tieneEquipo, setTieneEquipo] = useState<boolean | null>(null);
 
+  // Solo el dueño o un administrador puede exportar el negocio: es crear una
+  // copia a nombre de otra persona, la misma decisión que invitar gente.
+  const puedeExportar = rolEnEmpresaActiva() === "owner" || rolEnEmpresaActiva() === "admin";
+  const nombreNegocioActivo = (() => {
+    const activa = leerEmpresaActiva();
+    return empresasVisibles().find((e) => e.tenantId === activa)?.nombre ?? "tu negocio";
+  })();
+  const [emailExportar, setEmailExportar] = useState("");
+  const [nombreVendedoraExportar, setNombreVendedoraExportar] = useState("");
+  const [exportando, setExportando] = useState(false);
+  const [errorExportar, setErrorExportar] = useState("");
+  const [avisoExportar, setAvisoExportar] = useState("");
+  const [linkExportado, setLinkExportado] = useState("");
+
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
@@ -96,6 +110,28 @@ function EquipoPanel() {
   function linkDe(token: string): string {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     return `${base}/invitacion?token=${token}`;
+  }
+
+  async function exportar(e: React.FormEvent) {
+    e.preventDefault();
+    setExportando(true);
+    setErrorExportar("");
+    setAvisoExportar("");
+    setLinkExportado("");
+    const destino = emailExportar.trim();
+    const nombre = nombreVendedoraExportar.trim();
+    const r = await exportarNegocio(destino, nombre);
+    setExportando(false);
+    if (r.ok) {
+      setEmailExportar("");
+      setNombreVendedoraExportar("");
+      setAvisoExportar(
+        `Listo. Le enviamos la invitación a ${destino}. Cuando la acepte, verá «${nombreNegocioActivo} – ${nombre}» en su cuenta.`,
+      );
+      if (!r.correoEnviado && r.token) setLinkExportado(linkDe(r.token));
+    } else {
+      setErrorExportar(r.error ?? "No se pudo exportar.");
+    }
   }
 
   async function copiarLink(token: string) {
@@ -174,6 +210,65 @@ function EquipoPanel() {
         {error && <p className="mt-2 text-[0.82rem] text-brasa-hondo">{error}</p>}
         {aviso && <p className="mt-2 text-[0.82rem] font-semibold text-ok">{aviso}</p>}
       </form>
+
+      {/* Exportar a vendedora: solo dueño o admin (2026-09-25). Es otra cosa
+          que invitar: crea una COPIA del negocio a nombre de otra persona, con
+          su propia cuenta y su propia suscripción. */}
+      {puedeExportar && (
+        <form onSubmit={exportar} className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+          <p className="mb-2 text-[0.85rem] font-bold uppercase tracking-wide text-frio">Exportar a vendedora</p>
+          <p className="mb-3 text-[0.82rem] text-frio">
+            La vendedora opera una copia de este negocio desde su propia cuenta. El bot es el tuyo y lo
+            sigues manejando tú; los chats de ese negocio son de tu empresa.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="email"
+              value={emailExportar}
+              onChange={(e) => setEmailExportar(e.target.value)}
+              placeholder="Correo de la vendedora"
+              className="flex-1 rounded-tarjeta border border-linea bg-arena/30 px-3.5 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa"
+            />
+            <input
+              value={nombreVendedoraExportar}
+              onChange={(e) => setNombreVendedoraExportar(e.target.value)}
+              placeholder="Nombre de la vendedora"
+              className="flex-1 rounded-tarjeta border border-linea bg-arena/30 px-3.5 py-2.5 text-[0.95rem] text-tinta outline-none focus:border-brasa"
+            />
+            <button
+              type="submit"
+              disabled={exportando || !emailExportar.trim() || !nombreVendedoraExportar.trim()}
+              className="rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.92rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
+            >
+              {exportando ? "Exportando…" : "Exportar negocio"}
+            </button>
+          </div>
+          {errorExportar && <p className="mt-2 text-[0.82rem] text-brasa-hondo">{errorExportar}</p>}
+          {avisoExportar && <p className="mt-2 text-[0.82rem] font-semibold text-ok">{avisoExportar}</p>}
+          {linkExportado && (
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                readOnly
+                value={linkExportado}
+                className="min-w-0 flex-1 truncate rounded-lg bg-arena/50 px-2.5 py-1.5 text-[0.78rem] text-tinta-2"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(linkExportado);
+                    setLinkCopiado(linkExportado);
+                    setTimeout(() => setLinkCopiado(""), 2000);
+                  } catch { /* ignore */ }
+                }}
+                className="shrink-0 rounded-chip bg-brasa-suave px-2.5 py-1.5 text-[0.75rem] font-bold text-brasa-hondo"
+              >
+                {linkCopiado === linkExportado ? "¡Copiado!" : "Copiar enlace"}
+              </button>
+            </div>
+          )}
+        </form>
+      )}
 
       {estado === "cargando" && <SkeletonLista filas={3} />}
       {estado === "error" && (

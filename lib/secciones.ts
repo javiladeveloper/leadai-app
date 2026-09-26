@@ -142,6 +142,9 @@ export function seccionesDe(
     // `/publicar` no se lista: vive DENTRO de /marketing como pestaña.
     marketing: ["/inicio", "/marketing", "/comentarios", "/leads"],
     ventas: ["/inicio", "/conversaciones", "/seguimiento", "/leads", "/oportunidades"],
+    // Operador de un negocio EXPORTADO (2026-09-25): igual que ventas, más
+    // Configuración — ahí vive AjustesVendedora (su nombre, agenda, teléfono).
+    operador: ["/inicio", "/conversaciones", "/seguimiento", "/leads", "/oportunidades", "/configuracion"],
   };
   const permitidas = rol ? PERMITIDAS[rol] : undefined;
   if (!permitidas) return porCapacidad;

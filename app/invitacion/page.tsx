@@ -26,10 +26,12 @@ const QUE_HACE: Record<string, string> = {
   agente: "Vas a poder atender las conversaciones del negocio.",
   admin: "Vas a poder administrar el negocio.",
   owner: "Vas a entrar como dueño del negocio.",
+  // Negocio exportado (2026-09-25): la vendedora atiende, no administra.
+  operador: "Vas a atender los chats de tu propio negocio.",
 };
 
 const NOMBRE_ROL: Record<string, string> = {
-  mozo: "Mozo", agente: "Vendedor", admin: "Administrador", owner: "Dueño",
+  mozo: "Mozo", agente: "Vendedor", admin: "Administrador", owner: "Dueño", operador: "Vendedora",
 };
 
 export default function InvitacionPage() {
@@ -128,11 +130,22 @@ export default function InvitacionPage() {
           <div className="surge">
             <p className="eyebrow mt-6">{NOMBRE_ROL[datos.rol] ?? datos.rol}</p>
             <h1 className="mt-1 text-[1.6rem] font-bold leading-tight text-tinta">
-              {datos.negocio} te suma al equipo
+              {datos.tipo === "exportacion" ? <>Vas a operar {datos.negocio}</> : <>{datos.negocio} te suma al equipo</>}
             </h1>
             <p className="mt-2 text-[0.95rem] leading-snug text-tinta-2">
               {QUE_HACE[datos.rol] ?? "Vas a tener acceso al negocio."}
             </p>
+
+            {/* NEGOCIO EXPORTADO (2026-09-25): antes de aceptar, dejar claro
+                que el negocio sigue siendo del dueño original — él configura
+                el bot y ve todo; la vendedora solo atiende y pone sus datos. */}
+            {datos.tipo === "exportacion" && (
+              <p className="mt-3 rounded-tarjeta bg-arena-2/60 px-3 py-2.5 text-[0.86rem] leading-snug text-tinta-2 ring-1 ring-linea">
+                Este negocio pertenece a su dueño original: él configura el bot y puede ver las
+                conversaciones y el seguimiento. Tú atiendes los chats y pones tus datos (nombre,
+                agenda, teléfono).
+              </p>
+            )}
 
             {/* EL CORREO, bien visible. Es el dato que decide si esto va a
                 funcionar: la invitación no la acepta ningún otro. */}
@@ -161,7 +174,9 @@ export default function InvitacionPage() {
                 disabled={estado === "aceptando"}
                 className="mt-5 w-full rounded-tarjeta bg-brasa px-6 py-3 font-semibold text-sobre-brasa transition hover:bg-brasa-hondo active:scale-[0.99] disabled:opacity-50"
               >
-                {estado === "aceptando" ? "Entrando…" : "Unirme"}
+                {estado === "aceptando"
+                  ? "Entrando…"
+                  : datos.tipo === "exportacion" ? "Aceptar y crear el negocio" : "Unirme"}
               </button>
             ) : (
               <>

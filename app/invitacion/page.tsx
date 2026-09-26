@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion, leerSesion } from "@/lib/auth";
+import { haySesion, leerSesion, guardarEmpresaActiva } from "@/lib/auth";
 import { aceptarInvitacion, mirarInvitacion, refrescarSesion, type InvitacionAbierta } from "@/lib/api";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 
@@ -102,6 +102,16 @@ export default function InvitacionPage() {
      * sesion este al dia, o la carrera se pierde igual.
      */
     await refrescarSesion().catch(() => undefined);
+
+    /**
+     * DEJAR ACTIVO EL NEGOCIO RECIÉN ACEPTADO (2026-09-25, hallazgo de
+     * revisión). Sin esto, quien aceptaba entraba a Inicio parado en
+     * CUALQUIER otra empresa de su sesión (la que haya quedado guardada de
+     * antes) y no en la que acaba de sumarse — confuso siempre, y roto en la
+     * exportación: la vendedora necesita que su copia recién creada sea la
+     * activa para poder verla y editar sus propios datos.
+     */
+    if (r.tenantId) guardarEmpresaActiva(r.tenantId);
 
     setEstado("ok");
     setTimeout(() => router.replace(destinoDe()), 1200);

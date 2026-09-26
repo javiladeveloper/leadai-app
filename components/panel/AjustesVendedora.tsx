@@ -24,28 +24,56 @@ export function AjustesVendedora({ tenant }: { tenant?: string }) {
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState(false);
   const [error, setError] = useState("");
+  // A QUÉ TENANT PERTENECE LO QUE HAY ARRIBA (2026-09-25, hallazgo de
+  // revisión): sin esto, al cambiar de negocio esta sección seguía mostrando
+  // los datos (o el "exportado") del tenant ANTERIOR hasta que resolviera el
+  // fetch nuevo. Mientras no coincide con `tenant`, se trata como "cargando"
+  // — nunca como el estado real de otro negocio.
+  const [tenantCargado, setTenantCargado] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let vivo = true;
     void estadoExportacion(tenant).then((r) => {
+      // Ignora una respuesta tardía de un tenant que ya no es el activo.
       if (!vivo) return;
       setExportado(r.exportado);
       setNombreVendedora(r.ajustes?.nombreVendedora ?? "");
       setLinkAgenda(r.ajustes?.linkAgenda ?? "");
       setTelefonoLlamadas(r.ajustes?.telefonoLlamadas ?? "");
       setHorario(r.ajustes?.horario ?? "");
+      setTenantCargado(tenant);
     });
     return () => { vivo = false; };
   }, [tenant]);
 
+  const cargando = tenantCargado !== tenant;
+
   async function guardar() {
-    setGuardando(true);
     setError("");
     setOk(false);
+
+    const link = linkAgenda.trim();
+    // El backend exige URL o vacío; se lo dice acá con un mensaje simple en
+    // vez de esperar el texto crudo del backend (2026-09-25, hallazgo de
+    // revisión).
+    if (link && !/^https?:\/\//i.test(link)) {
+      setError("Revisa el enlace de tu agenda: debe empezar con https://");
+      return;
+    }
+
+    const telefono = telefonoLlamadas.replace(/\s+/g, "");
+    // Mismo patrón que valida el backend (/^\+?\d{6,15}$/), pero acá antes de
+    // mandar el request.
+    if (telefono && !/^\+?\d{6,15}$/.test(telefono)) {
+      setError("El teléfono solo puede tener números, con + opcional");
+      return;
+    }
+
+    setGuardando(true);
     const datos: AjustesVendedoraTipo = {
       nombreVendedora: nombreVendedora.trim(),
-      linkAgenda: linkAgenda.trim(),
-      telefonoLlamadas: telefonoLlamadas.trim(),
+      linkAgenda: link,
+      telefonoLlamadas: telefono,
       horario: horario.trim(),
     };
     const r = await guardarAjustesVendedora(datos, tenant);
@@ -58,7 +86,7 @@ export function AjustesVendedora({ tenant }: { tenant?: string }) {
     }
   }
 
-  if (exportado === null) return <div className="h-40 animate-pulse rounded-tarjeta bg-arena-2/70" />;
+  if (cargando || exportado === null) return <div className="h-40 animate-pulse rounded-tarjeta bg-arena-2/70" />;
   if (!exportado) return null;
 
   return (

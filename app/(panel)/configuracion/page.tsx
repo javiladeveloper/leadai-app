@@ -88,7 +88,16 @@ function ConfiguracionInner() {
   // NEGOCIO EXPORTADO (2026-09-25): si este negocio es una copia exportada,
   // el bot lo configura el dueño original — el backend responde 403 a los
   // cambios de playbook aunque el panel los muestre, así que acá se ocultan.
-  const [exportacion, setExportacion] = useState<{ exportado: boolean; origenNombre?: string } | null>(null);
+  //
+  // `tenantId` VIAJA DENTRO DEL DATO (hallazgo de revisión, mismo día): así
+  // se sabe a qué negocio pertenece lo que hay guardado sin llamar setState
+  // de forma síncrona al inicio del efecto (eso dispara
+  // react-hooks/set-state-in-effect). Mientras el tenantId guardado no
+  // coincide con `tenantCfg`, se trata como "todavía no se sabe" — nunca se
+  // muestra el aviso ni se oculta el playbook con el dato del negocio
+  // ANTERIOR.
+  const [exportacion, setExportacion] = useState<{ tenantId: string; exportado: boolean; origenNombre?: string } | null>(null);
+  const exportacionVigente = exportacion?.tenantId === tenantCfg ? exportacion : null;
   const rol = rolEnEmpresaActiva();
   const esOperador = rol === "operador";
 
@@ -102,7 +111,8 @@ function ConfiguracionInner() {
     if (!tenantCfg) return;
     let vivo = true;
     void estadoExportacion(tenantCfg).then((r) => {
-      if (vivo) setExportacion({ exportado: r.exportado, origenNombre: r.origenNombre });
+      // Ignora una respuesta tardía de un tenant que ya no es el activo.
+      if (vivo) setExportacion({ tenantId: tenantCfg, exportado: r.exportado, origenNombre: r.origenNombre });
     });
     return () => { vivo = false; };
   }, [tenantCfg]);
@@ -159,9 +169,9 @@ function ConfiguracionInner() {
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Configuración</h1>
           <p className="mt-1 text-[0.92rem] text-frio">Tus datos para atender este negocio.</p>
         </header>
-        {exportacion?.exportado && (
+        {exportacionVigente?.exportado && (
           <p className="rounded-tarjeta bg-arena-2/60 px-4 py-3 text-[0.86rem] leading-snug text-tinta-2 ring-1 ring-linea">
-            La configuración del bot la administra <b>{exportacion.origenNombre ?? "el dueño original"}</b>.
+            La configuración del bot la administra <b>{exportacionVigente?.origenNombre ?? "el dueño original"}</b>.
             Los cambios que haga ahí se aplican aquí automáticamente.
           </p>
         )}
@@ -292,10 +302,10 @@ function ConfiguracionInner() {
               datos, y el playbook de este negocio queda oculto más abajo
               (el backend igual lo bloquearía con 403). Canales sigue visible:
               necesitan conectar el número de WhatsApp de la copia. */}
-          {exportacion?.exportado && (
+          {exportacionVigente?.exportado && (
             <>
               <p className="rounded-tarjeta bg-arena-2/60 px-4 py-3 text-[0.86rem] leading-snug text-tinta-2 ring-1 ring-linea">
-                La configuración del bot la administra <b>{exportacion.origenNombre ?? "el dueño original"}</b>.
+                La configuración del bot la administra <b>{exportacionVigente?.origenNombre ?? "el dueño original"}</b>.
                 Los cambios que haga ahí se aplican aquí automáticamente.
               </p>
               <AjustesVendedora tenant={tenantCfg} />
@@ -339,7 +349,7 @@ function ConfiguracionInner() {
                   NEGOCIO EXPORTADO (2026-09-25): oculto — lo edita el dueño
                   original en su propia copia; el backend igual responde 403
                   si se intenta escribir acá. */}
-              {!exportacion?.exportado && <PlaybookEditor parte="identidad" />}
+              {!exportacionVigente?.exportado && <PlaybookEditor parte="identidad" />}
               {/* LAS ETAPAS NO SON DEL BOT (2026-08-27, Jonathan: "etapas del
                   embudo yo creo que no iría en el bot").
                   Tiene razón, y la auditoría lo confirma: `etapasEmbudo` solo
@@ -389,7 +399,7 @@ function ConfiguracionInner() {
                   NEGOCIO EXPORTADO (2026-09-25): oculto — lo edita el dueño
                   original en su propia copia; el backend igual responde 403
                   si se intenta escribir acá. */}
-              {!exportacion?.exportado && <PlaybookEditor parte="guion" />}
+              {!exportacionVigente?.exportado && <PlaybookEditor parte="guion" />}
               {/* "QUÉ RESPONDE TU BOT" SE MUDÓ DE CANALES (2026-08-27). Estaba
                   ahí porque se agregó pensando en el momento de conectar el
                   WhatsApp, pero es lo que MÁS habla del bot: buscarlo en la

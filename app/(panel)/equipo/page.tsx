@@ -15,6 +15,7 @@ import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 const ROL_LABEL: Record<string, string> = {
   owner: "Dueño", admin: "Administrador", agente: "Vendedor", mozo: "Mozo",
   ventas: "Ventas", marketing: "Marketing", cocina: "Cocina",
+  operador: "Vendedora (negocio exportado)",
 };
 
 /**

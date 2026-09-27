@@ -11,6 +11,7 @@ import {
 import { SkeletonLista } from "@/components/Skeletons";
 import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
 import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
+import { QuienAtiende } from "@/components/panel/QuienAtiende";
 
 const ROL_LABEL: Record<string, string> = {
   owner: "Dueño", admin: "Administrador", agente: "Vendedor", mozo: "Mozo",
@@ -270,6 +271,10 @@ function EquipoPanel() {
           )}
         </form>
       )}
+
+      {/* En el calendario de quién agenda el bot de este negocio (2026-09-26):
+          misma regla que exportar, solo dueño o admin. */}
+      {puedeExportar && <QuienAtiende />}
 
       {estado === "cargando" && <SkeletonLista filas={3} />}
       {estado === "error" && (

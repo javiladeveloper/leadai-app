@@ -52,6 +52,8 @@ export const SECCIONES: Seccion[] = [
   // ── VENTAS: el ciclo del lead, de la primera charla al cierre ──
   { href: "/seguimiento", label: "Seguimiento", corto: "Pipeline", Icono: IconoSeguimiento, requiere: "tieneEmbudo", rapido: 2, grupo: "Ventas" },
   { href: "/leads", label: "Leads", Icono: IconoBandeja, requiere: "calificaLeads", rapido: 3, grupo: "Ventas" },
+  // Las reuniones que el bot agendó para ESTA persona, en todos sus negocios (2026-09-26).
+  { href: "/agenda", label: "Agenda", Icono: IconoSeguimiento, requiere: "calificaLeads", grupo: "Ventas" },
   { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades, requiere: "tieneEmbudo", grupo: "Ventas" },
 
   // ── MARKETING: atraer gente nueva y hablarle a la que ya vino ──

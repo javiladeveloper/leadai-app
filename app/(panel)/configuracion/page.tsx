@@ -23,6 +23,7 @@ import { ConfigComision } from "@/components/panel/ConfigComision";
 import { MiPerfilVendedorPanel } from "@/components/panel/MiPerfilVendedor";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
 import { AjustesVendedora } from "@/components/panel/AjustesVendedora";
+import { MiCalendario } from "@/components/panel/MiCalendario";
 import { useCapacidadesOptimista, type Capacidades } from "@/lib/modo-negocio";
 import { empresasVisibles } from "@/lib/auth";
 import { estadoExportacion } from "@/lib/api";
@@ -36,7 +37,7 @@ import type { NegocioBandeja } from "@/lib/api";
 // La pestaña "Mi perfil" es de la PERSONA (dueña de la cuenta): sin chips.
 // El "＋ Agregar otro negocio" también vive acá (antes estaba en el selector
 // del header, que ya no existe).
-type Tab = "negocio" | "bot" | "canales" | "perfil";
+type Tab = "negocio" | "bot" | "canales" | "perfil" | "calendario";
 
 // La BAJADA cambia con la pestaña (2026-08-18): una sola frase genérica no
 // dice nada, y "Mi perfil" traía la suya en un segundo encabezado propio.
@@ -63,6 +64,9 @@ const TABS: { id: Tab; label: string; corta: string; bajada: string; requiere?: 
   // Jonathan: "tiene cosas que no vienen al caso"). De sus 16 campos le
   // servirían cinco, y el resto —LinkedIn, portfolio, mini-CV— es ruido en la
   // pantalla donde configura su negocio.
+  // "Mi calendario" (2026-09-26) es de la PERSONA, como "Mi perfil": su
+  // Google Calendar, donde el bot agenda las reuniones de TODOS sus negocios.
+  { id: "calendario", label: "Mi calendario", corta: "Tus reuniones", bajada: "Tu Google Calendar: donde el bot agenda las reuniones de todos tus negocios." },
   { id: "perfil", label: "Mi perfil", corta: "Tu CV de vendedora", bajada: "Así te ven los negocios que buscan vendedores.", requiere: "calificaLeads" },
 ];
 
@@ -136,7 +140,7 @@ function ConfiguracionInner() {
       router.replace("/mi-plan");
       return;
     }
-    if (t === "perfil" || t === "canales" || t === "negocio") setTab(t);
+    if (t === "perfil" || t === "canales" || t === "negocio" || t === "calendario") setTab(t);
   }, [searchParams, router]);
 
   useEffect(() => { setPredeterminada(leerEmpresaPredeterminada()); }, []);
@@ -176,11 +180,15 @@ function ConfiguracionInner() {
           </p>
         )}
         <AjustesVendedora tenant={tenantCfg || undefined} />
+        {/* Su Google Calendar (2026-09-26): en un negocio exportado el bot
+            agenda en el calendario de la VENDEDORA, así que ella tiene que
+            poder conectarlo — y confirmar el `?pendiente=` al volver de Google. */}
+        <MiCalendario />
       </div>
     );
   }
 
-  const tabDeNegocio = tab !== "perfil";
+  const tabDeNegocio = tab !== "perfil" && tab !== "calendario";
   /**
    * LOS CHIPS DE NEGOCIO NO VAN EN PLAN (2026-08-27, Jonathan: "si estoy en
    * plan y consumo no debería aparecerme elige tu negocio").
@@ -464,6 +472,12 @@ function ConfiguracionInner() {
           <MiPerfilVendedorPanel />
         </div>
       )}
+
+      {tab === "calendario" && (
+        <div className="surge">
+          <MiCalendario />
+        </div>
+      )}
     </div>
   );
 }
@@ -510,6 +524,14 @@ function IconoTab({ id }: { id: Tab }) {
     return (
       <svg viewBox="0 0 24 24" className={c} {...p}>
         <path d="M21 11.5a8.5 8.5 0 01-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1121 11.5z" />
+      </svg>
+    );
+  }
+  if (id === "calendario") {
+    return (
+      <svg viewBox="0 0 24 24" className={c} {...p}>
+        <rect x="3" y="5" width="18" height="16" rx="3" />
+        <path d="M3 10h18M8 3v4M16 3v4" />
       </svg>
     );
   }

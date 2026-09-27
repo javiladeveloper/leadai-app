@@ -2894,3 +2894,55 @@ export async function detallePost(canal: RedPost, postExterno: string, tenant?: 
     return await api<DetallePost>(`/publicaciones/redes/${canal}/${encodeURIComponent(postExterno)}`, { tenant });
   } catch { return null; }
 }
+
+// ── MI CALENDARIO Y AGENDA (2026-09-26) ──
+// El calendario es de la PERSONA (no de un negocio): sin X-Tenant-Id. "Quién
+// atiende" sí es por negocio (empresa activa).
+export interface VentanaAgenda { dias: number[]; desde: string; hasta: string }
+export interface EstadoCalendario {
+  conectado: boolean; correo?: string; estado?: "activa" | "caida"; ventana: VentanaAgenda; disponible: boolean;
+}
+export interface CitaAgenda {
+  id: string; tenantId: string; negocio: string; leadId: string; cliente: string | null;
+  inicio: string; fin: string; meetLink: string | null; telefono: string | null; correo: string | null;
+  resumen: string | null; estado: string; atiende: string | null;
+}
+export interface QuienAtiende {
+  usuarioId: string | null; fijo: boolean;
+  miembros: { usuarioId: string; nombre: string | null; email: string; conCalendario: boolean }[];
+}
+
+export function obtenerCalendario(): Promise<EstadoCalendario> {
+  return api("/calendario", { conEmpresa: false });
+}
+/** URL de consentimiento de Google (503 si el backend no tiene Google configurado). */
+export async function urlConectarCalendario(): Promise<string> {
+  return (await api<{ url: string }>("/calendario/google/conectar", { conEmpresa: false })).url;
+}
+/**
+ * Confirma, con la sesión puesta, la conexión que Google dejó pendiente.
+ * Falla con ApiError (404 venció, 403 la inició otra cuenta; el `message` es
+ * el del backend) — ver `avisoConfirmacionCalendario` en lib/agenda.ts.
+ */
+export function confirmarCalendario(pendiente: string): Promise<{ ok: true; correo: string }> {
+  return api("/calendario/google/confirmar", { method: "POST", body: { pendiente }, conEmpresa: false });
+}
+export function guardarVentanaCalendario(v: VentanaAgenda): Promise<{ ok: true }> {
+  return api("/calendario/ventana", { method: "PUT", body: v, conEmpresa: false });
+}
+export function desconectarCalendario(): Promise<{ ok: true }> {
+  return api("/calendario", { method: "DELETE", conEmpresa: false });
+}
+/** Las reuniones de la persona en TODOS sus negocios (rango máx. 92 días). */
+export async function listarAgenda(desde: Date, hasta: Date, tenantId?: string): Promise<CitaAgenda[]> {
+  const qs = new URLSearchParams({ desde: desde.toISOString(), hasta: hasta.toISOString() });
+  if (tenantId) qs.set("tenantId", tenantId);
+  return (await api<{ citas: CitaAgenda[] }>(`/agenda?${qs}`, { conEmpresa: false })).citas;
+}
+export function obtenerQuienAtiende(): Promise<QuienAtiende> {
+  return api("/agenda/quien-atiende");
+}
+/** Solo owner/admin; 409 en un negocio exportado (atiende la vendedora, fijo). */
+export function guardarQuienAtiende(usuarioId: string): Promise<{ ok: true }> {
+  return api("/agenda/quien-atiende", { method: "PUT", body: { usuarioId } });
+}

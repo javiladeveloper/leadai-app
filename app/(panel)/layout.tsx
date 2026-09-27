@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { haySesion, leerSesion, esSuperAdmin, empresasVisibles } from "@/lib/auth";
 import { refrescarSesion } from "@/lib/api";
+import { volverTrasLoginCalendario } from "@/lib/agenda";
 import { Sidebar } from "@/components/panel/Sidebar";
 import { HeaderPanel } from "@/components/panel/HeaderPanel";
 import { NavInferior } from "@/components/NavInferior";
@@ -20,7 +21,18 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   // (ej. el usuario ahora es super admin y le aparece "Plataforma").
   const [, setRefresco] = useState(0);
   useEffect(() => {
-    if (!haySesion()) { router.replace("/"); return; }
+    if (!haySesion()) {
+      // VOLVER DE GOOGLE SIN SESIÓN (2026-09-26): la conexión del calendario
+      // queda pendiente hasta que la confirme una sesión. Si la sesión venció
+      // mientras estaba en Google, el login retoma esta URL (patrón
+      // `volver_a`, ver `destinoTrasEntrar` en app/page.tsx) y la confirma.
+      const volver = volverTrasLoginCalendario(window.location.pathname, window.location.search);
+      if (volver) {
+        try { sessionStorage.setItem("volver_a", volver); } catch { /* sin storage: el login decide */ }
+      }
+      router.replace("/");
+      return;
+    }
     // En segundo plano: la sesión guardada puede estar vieja (la marca de
     // super admin y las empresas nacen en el login). Si cambió, re-render.
     refrescarSesion()

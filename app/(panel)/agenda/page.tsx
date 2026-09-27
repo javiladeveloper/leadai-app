@@ -1,75 +1,193 @@
 "use client";
 
 // AGENDA (2026-09-26): las reuniones que el bot agendó para ESTA persona en
-// todos sus negocios, los próximos 30 días. Es de la persona, no de un
-// negocio: sin chips de negocio arriba; si tiene reuniones en varios, un
-// filtro local.
+// todos sus negocios. Es de la persona, no de un negocio: sin chips de negocio
+// arriba; si tiene varios, un filtro local.
+//
+// CALENDARIO NAVEGABLE (2026-09-27, pedido de Jonathan): vistas Día · Semana
+// · Mes · Lista, con flechas y "Hoy". Todo en hora de Lima (UTC-5 fija), sea
+// cual sea el huso del navegador; la semana empieza el lunes. Cada periodo le
+// pide a `listarAgenda` SOLO su rango (Mes = 42 días; el backend corta en 92).
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { listarAgenda, type CitaAgenda } from "@/lib/api";
-import { agruparPorDia, inicioDelDiaLima } from "@/lib/agenda";
-import { guardarEmpresaActiva } from "@/lib/auth";
+import {
+  agruparPorDia, coloresDeNegocios, diaLima, esVista, hoyLima, moverPeriodo, nombreDelDia, rangoDeVista,
+  tituloDePeriodo, type VistaAgenda,
+} from "@/lib/agenda";
+import { empresasVisibles, guardarEmpresaActiva } from "@/lib/auth";
 import { SkeletonLista } from "@/components/Skeletons";
+import { BarraAgenda } from "@/components/agenda/BarraAgenda";
+import { VistaMes } from "@/components/agenda/VistaMes";
+import { VistaSemana } from "@/components/agenda/VistaSemana";
+import { VistaLista } from "@/components/agenda/VistaLista";
+import { DetalleCitas } from "@/components/agenda/DetalleCitas";
+import { colorDe } from "@/components/agenda/colores";
 
-const ZONA = "America/Lima";
+const CLAVE_VISTA = "agenda.vista";
+
+function vistaGuardada(): VistaAgenda {
+  try {
+    const v = typeof window !== "undefined" ? window.localStorage.getItem(CLAVE_VISTA) : null;
+    return esVista(v) ? v : "mes";
+  } catch {
+    return "mes";
+  }
+}
+
+const VACIO: Record<VistaAgenda, string> = {
+  mes: "No hay reuniones este mes.",
+  semana: "No hay reuniones esta semana.",
+  dia: "No hay reuniones este día.",
+  lista: "No hay reuniones en estos 30 días.",
+};
+
+type Detalle = { tipo: "dia"; dia: string } | { tipo: "cita"; id: string } | null;
 
 export default function AgendaPanel() {
   const router = useRouter();
-  const [citas, setCitas] = useState<CitaAgenda[] | null>(null);
-  const [error, setError] = useState(false);
+  const [vista, setVista] = useState<VistaAgenda>(vistaGuardada);
+  const [ahora, setAhora] = useState(() => new Date());
+  const [fecha, setFecha] = useState(() => hoyLima());
   const [negocio, setNegocio] = useState("todos");
+  const [detalle, setDetalle] = useState<Detalle>(null);
+  // Los datos llevan la clave del rango que pidieron: si llega tarde la
+  // respuesta de un periodo que ya no se mira, no se pinta.
+  const [datos, setDatos] = useState<{ clave: string; citas: CitaAgenda[] } | null>(null);
+  const [intento, setIntento] = useState(0);
+  const [fallo, setFallo] = useState<string | null>(null);
+
+  const hoy = hoyLima(ahora);
+  const rango = useMemo(() => rangoDeVista(vista, fecha), [vista, fecha]);
+  const clave = `${rango.desde.toISOString()}|${rango.hasta.toISOString()}`;
+  const claveCarga = `${clave}#${intento}`;
 
   useEffect(() => {
-    // Desde las 00:00 de HOY en Lima (no del navegador): la agenda se lee en Lima.
-    const desde = inicioDelDiaLima();
-    const hasta = new Date(desde.getTime() + 30 * 86_400_000);
-    listarAgenda(desde, hasta)
-      .then(setCitas)
-      .catch(() => setError(true));
+    let vivo = true;
+    listarAgenda(rango.desde, rango.hasta).then(
+      (citas) => {
+        if (vivo) setDatos({ clave, citas });
+      },
+      () => {
+        if (vivo) setFallo(claveCarga);
+      },
+    );
+    return () => {
+      vivo = false;
+    };
+    // `claveCarga` resume el rango y los reintentos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveCarga]);
+
+  // La línea de "ahora" y el "hoy" se mueven solos.
+  useEffect(() => {
+    const t = window.setInterval(() => setAhora(new Date()), 60_000);
+    return () => window.clearInterval(t);
   }, []);
 
-  const negocios = Array.from(new Map((citas ?? []).map((c) => [c.tenantId, c.negocio])).entries());
+  function elegirVista(v: VistaAgenda) {
+    setVista(v);
+    try {
+      window.localStorage.setItem(CLAVE_VISTA, v);
+    } catch {
+      /* sin storage: la vista vale solo por esta visita */
+    }
+  }
+
+  const citas = datos?.clave === clave ? datos.citas : null;
+  const error = fallo === claveCarga;
+  const cargando = !citas && !error;
+
+  // Los negocios de la persona (de la sesión) + los que traigan las citas:
+  // el color se calcula sobre TODOS, así no cambia al navegar ni al filtrar.
+  const [empresas] = useState(() => empresasVisibles());
+  const negocios = useMemo(() => {
+    const m = new Map<string, string>(empresas.map((e) => [e.tenantId, e.nombre]));
+    for (const c of datos?.citas ?? []) if (!m.has(c.tenantId)) m.set(c.tenantId, c.negocio);
+    return m;
+  }, [empresas, datos]);
+  const colores = useMemo(() => coloresDeNegocios([...negocios.keys()]), [negocios]);
+
   const visibles = (citas ?? []).filter((c) => negocio === "todos" || c.tenantId === negocio);
-  const dias = agruparPorDia(visibles);
+  const citasPorDia = new Map(agruparPorDia(visibles).map((d) => [d.dia, d.citas]));
+  const enLeyenda = Array.from(new Map(visibles.map((c) => [c.tenantId, c.negocio])).entries());
 
   function abrirConversacion(c: CitaAgenda) {
     guardarEmpresaActiva(c.tenantId);
     router.push(`/conversacion/${c.leadId}`);
   }
 
+  function verDia(dia: string) {
+    setFecha(dia);
+    elegirVista("dia");
+    setDetalle(null);
+  }
+
+  const citaAbierta = detalle?.tipo === "cita" ? visibles.find((c) => c.id === detalle.id) : undefined;
+
   return (
-    <div className="mx-auto max-w-3xl space-y-5 px-5 py-6 lg:px-8">
+    <div className="mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-5 lg:px-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Ventas</p>
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Agenda</h1>
-          <p className="mt-1 text-[0.92rem] text-frio">Las reuniones que el bot agendó para ti, los próximos 30 días.</p>
+          <p className="mt-1 text-[0.92rem] text-frio">Las reuniones que el bot agendó para ti.</p>
         </div>
-        {negocios.length > 1 && (
+        {negocios.size > 1 && (
           <select
             value={negocio}
             onChange={(e) => setNegocio(e.target.value)}
-            className="rounded-tarjeta border border-linea bg-carta px-3 py-2.5 text-[0.9rem] text-tinta outline-none focus:border-brasa"
+            aria-label="Filtrar por negocio"
+            className="max-w-full rounded-tarjeta border border-linea bg-carta px-3 py-2.5 text-[0.9rem] text-tinta outline-none focus:border-brasa"
           >
             <option value="todos">Todos los negocios</option>
-            {negocios.map(([id, n]) => <option key={id} value={id}>{n}</option>)}
+            {[...negocios.entries()].map(([id, n]) => (
+              <option key={id} value={id}>{n}</option>
+            ))}
           </select>
         )}
       </header>
 
+      <BarraAgenda
+        vista={vista}
+        titulo={tituloDePeriodo(vista, fecha)}
+        cargando={cargando}
+        onVista={elegirVista}
+        onMover={(d) => setFecha((f) => moverPeriodo(vista, f, d))}
+        onHoy={() => setFecha(hoy)}
+      />
+
+      {enLeyenda.length > 1 && (
+        <ul className="flex flex-wrap gap-x-4 gap-y-1.5" aria-label="Colores por negocio">
+          {enLeyenda.map(([id, n]) => (
+            <li key={id} className="inline-flex items-center gap-1.5 text-[0.78rem] text-tinta-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${colorDe(colores, id).punto}`} aria-hidden />
+              {n}
+            </li>
+          ))}
+        </ul>
+      )}
+
       {error && (
-        <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar tu agenda. Recarga.</p>
+        <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea" role="alert">
+          <p className="font-semibold text-tinta">No pudimos cargar tu agenda.</p>
+          <button
+            type="button"
+            onClick={() => setIntento((n) => n + 1)}
+            className="mt-3 rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.9rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
+          >
+            Reintentar
+          </button>
         </div>
       )}
 
-      {!error && !citas && <SkeletonLista filas={3} />}
+      {cargando && <SkeletonAgenda vista={vista} />}
 
-      {citas && dias.length === 0 && (
-        <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No hay reuniones en los próximos 30 días.</p>
+      {citas && visibles.length === 0 && (
+        <div className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+          <p className="font-semibold text-tinta">{VACIO[vista]}</p>
           <p className="mt-1 text-[0.86rem] text-frio">
             Cuando el bot agende una, aparece aquí. Para que agende en tu Google Calendar, conéctalo en{" "}
             <Link href="/configuracion?tab=calendario" className="font-semibold text-brasa-hondo underline">
@@ -80,68 +198,73 @@ export default function AgendaPanel() {
         </div>
       )}
 
-      {dias.map((d) => (
-        <section key={d.dia} className="space-y-2">
-          <h2 className="text-[0.85rem] font-bold uppercase tracking-wide text-frio">
-            {new Date(`${d.dia}T12:00:00-05:00`).toLocaleDateString("es-PE", { timeZone: ZONA, weekday: "long", day: "numeric", month: "long" })}
-          </h2>
-          {d.citas.map((c) => {
-            const cancelada = c.estado === "cancelada";
-            return (
-              <article key={c.id} className={`rounded-tarjeta bg-carta p-4 ring-1 ring-linea ${cancelada ? "opacity-50" : ""}`}>
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className={`font-semibold text-tinta ${cancelada ? "line-through" : ""}`}>
-                    {new Date(c.inicio).toLocaleTimeString("es-PE", { timeZone: ZONA, hour: "numeric", minute: "2-digit" })} · {c.cliente || "Cliente"}
-                  </p>
-                  <span className="text-[0.75rem] text-frio">
-                    {c.negocio}
-                    {c.atiende ? ` · atiende ${c.atiende}` : ""}
-                    {cancelada ? " · cancelada" : ""}
-                  </span>
-                </div>
-                {c.resumen && <p className="mt-1 text-[0.88rem] text-tinta-2">{c.resumen}</p>}
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {c.meetLink && !cancelada && (
-                    <a
-                      href={c.meetLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
-                    >
-                      Entrar a Meet
-                    </a>
-                  )}
-                  {c.telefono && (
-                    <a
-                      href={`https://wa.me/${c.telefono.replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea hover:bg-linea"
-                    >
-                      +{c.telefono.replace(/^\+/, "")}
-                    </a>
-                  )}
-                  {c.correo && (
-                    <a
-                      href={`mailto:${c.correo}`}
-                      className="rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea hover:bg-linea"
-                    >
-                      {c.correo}
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => abrirConversacion(c)}
-                    className="rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea hover:bg-linea"
-                  >
-                    Ver conversación
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </section>
-      ))}
+      {citas && vista === "mes" && (
+        <VistaMes
+          dias={rango.dias}
+          mes={fecha.slice(0, 7)}
+          hoy={hoy}
+          citasPorDia={citasPorDia}
+          colores={colores}
+          onDia={(dia) => setDetalle({ tipo: "dia", dia })}
+          onCita={(c) => setDetalle({ tipo: "cita", id: c.id })}
+        />
+      )}
+      {citas && (vista === "semana" || vista === "dia") && (
+        <VistaSemana
+          dias={rango.dias}
+          hoy={hoy}
+          ahora={ahora}
+          citasPorDia={citasPorDia}
+          colores={colores}
+          onCita={(c) => setDetalle({ tipo: "cita", id: c.id })}
+          onDia={verDia}
+        />
+      )}
+      {citas && vista === "lista" && (
+        <VistaLista citas={visibles} hoy={hoy} colores={colores} onConversacion={abrirConversacion} />
+      )}
+
+      {detalle?.tipo === "dia" && (
+        <DetalleCitas
+          titulo={nombreDelDia(detalle.dia)}
+          citas={citasPorDia.get(detalle.dia) ?? []}
+          colores={colores}
+          onCerrar={() => setDetalle(null)}
+          onConversacion={abrirConversacion}
+          accion={
+            <button
+              type="button"
+              onClick={() => verDia(detalle.dia)}
+              className="mt-1 min-h-0! text-[0.8rem] font-semibold text-brasa-texto underline focus-visible:outline-2 focus-visible:outline-brasa"
+            >
+              Ver el día por horas
+            </button>
+          }
+        />
+      )}
+      {citaAbierta && (
+        <DetalleCitas
+          titulo={nombreDelDia(diaLima(citaAbierta.inicio))}
+          citas={[citaAbierta]}
+          colores={colores}
+          onCerrar={() => setDetalle(null)}
+          onConversacion={abrirConversacion}
+        />
+      )}
     </div>
   );
+}
+
+function SkeletonAgenda({ vista }: { vista: VistaAgenda }) {
+  if (vista === "lista") return <SkeletonLista filas={3} />;
+  if (vista === "mes") {
+    return (
+      <div className="grid grid-cols-7 gap-1" aria-busy="true" aria-label="Cargando agenda">
+        {Array.from({ length: 42 }, (_, i) => (
+          <div key={i} className="h-16 animate-pulse rounded-lg bg-arena-2/70 sm:h-28" />
+        ))}
+      </div>
+    );
+  }
+  return <div className="h-[28rem] animate-pulse rounded-tarjeta bg-arena-2/70" aria-busy="true" aria-label="Cargando agenda" />;
 }

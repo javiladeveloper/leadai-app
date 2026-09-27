@@ -141,7 +141,8 @@ export function seccionesDe(
   const PERMITIDAS: Record<string, readonly string[]> = {
     // `/publicar` no se lista: vive DENTRO de /marketing como pestaña.
     marketing: ["/inicio", "/marketing", "/comentarios", "/leads"],
-    ventas: ["/inicio", "/conversaciones", "/seguimiento", "/leads", "/agenda", "/oportunidades"],
+    // `/configuracion` (2026-09-26): ve SOLO "Mi calendario" (rama reducida).
+    ventas: ["/inicio", "/conversaciones", "/seguimiento", "/leads", "/agenda", "/oportunidades", "/configuracion"],
     // Operador de un negocio EXPORTADO (2026-09-25): igual que ventas, más
     // Configuración — ahí vive AjustesVendedora (su nombre, agenda, teléfono).
     operador: ["/inicio", "/conversaciones", "/seguimiento", "/leads", "/agenda", "/oportunidades", "/configuracion"],

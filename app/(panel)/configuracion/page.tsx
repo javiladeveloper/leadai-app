@@ -104,6 +104,7 @@ function ConfiguracionInner() {
   const exportacionVigente = exportacion?.tenantId === tenantCfg ? exportacion : null;
   const rol = rolEnEmpresaActiva();
   const esOperador = rol === "operador";
+  const esVentas = rol === "ventas";
 
   useEffect(() => {
     setNegocios(
@@ -183,6 +184,22 @@ function ConfiguracionInner() {
         {/* Su Google Calendar (2026-09-26): en un negocio exportado el bot
             agenda en el calendario de la VENDEDORA, así que ella tiene que
             poder conectarlo — y confirmar el `?pendiente=` al volver de Google. */}
+        <MiCalendario />
+      </div>
+    );
+  }
+
+  // ROL VENTAS (2026-09-26): no configura el negocio (el backend le cierra
+  // esas rutas), pero sí su Google Calendar, que es de la persona y se sirve
+  // con rutas de usuario (sin tenant). Solo eso, sin pestañas de negocio.
+  if (esVentas) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 px-5 py-6 lg:px-8">
+        <header>
+          <p className="eyebrow">Ajustes</p>
+          <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Configuración</h1>
+          <p className="mt-1 text-[0.92rem] text-frio">Tu Google Calendar: donde el bot agenda tus reuniones.</p>
+        </header>
         <MiCalendario />
       </div>
     );

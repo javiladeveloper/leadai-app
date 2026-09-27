@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { agruparPorDia, avisoConfirmacionCalendario, volverTrasLoginCalendario } from '../lib/agenda.ts';
+import { agruparPorDia, avisoConfirmacionCalendario, volverTrasLoginCalendario, inicioDelDiaLima } from '../lib/agenda.ts';
 
 test('agrupa por día de Lima y ordena por hora', () => {
   const citas = [
@@ -39,4 +39,11 @@ test('login sin sesión: vuelve a confirmar el calendario pendiente', () => {
   assert.equal(volverTrasLoginCalendario('/configuracion', '?tab=calendario&calendario=cancelado'), null);
   assert.equal(volverTrasLoginCalendario('/inicio', '?pendiente=abc'), null);
   assert.equal(volverTrasLoginCalendario('/configuracion', ''), null);
+});
+
+test('el "hoy" de la agenda empieza a las 00:00 de Lima, no del navegador', () => {
+  // 23:30 del lunes 28 en Lima = 04:30Z del martes 29: sigue siendo lunes.
+  assert.equal(inicioDelDiaLima(new Date('2026-09-29T04:30:00.000Z')).toISOString(), '2026-09-28T05:00:00.000Z');
+  // 00:10 del martes 29 en Lima.
+  assert.equal(inicioDelDiaLima(new Date('2026-09-29T05:10:00.000Z')).toISOString(), '2026-09-29T05:00:00.000Z');
 });

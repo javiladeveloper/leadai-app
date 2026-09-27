@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { listarAgenda, type CitaAgenda } from "@/lib/api";
-import { agruparPorDia } from "@/lib/agenda";
+import { agruparPorDia, inicioDelDiaLima } from "@/lib/agenda";
 import { guardarEmpresaActiva } from "@/lib/auth";
 import { SkeletonLista } from "@/components/Skeletons";
 
@@ -22,8 +22,8 @@ export default function AgendaPanel() {
   const [negocio, setNegocio] = useState("todos");
 
   useEffect(() => {
-    const desde = new Date();
-    desde.setHours(0, 0, 0, 0);
+    // Desde las 00:00 de HOY en Lima (no del navegador): la agenda se lee en Lima.
+    const desde = inicioDelDiaLima();
     const hasta = new Date(desde.getTime() + 30 * 86_400_000);
     listarAgenda(desde, hasta)
       .then(setCitas)

@@ -10,13 +10,24 @@ import { obtenerQuienAtiende, guardarQuienAtiende, type QuienAtiende as Datos } 
 
 export function QuienAtiende() {
   const [datos, setDatos] = useState<Datos | null>(null);
+  const [errorCarga, setErrorCarga] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
 
   useEffect(() => {
-    obtenerQuienAtiende().then(setDatos).catch(() => setDatos(null));
+    obtenerQuienAtiende().then(setDatos).catch(() => setErrorCarga(true));
   }, []);
 
+  // Un GET fallido se dice, no se esconde: si no, el dueño no sabe que la
+  // opción existe ni que algo anda mal.
+  if (errorCarga) {
+    return (
+      <section className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+        <p className="mb-1 text-[0.85rem] font-bold uppercase tracking-wide text-frio">Quién atiende las reuniones</p>
+        <p className="text-[0.82rem] text-brasa-hondo">No pudimos cargar quién atiende las reuniones. Recarga la página.</p>
+      </section>
+    );
+  }
   if (!datos) return null;
   const actual = datos.miembros.find((m) => m.usuarioId === datos.usuarioId);
 

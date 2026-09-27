@@ -3,7 +3,7 @@
 // "MI CALENDARIO" (2026-09-26): el Google Calendar de la PERSONA, donde el bot
 // agenda las reuniones de todos sus negocios. Vive como pestaña de
 // Configuración (sin chips de negocio, como "Mi perfil") y también en la
-// Configuración reducida de la operadora de un negocio exportado.
+// Configuración reducida de la operadora de un negocio exportado y del rol ventas.
 //
 // LA CONEXIÓN SE CONFIRMA DESDE ACÁ. Google no conecta directo: devuelve a
 // `?tab=calendario&pendiente=<id>` y el panel lo confirma con la sesión puesta
@@ -35,22 +35,44 @@ function avisoDeRetorno(resultado: string | null): Aviso | null {
   return null;
 }
 
+/*
+ * LA CONFIRMACIÓN VIVE A NIVEL DE MÓDULO, NO DE INSTANCIA (fix de revisión,
+ * 2026-09-26). Configuración puede montar este componente en una rama (la de
+ * la operadora) y, cuando el efecto del negocio cambia de empresa activa,
+ * desmontarlo y montar OTRO en otra rama. Un `useRef` muere con la instancia:
+ * la nueva veía el `?pendiente=` todavía en la URL y confirmaba de nuevo → 404
+ * → "La conexión venció" encima de una conexión que SÍ se hizo.
+ *
+ * Por eso: el id se anota acá (cualquier instancia lo salta), la URL se limpia
+ * ANTES de mandar la confirmación, y el resultado se publica a la instancia que
+ * esté montada cuando llegue (o se guarda para la próxima que se monte).
+ */
+const pendientesManejados = new Set<string>();
+let confirmando = false;
+let avisoSinMostrar: Aviso | null = null;
+const oyentes = new Set<(a: Aviso) => void>();
+
+function publicarResultado(a: Aviso) {
+  confirmando = false;
+  if (oyentes.size === 0) {
+    avisoSinMostrar = a;
+    return;
+  }
+  oyentes.forEach((oir) => oir(a));
+}
+
 export function MiCalendario() {
   const router = useRouter();
   const params = useSearchParams();
   const [estado, setEstado] = useState<EstadoCalendario | null>(null);
   const [errorCarga, setErrorCarga] = useState(false);
   const [ventana, setVentana] = useState<VentanaAgenda | null>(null);
-  // Si Google volvió con `?calendario=cancelado|error`, el aviso nace de la
-  // URL (y no de un setState dentro del efecto).
-  const [aviso, setAviso] = useState<Aviso | null>(() => avisoDeRetorno(params.get("calendario")));
+  // El aviso nace del resultado de una confirmación que terminó sin ninguna
+  // instancia montada, o de `?calendario=cancelado|error` (así no hace falta
+  // un setState dentro del efecto).
+  const [aviso, setAviso] = useState<Aviso | null>(() => avisoSinMostrar ?? avisoDeRetorno(params.get("calendario")));
   const [ocupado, setOcupado] = useState(false);
-  // El pendiente que ya se mandó a confirmar: el modo estricto de React corre
-  // los efectos dos veces, y el pendiente es de UN solo uso (el segundo
-  // intento daría "venció" encima del "Listo").
-  const confirmado = useRef<string | null>(null);
-  // Cada carga lleva número: si una vieja llega tarde (la de antes de
-  // confirmar), no pisa a la nueva.
+  // Cada carga lleva número: si una vieja llega tarde, no pisa a la nueva.
   const cargaActual = useRef(0);
 
   // Los setState van en los callbacks de la promesa (nunca síncronos): así
@@ -70,34 +92,44 @@ export function MiCalendario() {
     );
   }
 
+  // Esta instancia escucha el resultado de la confirmación: lo muestra y
+  // recarga el estado (la ÚNICA carga tras confirmar).
+  useEffect(() => {
+    const oir = (a: Aviso) => {
+      setAviso(a);
+      void cargar();
+    };
+    oyentes.add(oir);
+    avisoSinMostrar = null; // si había uno, ya lo tomó el estado inicial
+    return () => {
+      oyentes.delete(oir);
+    };
+  }, []);
+
   useEffect(() => {
     const pendiente = params.get("pendiente");
     const resultado = params.get("calendario");
 
-    if (pendiente) {
-      if (confirmado.current === pendiente) return;
-      confirmado.current = pendiente;
-      void (async () => {
-        try {
-          const r = await confirmarCalendario(pendiente);
-          setAviso({ tipo: "ok", texto: `Listo: tu Google Calendar (${r.correo}) quedó conectado.` });
-        } catch (e) {
-          const status = e instanceof ApiError ? e.status : 0;
-          setAviso({ tipo: "error", texto: avisoConfirmacionCalendario(status, (e as Error).message) });
-        }
-        // Se limpia la URL para que recargar la página no reintente.
-        router.replace("/configuracion?tab=calendario");
-        await cargar();
-      })();
-      return;
-    }
-
-    // `?calendario=cancelado|error`: el aviso ya salió del estado inicial;
-    // acá solo se limpia la URL (el cambio vuelve a correr esto y ahí carga).
-    if (resultado) {
+    if (pendiente || resultado) {
+      // PRIMERO se limpia la URL: ni un recargar ni otra instancia montada
+      // después pueden volver a ver este pendiente.
       router.replace("/configuracion?tab=calendario");
-      return;
+      if (pendiente && !pendientesManejados.has(pendiente)) {
+        pendientesManejados.add(pendiente);
+        confirmando = true;
+        confirmarCalendario(pendiente).then(
+          (r) => publicarResultado({ tipo: "ok", texto: `Listo: tu Google Calendar (${r.correo}) quedó conectado.` }),
+          (e: unknown) => {
+            const status = e instanceof ApiError ? e.status : 0;
+            publicarResultado({ tipo: "error", texto: avisoConfirmacionCalendario(status, (e as Error).message) });
+          },
+        );
+      }
+      return; // el cambio de URL vuelve a correr este efecto
     }
+    // Con una confirmación en vuelo, la carga la hace el oyente al terminar:
+    // cargar ahora mostraría "sin conectar" un instante y pediría dos veces.
+    if (confirmando) return;
     void cargar();
   }, [params, router]);
 
@@ -246,7 +278,7 @@ export function MiCalendario() {
                       })
                     }
                     className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
-                      activo ? "bg-brasa text-carta" : "bg-arena text-tinta-2 ring-1 ring-linea"
+                      activo ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea"
                     }`}
                   >
                     {d}

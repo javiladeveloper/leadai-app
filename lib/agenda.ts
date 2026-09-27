@@ -48,3 +48,12 @@ export function volverTrasLoginCalendario(pathname: string, search: string): str
   if (!pendiente) return null;
   return `/configuracion?${new URLSearchParams({ tab: "calendario", pendiente })}`;
 }
+
+/**
+ * El inicio del día de HOY en Lima (00:00 -05:00), sea cual sea la zona del
+ * navegador: la agenda se lee en hora de Lima, así que "hoy" también.
+ */
+export function inicioDelDiaLima(ahora: Date = new Date()): Date {
+  const lima = new Date(ahora.getTime() - 5 * 3_600_000);
+  return new Date(Date.UTC(lima.getUTCFullYear(), lima.getUTCMonth(), lima.getUTCDate()) + 5 * 3_600_000);
+}

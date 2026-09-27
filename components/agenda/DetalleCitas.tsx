@@ -12,7 +12,7 @@ import { horaLima, tipoDeCita } from "@/lib/agenda";
 import { colorDe } from "./colores";
 
 const chip =
-  "inline-flex min-h-9! items-center rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-linea focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa";
+  "inline-flex min-h-10! items-center rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-linea focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa";
 
 export function IconoTipo({ cita }: { cita: CitaAgenda }) {
   const demo = tipoDeCita(cita) === "demo";
@@ -55,7 +55,7 @@ export function TarjetaCita({
             href={c.meetLink}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex min-h-9 items-center rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
+            className="inline-flex min-h-10 items-center rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
           >
             {/meet\.google\.com/.test(c.meetLink) ? "Entrar a Meet" : "Entrar a la videollamada"}
           </a>

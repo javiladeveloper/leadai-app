@@ -69,7 +69,7 @@ export function BarraAgenda({
               type="button"
               aria-pressed={activa}
               onClick={() => onVista(v)}
-              className={`h-9 min-h-9! flex-1 rounded-chip px-3.5 text-[0.84rem] font-semibold transition sm:flex-none ${foco} ${
+              className={`h-10 min-h-10! flex-1 rounded-chip px-3.5 text-[0.84rem] font-semibold transition sm:flex-none ${foco} ${
                 activa ? "bg-carta text-tinta shadow-sm" : "text-tinta-2 hover:text-tinta"
               }`}
             >

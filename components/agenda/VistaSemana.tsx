@@ -52,7 +52,11 @@ export function VistaSemana({
     : hoyVisible ? ahoraMin : 0;
   const clave = dias[0];
   useEffect(() => {
-    if (caja.current) caja.current.scrollTop = Math.max(0, ((primeraMin - 60) / 60) * pxHora);
+    // "Una hora de aire arriba" cae justo en una línea de hora, y esa línea
+    // queda tapada por la cabecera de días (sticky, encima): el rótulo se ve
+    // cortado a la mitad (2026-09-27, hallazgo del audit responsive). Con
+    // 8px menos no se llega exacto al borde y el rótulo queda debajo, entero.
+    if (caja.current) caja.current.scrollTop = Math.max(0, ((primeraMin - 60) / 60) * pxHora - 8);
     // Solo al cambiar de periodo: recargar datos no debe mover al usuario.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave]);

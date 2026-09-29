@@ -2,7 +2,7 @@
 
 // Componente reutilizable: la página de Next no recibe la prop embebido.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { haySesion, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import {
@@ -137,7 +137,14 @@ function leerMetaVideo(file: File): Promise<{ duracionSeg: number; ancho: number
 export default function PublicarPanel(
   { embebido = false, tenant }: { embebido?: boolean; tenant?: string } = {},
 ) {
+  const id = useId();
   const router = useRouter();
+  const cargaActual = useRef(0);
+  const contextoActual = useRef(0);
+  const publicacionOcupada = useRef(false);
+  const invalidarConsultas = useCallback(() => { cargaActual.current++; contextoActual.current++; }, []);
+  const paginaOcupada = useRef(false);
+  const [errorLista, setErrorLista] = useState("");
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [posts, setPosts] = useState<Publicacion[]>([]);
@@ -170,6 +177,10 @@ export default function PublicarPanel(
   const [tipoMedia, setTipoMedia] = useState<"imagen" | "video">("imagen");
   const [meta, setMeta] = useState<MetaMedia | null>(null);
   const [redes, setRedes] = useState<string[]>([]);
+  const [redesReintento, setRedesReintento] = useState<string[] | null>(null);
+  // La lectura del historial también necesita la restricción vigente, sin
+  // recrear su callback ni lanzar otra carga al recibir un resultado parcial.
+  const redesReintentoRef = useRef<string[] | null>(null);
   // Post/Reel, historia o los dos (2026-09-25).
   const [formato, setFormato] = useState<FormatoPublicacion>("post");
   const [programar, setProgramar] = useState(false);
@@ -229,19 +240,36 @@ export default function PublicarPanel(
     ? { ...gPropio, tenantLista: tenant, enfocado: tenant ?? "", listaLista: true }
     : gPropio;
 
+  const tenantAnterior = useRef(g.tenantLista);
+  useEffect(() => {
+    if (tenantAnterior.current !== g.tenantLista) {
+      tenantAnterior.current = g.tenantLista;
+      setPosts([]); setSiguiente(null); setConectadas(null); setPlantillas([]);
+      setCargandoMas(false); paginaOcupada.current = false;
+      setPublicando(false); publicacionOcupada.current = false;
+      redesReintentoRef.current = null; setRedesReintento(null);
+    }
+    return invalidarConsultas;
+  }, [g.tenantLista, invalidarConsultas]);
+
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
   }, [router]);
 
   const cargar = useCallback(async () => {
+    const turno = ++cargaActual.current;
     setEstado("cargando");
+    setErrorLista("");
+    paginaOcupada.current = false;
+    setCargandoMas(false);
     try {
       const [r, pl, cs] = await Promise.all([
         listarPublicaciones(g.tenantLista),
         plantillasPost(g.tenantLista),
         listarCanales(g.tenantLista),
       ]);
+      if (turno !== cargaActual.current) return;
       setPosts(r.items);
       setSiguiente(r.siguiente);
       setPlantillas(pl);
@@ -251,12 +279,16 @@ export default function PublicarPanel(
       // desmarcan las que acá no existen; si no había nada marcado, se
       // preseleccionan las conectadas (menos un clic para el caso común).
       setRedes((prev) => {
-        const validas = prev.filter((x) => activas.has(x));
+        const pendientes = redesReintentoRef.current;
+        const permitida = (x: string) => activas.has(x) && (pendientes === null || pendientes.includes(x));
+        const validas = prev.filter(permitida);
         if (validas.length > 0) return validas;
-        return REDES.map((x) => x.id).filter((x) => activas.has(x));
+        return REDES.map((x) => x.id).filter(permitida);
       });
       setEstado("ok");
-    } catch {
+    } catch (e) {
+      if (turno !== cargaActual.current) return;
+      setErrorLista(e instanceof Error ? e.message : "No se pudieron cargar las publicaciones.");
       setEstado("error");
     }
   }, [g.tenantLista]);
@@ -306,12 +338,21 @@ export default function PublicarPanel(
   }, [g.modoGlobal, negociosClave]);
 
   async function cargarMas() {
-    if (!siguiente || cargandoMas) return;
+    if (!siguiente || paginaOcupada.current || estado === "cargando") return;
+    const turno = cargaActual.current;
+    paginaOcupada.current = true;
     setCargandoMas(true);
-    const r = await listarPublicaciones(g.tenantLista, siguiente);
-    setPosts((prev) => [...prev, ...r.items]);
-    setSiguiente(r.siguiente);
-    setCargandoMas(false);
+    setErrorLista("");
+    try {
+      const r = await listarPublicaciones(g.tenantLista, siguiente);
+      if (turno !== cargaActual.current) return;
+      setPosts((prev) => [...prev, ...r.items.filter((p) => !prev.some((x) => x.id === p.id))]);
+      setSiguiente(r.siguiente);
+    } catch (e) {
+      if (turno === cargaActual.current) setErrorLista(e instanceof Error ? e.message : "No se pudieron cargar más publicaciones. Inténtalo de nuevo.");
+    } finally {
+      if (turno === cargaActual.current) { paginaOcupada.current = false; setCargandoMas(false); }
+    }
   }
 
   // Nombre del negocio al que le va a salir el post: en vista global es el
@@ -328,6 +369,7 @@ export default function PublicarPanel(
       })();
 
   function toggleRed(id: string) {
+    if (redesReintentoRef.current !== null && !redesReintentoRef.current.includes(id)) return;
     // Solo redes conectadas en ESTE negocio (regla de Jonathan 26-ago).
     if (conectadas && !conectadas.has(id)) {
       const nombre = REDES.find((x) => x.id === id)?.label ?? id;
@@ -468,7 +510,9 @@ export default function PublicarPanel(
   const falta = faltaParaPublicar({ texto, cantidadMedia: mediaUrls.length, redes, programar, fecha, formato });
 
   async function publicar() {
-    if ((!texto.trim() && formato !== "historia") || redes.length === 0 || publicando || subiendo) return;
+    if ((!texto.trim() && formato !== "historia") || redes.length === 0 || publicacionOcupada.current || publicando || subiendo || falta.length > 0) return;
+    const canales = redes.filter((red) => redesReintentoRef.current === null || redesReintentoRef.current.includes(red));
+    if (canales.length === 0) return;
     const bloqueo = [...chequeos.flatMap((c) => c.lista), ...historia].find((x) => x.nivel === "bloqueo");
     if (bloqueo) { setMsg(bloqueo.texto); return; }
     // TikTok EXIGE que la privacidad la elija una persona, sin valor por
@@ -478,12 +522,15 @@ export default function PublicarPanel(
       if (errTt) { setMsg(errTt); return; }
     }
     setPublicando(true);
+    publicacionOcupada.current = true;
+    const contexto = contextoActual.current;
     setMsg("");
+    try {
     const r = await crearPublicacion({
       texto: texto.trim(),
       mediaUrls,
       tipoMedia: tipoMediaDe(mediaUrls.length, tipoMedia === "video"),
-      canales: redes,
+      canales,
       formato,
       programadaPara: programar && fecha ? new Date(fecha).toISOString() : undefined,
       // Lo que eligio el dueño para TikTok. Solo viaja si TikTok es destino.
@@ -498,18 +545,25 @@ export default function PublicarPanel(
           }
         : undefined,
     }, g.tenantLista);
-    setPublicando(false);
+    if (contexto !== contextoActual.current) return;
     if (r.ok) {
-      setTexto(""); quitarMedia(); setProgramar(false); setFecha("");
       // El POST responde 200 aunque una red rechace: el resultado real está en
       // cada destino. Decir "publicado" cuando TikTok lo rebotó es mentirle al
       // dueño (y TikTok lo mira en su audit).
       const fallidos = (r.publicacion?.destinos ?? []).filter((d) => d.estado === "fallida");
       const nombreRed = (c: string) => (c === "tiktok" ? "TikTok" : c === "instagram" ? "Instagram" : "Facebook");
       if (fallidos.length > 0) {
+        const pendientes = [...new Set(fallidos.map((d) => d.canal))];
+        redesReintentoRef.current = pendientes;
+        setRedesReintento(pendientes);
+        setRedes(pendientes);
+        const publicadas = [...new Set((r.publicacion?.destinos ?? []).filter((d) => d.estado === "publicada").map((d) => nombreRed(d.canal)))];
         const redesFallidas = [...new Set(fallidos.map((d) => nombreRed(d.canal)))].join(" y ");
-        setMsg(`⛔ No se publicó en ${redesFallidas}: ${fallidos[0].error ?? "la red lo rechazó"}`);
+        setMsg(`${publicadas.length > 0 ? `Publicación parcial: ya publicado en ${publicadas.join(" y ")}. ` : ""}No se publicó en ${redesFallidas}: ${fallidos[0].error ?? "la red lo rechazó"}. Se conserva el borrador; el reintento enviará solo a las redes fallidas.`);
       } else {
+        redesReintentoRef.current = null;
+        setRedesReintento(null);
+        setTexto(""); quitarMedia(); setProgramar(false); setFecha("");
         setMsg(`✓ ${mensajeTrasPublicar(formato, programar)}`);
       }
       // TikTok procesa el video unos minutos: se sigue su estado para que el
@@ -519,6 +573,11 @@ export default function PublicarPanel(
       cargar();
     } else {
       setMsg(r.error ?? "No se pudo publicar.");
+    }
+    } catch (e) {
+      if (contexto === contextoActual.current) setMsg(e instanceof Error ? e.message : "No se pudo publicar. Se conserva el borrador.");
+    } finally {
+      if (contexto === contextoActual.current) { publicacionOcupada.current = false; setPublicando(false); }
     }
   }
 
@@ -617,7 +676,8 @@ export default function PublicarPanel(
       )}
 
       {/* Editor */}
-      <div className="space-y-4 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+      <fieldset disabled={publicando} aria-busy={publicando} className="min-w-0 space-y-4 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+        <legend className="sr-only">Editor de publicación</legend>
         {/* Sin cabecera, el editor arrancaba directo en el campo de texto: no
             decía qué se está armando. No lleva botón de cerrar porque acá el
             formulario ES la pantalla — no hay a dónde volver. */}
@@ -654,12 +714,13 @@ export default function PublicarPanel(
 
         {/* Texto */}
         <div className="flex items-center justify-between">
-          <label className="text-[0.9rem] font-bold text-tinta">Texto del post</label>
+          <label htmlFor={`${id}-texto`} className="text-[0.9rem] font-bold text-tinta">Texto del post</label>
           <span className={`text-[0.75rem] ${texto.length > MAX_TEXTO - 100 ? "font-bold text-alerta-hondo" : "text-frio"}`}>
             {texto.length} / {MAX_TEXTO}
           </span>
         </div>
         <textarea
+          id={`${id}-texto`}
           value={texto}
           onChange={(e) => setTexto(e.target.value.slice(0, MAX_TEXTO))}
           rows={4}
@@ -821,15 +882,17 @@ export default function PublicarPanel(
             {REDES.map((r) => {
               const activo = redes.includes(r.id);
               const sinConectar = conectadas !== null && !conectadas.has(r.id);
+              const fueraDelReintento = redesReintento !== null && !redesReintento.includes(r.id);
               return (
                 <button
                   key={r.id}
                   onClick={() => toggleRed(r.id)}
-                  title={sinConectar ? `Conecta ${r.label} en Configuración → Canales` : undefined}
+                  disabled={fueraDelReintento}
+                  title={fueraDelReintento ? "Esta red no falló: no se enviará de nuevo en este reintento." : sinConectar ? `Conecta ${r.label} en Configuración → Canales` : undefined}
                   className={`rounded-chip px-4 py-2 text-[0.85rem] font-semibold transition ${
                     activo
                       ? "bg-brasa text-carta"
-                      : sinConectar
+                      : sinConectar || fueraDelReintento
                         ? "cursor-not-allowed bg-arena/40 text-frio/70"
                         : "bg-arena/70 text-tinta-2 hover:bg-arena"
                   }`}
@@ -894,10 +957,11 @@ export default function PublicarPanel(
                 </p>
               ) : (
                 <>
-                  <label className="mb-1 block text-[0.8rem] font-semibold text-tinta-2">
+                  <label htmlFor={`${id}-privacidad`} className="mb-1 block text-[0.8rem] font-semibold text-tinta-2">
                     ¿Quién puede ver este video? <span className="text-coral">*</span>
                   </label>
                   <select
+                    id={`${id}-privacidad`}
                     value={ttPrivacidad}
                     onChange={(e) => setTtPrivacidad(e.target.value)}
                     className="w-full rounded-tarjeta border border-arena bg-carta px-3 py-2 text-[0.85rem] text-tinta"
@@ -1071,12 +1135,14 @@ export default function PublicarPanel(
             Programar para más tarde
           </label>
           {programar && (
+            <label className="mt-2 block text-sm text-tinta-2">Fecha y hora de publicación
             <input
               type="datetime-local"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
               className="mt-2 rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.88rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
             />
+            </label>
           )}
         </div>
 
@@ -1123,23 +1189,27 @@ export default function PublicarPanel(
                 <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-sobre-brasa/30 border-t-sobre-brasa" />
                 {publicando ? "Publicando…" : textoProgreso(progreso)}
               </span>
-            ) : programar ? "Programar post" : "Publicar ahora"}
+            ) : redesReintento !== null ? "Reintentar redes fallidas" : programar ? "Programar post" : "Publicar ahora"}
           </button>
-          {msg && <span className="text-[0.84rem] font-semibold text-tinta-2">{msg}</span>}
+          {msg && <span role="status" className="text-[0.84rem] font-semibold text-tinta-2">{msg}</span>}
         </div>
-      </div>
+      </fieldset>
 
       {/* Lista de publicaciones */}
       <div>
         <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Tus publicaciones</h2>
         {estado === "cargando" && <SkeletonLista filas={3} />}
+        {errorLista && <div role="alert" className="mb-3 rounded-tarjeta bg-tibio-suave p-3 text-sm text-tibio">
+          <p>{errorLista} Se conserva la lista cargada y el borrador.</p>
+          {estado === "error" && <button type="button" onClick={() => void cargar()} className="mt-2 rounded-chip bg-arena px-3 py-2 font-semibold">Reintentar publicaciones</button>}
+        </div>}
         {estado === "ok" && posts.length === 0 && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Todavía no publicaste nada</p>
             <p className="mt-1 text-[0.88rem] text-frio">Crea tu primer post arriba.</p>
           </div>
         )}
-        {estado === "ok" && posts.length > 0 && (
+        {posts.length > 0 && (
           <div className="space-y-2.5">
             {posts.map((p) => {
               const et = ESTADO_POST[p.estado] ?? ESTADO_POST.borrador;
@@ -1197,7 +1267,7 @@ export default function PublicarPanel(
             {siguiente && (
               <button
                 onClick={cargarMas}
-                disabled={cargandoMas}
+                disabled={cargandoMas || estado === "cargando"}
                 className="w-full rounded-tarjeta bg-carta py-2.5 text-[0.85rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena/60 disabled:opacity-50"
               >
                 {cargandoMas ? "Cargando…" : "Ver más publicaciones"}

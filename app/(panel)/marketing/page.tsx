@@ -89,16 +89,21 @@ export default function MarketingPanel() {
    * Ahora se pregunta por el negocio enfocado, se vuelve a preguntar al
    * cambiarlo, y no se pregunta hasta saber cuál es (`resuelto`).
    */
-  const tenantPlan = g.modoGlobal ? g.enfocado : undefined;
+  const tenantPlan = g.tenantLista ?? (g.resuelto ? leerEmpresaActiva() ?? empresasVisibles()[0]?.tenantId : undefined);
+  const [tenantPublicarVisitado, setTenantPublicarVisitado] = useState<string>();
   useEffect(() => {
-    if (!g.resuelto || (g.modoGlobal && !g.enfocado)) return;
+    if (pestania === "publicar" && tenantPlan) setTenantPublicarVisitado(tenantPlan);
+  }, [pestania, tenantPlan]);
+
+  useEffect(() => {
+    if (!g.resuelto || !g.listaLista || !tenantPlan) return;
     let vivo = true;
     setTieneMarketing(null);
     obtenerMiPlan(tenantPlan || undefined)
       .then((p) => { if (vivo) setTieneMarketing(p?.features?.marketing ?? true); })
       .catch(() => { if (vivo) setTieneMarketing(true); });
     return () => { vivo = false; };
-  }, [g.resuelto, g.modoGlobal, g.enfocado, tenantPlan]);
+  }, [g.resuelto, g.listaLista, tenantPlan]);
 
   function elegir(p: Pestania) {
     setPestania(p);
@@ -115,7 +120,8 @@ export default function MarketingPanel() {
     : pestania === "campanias" && !caps.tieneCampanias ? "anuncios"
     : pestania;
 
-  if (!listo) return null;
+  if (!listo || !g.resuelto) return null;
+  if (g.listaLista && !tenantPlan) return <p role="status" className="p-5">Selecciona un negocio para ver Marketing.</p>;
 
   /**
    * NO SE PINTA HASTA SABER QUÉ PINTAR (2026-09-01).
@@ -134,7 +140,7 @@ export default function MarketingPanel() {
     // grises muestra una estructura que todavía no se sabe si es la correcta —
     // acá ni siquiera se sabe si van las pestañas o el candado del plan.
     return (
-      <Cargando />
+      <p role="status" className="p-5 text-frio">Cargando Marketing…</p>
     );
   }
 
@@ -267,9 +273,14 @@ export default function MarketingPanel() {
         })}
       </div>
 
-      {/* Cada pestaña monta su pantalla completa. Se desmonta al cambiar: son
-          dos flujos con formularios propios, y dejarlos vivos escondidos haría
-          que un borrador a medias reapareciera sin que nadie lo pidiera. */}
+      {/* Publicar permanece montado tras visitarlo para conservar el trabajo
+          al cambiar de pestaña. El tenant identifica y aísla su instancia;
+          no se persiste el borrador fuera de esta pantalla. */}
+      {tenantPlan && (mostrar === "publicar" || tenantPublicarVisitado === tenantPlan) && (
+        <div key={tenantPlan} hidden={mostrar !== "publicar"}>
+          <PublicarPanel embebido key={tenantPlan} tenant={tenantPlan} />
+        </div>
+      )}
       {/* Si la pestania de la URL no aplica a este negocio —un link viejo, o
           un rubro sin esa capacidad— se muestra la otra en vez de una pantalla
           en blanco. */}
@@ -286,15 +297,14 @@ export default function MarketingPanel() {
          * `key` fuerza el remonte al cambiar de negocio: sin eso los campos
          * conservan el texto del anterior, que es la misma confusion.
          */
-        <PresenciaEditor key={g.enfocado || "activa"} tenant={g.enfocado || undefined} />
-      ) : mostrar === "publicar" ? (
-        <PublicarPanel embebido key={g.enfocado || "activa"} tenant={g.enfocado || undefined} />
-      ) : mostrar === "anuncios" ? (
-        <SeccionAnuncios tenant={g.enfocado || undefined} />
+        <PresenciaEditor key={tenantPlan} tenant={tenantPlan} />
+      ) : mostrar === "publicar" ? null
+      : mostrar === "anuncios" ? (
+        <SeccionAnuncios tenant={tenantPlan} nombreNegocio={nombreNegocio} />
       ) : mostrar === "automatico" ? (
-        <AjustesMarketing key={g.enfocado || "activa"} />
+        <AjustesMarketing key={tenantPlan} tenant={tenantPlan} />
       ) : (
-        <CampaniasPanel embebido key={g.enfocado || "activa"} tenant={g.enfocado || undefined} />
+        <CampaniasPanel embebido key={tenantPlan} tenant={tenantPlan} />
       )}
     </div>
   );

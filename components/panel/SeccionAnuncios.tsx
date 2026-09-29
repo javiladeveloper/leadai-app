@@ -49,8 +49,17 @@ const SOLAPAS = [
 
 type Solapa = (typeof SOLAPAS)[number]["id"];
 
-export function SeccionAnuncios({ tenant }: { tenant?: string } = {}) {
+export function SeccionAnuncios(props: { tenant?: string; nombreNegocio?: string } = {}) {
+  return <ContenidoAnuncios key={props.tenant ?? "activa"} {...props} />;
+}
+
+function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreNegocio?: string }) {
   const [solapa, setSolapa] = useState<Solapa>("resumen");
+  const [dias, setDias] = useState<7 | 30 | 90>(30);
+  const [creadorVisitado, setCreadorVisitado] = useState(false);
+  const [solicitudHistorial, setSolicitudHistorial] = useState(0);
+  const [error, setError] = useState(false);
+  const [intento, setIntento] = useState(0);
   // `null` mientras carga: sin esto parpadea la pantalla de "conectá tu cuenta"
   // antes de saber si ya está conectada, que se ve peor que esperar un instante.
   const [conectada, setConectada] = useState<boolean | null>(null);
@@ -58,16 +67,22 @@ export function SeccionAnuncios({ tenant }: { tenant?: string } = {}) {
   useEffect(() => {
     let vivo = true;
     setConectada(null);
+    setError(false);
     void estadoAnuncios(tenant).then((e) => {
-      // Si la consulta falla se asume CONECTADA: dejar ver pestañas vacías es
-      // menos grave que esconderle la sección a quien sí tiene cuenta.
-      if (vivo) setConectada(e === null ? true : e.conectada);
-    });
+      if (!vivo) return;
+      if (!e) setError(true);
+      else setConectada(e.conectada);
+    }).catch(() => { if (vivo) setError(true); });
     return () => { vivo = false; };
-  }, [tenant]);
+  }, [tenant, intento]);
+
+  if (error) return <div role="alert" className="space-y-2 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+    <p>No pudimos comprobar la conexión de anuncios de este negocio.</p>
+    <button type="button" onClick={() => setIntento(i => i + 1)} className="font-semibold text-brasa-texto">Reintentar</button>
+  </div>;
 
   if (conectada === null) {
-    return <div className="h-48 animate-pulse rounded-tarjeta bg-arena-2/70" />;
+    return <div role="status" aria-label="Cargando conexión de anuncios" className="h-48 animate-pulse rounded-tarjeta bg-arena-2/70" />;
   }
   // Sin cuenta NO se pintan las pestañas: mostrar navegación que no lleva a
   // ningún lado es lo que hace que alguien toque cinco veces antes de entender.
@@ -80,7 +95,8 @@ export function SeccionAnuncios({ tenant }: { tenant?: string } = {}) {
           <button
             key={s.id}
             type="button"
-            onClick={() => setSolapa(s.id)}
+            aria-pressed={solapa === s.id}
+            onClick={() => { setSolapa(s.id); if (s.id === "crear") setCreadorVisitado(true); }}
             title={s.ayuda}
             className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
               solapa === s.id
@@ -93,30 +109,53 @@ export function SeccionAnuncios({ tenant }: { tenant?: string } = {}) {
         ))}
       </div>
 
-      {/* Cada solapa se desmonta al cambiar: el formulario de crear tiene
-          estado propio, y dejarlo vivo escondido haría que un borrador a
-          medias reapareciera sin que nadie lo pidiera. */}
+      <label className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-tinta">
+        Período del reporte
+        <select aria-label="Período del reporte" value={dias} onChange={e => {
+          const n = Number(e.target.value);
+          if (n === 7 || n === 30 || n === 90) setDias(n);
+        }} className="rounded-tarjeta bg-carta px-3 py-2 text-base ring-1 ring-linea focus:ring-brasa">
+          <option value={7}>Últimos 7 días</option>
+          <option value={30}>Últimos 30 días</option>
+          <option value={90}>Últimos 90 días</option>
+        </select>
+      </label>
+      {/* El creador conserva su instancia entre solapas; el borrador local
+          permite retomar también después de salir de Marketing o recargar. */}
       <div className="mt-4">
         {solapa === "resumen" && (
           <div className="space-y-4">
-            <ReporteAnuncios tenant={tenant} />
+            <ReporteAnuncios tenant={tenant} dias={dias} />
             {/* DE DÓNDE TE ESCRIBEN. Se queda en Resumen porque mide gente que
                 escribió —no clics— y es lo que responde si conviene el gasto.
                 El embudo, en cambio, explica el PORQUÉ: eso es análisis. */}
-            <OrigenDeLeads tenant={tenant} />
+            <OrigenDeLeads tenant={tenant} dias={dias} />
           </div>
         )}
         {solapa === "anuncios" && (
           <div className="space-y-4">
-            <MetricasAnuncios tenant={tenant} />
+            <button
+              type="button"
+              onClick={() => {
+                setSolicitudHistorial(n => n + 1);
+                setCreadorVisitado(true);
+                setSolapa("crear");
+              }}
+              className="rounded-chip bg-carta px-4 py-2 text-sm font-semibold text-brasa-texto ring-1 ring-linea transition hover:bg-arena focus-visible:outline-2 focus-visible:outline-brasa"
+            >
+              Ver borradores
+            </button>
+            <MetricasAnuncios tenant={tenant} dias={dias} />
             {/* El embudo va ACÁ y no en Resumen: responde "en qué paso se cae
                 la gente de este anuncio", que es una pregunta de análisis. */}
-            <EmbudoAnuncios tenant={tenant} />
-            <RendimientoAnuncios tenant={tenant} />
+            <EmbudoAnuncios tenant={tenant} dias={dias} />
+            <RendimientoAnuncios tenant={tenant} dias={dias} />
           </div>
         )}
         {solapa === "publicos" && <PublicosMeta tenant={tenant} />}
-        {solapa === "crear" && <AnunciosPanel embebido />}
+        {creadorVisitado && <div hidden={solapa !== "crear"}>
+          <AnunciosPanel embebido tenant={tenant} nombreNegocio={nombreNegocio} solicitudHistorial={solicitudHistorial} />
+        </div>}
       </div>
     </div>
   );

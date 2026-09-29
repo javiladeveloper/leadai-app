@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { metricasAds, type MetricasAds, type AnuncioMetricas, cambiarEstadoAnuncio, cambiarEstadoCampania } from "@/lib/api";
+import { ErrorMarketing, importeMarketing, periodoCoincide, type MetadatosMarketing, useLecturaMarketing } from "./marketing-lectura";
 
 /**
  * TUS ANUNCIOS DE META, SIN ENTRAR A META (2026-09-17, pedido de Jonathan:
@@ -20,10 +21,19 @@ import { metricasAds, type MetricasAds, type AnuncioMetricas, cambiarEstadoAnunc
  *
  * Incluye lo creado en el Ads Manager, que es como lo hace la mayoría.
  */
-export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
-  const [m, setM] = useState<MetricasAds | null>(null);
-  const [cargando, setCargando] = useState(true);
+export function MetricasAnuncios({ tenant, dias = 30 }: { tenant?: string; dias?: number } = {}) {
+  return <MetricasContenido key={`${tenant ?? "activa"}:${dias}`} tenant={tenant} dias={dias} />;
+}
+
+function MetricasContenido({ tenant, dias }: { tenant?: string; dias: number }) {
+  const cargar = useCallback(() => metricasAds(tenant, dias), [tenant, dias]);
+  const { datos: m, cargando, error, reintentar } = useLecturaMarketing<(MetricasAds & MetadatosMarketing) | null>(`${tenant}:${dias}`, cargar);
   const [abierto, setAbierto] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+  const [campania, setCampania] = useState("");
+  const [estadoFiltro, setEstadoFiltro] = useState("");
+  const [orden, setOrden] = useState("gasto");
+  const [limite, setLimite] = useState(20);
   /**
    * QUE ANUNCIOS MIRAR (2026-09-17, pedido de Jonathan: "necesitamos mas
    * filtros").
@@ -37,18 +47,7 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
 
   // Se rehace al prender o apagar: el estado que muestra la fila tiene que ser
   // el de Meta, no el que creemos haber dejado.
-  const [refresco, setRefresco] = useState(0);
-
-  useEffect(() => {
-    let vivo = true;
-    setCargando(true);
-    void metricasAds(tenant).then((r) => {
-      if (!vivo) return;
-      setM(r);
-      setCargando(false);
-    });
-    return () => { vivo = false; };
-  }, [tenant, refresco]);
+  if (error) return <ErrorMarketing mensaje={error} reintentar={reintentar} />;
 
   if (cargando) return <div className="h-40 animate-pulse rounded-tarjeta bg-arena-2/70" />;
 
@@ -64,6 +63,9 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
     );
   }
 
+  if (!periodoCoincide(m, dias)) return <ErrorMarketing mensaje="No se pudo confirmar el periodo de estas métricas. Vuelve a consultarlas para evitar comparar fechas distintas." reintentar={reintentar} />;
+  const importe = (centavos: number) => importeMarketing(centavos, m.moneda);
+
   /**
    * EL CACHÉ VIEJO NO TIENE LOS CAMPOS NUEVOS.
    *
@@ -72,11 +74,18 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
    * daría "0 personas" — que se lee como "no llegó a nadie" cuando llegó a
    * cientos. Un cero inventado lleva a apagar un anuncio que funciona.
    */
-  const todos = [...(m.anuncios ?? [])].sort((a, b) => (b.personas ?? 0) - (a.personas ?? 0));
+  const todos = m.anuncios ?? [];
   // "Corriendo" es ACTIVE de verdad: un anuncio encendido dentro de una
   // campana pausada NO se esta mostrando, por mas que su propio estado diga
   // ACTIVE. Ver `estado()` abajo.
-  const anuncios = filtro === 'corriendo' ? todos.filter((a) => a.estado === 'ACTIVE') : todos;
+  const consulta = busqueda.trim().toLocaleLowerCase("es");
+  const anuncios = todos.filter((a) =>
+    (filtro !== "corriendo" || a.estado === "ACTIVE") &&
+    (!campania || a.campania === campania) && (!estadoFiltro || a.estado === estadoFiltro) &&
+    (!consulta || [a.nombre, a.titulo, a.campania].some((s) => s?.toLocaleLowerCase("es").includes(consulta)))
+  ).sort((a, b) => orden === "nombre" ? a.nombre.localeCompare(b.nombre, "es") : orden === "costo"
+    ? (costoResultado(a) ?? Infinity) - (costoResultado(b) ?? Infinity)
+    : b.gastoCentavos - a.gastoCentavos);
   const sinDetalle = todos.length > 0 && todos.every((a) => a.personas === undefined);
 
   if (todos.length === 0) {
@@ -84,26 +93,25 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
       <Marco>
         <p className="mt-1 text-[0.85rem] text-frio">
           Tu cuenta está conectada, pero ninguno de tus anuncios tuvo actividad
-          en los últimos 30 días.
+          en los últimos {dias} días.
         </p>
       </Marco>
     );
   }
 
-  const totalPersonas = todos.reduce((a, x) => a + (x.personas ?? 0), 0);
   const activos = todos.filter((a) => a.estado === "ACTIVE").length;
 
   return (
-    <Marco derecha="últimos 30 días">
+    <Marco derecha={`últimos ${dias} días`}>
       {sinDetalle ? (
         <p className="mt-1 text-[0.88rem] text-tinta-2">
-          Gastaste <b className="text-tinta">{soles(m.cuenta.gastoCentavos)}</b>.
-          El detalle aparece en la próxima actualización (dentro de una hora).
+          Gastaste <b className="text-tinta">{importe(m.cuenta.gastoCentavos)}</b>.
+          El alcance por anuncio no está disponible en esta lectura.
         </p>
       ) : (
         <p className="mt-1 text-[0.88rem] text-tinta-2">
-          Gastaste <b className="text-tinta">{soles(m.cuenta.gastoCentavos)}</b> y
-          tu publicidad la vieron <b className="text-tinta">{totalPersonas.toLocaleString("es-PE")} personas</b>.
+          Gastaste <b className="text-tinta">{importe(m.cuenta.gastoCentavos)}</b>.
+          El alcance se muestra por anuncio; una persona puede aparecer en varios.
           {activos > 0
             ? ` ${activos} ${activos === 1 ? "anuncio está corriendo" : "anuncios están corriendo"} ahora.`
             : " Ninguno está corriendo ahora."}
@@ -122,7 +130,8 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
           <button
             key={clave}
             type="button"
-            onClick={() => setFiltro(clave)}
+            onClick={() => { setFiltro(clave); setLimite(20); }}
+            aria-pressed={filtro === clave}
             className={`rounded-chip px-3 py-1 text-[0.78rem] font-semibold transition ${
               filtro === clave
                 ? "bg-brasa text-sobre-brasa"
@@ -134,26 +143,57 @@ export function MetricasAnuncios({ tenant }: { tenant?: string } = {}) {
         ))}
       </div>
 
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <label className="text-sm text-tinta-2">Buscar por nombre o campaña
+          <input type="search" value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setLimite(20); }} className="mt-1 w-full rounded-lg bg-arena px-3 py-2 text-base ring-1 ring-linea focus-visible:outline-brasa" />
+        </label>
+        <label className="text-sm text-tinta-2">Campaña
+          <select value={campania} onChange={(e) => { setCampania(e.target.value); setLimite(20); }} className="mt-1 w-full rounded-lg bg-arena px-3 py-2 text-base ring-1 ring-linea">
+            <option value="">Todas las campañas</option>
+            {Array.from(new Set(todos.map((a) => a.campania))).filter(Boolean).map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </label>
+        <label className="text-sm text-tinta-2">Estado
+          <select value={estadoFiltro} onChange={(e) => { setEstadoFiltro(e.target.value); setFiltro("todos"); setLimite(20); }} className="mt-1 w-full rounded-lg bg-arena px-3 py-2 text-base ring-1 ring-linea">
+            <option value="">Todos los estados</option>
+            {Array.from(new Set(todos.map((a) => a.estado))).filter((e): e is string => Boolean(e)).map((e) => <option key={e} value={e}>{estado(e).texto}</option>)}
+          </select>
+        </label>
+        <label className="text-sm text-tinta-2">Ordenar por
+          <select value={orden} onChange={(e) => { setOrden(e.target.value); setLimite(20); }} className="mt-1 w-full rounded-lg bg-arena px-3 py-2 text-base ring-1 ring-linea">
+            <option value="gasto">Mayor gasto</option><option value="costo">Menor costo por conversación Meta</option><option value="nombre">Nombre</option>
+          </select>
+        </label>
+      </div>
+      {orden === "costo" && <p className="mt-2 text-sm text-frio">Gasto dividido entre conversaciones atribuidas por Meta; los no disponibles van al final. Compara anuncios con el mismo objetivo. No representa citas ni ventas.</p>}
+
       <div className="mt-3 space-y-2">
         {anuncios.length === 0 && (
           <p className="rounded-lg bg-arena/40 px-3 py-4 text-center text-[0.84rem] text-frio">
-            Ninguno de tus anuncios se está mostrando ahora mismo.
+            No hay anuncios que coincidan con estos filtros.
           </p>
         )}
-        {anuncios.map((a) => (
+        {anuncios.slice(0, limite).map((a) => (
           <Fila
             key={a.adId}
             a={a}
             abierta={abierto === a.adId}
             alTocar={() => setAbierto(abierto === a.adId ? null : a.adId)}
-            alCambiar={() => setRefresco((n) => n + 1)}
+            alCambiar={reintentar}
+            tenant={tenant}
+            moneda={m.moneda}
           />
         ))}
       </div>
 
+      {anuncios.length > 20 && <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-frio">
+        <p role="status">Mostrando {Math.min(limite, anuncios.length)} de {anuncios.length} anuncios.</p>
+        {limite < anuncios.length && <button type="button" onClick={() => setLimite((n) => n + 20)} className="rounded-chip bg-arena px-3 py-2 font-semibold text-tinta-2 focus-visible:outline-brasa">Ver más anuncios</button>}
+      </div>}
+
       <p className="mt-3 border-t border-linea pt-3 text-[0.78rem] text-frio">
-        Se actualiza cada hora. Incluye los anuncios que crees acá y los que
-        hagas directo en Facebook.
+        {m.actualizadoEn ? `Última actualización: ${new Date(m.actualizadoEn).toLocaleString("es-PE")}. ` : "Actualización no disponible. "}
+        Incluye anuncios creados aquí y en Facebook.
       </p>
     </Marco>
   );
@@ -171,14 +211,22 @@ function Marco({ children, derecha }: { children: React.ReactNode; derecha?: str
   );
 }
 
-function Fila({ a, abierta, alTocar, alCambiar }: { a: AnuncioMetricas; abierta: boolean; alTocar: () => void; alCambiar: () => void }) {
+function costoResultado(a: AnuncioMetricas): number | null {
+  const conversaciones = (a as AnuncioMetricas & { conversaciones?: number }).conversaciones;
+  return typeof conversaciones === "number" && Number.isFinite(conversaciones) && conversaciones > 0 && Number.isFinite(a.gastoCentavos)
+    ? Math.round(a.gastoCentavos / conversaciones) : null;
+}
+
+function Fila({ a, abierta, alTocar, alCambiar, tenant, moneda }: { a: AnuncioMetricas; abierta: boolean; alTocar: () => void; alCambiar: () => void; tenant?: string; moneda?: string | null }) {
+  const id = useId();
+  const importe = (centavos: number) => importeMarketing(centavos, moneda);
   const v = veredicto(a);
   const est = estado(a.estado);
   const dias = diasRestantes(a.fin);
 
   return (
     <div className="rounded-lg bg-arena/40 ring-1 ring-linea">
-      <button type="button" onClick={alTocar} className="flex w-full items-center gap-3 px-3 py-2.5 text-left">
+      <button id={`${id}-boton`} aria-expanded={abierta} aria-controls={`${id}-detalle`} type="button" onClick={alTocar} className="flex w-full items-center gap-3 px-3 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-brasa">
         {/* LA MINIATURA IDENTIFICA EL ANUNCIO de un vistazo, que es lo que el
             nombre no hace. Sin imagen queda el espacio: alinea las filas. */}
         {a.imagen ? (
@@ -193,7 +241,7 @@ function Fila({ a, abierta, alTocar, alCambiar }: { a: AnuncioMetricas; abierta:
           </span>
           <span className="mt-0.5 block text-[0.78rem] text-frio">
             {a.personas !== undefined ? `${a.personas.toLocaleString("es-PE")} personas · ` : ""}
-            {a.clics} {a.clics === 1 ? "tocó" : "tocaron"} · {soles(a.gastoCentavos)}
+            {a.clics} {a.clics === 1 ? "clic" : "clics"} · {importe(a.gastoCentavos)}
           </span>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
@@ -207,11 +255,12 @@ function Fila({ a, abierta, alTocar, alCambiar }: { a: AnuncioMetricas; abierta:
           sabe qué es un CPM es la razón por la que nadie abre el Ads Manager
           dos veces. */}
       {abierta && (
-        <div className="space-y-3 border-t border-linea px-3 py-3">
+        <div id={`${id}-detalle`} role="region" aria-labelledby={`${id}-boton`} className="space-y-3 border-t border-linea px-3 py-3">
           {/* PRENDER O APAGAR (2026-09-18). Va PRIMERO porque es lo unico
               accionable del detalle: el resto son numeros para mirar. Antes el
               panel decia "conviene pausarlo" y pausarlo era abrir Meta. */}
-          <ControlEncendido a={a} alCambiar={alCambiar} />
+          <ControlEncendido key={`${tenant}:${a.adId}`} a={a} alCambiar={alCambiar} tenant={tenant} />
+          <p className="text-sm text-frio">Costo por conversación atribuida por Meta: {costoResultado(a) === null ? "No disponible" : importe(costoResultado(a)!)}</p>
 
           {a.texto && (
             <div>
@@ -283,11 +332,11 @@ function Fila({ a, abierta, alTocar, alCambiar }: { a: AnuncioMetricas; abierta:
             {(a.presupuestoTotalCentavos ?? a.presupuestoDiarioCentavos) !== undefined && (
               <Dato
                 titulo="Presupuesto"
-                valor={soles((a.presupuestoTotalCentavos ?? a.presupuestoDiarioCentavos)!)}
+                valor={importe((a.presupuestoTotalCentavos ?? a.presupuestoDiarioCentavos)!)}
                 ayuda={
                   a.presupuestoTotalCentavos !== undefined
-                    ? `En total para toda la campaña. Llevas gastado ${soles(a.gastoCentavos)}.`
-                    : `Por día. Llevas gastado ${soles(a.gastoCentavos)} en total.`
+                    ? `En total para toda la campaña. Llevas gastado ${importe(a.gastoCentavos)}.`
+                    : `Por día. Llevas gastado ${importe(a.gastoCentavos)} en el periodo.`
                 }
               />
             )}
@@ -302,13 +351,9 @@ function Fila({ a, abierta, alTocar, alCambiar }: { a: AnuncioMetricas; abierta:
 
             {a.ctr !== undefined && (
               <Dato
-                titulo="Cuántos lo tocaron"
-                valor={`${a.clics} de ${(a.personas ?? 0).toLocaleString("es-PE")}`}
-                ayuda={
-                  a.ctr >= 1
-                    ? `${a.ctr.toFixed(1)}% — está bien, el promedio ronda el 1%.`
-                    : `${a.ctr.toFixed(1)}% — bajo. El promedio ronda el 1%: la imagen o el texto no están enganchando.`
-                }
+                titulo="Clics respecto a impresiones (CTR)"
+                valor={`${a.ctr.toFixed(1)}%`}
+                ayuda={`${a.clics} clics sobre ${a.impresiones.toLocaleString("es-PE")} impresiones. No representa personas únicas ni ventas.`}
               />
             )}
 
@@ -316,18 +361,18 @@ function Fila({ a, abierta, alTocar, alCambiar }: { a: AnuncioMetricas; abierta:
               <Dato
                 titulo="Reacciones y comentarios"
                 valor={String(a.interacciones)}
-                ayuda="Le gustó a la gente aunque no haya tocado el anuncio. Contenido que funciona."
+                ayuda="Interacciones registradas por Meta; no acreditan ventas."
               />
             )}
 
             <Dato
               titulo="Lo que costó"
-              valor={soles(a.gastoCentavos)}
+              valor={importe(a.gastoCentavos)}
               ayuda={
                 (a.cpmCentavos !== undefined
-                  ? `${soles(a.cpmCentavos)} por cada mil veces que se mostró`
+                  ? `${importe(a.cpmCentavos)} por cada mil veces que se mostró`
                   : `${a.impresiones.toLocaleString("es-PE")} veces mostrado`)
-                + (a.clics > 0 ? ` · ${soles(Math.round(a.gastoCentavos / a.clics))} por cada persona que lo tocó` : "")
+                + (a.clics > 0 ? ` · ${importe(Math.round(a.gastoCentavos / a.clics))} por clic` : "")
                 + "."
               }
             />
@@ -335,8 +380,7 @@ function Fila({ a, abierta, alTocar, alCambiar }: { a: AnuncioMetricas; abierta:
             {(a.frecuencia ?? 0) >= 3 && (
               <p className="rounded-lg bg-tibio-suave px-3 py-2 text-[0.8rem] text-tibio">
                 <b>Ojo:</b> la misma gente ya lo vio {(a.frecuencia ?? 0).toFixed(1)} veces.
-                Cuando se repite tanto deja de funcionar y empieza a molestar —
-                conviene cambiar la imagen o ampliar el público.
+                Una posible hipótesis es la repetición del contenido. Revisa resultados y evolución antes de modificarlo.
               </p>
             )}
 
@@ -360,13 +404,6 @@ function Dato({ titulo, valor, ayuda }: { titulo: string; valor: string; ayuda: 
       <p className="mt-0.5 text-[0.78rem] text-frio">{ayuda}</p>
     </div>
   );
-}
-
-/** Céntimos → "S/12.34". */
-function soles(centavos: number): string {
-  return `S/${(centavos / 100).toLocaleString("es-PE", {
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  })}`;
 }
 
 /** ISO de Meta → "15 de sep". */
@@ -425,10 +462,8 @@ function veredicto(a: AnuncioMetricas): { texto: string; clase: string } {
   if (a.impresiones === 0) return { texto: "sin mostrar", clase: "bg-arena text-frio" };
   // Con caché anterior al 17-sep no hay `ctr`: sin él no se puede juzgar, y un
   // "flojo" inventado haría apagar un anuncio que quizás funciona.
-  if (a.ctr === undefined) return { texto: "activo", clase: "bg-arena text-tinta-2" };
-  if (a.ctr >= 1.5) return { texto: "engancha", clase: "bg-ok/12 text-ok" };
-  if (a.ctr >= 0.8) return { texto: "normal", clase: "bg-arena text-tinta-2" };
-  return { texto: "flojo", clase: "bg-tibio-suave text-tibio" };
+  if (a.ctr === undefined) return { texto: "CTR no medido", clase: "bg-arena text-tinta-2" };
+  return { texto: `CTR ${a.ctr.toFixed(1)}%`, clase: "bg-arena text-tinta-2" };
 }
 
 /**
@@ -443,10 +478,14 @@ function veredicto(a: AnuncioMetricas): { texto: string; clase: string } {
  * verdad; pausar solo deja de gastarla, y pedir confirmación para dejar de
  * gastar convierte la salida de emergencia en un trámite.
  */
-function ControlEncendido({ a, alCambiar }: { a: AnuncioMetricas; alCambiar: () => void }) {
+function ControlEncendido({ a, alCambiar, tenant }: { a: AnuncioMetricas; alCambiar: () => void; tenant?: string }) {
+  const vivo = useRef(true);
+  const ocupado = useRef(false);
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
   const [trabajando, setTrabajando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
+  const [confirmandoCampania, setConfirmandoCampania] = useState(false);
   // `campaniaCaida`: el anuncio está encendido pero SU CAMPAÑA está pausada, así
   // que no se muestra. Lo detecta el estado CAMPAIGN_PAUSED de Meta, o la
   // respuesta al encender el anuncio. Arreglarlo es prender la campaña entera,
@@ -455,11 +494,15 @@ function ControlEncendido({ a, alCambiar }: { a: AnuncioMetricas; alCambiar: () 
   const corriendo = a.estado === "ACTIVE";
 
   async function cambiar(estado: "ACTIVE" | "PAUSED") {
+    if (ocupado.current) return;
+    ocupado.current = true;
     setTrabajando(true);
     setAviso(null);
     setConfirmando(false);
     try {
-      const r = await cambiarEstadoAnuncio(a.adId, estado);
+      const r = await cambiarEstadoAnuncio(a.adId, estado, tenant);
+      if (!vivo.current) return;
+      if (!r.ok) throw new Error("No se pudo cambiar el estado del anuncio.");
       // El anuncio puede quedar ACTIVE y seguir sin mostrarse, porque lo
       // apagado es la campaña. En vez de solo avisarlo, se ofrece el botón para
       // arreglarlo en el acto (ver `reactivarCampania`).
@@ -469,27 +512,34 @@ function ControlEncendido({ a, alCambiar }: { a: AnuncioMetricas; alCambiar: () 
       }
       alCambiar();
     } catch (e) {
-      setAviso(e instanceof Error ? e.message : "No se pudo cambiar el estado");
+      if (vivo.current) setAviso(e instanceof Error ? e.message : "No se pudo cambiar el estado");
     } finally {
-      setTrabajando(false);
+      ocupado.current = false;
+      if (vivo.current) setTrabajando(false);
     }
   }
 
   // Prende la CAMPAÑA entera (no el anuncio). Es lo que destraba el caso
   // "encendido pero no se muestra": sin esto, había que entrar al Ads Manager.
   async function reactivarCampania() {
+    if (ocupado.current) return;
     if (!a.campaniaId) { setAviso("No pudimos identificar la campaña. Prueba desde el administrador de Meta."); return; }
+    ocupado.current = true;
     setTrabajando(true);
     setAviso(null);
     try {
-      await cambiarEstadoCampania(a.campaniaId, "ACTIVE");
+      const r = await cambiarEstadoCampania(a.campaniaId, "ACTIVE", tenant);
+      if (!vivo.current) return;
+      if (!r.ok) throw new Error("No se pudo reactivar la campaña.");
       setCampaniaCaida(false);
-      setAviso("Campaña reactivada. Ahora sí se empieza a mostrar.");
+      setConfirmandoCampania(false);
+      setAviso("Campaña reactivada. La entrega depende del estado de sus anuncios en Meta.");
       alCambiar();
     } catch (e) {
-      setAviso(e instanceof Error ? e.message : "No se pudo reactivar la campaña");
+      if (vivo.current) setAviso(e instanceof Error ? e.message : "No se pudo reactivar la campaña");
     } finally {
-      setTrabajando(false);
+      ocupado.current = false;
+      if (vivo.current) setTrabajando(false);
     }
   }
 
@@ -506,13 +556,18 @@ function ControlEncendido({ a, alCambiar }: { a: AnuncioMetricas; alCambiar: () 
           <button
             type="button"
             disabled={trabajando}
-            onClick={() => void reactivarCampania()}
+            onClick={() => setConfirmandoCampania(true)}
             className="rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-bold text-sobre-brasa transition hover:opacity-90 disabled:opacity-50"
           >
             {trabajando ? "Reactivando…" : "Reactivar campaña"}
           </button>
         </div>
       )}
+      {confirmandoCampania && <div className="mb-3 text-sm text-tinta-2">
+        <p>Reactivar «{a.campania}» puede empezar a gastar el presupuesto de toda la campaña y activar la entrega de otros anuncios.</p>
+        <button type="button" disabled={trabajando} onClick={() => void reactivarCampania()} className="mt-2 rounded-chip bg-brasa px-3 py-2 font-bold text-sobre-brasa">Sí, reactivar y empezar a gastar</button>
+        <button type="button" disabled={trabajando} onClick={() => setConfirmandoCampania(false)} className="ml-3 p-2">Cancelar reactivación</button>
+      </div>}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-[0.84rem] text-tinta-2">
           {corriendo ? "Se está mostrando y gastando" : "Está pausado, no gasta"}
@@ -556,7 +611,7 @@ function ControlEncendido({ a, alCambiar }: { a: AnuncioMetricas; alCambiar: () 
         )}
       </div>
 
-      {aviso && <p className="mt-2 text-[0.78rem] text-tibio">{aviso}</p>}
+      {aviso && <p role="status" className="mt-2 text-[0.78rem] text-tibio">{aviso}</p>}
     </div>
   );
 }

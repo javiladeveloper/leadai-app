@@ -750,6 +750,8 @@ export async function obtenerReporteNegocio(): Promise<ReporteNegocio | null> {
  * distinto de cero: cero es "gaste y no vendi".
  */
 export interface FilaAnuncioReporte {
+  gastoConocido: boolean;
+  interesados: number;
   nombre: string;
   origen: string;
   leads: number;
@@ -761,22 +763,23 @@ export interface FilaAnuncioReporte {
   costoPorVentaCentavos: number | null;
 }
 export interface ReporteAnuncios {
+  periodo: { desde: string; hasta: string; dias: number; descripcion?: string };
+  actualizadoEn: string | null;
+  moneda: string | null;
+  ventasMoneda?: "PEN";
+  ventasMedidas: boolean;
+  resultado: { tipo: "pedidos" | "leads"; etiqueta: string };
+  aviso: string | null;
   filas: FilaAnuncioReporte[];
   organicos: { leads: number; compradores: number; ventasCentavos: number };
   gastoTotalCentavos: number;
   sinGasto: boolean;
 }
 export async function obtenerReporteAnuncios(
-  dias = 90,
+  dias = 30,
   tenant?: string,
 ): Promise<ReporteAnuncios | null> {
-  try {
-    return await api<ReporteAnuncios>(`/reportes/anuncios?dias=${dias}`, { tenant });
-  } catch {
-    // El plan sin reportes avanzados devuelve 402: la pantalla lo trata como
-    // "no disponible" y no como un error roto.
-    return null;
-  }
+  return api<ReporteAnuncios>(`/reportes/anuncios?dias=${dias}`, { tenant });
 }
 
 // Simula un lead entrante desde un anuncio (para probar el tracking sin Meta).
@@ -974,9 +977,9 @@ export async function guardarMiPlan(cfg: {
   adsTopeMax?: number;
   comisionTipo?: "porcentaje" | "fijo";
   comisionValor?: number;
-}): Promise<{ ok: boolean; error?: string }> {
+}, tenant?: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    await api("/mi-plan", { method: "PATCH", body: cfg });
+    await api("/mi-plan", { method: "PATCH", body: cfg, tenant });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
@@ -1819,12 +1822,8 @@ export interface PlantillaPost {
 export async function listarPublicaciones(
   tenant?: string, cursor?: string, limit = 10,
 ): Promise<{ items: Publicacion[]; siguiente: string | null }> {
-  try {
-    const q = `?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
-    return await api<{ items: Publicacion[]; siguiente: string | null }>(`/publicaciones${q}`, { tenant });
-  } catch {
-    return { items: [], siguiente: null };
-  }
+  const q = `?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+  return api<{ items: Publicacion[]; siguiente: string | null }>(`/publicaciones${q}`, { tenant });
 }
 
 export async function plantillasPost(tenant?: string): Promise<PlantillaPost[]> {
@@ -2244,7 +2243,7 @@ export async function sugerirTextoAd(idea: string, tenant?: string): Promise<str
   try { return (await api<{ texto: string }>("/anuncios/sugerir-texto", { method: "POST", body: { idea }, tenant })).texto; } catch { return ""; }
 }
 export async function listarAnuncios(tenant?: string): Promise<Anuncio[]> {
-  try { return (await api<{ items: Anuncio[] }>("/anuncios", { tenant })).items; } catch { return []; }
+  return (await api<{ items: Anuncio[] }>("/anuncios", { tenant })).items;
 }
 export async function crearAnuncio(input: {
   objetivo: string;
@@ -2402,15 +2401,9 @@ export interface MetricasAds {
   }>;
   anuncios: AnuncioMetricas[];
 }
-export async function metricasAds(tenant?: string): Promise<MetricasAds | null> {
-  try {
-    const r = await api<{ metricas: MetricasAds | null }>("/anuncios/metricas", { tenant });
-    return r.metricas;
-  } catch {
-    // Sin cuenta publicitaria conectada el backend devuelve null; un error de
-    // red tampoco puede romper la pantalla entera.
-    return null;
-  }
+export async function metricasAds(tenant?: string, dias = 30): Promise<MetricasAds | null> {
+  const r = await api<{ metricas: MetricasAds | null }>(`/anuncios/metricas?dias=${dias}`, { tenant });
+  return r.metricas;
 }
 
 /**
@@ -2455,11 +2448,7 @@ export async function rendimientoAds(
   dias = 30,
   tenant?: string,
 ): Promise<RendimientoAds | null> {
-  try {
-    return await api<RendimientoAds>(`/anuncios/rendimiento?dias=${dias}`, { tenant });
-  } catch {
-    return null;
-  }
+  return api<RendimientoAds>(`/anuncios/rendimiento?dias=${dias}`, { tenant });
 }
 
 /**
@@ -2542,12 +2531,8 @@ export async function crearRetargeting(
 }
 
 export async function listarPublicos(tenant?: string): Promise<PublicoSubido[]> {
-  try {
-    const r = await api<{ publicos: PublicoSubido[] }>("/anuncios/publicos", { tenant });
-    return r.publicos ?? [];
-  } catch {
-    return [];
-  }
+  const r = await api<{ publicos: PublicoSubido[] }>("/anuncios/publicos", { tenant });
+  return r.publicos;
 }
 
 /**
@@ -2590,12 +2575,8 @@ export interface PublicoEnMeta {
 
 /** Los públicos TAL COMO LOS VE META: cuánta gente matcheó y si ya sirven. */
 export async function publicosEnMeta(tenant?: string): Promise<PublicoEnMeta[]> {
-  try {
-    const r = await api<{ publicos: PublicoEnMeta[] }>("/anuncios/publicos/meta", { tenant });
-    return r.publicos ?? [];
-  } catch {
-    return [];
-  }
+  const r = await api<{ publicos: PublicoEnMeta[] }>("/anuncios/publicos/meta", { tenant });
+  return r.publicos;
 }
 
 export async function borrarPublico(publicoId: string, tenant?: string): Promise<{ ok: boolean }> {
@@ -2630,13 +2611,9 @@ export interface ConteoLeadsPublico {
 export async function contarLeadsParaPublico(
   segmento: SegmentoLeads, dias: number, tenant?: string,
 ): Promise<ConteoLeadsPublico | null> {
-  try {
-    return await api<ConteoLeadsPublico>(
-      `/anuncios/publicos/desde-leads/contar?segmento=${segmento}&dias=${dias}`, { tenant },
-    );
-  } catch {
-    return null;
-  }
+  return api<ConteoLeadsPublico>(
+    `/anuncios/publicos/desde-leads/contar?segmento=${segmento}&dias=${dias}`, { tenant },
+  );
 }
 
 export async function crearPublicoDesdeLeads(
@@ -2667,13 +2644,9 @@ export interface EmbudoAnuncio {
  * Meta con nuestros leads: sin esto "25 clics, 3 leads" se lee como un embudo
  * malisimo, cuando la mayoria de esos clics ni llego al WhatsApp.
  */
-export async function embudoAnuncios(tenant?: string): Promise<EmbudoAnuncio[]> {
-  try {
-    const r = await api<{ embudos: EmbudoAnuncio[] }>("/anuncios/embudo", { tenant });
-    return r.embudos ?? [];
-  } catch {
-    return [];
-  }
+export async function embudoAnuncios(tenant?: string, dias = 30): Promise<EmbudoAnuncio[]> {
+  const r = await api<{ embudos: EmbudoAnuncio[] }>(`/anuncios/embudo?dias=${dias}`, { tenant });
+  return r.embudos;
 }
 
 export interface FilaOrigenLeads {
@@ -2684,6 +2657,7 @@ export interface FilaOrigenLeads {
   leads: number;
   calientes: number;
   gastoCentavos?: number;
+  moneda?: string | null;
   costoPorLeadCentavos?: number;
 }
 
@@ -2695,14 +2669,10 @@ export async function origenDeLeads(
   dias = 30,
   tenant?: string,
 ): Promise<FilaOrigenLeads[]> {
-  try {
-    const r = await api<{ origenes: FilaOrigenLeads[] }>(
-      `/anuncios/origen-leads?dias=${dias}`, { tenant },
-    );
-    return r.origenes ?? [];
-  } catch {
-    return [];
-  }
+  const r = await api<{ origenes: FilaOrigenLeads[] }>(
+    `/anuncios/origen-leads?dias=${dias}`, { tenant },
+  );
+  return r.origenes;
 }
 
 export interface EstadoAnuncios {

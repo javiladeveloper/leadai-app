@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { ErrorMarketing } from "./marketing-lectura";
 import {
   revisarPublico, crearPublico, listarPublicos, publicosEnMeta, borrarPublico, crearRetargeting,
   agregarAPublico, contarLeadsParaPublico, crearPublicoDesdeLeads,
@@ -51,6 +52,16 @@ async function leerTexto(f: File): Promise<string> {
 }
 
 export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
+  return <PublicosContenido key={tenant ?? "activa"} tenant={tenant} />;
+}
+
+function PublicosContenido({ tenant }: { tenant?: string }) {
+  const id = useId();
+  const revisionActual = useRef(0);
+  const vivo = useRef(true);
+  const ocupado = useRef(false);
+  const [errorListas, setErrorListas] = useState<string | null>(null);
+  const [cargandoListas, setCargandoListas] = useState(true);
   const [telefonos, setTelefonos] = useState<string[]>([]);
   const [archivo, setArchivo] = useState("");
   const [nombre, setNombre] = useState("");
@@ -72,9 +83,19 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
   const [refresco, setRefresco] = useState(0);
   const input = useRef<HTMLInputElement>(null);
 
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false; revisionActual.current++; }; }, []);
+
   useEffect(() => {
-    void listarPublicos(tenant).then(setHistorial);
-    void publicosEnMeta(tenant).then(setEnMeta);
+    let vigente = true;
+    setErrorListas(null);
+    setCargandoListas(true);
+    void Promise.all([listarPublicos(tenant), publicosEnMeta(tenant)]).then(([historial, publicos]) => {
+      if (!vigente) return;
+      setHistorial(historial); setEnMeta(publicos);
+    }).catch((e: unknown) => {
+      if (vigente) setErrorListas(e instanceof Error ? e.message : "No se pudieron cargar los públicos.");
+    }).finally(() => { if (vigente) setCargandoListas(false); });
+    return () => { vigente = false; };
   }, [tenant, refresco]);
 
   /**
@@ -89,6 +110,9 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
    * y qué hacer.
    */
   async function cargar(f: File) {
+    if (ocupado.current) return;
+    const turno = ++revisionActual.current;
+    const vigente = () => vivo.current && turno === revisionActual.current;
     setArchivo(f.name);
     setResultado(null);
     setRevision(null);
@@ -96,6 +120,7 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
     setRevisando(true);
     try {
       const crudos = extraerTelefonos(await leerTexto(f));
+      if (!vigente()) return;
       setTelefonos(crudos);
       if (!nombre) setNombre(f.name.replace(/\.[^.]+$/, ""));
       if (crudos.length === 0) {
@@ -109,14 +134,16 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
       // el archivo de Google Places traía coordenadas, ids y direcciones y el
       // POST pesaba varios megas — el backend lo cortaba y el navegador veía
       // "no pudimos conectar" (2026-09-22).
-      setRevision(await revisarPublico(crudos, tenant));
+      const r = await revisarPublico(crudos, tenant);
+      if (vigente()) setRevision(r);
     } catch (e) {
+      if (!vigente()) return;
       setResultado({
         ok: false,
         texto: `No pude revisar el archivo: ${e instanceof Error ? e.message : "error desconocido"}`,
       });
     } finally {
-      setRevisando(false);
+      if (vigente()) setRevisando(false);
     }
   }
 
@@ -124,8 +151,9 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
   const publicoDestino = enMeta.find((p) => p.id === destino);
 
   async function subir() {
-    if (!revision) return;
-    if (agregando ? revision.contactos === 0 : (!revision.alcanza || !nombre.trim())) return;
+    if (!revision || revisando || ocupado.current) return;
+    if (agregando ? revision.contactos === 0 || publicoDestino?.tipo !== "CUSTOM" : (!revision.alcanza || !nombre.trim())) return;
+    ocupado.current = true;
     setSubiendo(true);
     setResultado(null);
     try {
@@ -134,9 +162,10 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
             destino, { nombre: publicoDestino?.nombre ?? "", telefonos, origen: archivo }, tenant,
           )
         : await crearPublico(
-            { nombre: nombre.trim(), telefonos, origen: archivo, conSimilar },
+            { nombre: nombre.trim(), telefonos, origen: archivo, conSimilar: conSimilar && revision.alcanzaParaSimilar },
             tenant,
           );
+      if (!vivo.current) return;
       setResultado({ ok: r.ok, texto: r.mensaje });
       if (r.ok) {
         // Se limpia la lista apenas Meta la acepta: no hay razón para tenerla
@@ -145,13 +174,13 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
         setRevision(null);
         setArchivo("");
         if (input.current) input.current.value = "";
-        setHistorial(await listarPublicos(tenant));
-        setEnMeta(await publicosEnMeta(tenant));
+        setRefresco((n) => n + 1);
       }
     } catch (e) {
-      setResultado({ ok: false, texto: e instanceof Error ? e.message : "No se pudo subir" });
+      if (vivo.current) setResultado({ ok: false, texto: e instanceof Error ? e.message : "No se pudo subir" });
     } finally {
-      setSubiendo(false);
+      ocupado.current = false;
+      if (vivo.current) setSubiendo(false);
     }
   }
 
@@ -165,13 +194,14 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
           volumen. Subí el archivo y te digo cuántos sirven antes de mandar nada.
         </p>
 
-        <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-tarjeta border border-dashed border-linea bg-arena/40 px-4 py-6 text-[0.86rem] font-semibold text-tinta-2 transition hover:bg-arena">
+        <label className="mt-4 flex cursor-pointer flex-wrap items-center justify-center gap-2 rounded-tarjeta border border-dashed border-linea bg-arena/40 px-4 py-6 text-[0.86rem] font-semibold text-tinta-2 transition hover:bg-arena focus-within:outline-2 focus-within:outline-brasa">
           <input
             ref={input}
             type="file"
             accept=".csv,.txt"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) void cargar(f); }}
+            className="max-w-full text-base"
+            disabled={subiendo}
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void cargar(f); }}
           />
           {archivo || "Elegí un archivo CSV con los teléfonos"}
         </label>
@@ -190,16 +220,18 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
 
         {revision && <Revision r={revision} agregando={agregando} />}
 
-        {revision && (revision.alcanza || (agregando && revision.contactos > 0)) && (
+        {revision && revision.contactos > 0 && (
           <div className="mt-4 space-y-3 border-t border-linea pt-4">
             {/* ¿NUEVO O SUMAR A UNO? Solo cuando ya hay públicos propios en
                 Meta; sin ellos la única opción es crear. */}
             {enMeta.some((p) => p.tipo === "CUSTOM") && (
               <div>
-                <label className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">
+                <label htmlFor={`${id}-destino`} className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">
                   A dónde va esta lista
                 </label>
                 <select
+                  id={`${id}-destino`}
+                  disabled={subiendo}
                   value={destino}
                   onChange={(e) => setDestino(e.target.value)}
                   className="mt-1 w-full rounded-lg bg-arena px-3 py-2 text-[0.88rem] text-tinta ring-1 ring-linea outline-none focus:ring-brasa"
@@ -219,10 +251,12 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
 
             {!agregando && (
               <div>
-                <label className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">
+                <label htmlFor={`${id}-nombre`} className="text-[0.78rem] font-bold uppercase tracking-wide text-frio">
                   Cómo se va a llamar en Meta
                 </label>
                 <input
+                  id={`${id}-nombre`}
+                  disabled={subiendo}
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   maxLength={80}
@@ -257,7 +291,7 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
             <button
               type="button"
               onClick={() => void subir()}
-              disabled={subiendo || (!agregando && !nombre.trim())}
+              disabled={subiendo || revisando || (agregando ? !publicoDestino || publicoDestino.tipo !== "CUSTOM" : !revision.alcanza || !nombre.trim())}
               className="w-full rounded-chip bg-brasa px-4 py-2.5 text-[0.88rem] font-bold text-sobre-brasa transition hover:opacity-90 disabled:opacity-50"
             >
               {subiendo
@@ -275,6 +309,7 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
 
         {resultado && (
           <p
+            role={resultado.ok ? "status" : "alert"}
             className={`mt-3 rounded-lg px-3 py-2 text-[0.84rem] ${
               resultado.ok ? "bg-ok/12 text-ok" : "bg-tibio-suave text-tibio"
             }`}
@@ -296,8 +331,11 @@ export function PublicosMeta({ tenant }: { tenant?: string } = {}) {
 
       {/* Los de Meta van ANTES del historial: son los que se pueden usar hoy;
           el historial es el registro de lo que se mando. */}
+      {errorListas && <ErrorMarketing mensaje={errorListas} reintentar={() => setRefresco((n) => n + 1)} />}
+      {cargandoListas && <p role="status" className="text-sm text-frio">Cargando públicos…</p>}
+      {!cargandoListas && !errorListas && enMeta.length === 0 && <p className="text-sm text-frio">No hay públicos registrados en Meta.</p>}
       {enMeta.length > 0 && (
-        <EnMeta filas={enMeta} alBorrar={() => setRefresco((n) => n + 1)} />
+        <EnMeta filas={enMeta} tenant={tenant} alBorrar={() => setRefresco((n) => n + 1)} />
       )}
 
       {historial.length > 0 && <Historial filas={historial} />}
@@ -328,20 +366,33 @@ const VENTANAS = [
 ];
 
 function Retargeting({ tenant, alCrear }: { tenant?: string; alCrear: () => void }) {
+  const id = useId();
+  const vivo = useRef(true);
+  const ocupado = useRef(false);
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
   const [dias, setDias] = useState(30);
   const [creando, setCreando] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
 
   async function crear() {
+    if (ocupado.current) return;
+    ocupado.current = true;
     setCreando(true);
     setMsg(null);
-    const r = await crearRetargeting({ dias }, tenant);
-    setCreando(false);
-    if (r.ok) {
-      setMsg({ ok: true, texto: "¡Listo! El público aparece abajo. Ya puedes usarlo al crear un anuncio." });
-      alCrear();
-    } else {
-      setMsg({ ok: false, texto: r.error ?? "No se pudo crear el público." });
+    try {
+      const r = await crearRetargeting({ dias }, tenant);
+      if (!vivo.current) return;
+      if (r.ok) {
+        setMsg({ ok: true, texto: "¡Listo! El público aparece abajo. Ya puedes usarlo al crear un anuncio." });
+        alCrear();
+      } else {
+        setMsg({ ok: false, texto: r.error ?? "No se pudo crear el público." });
+      }
+    } catch (e) {
+      if (vivo.current) setMsg({ ok: false, texto: e instanceof Error ? e.message : "No se pudo crear el público. Inténtalo de nuevo." });
+    } finally {
+      ocupado.current = false;
+      if (vivo.current) setCreando(false);
     }
   }
 
@@ -354,15 +405,17 @@ function Retargeting({ tenant, alCrear }: { tenant?: string; alCrear: () => void
         de lo más rentable: no pagas por gente nueva.
       </p>
 
-      <label className="mt-4 block text-[0.78rem] font-bold uppercase tracking-wide text-frio">
+      <p id={`${id}-ventana`} className="mt-4 block text-[0.78rem] font-bold uppercase tracking-wide text-frio">
         ¿A quién? Los que entraron en…
-      </label>
-      <div className="mt-2 flex flex-wrap gap-2">
+      </p>
+      <div role="group" aria-labelledby={`${id}-ventana`} className="mt-2 flex flex-wrap gap-2">
         {VENTANAS.map((v) => (
           <button
             key={v.dias}
             type="button"
             onClick={() => setDias(v.dias)}
+            aria-pressed={dias === v.dias}
+            disabled={creando}
             className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
               dias === v.dias ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-carta"
             }`}
@@ -385,7 +438,7 @@ function Retargeting({ tenant, alCrear }: { tenant?: string; alCrear: () => void
       </button>
 
       {msg && (
-        <p className={`mt-3 rounded-lg px-3 py-2 text-[0.84rem] ${msg.ok ? "bg-ok/12 text-ok" : "bg-tibio-suave text-tibio"}`}>
+        <p role={msg.ok ? "status" : "alert"} className={`mt-3 rounded-lg px-3 py-2 text-[0.84rem] ${msg.ok ? "bg-ok/12 text-ok" : "bg-tibio-suave text-tibio"}`}>
           {msg.texto}
         </p>
       )}
@@ -432,6 +485,11 @@ const SEGMENTOS: { id: SegmentoLeads; etiqueta: string; ayuda: string }[] = [
 const VENTANAS_LEADS = [30, 90, 180, 365];
 
 function LeadsComoPublico({ tenant, alCrear }: { tenant?: string; alCrear: () => void }) {
+  const id = useId();
+  const vivo = useRef(true);
+  const ocupado = useRef(false);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
   const [segmento, setSegmento] = useState<SegmentoLeads>("no_cerraron");
   const [dias, setDias] = useState(90);
   const [conteo, setConteo] = useState<ConteoLeadsPublico | null | undefined>(undefined);
@@ -447,22 +505,25 @@ function LeadsComoPublico({ tenant, alCrear }: { tenant?: string; alCrear: () =>
       if (!vivo) return;
       setConteo(c);
       if (c) setNombre(c.nombreSugerido);
-    });
+    }).catch(() => { if (vivo) setConteo(null); });
     return () => { vivo = false; };
-  }, [segmento, dias, tenant]);
+  }, [segmento, dias, tenant, revision]);
 
   async function crear() {
-    if (!conteo?.alcanza) return;
+    if (!conteo?.alcanza || ocupado.current) return;
+    ocupado.current = true;
     setCreando(true);
     setMsg(null);
     try {
-      const r = await crearPublicoDesdeLeads({ segmento, dias, nombre: nombre.trim() || undefined, conSimilar }, tenant);
+      const r = await crearPublicoDesdeLeads({ segmento, dias, nombre: nombre.trim() || undefined, conSimilar: conSimilar && conteo.alcanzaParaSimilar }, tenant);
+      if (!vivo.current) return;
       setMsg({ ok: r.ok, texto: r.mensaje });
       if (r.ok) alCrear();
     } catch (e) {
-      setMsg({ ok: false, texto: e instanceof Error ? e.message : "No se pudo crear el público." });
+      if (vivo.current) setMsg({ ok: false, texto: e instanceof Error ? e.message : "No se pudo crear el público." });
     } finally {
-      setCreando(false);
+      ocupado.current = false;
+      if (vivo.current) setCreando(false);
     }
   }
 
@@ -481,17 +542,17 @@ function LeadsComoPublico({ tenant, alCrear }: { tenant?: string; alCrear: () =>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {SEGMENTOS.map((s) => (
-          <button key={s.id} type="button" onClick={() => setSegmento(s.id)} title={s.ayuda} className={chip(segmento === s.id)}>
+          <button key={s.id} type="button" disabled={creando} aria-pressed={segmento === s.id} onClick={() => setSegmento(s.id)} title={s.ayuda} className={chip(segmento === s.id)}>
             {s.etiqueta}
           </button>
         ))}
       </div>
-      <label className="mt-3 block text-[0.78rem] font-bold uppercase tracking-wide text-frio">
+      <p id={`${id}-periodo`} className="mt-3 block text-[0.78rem] font-bold uppercase tracking-wide text-frio">
         De los últimos…
-      </label>
-      <div className="mt-1.5 flex flex-wrap gap-2">
+      </p>
+      <div role="group" aria-labelledby={`${id}-periodo`} className="mt-1.5 flex flex-wrap gap-2">
         {VENTANAS_LEADS.map((d) => (
-          <button key={d} type="button" onClick={() => setDias(d)} className={chip(dias === d)}>
+          <button key={d} type="button" disabled={creando} aria-pressed={dias === d} onClick={() => setDias(d)} className={chip(dias === d)}>
             {d === 365 ? "12 meses" : `${d} días`}
           </button>
         ))}
@@ -501,7 +562,7 @@ function LeadsComoPublico({ tenant, alCrear }: { tenant?: string; alCrear: () =>
         {conteo === undefined ? (
           <p className="text-[0.85rem] text-frio">Contando…</p>
         ) : conteo === null ? (
-          <p className="text-[0.85rem] text-tibio">No pude contar tus leads. Recarga.</p>
+          <ErrorMarketing mensaje="No se pudieron contar los leads." reintentar={() => setRevision((n) => n + 1)} />
         ) : (
           <>
             <p className="text-[0.95rem] font-bold text-tinta">
@@ -519,6 +580,8 @@ function LeadsComoPublico({ tenant, alCrear }: { tenant?: string; alCrear: () =>
       {conteo?.alcanza && (
         <div className="mt-3 space-y-3">
           <input
+            aria-label="Nombre del público de leads"
+            disabled={creando}
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             maxLength={80}
@@ -554,7 +617,7 @@ function LeadsComoPublico({ tenant, alCrear }: { tenant?: string; alCrear: () =>
       )}
 
       {msg && (
-        <p className={`mt-3 rounded-lg px-3 py-2 text-[0.84rem] ${msg.ok ? "bg-ok/12 text-ok" : "bg-tibio-suave text-tibio"}`}>
+        <p role={msg.ok ? "status" : "alert"} className={`mt-3 rounded-lg px-3 py-2 text-[0.84rem] ${msg.ok ? "bg-ok/12 text-ok" : "bg-tibio-suave text-tibio"}`}>
           {msg.texto}
         </p>
       )}
@@ -572,24 +635,37 @@ function LeadsComoPublico({ tenant, alCrear }: { tenant?: string; alCrear: () =>
  * todos tienen ese teléfono registrado en su cuenta— pero sin ese segundo
  * número parece que se perdieron.
  */
-function EnMeta({ filas, alBorrar }: { filas: PublicoEnMeta[]; alBorrar: () => void }) {
+function EnMeta({ filas, alBorrar, tenant }: { filas: PublicoEnMeta[]; alBorrar: () => void; tenant?: string }) {
+  const vivo = useRef(true);
+  const ocupado = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
   const [borrando, setBorrando] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<string | null>(null);
 
   async function borrar(id: string) {
+    if (ocupado.current) return;
+    ocupado.current = true;
+    setError(null);
     setBorrando(id);
     setConfirmar(null);
     try {
-      await borrarPublico(id);
+      const r = await borrarPublico(id, tenant);
+      if (!vivo.current) return;
+      if (!r.ok) throw new Error("No se pudo quitar el público. Inténtalo de nuevo.");
       alBorrar();
+    } catch (e) {
+      if (vivo.current) setError(e instanceof Error ? e.message : "No se pudo quitar el público.");
     } finally {
-      setBorrando(null);
+      ocupado.current = false;
+      if (vivo.current) setBorrando(null);
     }
   }
 
   return (
     <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
       <h3 className="text-[1.05rem] font-bold text-tinta">Tus públicos en Meta</h3>
+      {error && <p role="alert" className="mt-2 text-sm text-tibio">{error}</p>}
       <p className="mt-1 text-[0.85rem] text-frio">
         Estos ya se pueden usar para segmentar un anuncio. Meta siempre
         encuentra a menos gente de la que subiste: no todos tienen ese número

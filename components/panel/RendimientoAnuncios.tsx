@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { rendimientoAds, type RendimientoAds, type Desglose, type FilaRanking } from "@/lib/api";
+import { ErrorMarketing, importeMarketing, periodoCoincide, type MetadatosMarketing, useLecturaMarketing } from "./marketing-lectura";
 
 /**
  * QUÉ PUBLICIDAD FUNCIONÓ (2026-09-17, pedido de Jonathan: "un top para ver
@@ -18,25 +19,17 @@ import { rendimientoAds, type RendimientoAds, type Desglose, type FilaRanking } 
  * Ordena por CTR y no por gasto: es lo único que compara un anuncio de S/2 con
  * uno de S/200 sin que el presupuesto decida quién gana.
  */
-export function RendimientoAnuncios({ tenant }: { tenant?: string } = {}) {
-  const [r, setR] = useState<RendimientoAds | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [dias, setDias] = useState(30);
+export function RendimientoAnuncios({ tenant, dias = 30 }: { tenant?: string; dias?: number } = {}) {
+  const cargar = useCallback(() => rendimientoAds(dias, tenant), [dias, tenant]);
+  const { datos: r, cargando, error, reintentar } = useLecturaMarketing<(RendimientoAds & MetadatosMarketing) | null>(`${tenant}:${dias}`, cargar);
+  const id = useId();
+  const tabs = useRef<Partial<Record<"hora" | "edad" | "red" | "zona", HTMLButtonElement | null>>>({});
   const [vista, setVista] = useState<"hora" | "edad" | "red" | "zona">("hora");
-
-  useEffect(() => {
-    let vivo = true;
-    setCargando(true);
-    void rendimientoAds(dias, tenant).then((d) => {
-      if (!vivo) return;
-      setR(d);
-      setCargando(false);
-    });
-    return () => { vivo = false; };
-  }, [tenant, dias]);
+  if (error) return <ErrorMarketing mensaje={error} reintentar={reintentar} />;
 
   if (cargando) return <div className="h-52 animate-pulse rounded-tarjeta bg-arena-2/70" />;
-  if (!r) return null;
+  if (!r) return <ErrorMarketing mensaje="El rendimiento no está disponible. Inténtalo de nuevo." reintentar={reintentar} />;
+  if (!periodoCoincide(r, dias)) return <ErrorMarketing mensaje="No se pudo confirmar el periodo del rendimiento. Vuelve a consultarlo para evitar comparar fechas distintas." reintentar={reintentar} />;
 
   const hayTop = r.ranking.length > 0;
   const d = r.desgloses;
@@ -46,7 +39,10 @@ export function RendimientoAnuncios({ tenant }: { tenant?: string } = {}) {
     red: d?.porRed ?? [],
     zona: d?.porZona ?? [],
   };
-  const actual = listas[vista];
+  const visibles = (["hora", "edad", "red", "zona"] as const).filter((k) => listas[k].length > 0);
+  const seleccion = listas[vista].length ? vista : visibles[0] ?? "hora";
+  const actual = listas[seleccion];
+  const maximo = Math.max(...actual.map((y) => y.ctr), 0.01);
   const hayDesglose = Object.values(listas).some((l) => l.length > 0);
 
   if (!hayTop && !hayDesglose) {
@@ -54,8 +50,7 @@ export function RendimientoAnuncios({ tenant }: { tenant?: string } = {}) {
       <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
         <h3 className="text-[1.05rem] font-bold text-tinta">Qué publicidad funcionó</h3>
         <p className="mt-1 text-[0.85rem] text-frio">
-          Cuando tus anuncios lleven unos días corriendo vas a ver acá cuál
-          rinde más, a qué hora conviene mostrarlos y a qué público le pegan.
+          No hay datos de rendimiento para este periodo.
         </p>
       </div>
     );
@@ -65,20 +60,7 @@ export function RendimientoAnuncios({ tenant }: { tenant?: string } = {}) {
     <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h3 className="text-[1.05rem] font-bold text-tinta">Qué publicidad funcionó</h3>
-        <div className="flex gap-1">
-          {[7, 30, 90].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setDias(n)}
-              className={`rounded-chip px-2.5 py-0.5 text-[0.76rem] font-semibold transition ${
-                dias === n ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea"
-              }`}
-            >
-              {n} días
-            </button>
-          ))}
-        </div>
+        <span className="text-sm text-frio">Últimos {dias} días</span>
       </div>
 
       {/* EL TOP. La tendencia es la mitad del valor: sin ella el dueño sube el
@@ -97,7 +79,7 @@ export function RendimientoAnuncios({ tenant }: { tenant?: string } = {}) {
           </p>
           <div className="mt-3 space-y-2.5">
             {r.ranking.slice(0, 5).map((a, i) => (
-              <FilaAnuncio key={a.anuncioId} a={a} puesto={i + 1} />
+              <FilaAnuncio key={a.anuncioId} a={a} puesto={i + 1} moneda={r.moneda} />
             ))}
           </div>
         </div>
@@ -107,7 +89,7 @@ export function RendimientoAnuncios({ tenant }: { tenant?: string } = {}) {
           listas juntas son cuarenta filas que nadie lee. */}
       {hayDesglose && (
         <div className="mt-7 border-t border-linea pt-5">
-          <div className="flex flex-wrap gap-1.5">
+          <div role="tablist" aria-label="Desgloses de rendimiento" className="flex flex-wrap gap-1.5">
             {([
               ["hora", "Por hora"],
               ["edad", "Por edad"],
@@ -117,10 +99,23 @@ export function RendimientoAnuncios({ tenant }: { tenant?: string } = {}) {
               <button
                 key={k}
                 type="button"
+                role="tab"
+                id={`${id}-${k}`}
+                aria-selected={seleccion === k}
+                aria-controls={`${id}-panel`}
+                tabIndex={seleccion === k ? 0 : -1}
+                ref={(el) => { tabs.current[k] = el; }}
                 onClick={() => setVista(k)}
+                onKeyDown={(e) => {
+                  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+                  e.preventDefault();
+                  const i = visibles.indexOf(k);
+                  const siguiente = e.key === "Home" ? visibles[0] : e.key === "End" ? visibles[visibles.length - 1] : visibles[(i + (e.key === "ArrowRight" ? 1 : -1) + visibles.length) % visibles.length];
+                  if (siguiente) { setVista(siguiente); tabs.current[siguiente]?.focus(); }
+                }}
                 disabled={listas[k].length === 0}
                 className={`rounded-chip px-2.5 py-1 text-[0.78rem] font-semibold transition disabled:opacity-40 ${
-                  vista === k ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-carta"
+                  seleccion === k ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-carta"
                 }`}
               >
                 {etiqueta}
@@ -128,11 +123,10 @@ export function RendimientoAnuncios({ tenant }: { tenant?: string } = {}) {
             ))}
           </div>
 
-          <p className="mt-2.5 text-[0.82rem] text-frio">{ayuda(vista)}</p>
-
-          <div className="mt-3 space-y-1.5">
-            {actual.slice(0, 12).map((x) => (
-              <Barra key={x.etiqueta} d={x} maximo={Math.max(...actual.map((y) => y.ctr), 0.01)} />
+          <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${seleccion}`} tabIndex={0} className="mt-3 space-y-1.5">
+            <p className="mb-3 text-sm text-frio">{ayuda(seleccion)} Son hipótesis para investigar; el CTR por sí solo no demuestra ventas ni justifica cambiar presupuesto.</p>
+            {actual.map((x) => (
+              <Barra key={x.etiqueta} d={x} maximo={maximo} moneda={r.moneda} />
             ))}
             {actual.length === 0 && (
               <p className="py-3 text-center text-[0.82rem] text-frio">Sin datos todavía.</p>
@@ -155,7 +149,7 @@ export function RendimientoAnuncios({ tenant }: { tenant?: string } = {}) {
  * Ahora el dato que decide va PRIMERO y en grande: cuanta gente escribio. Lo
  * demas baja a una linea de contexto, que se mira solo si hace falta.
  */
-function FilaAnuncio({ a, puesto }: { a: FilaRanking; puesto: number }) {
+function FilaAnuncio({ a, puesto, moneda }: { a: FilaRanking; puesto: number; moneda?: string | null }) {
   const t = tendencia(a.tendencia);
   return (
     <div className="rounded-lg bg-arena/40 px-4 py-3">
@@ -181,7 +175,7 @@ function FilaAnuncio({ a, puesto }: { a: FilaRanking; puesto: number }) {
                   {a.leads} {a.leads === 1 ? "persona te escribió" : "personas te escribieron"}
                 </strong>
                 {a.costoPorLeadCentavos !== null && (
-                  <span className="text-frio"> · {soles(a.costoPorLeadCentavos)} cada una</span>
+                  <span className="text-frio"> · {importeMarketing(a.costoPorLeadCentavos, moneda)} cada una</span>
                 )}
               </>
             ) : (
@@ -192,7 +186,7 @@ function FilaAnuncio({ a, puesto }: { a: FilaRanking; puesto: number }) {
           {/* El detalle, en segundo plano: se mira cuando ya se decidio que
               este anuncio importa. */}
           <p className="mt-1 text-[0.78rem] text-frio">
-            {a.ctr.toFixed(1)}% lo tocó · {a.clics} {a.clics === 1 ? "clic" : "clics"} · {soles(a.gastoCentavos)} gastados
+            CTR {a.ctr.toFixed(1)}% · {a.clics} {a.clics === 1 ? "clic" : "clics"} · {importeMarketing(a.gastoCentavos, moneda)} gastados
             {a.dias > 0 && ` · ${a.dias} ${a.dias === 1 ? "día" : "días"}`}
           </p>
         </div>
@@ -207,16 +201,16 @@ function FilaAnuncio({ a, puesto }: { a: FilaRanking; puesto: number }) {
  * La barra mide CTR y no gasto: la pregunta es dónde FUNCIONA la publicidad, no
  * dónde se gastó más — eso último lo decide el presupuesto, no el público.
  */
-function Barra({ d, maximo }: { d: Desglose; maximo: number }) {
-  const ancho = Math.max(2, Math.round((d.ctr / maximo) * 100));
+function Barra({ d, maximo, moneda }: { d: Desglose; maximo: number; moneda?: string | null }) {
+  const ancho = Math.max(0, Math.min(100, Math.round((d.ctr / maximo) * 100)));
   return (
     <div className="flex items-center gap-3">
       <span className="w-32 shrink-0 truncate text-[0.82rem] text-tinta-2">{d.etiqueta}</span>
       <div className="h-4 flex-1 overflow-hidden rounded bg-arena">
         <div className="h-full rounded bg-brasa/70" style={{ width: `${ancho}%` }} />
       </div>
-      <span className="w-24 shrink-0 text-right text-[0.76rem] tabular-nums text-frio">
-        {d.ctr.toFixed(1)}% · {soles(d.gastoCentavos)}
+      <span className="max-w-40 text-right text-[0.76rem] tabular-nums text-frio">
+        {d.ctr.toFixed(1)}% · {importeMarketing(d.gastoCentavos, moneda)}
       </span>
     </div>
   );
@@ -224,17 +218,11 @@ function Barra({ d, maximo }: { d: Desglose; maximo: number }) {
 
 function ayuda(v: "hora" | "edad" | "red" | "zona"): string {
   switch (v) {
-    case "hora": return "A qué hora la gente toca más tus anuncios. Conviene concentrar el presupuesto ahí.";
-    case "edad": return "Qué edad y género responde mejor. Si uno destaca, vale ajustar la segmentación.";
-    case "red": return "Dónde rinde más tu publicidad. Facebook e Instagram suelen dar resultados distintos.";
-    case "zona": return "De qué zonas te tocan más el anuncio.";
+    case "hora": return "Distribución de clics respecto a impresiones por hora.";
+    case "edad": return "Clics respecto a impresiones por edad y género.";
+    case "red": return "Clics respecto a impresiones por red.";
+    case "zona": return "Clics respecto a impresiones por zona.";
   }
-}
-
-function soles(centavos: number): string {
-  return `S/${(centavos / 100).toLocaleString("es-PE", {
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  })}`;
 }
 
 /**

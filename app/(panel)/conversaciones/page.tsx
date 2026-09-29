@@ -110,7 +110,7 @@ function aTarjeta(lead: LeadLista, conEtiqueta: boolean): TarjetaLeadProps {
  * textos fijos son "bot". Sin origen (mensajes viejos) se deja como estaba.
  */
 const ORIGENES_PERSONA = new Set(["humano", "ia_aprobada", "ia_editada"]);
-export function autorDe(m: { direccion: string; origen?: string | null }): MensajeUI["autor"] {
+function autorDe(m: { direccion: string; origen?: string | null }): MensajeUI["autor"] {
   if (m.direccion !== "saliente") return "lead";
   return !m.origen || ORIGENES_PERSONA.has(m.origen) ? "tu" : "bot";
 }

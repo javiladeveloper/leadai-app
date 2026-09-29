@@ -2,9 +2,10 @@
 
 // Componente reutilizable: la página de Next no recibe la prop embebido.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion } from "@/lib/auth";
+import { haySesion, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
+import { leerBorradorAnuncio, guardarBorradorAnuncio, borrarBorradorAnuncio, type BorradorAnuncioLocal } from "@/lib/marketing-borrador";
 import {
   objetivosAd, publicoSugeridoAd, presupuestoAd, sugerirTextoAd, listarAnuncios, crearAnuncio,
   publicarAnuncioMeta, subirMediaPost, canalesAd,
@@ -20,12 +21,15 @@ type Estado = "cargando" | "ok" | "error";
 
 const ESTADO_AD: Record<string, { texto: string; clase: string }> = {
   borrador: { texto: "Borrador", clase: "bg-arena text-frio" },
+  publicando: { texto: "En proceso · requiere verificar", clase: "bg-tibio-suave text-tibio" },
   en_revision: { texto: "En revisión de Meta", clase: "bg-tibio-suave text-tibio" },
   activo: { texto: "Activo", clase: "bg-ok/12 text-ok" },
   pausado: { texto: "Pausado", clase: "bg-tibio-suave text-tibio" },
   finalizado: { texto: "Finalizado", clase: "bg-arena text-frio" },
   rechazado: { texto: "Rechazado", clase: "bg-calor-suave text-calor-hondo" },
 };
+
+const AVISO_PUBLICANDO = "La publicación está en proceso o requiere revisión. Verifica su estado antes de continuar; no vuelvas a publicarla ni crees una copia para evitar duplicados y cargos.";
 
 // Zonas seleccionables (sin texto libre → sin typos tipo "takna"). Cuando se
 // conecte Meta, esto evoluciona al buscador de geolocalización real de Meta
@@ -38,45 +42,77 @@ const ZONAS = [
   "Piura", "Puno", "San Martín", "Tacna", "Tumbes", "Ucayali",
 ];
 
-// Creador de anuncios guiado (Fase 3B): wizard en pasos que pregunta qué querés
-// conseguir y arma el ad con las mejores configuraciones. La publicación real
-// espera la conexión de Meta; hoy se simula.
+// Creador guiado: prepara un borrador y luego lo publica en la cuenta real
+// de Meta del negocio seleccionado. Encenderlo implica gasto real.
 /**
  * `embebido`: esta pantalla se monta DENTRO de /marketing, que ya puso el
  * título y la barra de negocios. Sin esto, se verían dos veces.
  */
-export default function AnunciosPanel({ embebido = false }: { embebido?: boolean } = {}) {
+export default function AnunciosPanel({ embebido = false, tenant, nombreNegocio, solicitudHistorial = 0 }: { embebido?: boolean; tenant?: string; nombreNegocio?: string; solicitudHistorial?: number } = {}) {
+  if (!embebido) return <AnunciosIndependientes />;
+  if (!tenant) return <p role="status">Selecciona un negocio para crear su anuncio.</p>;
+  return <CreadorAnuncios key={tenant} embebido tenant={tenant} nombreNegocio={nombreNegocio} solicitudHistorial={solicitudHistorial} />;
+}
+
+function AnunciosIndependientes() {
+  const g = useSeccionGlobal();
+  if (!g.resuelto || !g.listaLista) return <SkeletonLista filas={3} />;
+  const tenant = g.tenantLista ?? leerEmpresaActiva() ?? empresasVisibles()[0]?.tenantId;
+  if (!tenant) return <p role="status">Selecciona un negocio para crear su anuncio.</p>;
+  const nombre = g.negocios.find(n => n.tenantId === tenant)?.nombre ?? empresasVisibles().find(n => n.tenantId === tenant)?.nombre;
+  return <div>
+    {g.modoGlobal && <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />}
+    <CreadorAnuncios key={tenant} tenant={tenant} nombreNegocio={nombre} />
+  </div>;
+}
+
+function CreadorAnuncios({ embebido = false, tenant, nombreNegocio, solicitudHistorial = 0 }: { embebido?: boolean; tenant: string; nombreNegocio?: string; solicitudHistorial?: number }) {
   const router = useRouter();
+  const [borrador] = useState(() => leerBorradorAnuncio(tenant));
+  const [borradorId, setBorradorId] = useState(borrador?.id);
+  const [errorLocal, setErrorLocal] = useState("");
+  const vivo = useRef(true);
+  const bloqueo = useRef(false);
+  const cargandoId = useRef(0);
+  const imagenId = useRef(0);
+  const sugerenciaId = useRef(0);
+  const ultimaEdicionTexto = useRef(0);
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [anuncios, setAnuncios] = useState<Anuncio[]>([]);
   const [objetivos, setObjetivos] = useState<ObjetivoAd[]>([]);
   const [creando, setCreando] = useState(false);
 
+  // Abrir el historial conserva el formulario en memoria y su copia local.
+  // La señal cambia en cada acceso, incluso si el creador ya estaba montado.
+  useEffect(() => {
+    if (solicitudHistorial > 0) setCreando(false);
+  }, [solicitudHistorial]);
+
   // Wizard
-  const [paso, setPaso] = useState(0); // 0=objetivo 1=contenido 2=publico 3=presupuesto 4=resumen
-  const [objetivo, setObjetivo] = useState("mensajes");
-  const [campania, setCampania] = useState("");
-  const [texto, setTexto] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
+  const [paso, setPaso] = useState(borrador?.paso ?? 0); // 0=objetivo 1=contenido 2=publico 3=presupuesto 4=resumen
+  const [objetivo, setObjetivo] = useState(borrador?.objetivo ?? "mensajes");
+  const [campania, setCampania] = useState(borrador?.campania ?? "");
+  const [texto, setTexto] = useState(borrador?.texto ?? "");
+  const [mediaUrl, setMediaUrl] = useState(borrador?.mediaUrl ?? "");
   const [subiendo, setSubiendo] = useState(false);
-  const [publico, setPublico] = useState<PublicoAd | null>(null);
+  const [publico, setPublico] = useState<PublicoAd | null>(borrador ? { edadMin: Number(borrador.edadMin), edadMax: Number(borrador.edadMax), intereses: borrador.intereses } : null);
   // DÓNDE aparece el anuncio (2026-09-07, pedido de Jonathan). Default 'todos':
   // sin restringir, Meta reparte entre Facebook, Instagram y WhatsApp buscando
   // el menor costo por conversación. Restringir NO baja el presupuesto (lo fija
   // el dueño y se gasta igual): solo achica el inventario donde competir.
   const [canales, setCanales] = useState<CanalAd[]>([]);
-  const [canal, setCanal] = useState("todos");
-  const [zona, setZona] = useState("Todo Perú");
-  const [edadMin, setEdadMin] = useState("18");
+  const [canal, setCanal] = useState(borrador?.canal ?? "todos");
+  const [zona, setZona] = useState(borrador?.zona ?? "Todo Perú");
+  const [edadMin, setEdadMin] = useState(borrador?.edadMin ?? "18");
   // PUBLICOS PROPIOS (2026-09-18, pedido de Jonathan: "si quiero tirar otra
   // campania pero que no le llegue a ellos, como se hace").
   const [misPublicos, setMisPublicos] = useState<PublicoEnMeta[]>([]);
-  const [incluir, setIncluir] = useState<string[]>([]);
-  const [excluir, setExcluir] = useState<string[]>([]);
-  const [edadMax, setEdadMax] = useState("55");
-  const [total, setTotal] = useState("100");
-  const [dias, setDias] = useState("7");
+  const [incluir, setIncluir] = useState<string[]>(borrador?.incluir ?? []);
+  const [excluir, setExcluir] = useState<string[]>(borrador?.excluir ?? []);
+  const [edadMax, setEdadMax] = useState(borrador?.edadMax ?? "55");
+  const [total, setTotal] = useState(borrador?.total ?? "100");
+  const [dias, setDias] = useState(borrador?.dias ?? "7");
   const [recom, setRecom] = useState<RecomPresupuesto | null>(null);
   const [sugiriendo, setSugiriendo] = useState(false);
   const [publicando, setPublicando] = useState(false);
@@ -90,10 +126,27 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
   // La bolsa publicitaria (2026-08-23): el presupuesto de cada anuncio se
   // debita de acá — bono mensual del plan + lo recargado con nosotros.
   const [bolsa, setBolsa] = useState<BolsaAnuncios | null>(null);
+  // Un error de publicación no prueba que Meta no haya creado el anuncio.
+  // Sólo el estado remoto confirmado permite reintentar o preparar otro.
+  const anuncioGuardado = anuncios.find(a => a.id === borradorId);
+  const borradorConfirmado = estado === "ok" && anuncioGuardado?.estado === "borrador";
 
-  // Modo global: el wizard entero trabaja sobre el negocio enfocado en la
-  // barra (todas las llamadas viajan con su tenant explícito).
-  const g = useSeccionGlobal();
+  // La instancia está identificada por tenant; ninguna respuesta de una
+  // instancia desmontada puede cambiar el negocio siguiente.
+  useEffect(() => {
+    vivo.current = true;
+    return () => { vivo.current = false; };
+  }, []);
+
+  const tieneBorrador = !!(campania || texto || mediaUrl || borradorId);
+  useEffect(() => {
+    if (!creando && !tieneBorrador) return;
+    const guardado = guardarBorradorAnuncio(tenant, {
+      id: borradorId, paso, objetivo, campania, texto, mediaUrl, canal, zona,
+      edadMin, edadMax, total, dias, incluir, excluir, intereses: publico?.intereses ?? [],
+    });
+    setErrorLocal(guardado ? "" : "No pudimos guardar el borrador en este navegador. Mantén esta página abierta para conservarlo.");
+  }, [tenant, creando, tieneBorrador, borradorId, paso, objetivo, campania, texto, mediaUrl, canal, zona, edadMin, edadMax, total, dias, incluir, excluir, publico]);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -101,54 +154,62 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
   }, [router]);
 
   const cargar = useCallback(async () => {
+    const solicitud = ++cargandoId.current;
     setEstado("cargando");
     try {
       const [a, o, b] = await Promise.all([
-        listarAnuncios(g.tenantLista), objetivosAd(g.tenantLista), bolsaAnuncios(g.tenantLista),
+        listarAnuncios(tenant), objetivosAd(tenant), bolsaAnuncios(tenant),
       ]);
+      if (!vivo.current || solicitud !== cargandoId.current) return;
       setAnuncios(a);
       setObjetivos(o);
       setBolsa(b);
       setEstado("ok");
-    } catch { setEstado("error"); }
-  }, [g.tenantLista]);
+    } catch { if (vivo.current && solicitud === cargandoId.current) setEstado("error"); }
+  }, [tenant]);
 
-  useEffect(() => { if (listo && g.listaLista) cargar(); }, [listo, g.listaLista, cargar]);
+  useEffect(() => { if (listo) void cargar(); }, [listo, cargar]);
 
   // Al entrar al paso de público, carga el sugerido por rubro. La edad sugerida
   // precarga los campos, pero el usuario la puede ajustar libremente.
   useEffect(() => {
-    if (paso === 2 && !publico) {
-      publicoSugeridoAd(g.tenantLista).then((p) => {
-        setPublico(p);
-        if (p) { setEdadMin(String(p.edadMin)); setEdadMax(String(p.edadMax)); }
-        // Solo los LISTOS: ofrecer uno que Meta todavia procesa haria armar un
-        // anuncio que no se muestra a nadie.
-        void publicosEnMeta(g.tenantLista).then((ps) => setMisPublicos(ps.filter((x) => x.listo)));
-      });
-    }
-    // Las ubicaciones se piden en el mismo paso: es donde el dueño decide a
-    // quién y dónde. Si la lista falla, el selector no se dibuja y el anuncio
-    // sale como siempre ('todos').
-    if (paso === 2 && canales.length === 0) canalesAd(g.tenantLista).then(setCanales);
-  }, [paso, publico, canales.length, g.tenantLista]);
+    if (!creando || paso !== 2) return;
+    let vigente = true;
+    void Promise.all([publicoSugeridoAd(tenant), publicosEnMeta(tenant), canalesAd(tenant)])
+      .then(([p, ps, cs]) => {
+        if (!vigente) return;
+        // Las sugerencias nunca pisan edades que el usuario ya editó.
+        setPublico(prev => prev ?? p);
+        setMisPublicos(ps.filter(x => x.listo)); setCanales(cs);
+      }).catch(() => { if (vigente) setMsg("No pudimos cargar tus públicos. Vuelve a este paso para reintentar."); });
+    return () => { vigente = false; };
+  }, [creando, paso, tenant]);
 
   // Al entrar al paso de presupuesto (o cambiar total/días), recalcula.
   useEffect(() => {
-    if (paso !== 3) return;
+    if (!creando || paso !== 3) return;
+    let vigente = true;
+    setRecom(null);
     const t = Number(total), d = Number(dias);
-    if (t > 0 && d > 0) {
-      const id = setTimeout(() => { presupuestoAd(t, d, g.tenantLista).then(setRecom); }, 300);
-      return () => clearTimeout(id);
-    }
-  }, [paso, total, dias, g.tenantLista]);
+    if (!Number.isFinite(t) || t <= 0 || !Number.isInteger(d) || d < 1 || d > 90) return;
+    const id = setTimeout(() => {
+      void presupuestoAd(t, d, tenant).then(r => { if (vigente) setRecom(r); })
+        .catch(() => { if (vigente) setMsg("No pudimos calcular la recomendación. Revisa el importe e inténtalo de nuevo."); });
+    }, 300);
+    return () => { vigente = false; clearTimeout(id); };
+  }, [creando, paso, total, dias, tenant]);
 
   async function sugerirTexto() {
     if (!campania.trim() || sugiriendo) return;
+    const solicitud = ++sugerenciaId.current;
+    const edicion = ultimaEdicionTexto.current;
     setSugiriendo(true);
-    const t = await sugerirTextoAd(campania.trim(), g.tenantLista);
-    setSugiriendo(false);
-    if (t) setTexto(t);
+    try {
+      const t = await sugerirTextoAd(campania.trim(), tenant);
+      if (!vivo.current || solicitud !== sugerenciaId.current) return;
+      if (t && edicion === ultimaEdicionTexto.current) setTexto(t);
+      else if (!t) setMsg("No pudimos generar el texto. Puedes escribirlo o volver a intentarlo.");
+    } finally { if (vivo.current) setSugiriendo(false); }
   }
 
   // La imagen es OBLIGATORIA: Meta rechaza la pieza sin ella ("specify the
@@ -156,80 +217,137 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
   async function elegirImagen(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 10 * 1024 * 1024) {
+      setMsg("Elige una imagen de hasta 10 MB."); return;
+    }
+    const solicitud = ++imagenId.current;
     setSubiendo(true);
     setMsg("");
     const reader = new FileReader();
     reader.onload = async () => {
-      const r = await subirMediaPost(String(reader.result), g.tenantLista);
-      setSubiendo(false);
-      if (r.ok && r.url) setMediaUrl(r.url);
-      else setMsg(r.error ?? "No se pudo subir la imagen.");
+      if (!vivo.current || solicitud !== imagenId.current) return;
+      try {
+        const r = await subirMediaPost(String(reader.result), tenant);
+        if (!vivo.current || solicitud !== imagenId.current) return;
+        if (r.ok && r.url) setMediaUrl(r.url);
+        else setMsg(r.error ?? "No se pudo subir la imagen.");
+      } catch { if (vivo.current) setMsg("No se pudo subir la imagen. Inténtalo de nuevo."); }
+      finally { if (vivo.current) setSubiendo(false); }
     };
+    reader.onerror = () => { if (vivo.current) { setSubiendo(false); setMsg("No se pudo leer la imagen. Elige otra e inténtalo de nuevo."); } };
     reader.readAsDataURL(file);
   }
 
-  async function publicar() {
-    if (publicando) return;
-    setPublicando(true);
-    setMsg("");
-    const r = await crearAnuncio({
-      objetivo,
-      campaniaNombre: campania.trim(),
-      texto: texto.trim(),
-      mediaUrl: mediaUrl || undefined,
-      // Se envía la edad EDITADA por el usuario (no la sugerida): estos valores
-      // van después directo al AdSet de Meta (age_min/age_max, geo_locations).
-      publico: {
-        zona,
-        edadMin: Number(edadMin),
-        edadMax: Number(edadMax),
-        intereses: publico?.intereses ?? [],
-        incluirPublicos: incluir.length ? incluir : undefined,
-        excluirPublicos: excluir.length ? excluir : undefined,
-      },
-      presupuestoTotal: Number(total),
-      dias: Number(dias),
-      canal,
-    }, g.tenantLista);
-    if (!r.ok || !r.id) {
-      setPublicando(false);
-      setMsg(r.error ?? "No se pudo crear el anuncio.");
+  function limpiarFormulario() {
+    setBorradorId(undefined);
+    setCreando(false); setPaso(0); setObjetivo("mensajes");
+    setCampania(""); setTexto(""); setMediaUrl(""); setPublico(null);
+    setCanal("todos"); setZona("Todo Perú"); setIncluir([]); setExcluir([]);
+    setEdadMin("18"); setEdadMax("55"); setTotal("100"); setDias("7");
+    setRecom(null); setEncender(false); setMsg("");
+  }
+
+  function descartarLocalYCrearOtro() {
+    if (bloqueo.current || !borradorId || !borradorConfirmado) return;
+    if (!window.confirm("¿Descartar el borrador local y preparar otro anuncio con estos datos para corregirlos? El borrador remoto seguirá guardado. No se creará ni publicará otro anuncio hasta que pulses Publicar anuncio.")) return;
+    if (!borrarBorradorAnuncio(tenant)) {
+      setErrorLocal("No pudimos descartar el borrador local. Revisa el almacenamiento del navegador e inténtalo de nuevo.");
       return;
     }
-    // Publicación REAL: crea la campaña en Meta (en pausa). Si la cuenta aún no
-    // está configurada, el anuncio queda como borrador re-publicable.
-    const p = await publicarAnuncioMeta(r.id, g.tenantLista, encender);
-    setPublicando(false);
-    // Reset del wizard (el anuncio ya existe; el resultado se avisa arriba)
-    setCreando(false); setPaso(0); setCampania(""); setTexto(""); setMediaUrl(""); setPublico(null); setCanal("todos"); setZona("Todo Perú"); setTotal("100"); setDias("7"); setRecom(null); setEncender(false);
-    setAviso(p.ok
-      ? `✅ ${p.aviso ?? (encender
-          ? "Anuncio publicado y ENCENDIDO en Meta: ya empezó a mostrarse."
-          : "Anuncio publicado en Meta. Quedó PAUSADO: enciéndelo desde tu Ads Manager.")}`
-      : `⚠️ El anuncio quedó como borrador. ${p.error ?? ""}`);
-    cargar();
+    // Conserva los datos editables, pero nunca hereda el ID ni la autorización
+    // de encendido del anuncio anterior. Publicar exigirá una nueva acción.
+    setBorradorId(undefined);
+    setEncender(false); setRecom(null); setMsg(""); setErrorLocal("");
+    setPaso(1); setCreando(true);
+    setAviso("El borrador remoto se conserva. Corrige los datos de este nuevo borrador antes de publicar.");
+  }
+
+  async function publicar() {
+    if (bloqueo.current || !formularioValido || (borradorId && !borradorConfirmado)) return;
+    bloqueo.current = true;
+    setPublicando(true);
+    setMsg("");
+    try {
+      const r = borradorId ? { ok: true, id: borradorId, error: undefined } : await crearAnuncio({
+        objetivo,
+        campaniaNombre: campania.trim(),
+        texto: texto.trim(),
+        mediaUrl: mediaUrl || undefined,
+        publico: {
+          zona, edadMin: Number(edadMin), edadMax: Number(edadMax),
+          intereses: publico?.intereses ?? [],
+          incluirPublicos: incluir.length ? incluir : undefined,
+          excluirPublicos: excluir.length ? excluir : undefined,
+        },
+        presupuestoTotal: Number(total), dias: Number(dias), canal,
+      }, tenant);
+      if (!r.ok || !r.id) {
+        if (vivo.current) setMsg(r.error ?? "No se pudo crear el anuncio.");
+        return;
+      }
+      const pendiente: BorradorAnuncioLocal = {
+        id: r.id, paso: 4, objetivo, campania, texto, mediaUrl, canal, zona,
+        edadMin, edadMax, total, dias, incluir, excluir, intereses: publico?.intereses ?? [],
+      };
+      guardarBorradorAnuncio(tenant, pendiente);
+      // Si se cambió de negocio mientras creaba, queda guardado para retomar.
+      if (!vivo.current) return;
+      setBorradorId(r.id);
+      const p = await publicarAnuncioMeta(r.id, tenant, encender);
+      if (p.ok) borrarBorradorAnuncio(tenant);
+      if (!vivo.current) return;
+      if (!p.ok) {
+        setMsg(p.error ?? "No se pudo confirmar la publicación. Verifica el estado del anuncio.");
+        await cargar();
+        return;
+      }
+      limpiarFormulario();
+      setAviso(`✅ ${p.aviso ?? (encender
+        ? "Anuncio encendido y en revisión de Meta. Empezará a mostrarse cuando Meta lo apruebe."
+        : "Anuncio publicado en Meta. Quedó PAUSADO: enciéndelo desde tu Ads Manager.")}`);
+      void cargar();
+    } catch {
+      if (vivo.current) {
+        setMsg("No se pudo confirmar la publicación. Conservamos los datos; verifica el estado antes de continuar.");
+        await cargar();
+      }
+    }
+    finally { bloqueo.current = false; if (vivo.current) setPublicando(false); }
   }
 
   async function publicarExistente(id: string) {
-    if (publicandoId) return;
+    if (bloqueo.current || estado !== "ok" || !anuncios.some(a => a.id === id && a.estado === "borrador")) return;
+    bloqueo.current = true;
     setPublicandoId(id);
-    const p = await publicarAnuncioMeta(id, g.tenantLista);
-    setPublicandoId(null);
-    setAviso(p.ok
-      ? `✅ ${p.aviso ?? "Anuncio publicado en Meta. Quedó PAUSADO: enciéndelo desde tu Ads Manager."}`
-      : `⚠️ ${p.error ?? "No se pudo publicar el anuncio."}`);
-    cargar();
+    try {
+      const p = await publicarAnuncioMeta(id, tenant);
+      if (p.ok && borradorId === id) borrarBorradorAnuncio(tenant);
+      if (!vivo.current) return;
+      if (p.ok && borradorId === id) limpiarFormulario();
+      setAviso(p.ok
+        ? `✅ ${p.aviso ?? "Anuncio publicado en Meta. Quedó PAUSADO: enciéndelo desde tu Ads Manager."}`
+        : `⚠️ ${p.error ?? "No se pudo publicar el anuncio."}`);
+      await cargar();
+    } catch {
+      if (vivo.current) {
+        setAviso("No se pudo confirmar la publicación. Verifica el estado del anuncio antes de continuar.");
+        await cargar();
+      }
+    }
+    finally { bloqueo.current = false; if (vivo.current) setPublicandoId(null); }
   }
 
   if (!listo) return null;
 
   const objSel = objetivos.find((o) => o.id === objetivo);
   const edadValida = Number(edadMin) >= 18 && Number(edadMax) <= 65 && Number(edadMin) <= Number(edadMax);
+  const presupuestoValido = Number.isFinite(Number(total)) && Number(total) > 0 && Number.isInteger(Number(dias)) && Number(dias) >= 1 && Number(dias) <= 90;
+  const formularioValido = objetivo === "mensajes" && !!campania.trim() && !!texto.trim() && !!mediaUrl && edadValida && presupuestoValido;
   const puedeAvanzar =
-    (paso === 0) ||
+    (paso === 0 && objetivo === "mensajes") ||
     (paso === 1 && campania.trim() && texto.trim() && mediaUrl) ||
     (paso === 2 && edadValida) ||
-    (paso === 3 && Number(total) > 0 && Number(dias) > 0);
+    (paso === 3 && presupuestoValido);
 
   return (
     <div className={embebido ? "space-y-6" : "mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8"}>
@@ -278,13 +396,33 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
             onClick={() => setCreando(true)}
             className="rounded-chip bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
           >
-            + Crear anuncio
+            {tieneBorrador ? "Retomar borrador" : "+ Crear anuncio"}
           </button>
         )}
       </header>
 
-      {!embebido && g.modoGlobal && (
-        <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
+      {errorLocal && <p role="alert" className="text-sm text-alerta-hondo">{errorLocal}</p>}
+      {tieneBorrador && !errorLocal && <p className="text-sm text-frio">Borrador guardado en este navegador para {nombreNegocio || "este negocio"}.</p>}
+      {borradorId && !borradorConfirmado && (
+        <div role="status" className="space-y-2 rounded-tarjeta bg-tibio-suave/50 p-4 text-sm text-tinta-2 ring-1 ring-tibio/30">
+          {anuncioGuardado?.estado === "publicando" ? <>
+            <p className="font-semibold">{ESTADO_AD.publicando.texto}</p>
+            <p>{AVISO_PUBLICANDO}</p>
+          </> : <p>{estado === "ok" && anuncioGuardado
+            ? "Este anuncio ya no es un borrador. Revisa su estado antes de continuar; no se volverá a publicar ni se creará una copia."
+            : "Necesitamos verificar el estado del anuncio guardado antes de reintentar o preparar otro. Tus datos locales se conservan."}</p>}
+          <button type="button" onClick={() => void cargar()} disabled={estado === "cargando" || publicando || publicandoId !== null} className="font-semibold text-brasa-texto disabled:opacity-50">Verificar estado</button>
+        </div>
+      )}
+      {borradorId && borradorConfirmado && (
+        <button
+          type="button"
+          onClick={descartarLocalYCrearOtro}
+          disabled={publicando || publicandoId !== null}
+          className="rounded-chip bg-carta px-4 py-2 text-sm font-semibold text-brasa-texto ring-1 ring-linea transition hover:bg-arena disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-brasa"
+        >
+          Descartar borrador local y crear otro
+        </button>
       )}
 
       <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
@@ -294,15 +432,15 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
       </div>
 
       {aviso && (
-        <div className="flex items-start justify-between gap-3 rounded-tarjeta bg-ok/8 px-4 py-3 text-[0.86rem] text-tinta-2 ring-1 ring-ok/25">
+        <div role="status" className="flex items-start justify-between gap-3 rounded-tarjeta bg-ok/8 px-4 py-3 text-[0.86rem] text-tinta-2 ring-1 ring-ok/25">
           <span>{aviso}</span>
-          <button onClick={() => setAviso("")} className="shrink-0 text-frio hover:text-tinta">✕</button>
+          <button aria-label="Cerrar aviso" onClick={() => setAviso("")} className="shrink-0 text-frio hover:text-tinta">✕</button>
         </div>
       )}
 
       {/* Wizard de creación */}
       {creando && (
-        <div className="space-y-4 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+        <fieldset disabled={publicando} aria-busy={publicando} className="min-w-0 space-y-4 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           {/* El wizard ya tenía barra de pasos, pero arrancaba en frío: sin
               decir qué se está por hacer ni que se puede salir. */}
           <CabeceraFormulario
@@ -315,7 +453,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
             }
             titulo="Vamos a armar tu anuncio"
             bajada="Cuatro pasos: qué quieres lograr, qué mostrar, a quién y cuánto gastar. Puedes volver atrás en cualquiera."
-            onCerrar={() => setCreando(false)}
+            onCerrar={() => { if (!bloqueo.current) setCreando(false); }}
           />
           {/* Progreso */}
           <div className="mb-4 flex items-center gap-1.5">
@@ -336,7 +474,9 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                 {objetivos.map((o) => (
                   <button
                     key={o.id}
-                    onClick={() => setObjetivo(o.id)}
+                    disabled={o.id !== "mensajes"}
+                    aria-pressed={objetivo === o.id}
+                    onClick={() => { if (o.id === "mensajes") setObjetivo(o.id); }}
                     className={`w-full rounded-tarjeta border p-3.5 text-left transition ${
                       objetivo === o.id ? "border-brasa bg-brasa-suave" : "border-linea bg-carta hover:border-brasa/40"
                     }`}
@@ -346,6 +486,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                       {o.recomendado && <span className="rounded-full bg-ok/12 px-2 py-0.5 text-[0.66rem] font-bold text-ok">Recomendado</span>}
                     </div>
                     <p className="mt-1 text-[0.8rem] text-tinta-2">{o.porque}</p>
+                    {o.id !== "mensajes" && <p className="mt-1 text-sm text-frio">Aún no disponible para publicar desde LeadAI.</p>}
                   </button>
                 ))}
               </div>
@@ -360,6 +501,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                 <label className="text-[0.85rem] font-bold text-tinta">Nombre de la campaña</label>
                 <input
                   value={campania}
+                  aria-label="Nombre de la campaña"
                   onChange={(e) => setCampania(e.target.value)}
                   placeholder="Ej: Promo declaración anual"
                   className="mt-1 w-full rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
@@ -375,7 +517,8 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                 </div>
                 <textarea
                   value={texto}
-                  onChange={(e) => setTexto(e.target.value)}
+                  aria-label="Texto del anuncio"
+                  onChange={(e) => { ultimaEdicionTexto.current++; setTexto(e.target.value); }}
                   rows={4}
                   placeholder="Pon el nombre de la campaña y toca 'Escribir con IA', o escríbelo tú…"
                   className="mt-1 w-full resize-none rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
@@ -391,13 +534,12 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                     <button onClick={() => setMediaUrl("")} className="text-[0.8rem] font-semibold text-calor-hondo">Quitar</button>
                   </div>
                 ) : (
-                  <label className="mt-1 flex cursor-pointer items-center justify-center rounded-tarjeta border-2 border-dashed border-linea bg-arena/40 px-3 py-5 text-[0.86rem] text-frio transition hover:border-brasa/40">
+                  <label className="relative mt-1 flex cursor-pointer items-center justify-center rounded-tarjeta border-2 border-dashed border-linea bg-arena/40 px-3 py-5 text-[0.86rem] text-frio transition hover:border-brasa/40 focus-within:ring-2 focus-within:ring-brasa">
                     {subiendo ? "Subiendo…" : "📷 Subir imagen (obligatoria — Meta la exige)"}
-                    <input type="file" accept="image/*" onChange={elegirImagen} className="hidden" disabled={subiendo} />
+                    <input type="file" aria-label="Subir imagen del anuncio" accept="image/*" onChange={elegirImagen} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" disabled={subiendo} />
                   </label>
                 )}
               </div>
-              {msg && <p className="text-[0.84rem] font-semibold text-calor-hondo">{msg}</p>}
             </div>
           )}
 
@@ -470,6 +612,7 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                   <label className="text-[0.85rem] font-bold text-tinta">Zona</label>
                   <select
                     value={zona}
+                    aria-label="Zona del anuncio"
                     onChange={(e) => setZona(e.target.value)}
                     className="mt-1 block w-52 rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
                   >
@@ -482,12 +625,14 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                   <div className="mt-1 flex items-center gap-1.5">
                     <input
                       type="number" min={18} max={65} value={edadMin}
+                      aria-label="Edad mínima"
                       onChange={(e) => setEdadMin(e.target.value)}
                       className="w-20 rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
                     />
                     <span className="text-frio">a</span>
                     <input
                       type="number" min={18} max={65} value={edadMax}
+                      aria-label="Edad máxima"
                       onChange={(e) => setEdadMax(e.target.value)}
                       className="w-20 rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
                     />
@@ -567,12 +712,12 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
               <div className="flex flex-wrap gap-3">
                 <div>
                   <label className="text-[0.85rem] font-bold text-tinta">Total (S/)</label>
-                  <input type="number" min="1" value={total} onChange={(e) => setTotal(e.target.value)}
+                  <input aria-label="Presupuesto total en soles" type="number" min="1" value={total} onChange={(e) => setTotal(e.target.value)}
                     className="mt-1 w-28 rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40" />
                 </div>
                 <div>
                   <label className="text-[0.85rem] font-bold text-tinta">Durante (días)</label>
-                  <input type="number" min="1" max="90" value={dias} onChange={(e) => setDias(e.target.value)}
+                  <input aria-label="Duración en días" type="number" min="1" max="90" value={dias} onChange={(e) => setDias(e.target.value)}
                     className="mt-1 w-24 rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40" />
                 </div>
               </div>
@@ -589,7 +734,8 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
             <div className="space-y-3">
               <h2 className="text-[1.05rem] font-bold text-tinta">Revisa antes de publicar</h2>
               <div className="space-y-1.5 rounded-tarjeta bg-arena/50 p-4 text-[0.86rem] text-tinta-2">
-                <p><b className="text-tinta">Objetivo:</b> {objSel?.pregunta}</p>
+                <p><b className="text-tinta">Negocio:</b> {nombreNegocio || "Negocio seleccionado"}</p>
+                <p><b className="text-tinta">Objetivo:</b> {objSel?.pregunta ?? objetivo}</p>
                 <p><b className="text-tinta">Campaña:</b> {campania}</p>
                 <p><b className="text-tinta">Texto:</b> “{texto}”</p>
                 {mediaUrl && (
@@ -626,14 +772,16 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                 &ldquo;aprende&rdquo; — no lo pauses ni edites en ese tiempo
                 para que rinda mejor.
               </p>
-              {msg && <p className="text-[0.84rem] font-semibold text-calor-hondo">{msg}</p>}
+              {borradorId && borradorConfirmado && <p className="text-sm text-frio">El servidor confirma que sigue como borrador. Puedes reintentar su publicación o descartar la copia local para corregir los datos como otro anuncio; el borrador remoto se conserva.</p>}
             </div>
           )}
 
           {/* Navegación */}
+          {msg && <p role="alert" className="text-[0.84rem] font-semibold text-calor-hondo">{msg}</p>}
           <div className="mt-5 flex items-center justify-between gap-2">
             <button
               onClick={() => (paso === 0 ? setCreando(false) : setPaso(paso - 1))}
+              disabled={publicando || !!borradorId}
               className="rounded-chip bg-arena px-4 py-2 text-sm font-semibold text-tinta-2 transition hover:bg-linea"
             >
               {paso === 0 ? "Cancelar" : "Atrás"}
@@ -646,17 +794,17 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
               >
                 Siguiente
               </button>
-            ) : (
+            ) : (!borradorId || borradorConfirmado) && (
               <button
                 onClick={publicar}
-                disabled={publicando}
+                disabled={publicando || !formularioValido}
                 className="rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
               >
-                {publicando ? "Publicando…" : "Publicar anuncio"}
+                {publicando ? "Publicando…" : borradorId ? "Reintentar publicación" : "Publicar anuncio"}
               </button>
             )}
           </div>
-        </div>
+        </fieldset>
       )}
 
       {/* Lista de anuncios */}
@@ -664,6 +812,10 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
         <div>
           <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Tus anuncios</h2>
           {estado === "cargando" && <SkeletonLista filas={3} />}
+          {estado === "error" && <div role="alert" className="space-y-2 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
+            <p>No pudimos cargar los anuncios de este negocio.</p>
+            <button type="button" onClick={() => void cargar()} className="font-semibold text-brasa-texto">Reintentar</button>
+          </div>}
           {estado === "ok" && anuncios.length === 0 && (
             <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
               <p className="text-[1.02rem] font-bold text-tinta">Todavía no creaste anuncios</p>
@@ -681,12 +833,16 @@ export default function AnunciosPanel({ embebido = false }: { embebido?: boolean
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${et.clase}`}>{et.texto}</span>
                     </div>
                     <p className="mt-1 line-clamp-2 text-[0.86rem] text-tinta-2">{a.texto}</p>
+                    {a.estado === "publicando" && <div role="status" className="mt-2 space-y-2 text-sm text-frio">
+                      <p>{AVISO_PUBLICANDO}</p>
+                      <button type="button" onClick={() => void cargar()} disabled={publicando || publicandoId !== null} className="font-semibold text-brasa-texto disabled:opacity-50">Verificar estado</button>
+                    </div>}
                     <div className="mt-1.5 flex items-center justify-between gap-2">
                       <p className="text-[0.76rem] text-frio">
                         S/{a.presupuestoTotal} · {a.dias} días · S/{(a.presupuestoTotal / a.dias || 0).toFixed(0)}/día
                       </p>
                       {/* Sin imagen no hay botón: Meta rechaza la pieza sin media. */}
-                      {a.estado === "borrador" && a.mediaUrl && (
+                      {a.estado === "borrador" && a.mediaUrl && a.objetivo === "mensajes" && (
                         <button
                           onClick={() => publicarExistente(a.id)}
                           disabled={publicandoId !== null}

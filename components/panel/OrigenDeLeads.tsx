@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { origenDeLeads, type FilaOrigenLeads } from "@/lib/api";
+import { ErrorMarketing, importeMarketing, useLecturaMarketing } from "./marketing-lectura";
 
 /**
  * QUÉ PUBLICIDAD TE TRAE CLIENTES (2026-09-17, pedido de Jonathan: "tampoco
@@ -15,32 +16,25 @@ import { origenDeLeads, type FilaOrigenLeads } from "@/lib/api";
  * El costo por lead es el que decide presupuesto. "Gasté S/10.58" no dice si
  * conviene; "cada persona que me escribió me costó S/3.53" sí.
  */
-export function OrigenDeLeads({ tenant }: { tenant?: string } = {}) {
-  const [filas, setFilas] = useState<FilaOrigenLeads[] | null>(null);
-  const [dias, setDias] = useState(30);
-
-  useEffect(() => {
-    let vivo = true;
-    setFilas(null);
-    void origenDeLeads(dias, tenant).then((f) => { if (vivo) setFilas(f); });
-    return () => { vivo = false; };
-  }, [tenant, dias]);
-
-  if (filas === null) return <div className="h-40 animate-pulse rounded-tarjeta bg-arena-2/70" />;
+export function OrigenDeLeads({ tenant, dias = 30 }: { tenant?: string; dias?: number } = {}) {
+  const cargar = useCallback(() => origenDeLeads(dias, tenant), [dias, tenant]);
+  const { datos: filas, cargando, error, reintentar } = useLecturaMarketing<FilaOrigenLeads[]>(`${tenant}:${dias}`, cargar);
+  if (error) return <ErrorMarketing mensaje={error} reintentar={reintentar} />;
+  if (cargando || !filas) return <div role="status" aria-label="Cargando origen de leads" className="h-40 animate-pulse rounded-tarjeta bg-arena-2/70" />;
 
   if (filas.length === 0) {
     return (
       <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
         <h3 className="text-[1.05rem] font-bold text-tinta">De dónde te escriben</h3>
         <p className="mt-1 text-[0.85rem] text-frio">
-          Cuando te escriba gente desde un anuncio vas a ver acá de cuál vino
-          cada uno y cuánto te costó traerlo.
+          No hay contactos registrados en los últimos {dias} días.
         </p>
       </div>
     );
   }
 
   const totalLeads = filas.reduce((a, f) => a + f.leads, 0);
+  const maximo = Math.max(...filas.map((x) => x.leads), 1);
 
   return (
     <div className="rounded-tarjeta bg-carta p-6 ring-1 ring-linea">
@@ -52,36 +46,20 @@ export function OrigenDeLeads({ tenant }: { tenant?: string } = {}) {
             {dias} días
           </p>
         </div>
-        <div className="flex gap-1">
-          {[7, 30, 90].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setDias(n)}
-              className={`rounded-chip px-2.5 py-0.5 text-[0.76rem] font-semibold transition ${
-                dias === n ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea"
-              }`}
-            >
-              {n} días
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="mt-5 space-y-2">
         {filas.map((f) => (
-          <Fila key={f.adId ?? f.etiqueta} f={f} maximo={filas[0].leads} />
+          <Fila key={f.adId ?? f.etiqueta} f={f} maximo={maximo} />
         ))}
       </div>
 
       <p className="mt-4 text-[0.76rem] text-frio">
-        El costo por persona es el gasto del anuncio dividido entre la gente que
-        trajo. Lo que no vino de publicidad no tiene costo.
+        Los contactos son registros del CRM. Un origen sin gasto informado no implica captación gratuita ni acredita citas o ventas.
       </p>
     </div>
   );
 }
-
 /**
  * Una fila: de dónde, cuántos, cuántos se calentaron y a qué precio.
  *
@@ -89,8 +67,8 @@ export function OrigenDeLeads({ tenant }: { tenant?: string } = {}) {
  * anuncios que traen lo mismo: veinte curiosos no valen lo que tres personas
  * que preguntaron el precio.
  */
-function Fila({ f, maximo }: { f: FilaOrigenLeads; maximo: number }) {
-  const ancho = Math.max(4, Math.round((f.leads / Math.max(maximo, 1)) * 100));
+function Fila({ f, maximo }: { f: FilaOrigenLeads & { moneda?: string | null }; maximo: number }) {
+  const ancho = Math.max(0, Math.min(100, Math.round((f.leads / Math.max(maximo, 1)) * 100)));
   const icono = f.tipo === "anuncio" ? "📣" : f.tipo === "link" ? "🔗" : f.tipo === "manual" ? "✍️" : "💬";
 
   return (
@@ -115,23 +93,17 @@ function Fila({ f, maximo }: { f: FilaOrigenLeads; maximo: number }) {
         )}
         {f.costoPorLeadCentavos !== undefined && (
           <span>
-            {soles(f.costoPorLeadCentavos)} por persona
-            {f.gastoCentavos !== undefined && ` · ${soles(f.gastoCentavos)} gastados`}
+            {importeMarketing(f.costoPorLeadCentavos, f.moneda)} por contacto
+            {f.gastoCentavos !== undefined && ` · ${importeMarketing(f.gastoCentavos, f.moneda)} gastados`}
           </span>
         )}
         {/* Un anuncio sin gasto todavía NO se pinta como "gratis": el cron del
             histórico corre una vez al día y el hueco es temporal. */}
         {f.tipo === "anuncio" && f.costoPorLeadCentavos === undefined && (
-          <span>el costo aparece cuando Meta cierre el día</span>
+          <span>Costo no disponible</span>
         )}
         {f.campania && <span className="truncate">· {f.campania}</span>}
       </div>
     </div>
   );
-}
-
-function soles(centavos: number): string {
-  return `S/${(centavos / 100).toLocaleString("es-PE", {
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  })}`;
 }

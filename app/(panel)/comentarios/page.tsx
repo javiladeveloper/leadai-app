@@ -48,8 +48,8 @@ export default function ComentariosPanel() {
   // simulación adopta ese negocio (g.adoptar).
   const g = useSeccionGlobal();
 
-  const cargar = useCallback(async () => {
-    setEstado("cargando");
+  const cargar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setEstado("cargando");
     try {
       // Los canales se leen junto con el log: sin ellos no se sabe si el aviso
       // que corresponde es "conecta tus redes" o "ya están conectadas".
@@ -61,13 +61,28 @@ export default function ComentariosPanel() {
       setRedes(redesDeComentarios(canales));
       setEstado("ok");
     } catch {
-      setEstado("error");
+      // Un refresco en segundo plano que falla no borra lo que ya se ve.
+      if (!silencioso) setEstado("error");
     }
   }, [g.tenantLista]);
 
   useEffect(() => {
     if (!listo || !g.listaLista) return;
     cargar();
+  }, [listo, g.listaLista, cargar]);
+
+  /**
+   * LOS COMENTARIOS NUEVOS APARECEN SOLOS (2026-09-29). Jonathan, grabando la
+   * demo: "¿aparece automáticamente o tengo que estar apretando F5?". Llegan
+   * por webhook en segundos, así que la lista se relee cada 10 s mientras la
+   * pestaña está a la vista (en segundo plano no gasta).
+   */
+  useEffect(() => {
+    if (!listo || !g.listaLista) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void cargar(true);
+    }, 10_000);
+    return () => window.clearInterval(id);
   }, [listo, g.listaLista, cargar]);
 
   async function probar() {

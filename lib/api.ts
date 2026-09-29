@@ -2841,6 +2841,8 @@ export interface PostConResultados {
   compartidos?: number;
   /** `undefined` = sin permiso todavía, NO cero. */
   alcance?: number;
+  /** Veces que se vio, con repeticiones (la "Visualizaciones" de Meta). */
+  visualizaciones?: number;
   guardados?: number;
   /** Comentarios que entraron por nuestro webhook. */
   comentariosLeidos: number;

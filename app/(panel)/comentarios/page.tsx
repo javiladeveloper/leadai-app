@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion } from "@/lib/auth";
-import { listarComentarios, listarCanales, simularComentario, type Comentario } from "@/lib/api";
+import { listarComentarios, listarCanales, simularComentario, responderComentario, type Comentario } from "@/lib/api";
 import { redesDeComentarios, textoRedes } from "@/lib/comentarios-estado";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
@@ -227,42 +227,145 @@ export default function ComentariosPanel() {
             {comentarios.map((c) => {
               const et = INTENCION[c.intencion ?? "otro"] ?? INTENCION.otro;
               return (
-                <article
+                <ComentarioCaptado
                   key={c.id}
-                  className="rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 flex-1 font-semibold text-tinta">
-                      {c.autorNombre ?? "Alguien"} comentó:
-                    </p>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${et.clase}`}>
-                      {et.texto}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[0.9rem] text-tinta-2">“{c.texto}”</p>
-
-                  {c.respondido && c.respuestaTexto && (
-                    <div className="mt-2 rounded-chip bg-brasa-suave/40 px-3 py-2 text-[0.84rem] text-tinta-2">
-                      <span className="font-semibold text-brasa-hondo">La IA respondería: </span>
-                      “{c.respuestaTexto}”
-                      {c.dmAbierto && <span className="ml-1 text-frio">· y abriría un DM 📩</span>}
-                    </div>
-                  )}
-
-                  {c.leadId && (
-                    <Link
-                      href={`/conversacion/${c.leadId}`}
-                      className="mt-2 inline-block text-[0.82rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
-                    >
-                      Ver conversación →
-                    </Link>
-                  )}
-                </article>
+                  c={c}
+                  etiqueta={et}
+                  tenant={g.tenantLista}
+                  onRespondido={(nuevo) => setComentarios((xs) => xs.map((x) => (x.id === nuevo.id ? { ...x, ...nuevo } : x)))}
+                />
               );
             })}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/** Qué red es, en palabras del dueño: en el modelo, Facebook es "messenger". */
+const RED: Record<string, string> = { instagram: "Instagram", messenger: "Facebook" };
+
+/**
+ * UN COMENTARIO CAPTADO, CON RESPUESTA A MANO (2026-09-29). La IA solo contesta
+ * los de intención de compra; el resto quedaba sin respuesta y el dueño tenía
+ * que irse a la red a contestarlo. Las simulaciones (post "post_demo") no se
+ * pueden responder: no existen en Meta.
+ */
+function ComentarioCaptado({
+  c, etiqueta, tenant, onRespondido,
+}: {
+  c: Comentario;
+  etiqueta: { texto: string; clase: string };
+  tenant?: string;
+  onRespondido: (c: Comentario) => void;
+}) {
+  const esSimulacion = c.postExterno === "post_demo";
+  const red = RED[c.canal] ?? c.canal;
+  const [abierto, setAbierto] = useState(false);
+  const [respuesta, setRespuesta] = useState("");
+  const [privado, setPrivado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function enviar() {
+    const t = respuesta.trim();
+    if (!t || enviando) return;
+    setEnviando(true);
+    setAviso(null);
+    const r = await responderComentario(c.id, { texto: t, privado, tenant });
+    setEnviando(false);
+    if (r.ok) {
+      onRespondido(r.comentario);
+      setAviso({ ok: true, texto: `Respondido en ${red}${r.privada ? " y por privado" : ""}.` });
+      setRespuesta("");
+      setAbierto(false);
+    } else {
+      setAviso({ ok: false, texto: r.error });
+    }
+  }
+
+  return (
+    <article className="rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 flex-1 font-semibold text-tinta">
+          {c.autorNombre ?? "Alguien"} comentó
+          {!esSimulacion && <span className="font-normal text-frio"> en {red}</span>}:
+        </p>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${etiqueta.clase}`}>
+          {etiqueta.texto}
+        </span>
+      </div>
+      <p className="mt-1 text-[0.9rem] text-tinta-2">“{c.texto}”</p>
+
+      {c.respondido && c.respuestaTexto && (
+        <div className="mt-2 rounded-chip bg-brasa-suave/40 px-3 py-2 text-[0.84rem] text-tinta-2">
+          <span className="font-semibold text-brasa-hondo">{esSimulacion ? "La IA respondería: " : "Respondido: "}</span>
+          “{c.respuestaTexto}”
+          {c.dmAbierto && (
+            <span className="ml-1 text-frio">{esSimulacion ? "· y abriría un DM 📩" : "· y se le escribió por privado 📩"}</span>
+          )}
+        </div>
+      )}
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+        {c.leadId && (
+          <Link
+            href={`/conversacion/${c.leadId}`}
+            className="text-[0.82rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
+          >
+            Ver conversación →
+          </Link>
+        )}
+        {!esSimulacion && !abierto && (
+          <button
+            onClick={() => { setAbierto(true); setAviso(null); }}
+            className="text-[0.82rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
+          >
+            Responder
+          </button>
+        )}
+      </div>
+
+      {abierto && (
+        <div className="mt-2.5 space-y-2 rounded-tarjeta bg-arena/50 p-3">
+          <textarea
+            value={respuesta}
+            onChange={(e) => setRespuesta(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            autoFocus
+            aria-label={`Respuesta al comentario de ${c.autorNombre ?? "este cliente"}`}
+            placeholder={`Tu respuesta sale en ${red}, debajo del comentario`}
+            className="w-full resize-none rounded-chip bg-carta px-3 py-2 text-[0.88rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
+          />
+          <label className="flex items-center gap-2 text-[0.82rem] text-tinta-2">
+            <input type="checkbox" checked={privado} onChange={(e) => setPrivado(e.target.checked)} />
+            También escribirle por privado (le llega como mensaje)
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={enviar}
+              disabled={enviando || !respuesta.trim()}
+              className="rounded-chip bg-brasa px-4 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
+            >
+              {enviando ? "Respondiendo…" : `Responder en ${red}`}
+            </button>
+            <button
+              onClick={() => { setAbierto(false); setAviso(null); }}
+              className="rounded-chip px-3 py-2 text-sm font-semibold text-tinta-2 hover:text-tinta"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {aviso && (
+        <p className={`mt-2 text-[0.82rem] font-semibold ${aviso.ok ? "text-brasa-hondo" : "text-calor-hondo"}`}>
+          {aviso.ok ? "✓ " : ""}{aviso.texto}
+        </p>
+      )}
+    </article>
   );
 }

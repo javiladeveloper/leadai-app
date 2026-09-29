@@ -1759,6 +1759,25 @@ export async function listarComentarios(tenant?: string): Promise<Comentario[]> 
   }
 }
 
+/**
+ * Responde un comentario real desde el panel (2026-09-29): sale en Instagram o
+ * Facebook debajo del comentario y, si se pide, también por privado.
+ */
+export async function responderComentario(
+  id: string,
+  input: { texto: string; privado: boolean; tenant?: string },
+): Promise<{ ok: true; comentario: Comentario; privada: boolean } | { ok: false; error: string }> {
+  try {
+    const r = await api<{ comentario: Comentario; publica: boolean; privada: boolean }>(
+      `/comentarios/${encodeURIComponent(id)}/responder`,
+      { method: "POST", tenant: input.tenant, body: { texto: input.texto, privado: input.privado } },
+    );
+    return { ok: true, comentario: r.comentario, privada: r.privada };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo responder" };
+  }
+}
+
 // Simula un comentario entrante (para probar el flujo sin Meta conectado).
 export async function simularComentario(input: {
   texto: string;

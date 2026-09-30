@@ -225,6 +225,7 @@ function Fila({ p, destacado, abierta, alTocar, tenant }: {
           <p className="mt-1 text-[0.76rem] text-frio">
             {n(p.reacciones)} {p.reacciones === 1 ? "reacción" : "reacciones"} · {n(p.comentarios)} comentarios
             {p.compartidos !== undefined && <> · {n(p.compartidos)} compartidos</>}
+            {p.visualizaciones !== undefined && <> · {n(p.visualizaciones)} visualizaciones</>}
             {p.alcance !== undefined && <> · <b className="text-tinta-2">{n(p.alcance)} lo vieron</b></>}
           </p>
         </div>
@@ -314,7 +315,7 @@ function Detalle({ p, tenant }: { p: PostConResultados; tenant?: string }) {
 
       {/* LOS NÚMEROS, CADA UNO CON LO QUE SIGNIFICA. Meta los muestra sin
           explicar; quien no vive en Instagram no sabe cuál mirar. */}
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Dato valor={n(post.reacciones)} etiqueta="reacciones" nota="si gustó" />
         <Dato
           valor={n(post.comentarios)}
@@ -322,6 +323,9 @@ function Detalle({ p, tenant }: { p: PostConResultados; tenant?: string }) {
           nota={post.comentariosLeidos < post.comentarios ? `${post.comentariosLeidos} los leyó LeadAI` : "todos los leyó LeadAI"}
         />
         {post.compartidos !== undefined && <Dato valor={n(post.compartidos)} etiqueta="compartidos" nota="si lo pasaron" />}
+        {post.visualizaciones !== undefined && (
+          <Dato valor={n(post.visualizaciones)} etiqueta="visualizaciones" nota="veces que se vio, con repeticiones" />
+        )}
         <Dato
           valor={post.alcance !== undefined ? n(post.alcance) : "—"}
           etiqueta="lo vieron"

@@ -1742,7 +1742,7 @@ export interface Comentario {
   postExterno: string;
   autorNombre: string | null;
   texto: string;
-  intencion: string | null; // compra | halago | spam | otro
+  intencion: string | null; // compra | pregunta | halago | spam | otro
   respondido: boolean;
   respuestaTexto: string | null;
   dmAbierto: boolean;
@@ -1783,11 +1783,11 @@ export async function simularComentario(input: {
   texto: string;
   autorNombre?: string;
   tenant?: string;
-}): Promise<{ ok: boolean; intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string; error?: string }> {
+}): Promise<{ ok: boolean; intencion?: string; respondido?: boolean; respuesta?: string; abrirDM?: boolean; leadId?: string; error?: string }> {
   try {
     // Ids únicos por simulación (evita chocar con el unique de idempotencia).
     const n = `sim-${Math.random().toString(36).slice(2, 10)}`;
-    const r = await api<{ procesado: boolean; intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string }>(
+    const r = await api<{ procesado: boolean; intencion?: string; respondido?: boolean; respuesta?: string; abrirDM?: boolean; leadId?: string }>(
       "/comentarios/simular",
       {
         method: "POST",
@@ -1801,7 +1801,7 @@ export async function simularComentario(input: {
         },
       },
     );
-    return { ok: true, intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, leadId: r.leadId };
+    return { ok: true, intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, abrirDM: r.abrirDM, leadId: r.leadId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo simular" };
   }

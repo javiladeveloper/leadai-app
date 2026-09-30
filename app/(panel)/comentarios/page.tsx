@@ -16,6 +16,7 @@ type Estado = "cargando" | "ok" | "error";
 // Etiqueta visual por intención detectada por la IA.
 const INTENCION: Record<string, { texto: string; clase: string }> = {
   compra: { texto: "🛒 Intención de compra", clase: "bg-calor-suave text-calor-hondo" },
+  pregunta: { texto: "❓ Pregunta", clase: "bg-brasa-suave text-brasa-texto" },
   halago: { texto: "💬 Halago", clase: "bg-tibio-suave text-tibio" },
   spam: { texto: "🚫 Spam", clase: "bg-arena text-frio" },
   otro: { texto: "· Otro", clase: "bg-arena text-frio" },
@@ -31,7 +32,7 @@ export default function ComentariosPanel() {
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [texto, setTexto] = useState("");
   const [simulando, setSimulando] = useState(false);
-  const [ultimo, setUltimo] = useState<{ intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string } | null>(null);
+  const [ultimo, setUltimo] = useState<{ intencion?: string; respondido?: boolean; respuesta?: string; abrirDM?: boolean; leadId?: string } | null>(null);
   /**
    * QUÉ REDES DE COMENTARIOS TIENE ESTE NEGOCIO (2026-09-18). `null` mientras
    * se lee. Jonathan, con Instagram y Facebook conectados en Sania: "me sigue
@@ -93,7 +94,7 @@ export default function ComentariosPanel() {
     const r = await simularComentario({ texto: t, autorNombre: "Cliente de prueba", tenant: g.tenantLista });
     setSimulando(false);
     if (r.ok) {
-      setUltimo({ intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, leadId: r.leadId });
+      setUltimo({ intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, abrirDM: r.abrirDM, leadId: r.leadId });
       setTexto("");
       cargar(); // refresca el log con el nuevo comentario
     }
@@ -112,7 +113,7 @@ export default function ComentariosPanel() {
           del embudo sin él — abría con un aviso amarillo de advertencia. */}
       <HeroSeccion
         titulo="Los comentarios también venden"
-        bajada="Cuando alguien comenta tu publicación con intención de compra, la IA le responde e invita al privado — y entra a tu pipeline como lead."
+        bajada="Cuando alguien pregunta o quiere comprar, la IA le responde e invita al privado — y entra a tu pipeline como lead. Si te felicitan, le agradece."
         nota="Aquí ves todo lo que captó y puedes probar cómo respondería."
         dibujo={<ComentariosIlustracion />}
       />
@@ -131,8 +132,8 @@ export default function ComentariosPanel() {
       )}
       {redes !== null && redes.length > 0 && (
         <div className="rounded-tarjeta bg-brasa-suave/40 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-brasa/20">
-          ✅ {textoRedes(redes)} {redes.length > 1 ? "conectados" : "conectado"}: cuando alguien comente una
-          publicación con intención de compra, la IA le responde e invita al privado.
+          ✅ {textoRedes(redes)} {redes.length > 1 ? "conectados" : "conectado"}: si alguien pregunta o quiere
+          comprar, la IA le responde e invita al privado; si te felicita, le agradece.
         </div>
       )}
 
@@ -174,7 +175,9 @@ export default function ComentariosPanel() {
                 <p className="mt-1.5 text-[0.88rem] text-tinta">
                   <span className="text-frio">Así respondería en el comentario: </span>“{ultimo.respuesta}”
                 </p>
-                {/* El ciclo completo: comentario → DM → lead en el pipeline */}
+                {/* El ciclo completo: comentario → DM → lead en el pipeline.
+                    Solo si abre conversación: un halago se agradece y listo. */}
+                {ultimo.abrirDM !== false && (
                 <div className="mt-2.5 space-y-1 rounded-chip bg-carta px-3 py-2 text-[0.8rem] text-tinta-2 ring-1 ring-linea">
                   <p className="font-semibold text-tinta">El ciclo completo:</p>
                   <p>1️⃣ Responde el comentario e invita al privado</p>
@@ -188,6 +191,7 @@ export default function ComentariosPanel() {
                     )}
                   </p>
                 </div>
+                )}
                 <p className="mt-1.5 text-[0.76rem] text-frio">
                   {redes && redes.length > 0
                     ? "(Es una simulación: no se publica nada en tus redes.)"
@@ -196,7 +200,7 @@ export default function ComentariosPanel() {
               </>
             ) : (
               <p className="mt-1.5 text-[0.84rem] text-frio">
-                No es intención de compra → la IA no responde (no gasta). Queda registrado igual.
+                No es compra, pregunta ni halago → no se responde (no gasta). Queda registrado igual.
               </p>
             )}
           </div>

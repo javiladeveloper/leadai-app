@@ -56,6 +56,9 @@ export default function MarketingPanel() {
     : t === "automatico" ? "automatico"
     : "anuncios";
   const [pestania, setPestania] = useState<Pestania>(inicial);
+  // Atrás/Adelante cambia la URL sin remontar la página: la URL vuelve a ser
+  // la fuente de verdad cuando el navegador navega por el historial.
+  useEffect(() => { setPestania(inicial); }, [t]);
 
   /**
    * ¿SU PLAN INCLUYE MARKETING? (2026-08-31, plan Full.)
@@ -91,6 +94,7 @@ export default function MarketingPanel() {
    */
   const tenantPlan = g.tenantLista ?? (g.resuelto ? leerEmpresaActiva() ?? empresasVisibles()[0]?.tenantId : undefined);
   const [tenantPublicarVisitado, setTenantPublicarVisitado] = useState<string>();
+  const [tenantCampaniasVisitado, setTenantCampaniasVisitado] = useState<string>();
   useEffect(() => {
     if (pestania === "publicar" && tenantPlan) setTenantPublicarVisitado(tenantPlan);
   }, [pestania, tenantPlan]);
@@ -107,18 +111,45 @@ export default function MarketingPanel() {
 
   function elegir(p: Pestania) {
     setPestania(p);
-    // `replace` y no `push`: cambiar de pestaña no es navegar a otro lado, y
-    // llenar el historial obligaría a apretar "atrás" una vez por pestaña.
-    router.replace(`/marketing?t=${p}`, { scroll: false });
+    // Cada elección tiene URL compartible y se puede deshacer con Atrás.
+    router.push(`/marketing?t=${p}`, { scroll: false });
   }
 
   // Cual se muestra de verdad: la elegida, salvo que este negocio no la tenga.
   // `presencia` no tiene capacidad: Google Maps le sirve a cualquier negocio
   // con dirección, sea restaurante o consultorio. Por eso nunca cae de ella.
   const mostrar: Pestania =
-    pestania === "anuncios" && !caps.tieneAnuncios ? "campanias"
-    : pestania === "campanias" && !caps.tieneCampanias ? "anuncios"
+    pestania === "anuncios" && !caps.tieneAnuncios ? (caps.tieneCampanias ? "campanias" : "presencia")
+    : pestania === "campanias" && !caps.tieneCampanias ? (caps.tieneAnuncios ? "anuncios" : "presencia")
     : pestania;
+
+  useEffect(() => {
+    if (mostrar === "campanias" && tenantPlan) setTenantCampaniasVisitado(tenantPlan);
+  }, [mostrar, tenantPlan]);
+
+  useEffect(() => {
+    if (mostrar === pestania) return;
+    setPestania(mostrar);
+    router.replace(`/marketing?t=${mostrar}`, { scroll: false });
+  }, [mostrar, pestania, router]);
+
+  function moverConTeclado(evento: React.KeyboardEvent<HTMLButtonElement>, actual: Pestania) {
+    const disponibles: Pestania[] = [
+      ...(caps.tieneAnuncios ? ["anuncios" as const] : []),
+      ...(caps.tieneCampanias ? ["campanias" as const] : []),
+      "publicar", "presencia", "automatico",
+    ];
+    const indice = disponibles.indexOf(actual);
+    const destino = evento.key === "ArrowRight" ? disponibles[(indice + 1) % disponibles.length]
+      : evento.key === "ArrowLeft" ? disponibles[(indice - 1 + disponibles.length) % disponibles.length]
+      : evento.key === "Home" ? disponibles[0]
+      : evento.key === "End" ? disponibles[disponibles.length - 1]
+      : null;
+    if (!destino) return;
+    evento.preventDefault();
+    elegir(destino);
+    if (typeof document !== "undefined") document.getElementById(`marketing-tab-${destino}`)?.focus();
+  }
 
   if (!listo || !g.resuelto) return null;
   if (g.listaLista && !tenantPlan) return <p role="status" className="p-5">Selecciona un negocio para ver Marketing.</p>;
@@ -222,7 +253,7 @@ export default function MarketingPanel() {
           Eran cuatro chips de texto: "Anuncios", "Campañas"… nombres que no
           dicen qué hace cada uno. Ahora cada una lleva su icono y su frase, así
           se elige por lo que se quiere LOGRAR y no por adivinar el nombre. */}
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3" role="tablist">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3" role="tablist" aria-label="Áreas de Marketing">
         {([
           { id: "anuncios", label: "Anuncios", ayuda: "Traer gente nueva", icono: <IconoMegafono />, cap: "tieneAnuncios" },
           { id: "campanias", label: "Campañas", ayuda: "Hacer que vuelvan", icono: <IconoRepetir />, cap: "tieneCampanias" },
@@ -243,9 +274,14 @@ export default function MarketingPanel() {
           return (
             <button
               key={p.id}
+              type="button"
+              id={`marketing-tab-${p.id}`}
               role="tab"
               aria-selected={activa}
+              aria-controls="marketing-panel"
+              tabIndex={activa ? 0 : -1}
               onClick={() => elegir(p.id)}
+              onKeyDown={(e) => moverConTeclado(e, p.id)}
               className={`flex flex-col items-start gap-2 rounded-tarjeta p-3.5 text-left transition ${
                 activa
                   ? "bg-superficie-honda text-arena shadow-[var(--sombra-tarjeta)]"
@@ -273,12 +309,20 @@ export default function MarketingPanel() {
         })}
       </div>
 
+      <div id="marketing-panel" role="tabpanel" aria-labelledby={`marketing-tab-${mostrar}`} tabIndex={0}>
       {/* Publicar permanece montado tras visitarlo para conservar el trabajo
           al cambiar de pestaña. El tenant identifica y aísla su instancia;
           no se persiste el borrador fuera de esta pantalla. */}
       {tenantPlan && (mostrar === "publicar" || tenantPublicarVisitado === tenantPlan) && (
         <div key={tenantPlan} hidden={mostrar !== "publicar"}>
           <PublicarPanel embebido key={tenantPlan} tenant={tenantPlan} />
+        </div>
+      )}
+      {/* La campaña en preparación también permanece montada al consultar
+          Plantillas, Presencia u otra pestaña del mismo negocio. */}
+      {tenantPlan && (mostrar === "campanias" || tenantCampaniasVisitado === tenantPlan) && (
+        <div key={tenantPlan} hidden={mostrar !== "campanias"}>
+          <CampaniasPanel embebido tenant={tenantPlan} />
         </div>
       )}
       {/* Si la pestania de la URL no aplica a este negocio —un link viejo, o
@@ -303,9 +347,8 @@ export default function MarketingPanel() {
         <SeccionAnuncios tenant={tenantPlan} nombreNegocio={nombreNegocio} />
       ) : mostrar === "automatico" ? (
         <AjustesMarketing key={tenantPlan} tenant={tenantPlan} />
-      ) : (
-        <CampaniasPanel embebido key={tenantPlan} tenant={tenantPlan} />
-      )}
+      ) : null}
+      </div>
     </div>
   );
 }

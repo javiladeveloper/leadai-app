@@ -55,6 +55,17 @@ test('el creador recibe tenant y nombre y permanece montado al cambiar de solapa
   assert.equal(s.montajes, 1);
 });
 
+test('el período del reporte no estorba al crear anuncios ni administrar públicos', async () => {
+  const { r } = await seccion();
+  assert.equal(r.nodos(n => n.type === 'select' && n.props['aria-label'] === 'Período del reporte').length, 1);
+  await elegir(r, 'A quién le llega');
+  assert.equal(r.nodos(n => n.type === 'select' && n.props['aria-label'] === 'Período del reporte').length, 0);
+  await elegir(r, 'Crear anuncio');
+  assert.equal(r.nodos(n => n.type === 'select' && n.props['aria-label'] === 'Período del reporte').length, 0);
+  await elegir(r, 'Resumen');
+  assert.equal(r.nodos(n => n.type === 'select' && n.props['aria-label'] === 'Período del reporte').length, 1);
+});
+
 test('Tus anuncios ofrece Ver borradores y solicita el historial sin remontar el creador', async () => {
   const s = await seccion();
   await elegir(s.r, 'Tus anuncios');

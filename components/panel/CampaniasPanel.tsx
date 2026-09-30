@@ -150,6 +150,16 @@ function audienciasDe(tieneCarta: boolean): GrupoAudiencia[] {
 }
 
 export default function CampaniasPanel(
+  props: { embebido?: boolean; tenant?: string } = {},
+) {
+  const global = useSeccionGlobal();
+  const negocio = props.embebido ? props.tenant : global.tenantLista;
+  // Un borrador y una audiencia jamás pasan de un negocio a otro. Cambiar de
+  // pestaña mantiene esta instancia; cambiar de negocio la reinicia completa.
+  return <ContenidoCampanias key={negocio ?? "sin-negocio"} {...props} />;
+}
+
+function ContenidoCampanias(
   { embebido = false, tenant }: { embebido?: boolean; tenant?: string } = {},
 ) {
   const router = useRouter();
@@ -193,10 +203,6 @@ export default function CampaniasPanel(
    */
   const [ciudades, setCiudades] = useState<Array<{ ciudad: string; cuantos: number }>>([]);
 
-  useEffect(() => {
-    void ciudadesDeLeads().then(setCiudades);
-  }, []);
-
   /**
    * TRAER UNA AUDIENCIA A LA LISTA (2026-09-16, pedido de Jonathan: "quizás
    * queremos enviar mensajes solo a los tibios, o solo a los fríos").
@@ -216,7 +222,7 @@ export default function CampaniasPanel(
     setBuscandoFieles(clave);
     setAvisoFieles("");
     try {
-      const leads = await listarLeads(filtro);
+      const leads = await listarLeads(filtro, g.tenantLista);
       // Solo los que tienen teléfono real: un LID (número privado) no sirve
       // para una plantilla de WhatsApp.
       const lineas = leads
@@ -270,6 +276,15 @@ export default function CampaniasPanel(
   const g = embebido
     ? { ...gPropio, tenantLista: tenant, enfocado: tenant ?? "", listaLista: true }
     : gPropio;
+
+  useEffect(() => {
+    let vivo = true;
+    setCiudades([]);
+    void ciudadesDeLeads(g.tenantLista).then((resultado) => {
+      if (vivo) setCiudades(resultado);
+    });
+    return () => { vivo = false; };
+  }, [g.tenantLista]);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -513,7 +528,7 @@ export default function CampaniasPanel(
         {([["campanias", "Envíos"], ["plantillas", "Plantillas"]] as const).map(([id, label]) => (
           <button
             key={id}
-            onClick={() => { setPestania(id); setCreando(false); setCreandoPlantilla(false); }}
+            onClick={() => setPestania(id)}
             className={`rounded-chip px-4 py-2 text-sm font-semibold transition ${
               pestania === id ? "bg-tinta text-carta" : "bg-arena text-tinta-2 hover:bg-linea"
             }`}
@@ -556,9 +571,16 @@ export default function CampaniasPanel(
           <div>
             <label className="text-[0.85rem] font-bold text-tinta">Plantilla (aprobada por Meta)</label>
             {aprobadas.length === 0 ? (
-              <p className="mt-1 rounded-tarjeta bg-arena/50 px-3 py-2.5 text-[0.85rem] text-frio">
-                Aún no tienes plantillas aprobadas. Créala en la pestaña "Plantillas" — Meta la revisa en minutos u horas.
-              </p>
+              <div className="mt-1 rounded-tarjeta bg-arena/50 px-3 py-2.5 text-[0.85rem] text-frio">
+                <p>Aún no tienes plantillas aprobadas. Meta revisa las nuevas en minutos u horas.</p>
+                <button
+                  type="button"
+                  onClick={() => { setPestania("plantillas"); setCreandoPlantilla(true); }}
+                  className="mt-2 font-semibold text-brasa underline underline-offset-2 hover:text-brasa-hondo"
+                >
+                  Crear plantilla
+                </button>
+              </div>
             ) : (
               <select
                 value={plantillaSel}

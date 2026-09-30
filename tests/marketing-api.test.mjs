@@ -20,6 +20,14 @@ test('guardar automatizaciones usa el negocio visible aunque otra empresa esté 
   assert.deepEqual(JSON.parse(peticiones[0].body), { rescateActivo: true });
 });
 
+test('los contactos para una campaña se consultan del negocio visible, no de la empresa activa', async () => {
+  const { api, peticiones } = cliente({ items: [], siguienteCursor: null });
+  await api.listarLeads({ nivel: 'tibio' }, 'negocio-B');
+  await api.ciudadesDeLeads('negocio-B');
+  assert.equal(peticiones[0].url, 'http://api.test/leads?nivel=tibio&limit=100');
+  assert.ok(peticiones.every(p => p.headers['X-Tenant-Id'] === 'negocio-B'));
+});
+
 test('métricas y embudo comparten el período explícito y default de 30 días', async () => {
   const { api, peticiones } = cliente({ metricas: null, embudos: [] });
   await api.metricasAds('negocio-B', 7);

@@ -509,6 +509,7 @@ export async function listarLeads(
     /** De donde escribe el lead: "Tacna". Sale de su ubicacion o su delivery. */
     ciudad?: string;
   },
+  tenant?: string,
 ): Promise<Lead[]> {
   // El backend pagina por cursor (máx 100 por página). Seguimos el cursor hasta
   // agotar para que el pipeline no se quede con solo la primera página (antes
@@ -528,6 +529,7 @@ export async function listarLeads(
     if (cursor) qs.set("cursor", cursor);
     const r: { items: Lead[]; siguienteCursor: string | null } = await api(
       `/leads?${qs.toString()}`,
+      { tenant },
     );
     acumulado.push(...r.items);
     if (!r.siguienteCursor) break;

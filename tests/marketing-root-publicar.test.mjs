@@ -4,7 +4,7 @@ import { cargarModulo } from './helpers/cargar-modulo-marketing.mjs';
 import { renderer, texto } from './helpers/render-marketing.mjs';
 
 async function marketing(inicial = 'anuncios') {
-  const r = renderer(), lecturas = [], router = { replace() {} };
+  const r = renderer(), lecturas = [], router = { replace() {}, push() {} };
   let tenant = 'A';
   const vacio = () => null;
   // Root y PublicarPanel reales; sólo las API y vistas ajenas al flujo son dobles.

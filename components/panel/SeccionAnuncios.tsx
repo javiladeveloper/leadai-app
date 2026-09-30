@@ -109,7 +109,7 @@ function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreN
         ))}
       </div>
 
-      <label className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-tinta">
+      {(solapa === "resumen" || solapa === "anuncios") && <label className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-tinta">
         Período del reporte
         <select aria-label="Período del reporte" value={dias} onChange={e => {
           const n = Number(e.target.value);
@@ -119,7 +119,7 @@ function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreN
           <option value={30}>Últimos 30 días</option>
           <option value={90}>Últimos 90 días</option>
         </select>
-      </label>
+      </label>}
       {/* El creador conserva su instancia entre solapas; el borrador local
           permite retomar también después de salir de Marketing o recargar. */}
       <div className="mt-4">

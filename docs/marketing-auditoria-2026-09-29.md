@@ -30,6 +30,12 @@ Presencia oculta la configuración antigua mientras cambia el negocio, ignora re
 
 Verificación local de esta continuación: 225/225 pruebas del panel, `npx tsc --noEmit`, build webpack de 37 páginas y detector UI sin hallazgos. Sigue sin despliegue.
 
+### Continuación: navegación y Campañas (sin tocar el bot)
+
+Las pestañas de Marketing tienen URL compartible, funcionan con Atrás/Adelante, ofrecen navegación por teclado y desvían enlaces hacia funciones no disponibles a una pestaña utilizable. El borrador de Campañas se conserva al consultar otras pestañas del mismo negocio; al cambiar de negocio se reinicia para no arrastrar destinatarios ni texto. Los atajos de audiencia y ciudades consultan explícitamente el negocio enfocado. Si no hay plantillas aprobadas, se puede abrir la creación desde el borrador sin perderlo. El filtro de período de Anuncios sólo aparece donde corresponde.
+
+Verificación local de esta continuación: **236/236 pruebas**, `npx tsc --noEmit`, build webpack de 37 páginas y detector UI sin hallazgos. Las pruebas usan dobles; no se enviaron campañas ni se modificó producción. Queda pendiente validación manual en navegador y con negocios reales cuando se levante la restricción de despliegue.
+
 Corrida final local tras actualizar la rama: **218/218 pruebas aprobadas**, TypeScript correcto y build webpack exitoso (37 páginas estáticas). No se publicó el build.
 
 Pruebas con APIs y contactos ficticios, sin gasto. Se añadieron suites conductuales con hooks simulados y contratos API; no equivalen a una publicación real en Meta. Navegador local: 28 anuncios, búsqueda/detalle, período de siete días, 24 horas, cambio de negocio y rollback. El servidor temporal rechazaba escrituras y fue retirado; tampoco se deja una ruta de auditoría accesible en el producto.

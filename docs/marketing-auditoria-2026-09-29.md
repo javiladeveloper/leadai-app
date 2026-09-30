@@ -22,6 +22,14 @@ Rama: `codex/marketing-auditoria-sin-deploy`, creada desde `f2eac24` y actualiza
 
 ## Verificación
 
+### Continuación: flujo de Presencia (sin tocar el bot)
+
+El campo de Google ahora pide el enlace directo para escribir una reseña y explica cómo obtenerlo desde el Perfil de Empresa. No acepta como nuevo valor un enlace que claramente solo comparte la ficha de Maps; si ya existe uno guardado, lo señala para reemplazarlo sin confundirlo con una ficha inexistente. El enlace guardado se puede abrir para comprobarlo. Se retiró de esta pantalla la promesa de que el bot pide reseñas solo a clientes de 4–5 estrellas; **la lógica del bot no se cambió** por pedido expreso de Jonathan.
+
+Presencia oculta la configuración antigua mientras cambia el negocio, ignora resultados tardíos de guardados del negocio anterior y muestra un error con reintento si no carga. Los errores de enlace aparecen junto al campo y se anuncian de forma accesible. Pruebas de regresión con datos ficticios, sin red ni escrituras reales.
+
+Verificación local de esta continuación: 225/225 pruebas del panel, `npx tsc --noEmit`, build webpack de 37 páginas y detector UI sin hallazgos. Sigue sin despliegue.
+
 Corrida final local tras actualizar la rama: **218/218 pruebas aprobadas**, TypeScript correcto y build webpack exitoso (37 páginas estáticas). No se publicó el build.
 
 Pruebas con APIs y contactos ficticios, sin gasto. Se añadieron suites conductuales con hooks simulados y contratos API; no equivalen a una publicación real en Meta. Navegador local: 28 anuncios, búsqueda/detalle, período de siete días, 24 horas, cambio de negocio y rollback. El servidor temporal rechazaba escrituras y fue retirado; tampoco se deja una ruta de auditoría accesible en el producto.

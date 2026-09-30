@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   obtenerHorario,
   guardarHorario,
@@ -9,6 +9,20 @@ import {
 import { guardarDatosNegocio, type DatosNegocio } from "@/lib/negocio";
 import { HeroSeccion } from "@/components/panel/HeroSeccion";
 import { LinksDeOrigen } from "@/components/panel/LinksDeOrigen";
+
+/** Un enlace para compartir la ficha no abre necesariamente el formulario de reseñas. */
+function esEnlaceDeFicha(url: string): boolean {
+  try {
+    const enlace = new URL(url);
+    const host = enlace.hostname.toLowerCase();
+    return host === "maps.app.goo.gl" ||
+      (host === "goo.gl" && enlace.pathname.startsWith("/maps")) ||
+      (host === "maps.google.com" && !enlace.pathname.includes("writereview")) ||
+      (/^(www\.)?google\.[a-z.]+$/.test(host) && enlace.pathname.startsWith("/maps"));
+  } catch {
+    return false; // La validación de URL del servidor mostrará su propio error.
+  }
+}
 
 /**
  * TU NEGOCIO EN INTERNET (2026-08-27, pedido de Jonathan).
@@ -44,9 +58,15 @@ import { LinksDeOrigen } from "@/components/panel/LinksDeOrigen";
  * como siempre, usando la activa.
  */
 export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
+  const vistaActual = useRef({ tenant, revision: 0 });
+  if (vistaActual.current.tenant !== tenant) vistaActual.current = { tenant, revision: vistaActual.current.revision + 1 };
   const [cfg, setCfg] = useState<ConfigHorario | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [tenantCargado, setTenantCargado] = useState<string | null | undefined>(null);
+  const [intentos, setIntentos] = useState(0);
   const [error, setError] = useState("");
+  const [errorResena, setErrorResena] = useState("");
+  const idErrorResena = useId();
   const [guardado, setGuardado] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
@@ -63,9 +83,13 @@ export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
 
   useEffect(() => {
     let vivo = true;
-    void obtenerHorario(tenant).then((r) => {
+    setCargando(true);
+    setError("");
+    setErrorResena("");
+    void obtenerHorario(tenant).catch(() => null).then((r) => {
       if (!vivo) return;
       setCfg(r);
+      setTenantCargado(tenant);
       setUrl(r?.googleReviewUrl ?? "");
       setSlug(r?.slug ?? "");
       setIg(r?.instagramUrl ?? "");
@@ -77,7 +101,7 @@ export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
       setCargando(false);
     });
     return () => { vivo = false; };
-  }, [tenant]);
+  }, [tenant, intentos]);
 
   function avisarOk() {
     setGuardado(true);
@@ -88,9 +112,11 @@ export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
   async function aplicar(cambios: Partial<ConfigHorario>) {
     if (!cfg) return;
     const previo = cfg;
+    const revision = vistaActual.current.revision;
     setCfg({ ...cfg, ...cambios });
     setError("");
     const r = await guardarHorario(cambios, tenant);
+    if (vistaActual.current.revision !== revision) return;
     if (!r.ok) {
       // Se revierte el campo también: si el backend lo rechazó, dejarlo
       // escrito en pantalla le hace creer que quedó guardado.
@@ -114,8 +140,10 @@ export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
   async function aplicarCarta(cambios: DatosNegocio) {
     if (!cfg) return;
     const previo = cfg;
+    const revision = vistaActual.current.revision;
     setError("");
     const r = await guardarDatosNegocio(cambios, tenant);
+    if (vistaActual.current.revision !== revision) return;
     if (!r.ok) {
       setSlug(previo.slug ?? "");
       setIg(previo.instagramUrl ?? "");
@@ -136,10 +164,19 @@ export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
     avisarOk();
   }
 
-  if (cargando) return <div className="h-64 animate-pulse rounded-tarjeta bg-arena-2/70" />;
-  if (!cfg) return null;
+  if (cargando || tenantCargado !== tenant) return <div className="h-64 animate-pulse rounded-tarjeta bg-arena-2/70" role="status" aria-label="Cargando configuración de Marketing" />;
+  if (!cfg) return (
+    <div className="rounded-tarjeta bg-arena/60 p-5" role="alert">
+      <p className="font-semibold text-tinta">No pudimos cargar la configuración de Marketing de este negocio.</p>
+      <button type="button" onClick={() => { setCargando(true); setIntentos((n) => n + 1); }} className="mt-3 rounded-tarjeta bg-brasa px-4 py-2 text-sm font-bold text-sobre-brasa">
+        Reintentar
+      </button>
+    </div>
+  );
 
-  const enGoogle = (cfg.googleReviewUrl ?? "").trim().length > 0;
+  const enlaceGuardado = (cfg.googleReviewUrl ?? "").trim();
+  const enlaceFichaGuardada = esEnlaceDeFicha(enlaceGuardado);
+  const enGoogle = Boolean(enlaceGuardado) && !enlaceFichaGuardada;
   const conRedes = Boolean(cfg.instagramUrl?.trim() || cfg.facebookUrl?.trim() || cfg.tiktokUrl?.trim());
   const conCarta = Boolean(cfg.slug?.trim());
   const midiendo = Boolean((cfg.metaPixelId ?? "").trim() || (cfg.googleAnalyticsId ?? "").trim() || (cfg.capiDatasetId ?? "").trim());
@@ -166,37 +203,50 @@ export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
       >
         <label className="block">
           <span className="text-[0.75rem] font-bold uppercase tracking-wide text-frio">
-            Pega el link de tu negocio
+            Enlace directo para escribir una reseña
           </span>
           <input
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => { setUrl(e.target.value); setErrorResena(""); }}
             onBlur={() => {
               const v = url.trim();
-              if (v !== (cfg.googleReviewUrl ?? "")) void aplicar({ googleReviewUrl: v });
+              if (v === (cfg.googleReviewUrl ?? "")) return;
+              if (esEnlaceDeFicha(v)) {
+                setErrorResena("Ese enlace abre la ficha de Maps, no el formulario de reseñas. Copia el enlace desde «Consigue más reseñas».");
+                return;
+              }
+              void aplicar({ googleReviewUrl: v });
             }}
             inputMode="url"
-            placeholder="https://maps.app.goo.gl/..."
+            aria-invalid={Boolean(errorResena)}
+            aria-describedby={errorResena ? idErrorResena : undefined}
+            placeholder="https://g.page/r/.../review"
             className="mt-1.5 w-full rounded-lg border border-linea bg-arena/40 px-3 py-2.5 text-tinta placeholder:text-frio"
           />
+          {errorResena && <span id={idErrorResena} role="alert" className="mt-2 block text-[0.82rem] text-alerta">{errorResena}</span>}
         </label>
 
         <Pasos
-          titulo="Cómo consigo ese link"
+          titulo="Cómo obtener el enlace de reseñas"
           pasos={[
-            <>Abre <strong className="text-tinta">Google Maps</strong> en tu celular y busca tu negocio.</>,
-            <>Tócalo y elige el botón <strong className="text-tinta">Compartir</strong>.</>,
-            <>Toca <strong className="text-tinta">Copiar vínculo</strong> y pégalo aquí arriba.</>,
+            <>Entra a tu <strong className="text-tinta">Perfil de Empresa en Google</strong> con la cuenta que administra el negocio.</>,
+            <>Elige <strong className="text-tinta">Leer reseñas</strong> y después <strong className="text-tinta">Consigue más reseñas</strong>.</>,
+            <>Copia el enlace de reseñas y pégalo aquí. No uses el botón «Compartir» de la ficha en Maps.</>,
           ]}
-          dibujo={<CompartirMapsIlustracion />}
+          dibujo={<EnlaceResenasIlustracion />}
         />
 
         {enGoogle && (
-          <p className="mt-4 rounded-tarjeta bg-brasa-suave px-4 py-3 text-[0.85rem] text-ok">
-            <strong>Listo.</strong> A cada cliente que califique tu pedido con 4
-            o 5 estrellas, el bot le pide la reseña con este link. A los que
-            califican bajo no los manda: te avisa a ti para que lo arregles
-            antes de que sea público.
+          <div className="mt-4 rounded-tarjeta bg-brasa-suave px-4 py-3 text-[0.85rem] text-ok">
+            <p><strong>Enlace guardado.</strong> Comprueba que lleve a escribir una reseña, no solo a ver tu ficha.</p>
+            <a href={cfg.googleReviewUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block font-semibold underline underline-offset-2">
+              Abrir enlace de reseñas ↗
+            </a>
+          </div>
+        )}
+        {enlaceFichaGuardada && (
+          <p className="mt-4 rounded-tarjeta bg-arena/60 px-4 py-3 text-[0.85rem] text-tinta-2" role="status">
+            El enlace guardado abre tu ficha de Maps, no el formulario de reseñas. Reemplázalo con el enlace de «Consigue más reseñas».
           </p>
         )}
 
@@ -211,7 +261,7 @@ export function PresenciaEditor({ tenant }: { tenant?: string } = {}) {
             su botón conecta fichas que YA existen.
 
             Lo que sí es nuestro es que no tenga que buscar cómo se hace. */}
-        {!enGoogle && (
+        {!enlaceGuardado && (
           <div className="mt-4 rounded-tarjeta bg-arena/60 p-4">
             <p className="text-[0.88rem] font-bold text-tinta">
               ¿Tu negocio todavía no está en Google?
@@ -618,42 +668,15 @@ function FichaGoogleIlustracion() {
   );
 }
 
-/** El botón "Compartir" de Google Maps: dónde tocar. */
-function CompartirMapsIlustracion() {
+/** Ruta visual al enlace directo en el Perfil de Empresa, no a Compartir Maps. */
+function EnlaceResenasIlustracion() {
   return (
-    <svg viewBox="0 0 120 74" className="h-[74px] w-auto" aria-hidden>
-      <rect x="1" y="1" width="118" height="72" rx="8" fill="#fff" stroke="#e8eaed" />
-      <rect x="10" y="11" width="44" height="5" rx="2.5" fill="#3c4043" />
-      <g fill="#fbbc04">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <circle key={i} cx={12 + i * 7} cy={25} r="2.2" />
-        ))}
-      </g>
-      {["Cómo\nllegar", "Guardar", "Compartir"].map((t, i) => (
-        <g key={t}>
-          <circle
-            cx={24 + i * 34}
-            cy={48}
-            r="12"
-            fill={i === 2 ? "#1a73e8" : "#f1f3f4"}
-          />
-          <text
-            x={24 + i * 34}
-            y={51}
-            textAnchor="middle"
-            fontSize="6"
-            fontWeight="700"
-            fill={i === 2 ? "#fff" : "#5f6368"}
-          >
-            {i === 2 ? "↗" : i === 1 ? "★" : "→"}
-          </text>
-          <text x={24 + i * 34} y={68} textAnchor="middle" fontSize="5.5" fill="#5f6368">
-            {t.split("\n")[0]}
-          </text>
-        </g>
-      ))}
-      {/* El anillo marca cuál es: el que hay que tocar. */}
-      <circle cx="92" cy="48" r="16" fill="none" stroke="#1a73e8" strokeWidth="2" strokeDasharray="3 3" />
+    <svg viewBox="0 0 150 74" className="h-[74px] w-auto" aria-hidden>
+      <rect x="1" y="1" width="148" height="72" rx="8" fill="#fff" stroke="#e8eaed" />
+      <rect x="12" y="12" width="72" height="6" rx="3" fill="#3c4043" />
+      <rect x="12" y="27" width="58" height="5" rx="2.5" fill="#9aa0a6" />
+      <rect x="12" y="42" width="126" height="21" rx="6" fill="#1a73e8" />
+      <text x="75" y="56" textAnchor="middle" fontSize="9" fontWeight="700" fill="#fff">Consigue más reseñas</text>
     </svg>
   );
 }

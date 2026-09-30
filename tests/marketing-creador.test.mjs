@@ -53,6 +53,14 @@ test('el creador embebido sólo consulta el negocio del padre y no crea otro sel
   assert.equal(p.globals, 0);
 });
 
+test('anuncios informa que Meta cobra al negocio y no exhibe la bolsa futura', async () => {
+  let consultasBolsa = 0;
+  const { r } = await pantalla({ api: { bolsaAnuncios: async () => { consultasBolsa++; return { disponiblesCentavos: 0, bonoCentavos: 0, bonoPlanCentavos: 0, saldoCentavos: 0 }; } } });
+  assert.equal(consultasBolsa, 0);
+  assert.match(texto(r.arbol), /El gasto va a tu propio medio de pago/);
+  assert.doesNotMatch(texto(r.arbol), /bolsa publicitaria|recarga con LeadAI|S\/0\.00/);
+});
+
 test('objetivos que Meta aún no admite aparecen deshabilitados', async () => {
   const { r } = await pantalla(); await abrir(r);
   assert.equal(boton(r, /Visitas web/).props.disabled, true);

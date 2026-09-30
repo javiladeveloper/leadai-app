@@ -166,6 +166,7 @@ export default function CampaniasPanel(
   const [pago, setPago] = useState<EstadoPagoCampanias | null>(null);
   const [pestania, setPestania] = useState<"campanias" | "plantillas">("campanias");
   const [aviso, setAviso] = useState("");
+  const [cambiandoCampania, setCambiandoCampania] = useState<string | null>(null);
 
   // Crear campaña
   const [creando, setCreando] = useState(false);
@@ -292,6 +293,25 @@ export default function CampaniasPanel(
   }, [g.tenantLista]);
 
   useEffect(() => { if (listo && g.listaLista) cargar(); }, [listo, g.listaLista, cargar]);
+
+  async function cambiarEstadoCampania(id: string, reanudar: boolean) {
+    if (cambiandoCampania) return;
+    setCambiandoCampania(id);
+    setAviso("");
+    try {
+      const resultado = await pausarCampania(id, reanudar, g.tenantLista);
+      if (!resultado.ok) {
+        setAviso(`⚠️ ${resultado.error ?? "No se pudo cambiar el estado de la campaña."}`);
+        return;
+      }
+      await cargar();
+      setAviso(reanudar ? "Campaña reanudada." : "Campaña pausada.");
+    } catch {
+      setAviso("⚠️ No pudimos confirmar el cambio. Actualiza la lista antes de volver a intentar.");
+    } finally {
+      setCambiandoCampania(null);
+    }
+  }
 
   // Teléfonos pegados: uno por línea, "999888777" o "999888777, Nombre".
   function parsearContactos(): { telefono: string; nombre?: string }[] {
@@ -717,10 +737,11 @@ export default function CampaniasPanel(
                       </p>
                       {(c.estado === "enviando" || c.estado === "pausada") && (
                         <button
-                          onClick={async () => { await pausarCampania(c.id, c.estado === "pausada", g.tenantLista); cargar(); }}
-                          className="rounded-chip bg-arena px-3 py-1.5 text-[0.76rem] font-semibold text-tinta-2 transition hover:bg-linea"
+                          onClick={() => void cambiarEstadoCampania(c.id, c.estado === "pausada")}
+                          disabled={cambiandoCampania !== null}
+                          className="rounded-chip bg-arena px-3 py-1.5 text-[0.76rem] font-semibold text-tinta-2 transition hover:bg-linea disabled:opacity-50"
                         >
-                          {c.estado === "pausada" ? "▶ Reanudar" : "⏸ Pausar"}
+                          {cambiandoCampania === c.id ? "Guardando…" : c.estado === "pausada" ? "▶ Reanudar" : "⏸ Pausar"}
                         </button>
                       )}
                     </div>

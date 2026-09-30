@@ -10,7 +10,6 @@ import {
   objetivosAd, publicoSugeridoAd, presupuestoAd, sugerirTextoAd, listarAnuncios, crearAnuncio,
   publicarAnuncioMeta, subirMediaPost, canalesAd,
   type ObjetivoAd, type PublicoAd, type RecomPresupuesto, type Anuncio, type CanalAd,
-  bolsaAnuncios, type BolsaAnuncios,
   publicosEnMeta, type PublicoEnMeta,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
@@ -123,9 +122,6 @@ function CreadorAnuncios({ embebido = false, tenant, nombreNegocio, solicitudHis
   const [publicandoId, setPublicandoId] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
   const [msg, setMsg] = useState("");
-  // La bolsa publicitaria (2026-08-23): el presupuesto de cada anuncio se
-  // debita de acá — bono mensual del plan + lo recargado con nosotros.
-  const [bolsa, setBolsa] = useState<BolsaAnuncios | null>(null);
   // Un error de publicación no prueba que Meta no haya creado el anuncio.
   // Sólo el estado remoto confirmado permite reintentar o preparar otro.
   const anuncioGuardado = anuncios.find(a => a.id === borradorId);
@@ -157,13 +153,12 @@ function CreadorAnuncios({ embebido = false, tenant, nombreNegocio, solicitudHis
     const solicitud = ++cargandoId.current;
     setEstado("cargando");
     try {
-      const [a, o, b] = await Promise.all([
-        listarAnuncios(tenant), objetivosAd(tenant), bolsaAnuncios(tenant),
+      const [a, o] = await Promise.all([
+        listarAnuncios(tenant), objetivosAd(tenant),
       ]);
       if (!vivo.current || solicitud !== cargandoId.current) return;
       setAnuncios(a);
       setObjetivos(o);
-      setBolsa(b);
       setEstado("ok");
     } catch { if (vivo.current && solicitud === cargandoId.current) setEstado("error"); }
   }, [tenant]);
@@ -372,23 +367,6 @@ function CreadorAnuncios({ embebido = false, tenant, nombreNegocio, solicitudHis
                 Crea anuncios en Instagram y Facebook con la ayuda de la IA. Te guía paso a paso.
               </p>
             </>
-          )}
-          {/* LA BOLSA PUBLICITARIA (2026-08-23): la plata de los anuncios pasa
-              por LeadAI — el plan regala un bono cada mes y lo demás se
-              recarga con nosotros. Al publicar, el presupuesto sale de aquí. */}
-          {bolsa && (
-            <p className="mt-2 inline-flex flex-wrap items-center gap-1 rounded-tarjeta bg-carta px-3.5 py-2 text-[0.84rem] text-tinta-2 ring-1 ring-linea">
-              💰 Tu bolsa publicitaria: <b className="text-tinta">S/{(bolsa.disponiblesCentavos / 100).toFixed(2)}</b>
-              {/* El desglose del bono solo si EXISTE un bono (hoy los planes
-                  van sin bono: los anuncios se pagan aparte, por recarga). */}
-              {(bolsa.bonoCentavos > 0 || bolsa.bonoPlanCentavos > 0) && (
-                <> (S/{(bolsa.bonoCentavos / 100).toFixed(2)} del bono del mes + S/{(bolsa.saldoCentavos / 100).toFixed(2)} recargados)</>
-              )}
-              {/* Sin el punto suelto del inicio (2026-08-24): cuando no hay
-                  bono que desglosar, la frase anterior termina y esta abría
-                  con un "." huérfano. */}
-              <span>El presupuesto de cada anuncio sale de aquí — se paga por recarga con LeadAI.</span>
-            </p>
           )}
         </div>
         {!creando && (

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { redesDeComentarios, textoRedes } from '../lib/comentarios-estado.ts';
+import { redesDeComentarios, textoRedes, fusionarComentarios, describirEnvio } from '../lib/comentarios-estado.ts';
 
 /**
  * COMENTARIOS: EL AVISO DE "CONECTA TUS REDES" NO PUEDE SER FIJO (2026-09-18).
@@ -39,4 +39,25 @@ test('las redes se nombran como las dice la gente', () => {
   assert.equal(textoRedes(['Instagram', 'Facebook']), 'Instagram y Facebook');
   assert.equal(textoRedes(['Instagram']), 'Instagram');
   assert.equal(textoRedes([]), '');
+});
+
+test('refrescar 100 comentarios conserva páginas antiguas y actualiza IDs repetidos', () => {
+  const antiguos = Array.from({ length: 120 }, (_, i) => ({ id: `c${i}`, creadoEn: `2026-09-29T10:${String(59 - (i % 60)).padStart(2, '0')}:00Z`, texto: 'antes' }));
+  const recientes = [{ ...antiguos[0], texto: 'actualizado' }, { id: 'nuevo', creadoEn: '2026-09-30T12:00:00Z', texto: 'nuevo' }];
+  const fusion = fusionarComentarios(antiguos, recientes);
+  assert.equal(fusion.length, 121);
+  assert.equal(fusion.find((c) => c.id === 'c0').texto, 'actualizado');
+  assert.ok(fusion.some((c) => c.id === 'c119'));
+});
+
+test('un timeout nunca se describe como enviado y los dos resultados se separan', () => {
+  assert.deepEqual(describirEnvio({ id: 'c', creadoEn: '', respondido: false, dmAbierto: true, estadoPublico: 'incierto', estadoPrivado: 'enviado' }), {
+    publico: 'Revisar en Meta', privado: 'Enviado', requiereRevision: true,
+  });
+});
+
+test('un registro de simulación histórico no se presenta como entregado', () => {
+  assert.deepEqual(describirEnvio({ id: 'sim', creadoEn: '', respondido: true, dmAbierto: true, esPrueba: true }), {
+    publico: 'Vista previa', privado: 'Vista previa', requiereRevision: false,
+  });
 });

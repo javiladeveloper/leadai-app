@@ -1,40 +1,55 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { obtenerMiPlan, guardarMiPlan } from "@/lib/api";
+import { obtenerMiPlanComentarios, guardarMiPlan } from "@/lib/api";
 
 // Ajustes simples de la respuesta automática a comentarios: activar/desactivar
 // y personalizar el mensaje de invitación al privado. Le da control al negocio
 // sin un editor de flujo complejo.
-export function AjustesComentarios() {
+export function AjustesComentarios({ tenant }: { tenant?: string }) {
   const [activo, setActivo] = useState<boolean | null>(null);
   const [mensaje, setMensaje] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState(false);
+  const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(true);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
-    obtenerMiPlan().then((p) => {
-      if (p) {
-        setActivo(p.comentariosActivo);
-        setMensaje(p.comentariosMensaje ?? "");
-      }
-    });
-  }, []);
+    let vigente = true;
+    obtenerMiPlanComentarios(tenant).then((p) => {
+      if (!vigente) return;
+      setActivo(p.comentariosActivo);
+      setMensaje(p.comentariosMensaje ?? "");
+      setError("");
+    }).catch((e: unknown) => {
+      if (vigente) setError(e instanceof Error ? e.message : "No pudimos cargar los ajustes.");
+    }).finally(() => { if (vigente) setCargando(false); });
+    return () => { vigente = false; };
+  }, [tenant, intento]);
 
   async function toggle(nuevo: boolean) {
+    const anterior = activo;
     setActivo(nuevo); // optimista
-    await guardarMiPlan({ comentariosActivo: nuevo });
+    setError("");
+    setGuardando(true);
+    const r = await guardarMiPlan({ comentariosActivo: nuevo }, tenant);
+    setGuardando(false);
+    if (!r.ok) { setActivo(anterior); setError(r.error ?? "No pudimos cambiar este ajuste."); }
   }
 
   async function guardarMensaje() {
     setGuardando(true);
     setOk(false);
-    const r = await guardarMiPlan({ comentariosMensaje: mensaje.trim() });
+    setError("");
+    const r = await guardarMiPlan({ comentariosMensaje: mensaje.trim() }, tenant);
     setGuardando(false);
     if (r.ok) { setOk(true); setTimeout(() => setOk(false), 2000); }
+    else setError(r.error ?? "No pudimos guardar el mensaje.");
   }
 
-  if (activo === null) return null; // cargando
+  if (cargando) return <div className="rounded-tarjeta bg-carta p-5 text-sm text-frio ring-1 ring-linea">Cargando ajustes de comentarios…</div>;
+  if (activo === null) return <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea"><p role="alert" className="text-sm text-calor-hondo">{error || "No pudimos cargar los ajustes."}</p><button onClick={() => { setCargando(true); setIntento((n) => n + 1); }} className="mt-2 font-semibold text-brasa-texto">Reintentar</button></div>;
 
   return (
     <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
@@ -42,14 +57,16 @@ export function AjustesComentarios() {
         <div>
           <h2 className="text-[1.05rem] font-bold text-tinta">Respuesta automática</h2>
           <p className="mt-0.5 text-[0.82rem] text-frio">
-            Cuando está activa, la IA responde los comentarios con intención de compra.
+            Cuando está activa, la IA responde preguntas y consultas de compra; agradece los halagos.
           </p>
         </div>
         {/* Switch simple */}
         <button
           onClick={() => toggle(!activo)}
+          disabled={guardando}
           role="switch"
           aria-checked={activo}
+          aria-label="Respuesta automática a comentarios"
           className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${activo ? "bg-brasa" : "bg-linea"}`}
         >
           <span
@@ -57,6 +74,7 @@ export function AjustesComentarios() {
           />
         </button>
       </div>
+      {error && <p role="alert" className="mt-2 text-[0.82rem] text-calor-hondo">{error}</p>}
 
       {activo && (
         <div className="mt-4 border-t border-linea pt-4">

@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion } from "@/lib/auth";
-import { listarComentarios, listarCanales, simularComentario, responderComentario, type Comentario, type FiltrosComentarios } from "@/lib/api";
-import { redesDeComentarios, textoRedes } from "@/lib/comentarios-estado";
+import { listarComentarios, listarCanalesComentarios, simularComentario, responderComentario, type Comentario, type FiltrosComentarios } from "@/lib/api";
+import { redesDeComentarios, textoRedes, fusionarComentarios, describirEnvio } from "@/lib/comentarios-estado";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { AjustesComentarios } from "@/components/panel/AjustesComentarios";
@@ -58,7 +58,12 @@ export default function ComentariosPanel() {
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [texto, setTexto] = useState("");
   const [simulando, setSimulando] = useState(false);
-  const [ultimo, setUltimo] = useState<{ intencion?: string; respondido?: boolean; respuesta?: string; abrirDM?: boolean; leadId?: string } | null>(null);
+  const [ultimo, setUltimo] = useState<{ intencion?: string; respuesta?: string | null; destinosPrevistos?: { publica: boolean; privada: boolean } } | null>(null);
+  const [errorSimulacion, setErrorSimulacion] = useState("");
+  const [errorRedes, setErrorRedes] = useState("");
+  const [errorMas, setErrorMas] = useState("");
+  const [errorRefresco, setErrorRefresco] = useState("");
+  const [intento, setIntento] = useState(0);
   /**
    * QUÉ REDES DE COMENTARIOS TIENE ESTE NEGOCIO (2026-09-18). `null` mientras
    * se lee. Jonathan, con Instagram y Facebook conectados en Sania: "me sigue
@@ -68,8 +73,7 @@ export default function ComentariosPanel() {
   const [filtros, setFiltros] = useState<Filtros>(SIN_FILTROS);
   const [hayMas, setHayMas] = useState(false);
   const [cargandoMas, setCargandoMas] = useState(false);
-  /** Cuántos se ven: el refresco automático relee esa cantidad, no solo la primera página. */
-  const cuantos = useRef(0);
+  const generacion = useRef(0);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -80,46 +84,57 @@ export default function ComentariosPanel() {
   // simulación adopta ese negocio (g.adoptar).
   const g = useSeccionGlobal();
 
-  const cargar = useCallback(async (silencioso = false) => {
+  const cargar = useCallback(async (silencioso = false, version = generacion.current) => {
     if (!silencioso) setEstado("cargando");
     try {
-      // Los canales se leen junto con el log: sin ellos no se sabe si el aviso
-      // que corresponde es "conecta tus redes" o "ya están conectadas".
-      const limit = silencioso ? Math.min(100, Math.max(30, cuantos.current)) : 30;
-      const [lista, canales] = await Promise.all([
-        listarComentarios(g.tenantLista, { ...aApi(filtros), limit }),
-        listarCanales(g.tenantLista),
-      ]);
-      setComentarios(lista.items);
-      cuantos.current = lista.items.length;
-      setHayMas(lista.hayMas);
-      setRedes(redesDeComentarios(canales));
+      const lista = await listarComentarios(g.tenantLista, { ...aApi(filtros), limit: 30 });
+      if (version !== generacion.current) return;
+      setComentarios((xs) => silencioso ? fusionarComentarios(xs, lista.items) : lista.items);
+      if (!silencioso) setHayMas(lista.hayMas);
       setEstado("ok");
-    } catch {
-      // Un refresco en segundo plano que falla no borra lo que ya se ve.
+      setErrorRefresco("");
+    } catch (e) {
+      if (version !== generacion.current) return;
       if (!silencioso) setEstado("error");
+      else setErrorRefresco(e instanceof Error ? e.message : "No pudimos actualizar los comentarios.");
     }
   }, [g.tenantLista, filtros]);
 
   useEffect(() => {
     if (!listo || !g.listaLista) return;
-    cargar();
-  }, [listo, g.listaLista, cargar]);
+    const version = ++generacion.current;
+    setComentarios([]);
+    setRedes(null);
+    setHayMas(false);
+    setCargandoMas(false);
+    setSimulando(false);
+    setErrorMas("");
+    setErrorRedes("");
+    setUltimo(null);
+    void cargar(false, version);
+    void listarCanalesComentarios(g.tenantLista).then((canales) => {
+      if (version === generacion.current) setRedes(redesDeComentarios(canales));
+    }).catch((e: unknown) => {
+      if (version === generacion.current) setErrorRedes(e instanceof Error ? e.message : "No pudimos leer las redes.");
+    });
+    return () => { generacion.current++; };
+  }, [listo, g.listaLista, g.tenantLista, cargar, intento]);
 
   /** "Ver más": los anteriores al último que ya se ve (cursor por fecha). */
   async function verMas() {
     const ultimoVisto = comentarios[comentarios.length - 1];
     if (!ultimoVisto || cargandoMas) return;
+    const version = generacion.current;
     setCargandoMas(true);
-    const r = await listarComentarios(g.tenantLista, { ...aApi(filtros), antesDe: ultimoVisto.creadoEn, limit: 30 });
-    setCargandoMas(false);
-    setComentarios((xs) => {
-      const vistos = new Set(xs.map((x) => x.id));
-      const todos = [...xs, ...r.items.filter((x) => !vistos.has(x.id))];
-      cuantos.current = todos.length;
-      return todos;
-    });
-    setHayMas(r.hayMas);
+    setErrorMas("");
+    try {
+      const r = await listarComentarios(g.tenantLista, { ...aApi(filtros), antesDe: ultimoVisto.creadoEn, antesId: ultimoVisto.id, limit: 30 });
+      if (version !== generacion.current) return;
+      setComentarios((xs) => fusionarComentarios(xs, r.items));
+      setHayMas(r.hayMas);
+    } catch (e) {
+      if (version === generacion.current) setErrorMas(e instanceof Error ? e.message : "No pudimos cargar más comentarios.");
+    } finally { if (version === generacion.current) setCargandoMas(false); }
   }
 
   const conFiltros = filtros.red !== "" || filtros.tipo !== "" || filtros.rango !== "todo";
@@ -143,13 +158,15 @@ export default function ComentariosPanel() {
     if (!t || simulando) return;
     setSimulando(true);
     setUltimo(null);
+    setErrorSimulacion("");
+    const version = generacion.current;
     const r = await simularComentario({ texto: t, autorNombre: "Cliente de prueba", tenant: g.tenantLista });
+    if (version !== generacion.current) return;
     setSimulando(false);
     if (r.ok) {
-      setUltimo({ intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, abrirDM: r.abrirDM, leadId: r.leadId });
+      setUltimo({ intencion: r.intencion, respuesta: r.respuesta, destinosPrevistos: r.destinosPrevistos });
       setTexto("");
-      cargar(); // refresca el log con el nuevo comentario
-    }
+    } else setErrorSimulacion(r.error ?? "No pudimos generar la vista previa.");
   }
 
   if (!listo) return null;
@@ -178,25 +195,24 @@ export default function ComentariosPanel() {
           (2026-09-18). Antes era fijo y Sania lo veía con las dos conectadas. */}
       {redes !== null && redes.length === 0 && (
         <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
-          📸 La captación automática de comentarios de Instagram/Facebook se activa cuando conectes
-          tus redes. Mientras tanto, prueba cómo responde la IA aquí abajo.
+          Conecta Instagram o Facebook para empezar a recibir comentarios. Puedes probar la respuesta abajo sin enviar nada.
         </div>
       )}
       {redes !== null && redes.length > 0 && (
         <div className="rounded-tarjeta bg-brasa-suave/40 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-brasa/20">
-          ✅ {textoRedes(redes)} {redes.length > 1 ? "conectados" : "conectado"}: si alguien pregunta o quiere
-          comprar, la IA le responde e invita al privado; si te felicita, le agradece.
+          {textoRedes(redes)} {redes.length > 1 ? "conectados" : "conectado"}. La conexión registrada no confirma por sí sola los permisos ni la entrega de respuestas de Meta.
         </div>
       )}
+      {errorRedes && <div role="alert" className="rounded-tarjeta bg-calor-suave p-3 text-sm text-calor-hondo">No pudimos comprobar las redes: {errorRedes} <button onClick={() => setIntento((n) => n + 1)} className="font-semibold underline">Reintentar</button></div>}
 
       {/* Ajustes: activar/desactivar + mensaje personalizado */}
-      <AjustesComentarios />
+      <AjustesComentarios key={g.tenantLista ?? "negocio-activo"} tenant={g.tenantLista} />
 
       {/* Simulador: probar el flujo sin Meta */}
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
         <h2 className="text-[1.05rem] font-bold text-tinta">Prueba la respuesta de la IA</h2>
         <p className="mt-1 text-[0.82rem] text-frio">
-          Escribe un comentario como lo haría un cliente y mira cómo lo clasifica y responde.
+          Escribe un comentario como lo haría un cliente. Es una vista previa: no crea leads ni envía mensajes.
         </p>
         <div className="mt-3 flex gap-2">
           <input
@@ -216,43 +232,33 @@ export default function ComentariosPanel() {
           </button>
         </div>
 
+        {errorSimulacion && <p role="alert" className="mt-3 text-sm text-calor-hondo">{errorSimulacion}</p>}
         {ultimo && (
           <div className="mt-3 rounded-tarjeta bg-arena/50 px-4 py-3">
+            <p className="text-[0.8rem] font-semibold text-tinta">Vista previa · no enviada</p>
             <p className="text-[0.8rem] font-semibold text-tinta-2">
               La IA lo clasificó como:{" "}
               <span className="font-bold">{INTENCION[ultimo.intencion ?? "otro"]?.texto ?? ultimo.intencion}</span>
             </p>
-            {ultimo.respondido && ultimo.respuesta ? (
+            {ultimo.destinosPrevistos?.publica && ultimo.respuesta ? (
               <>
                 <p className="mt-1.5 text-[0.88rem] text-tinta">
                   <span className="text-frio">Así respondería en el comentario: </span>“{ultimo.respuesta}”
                 </p>
                 {/* El ciclo completo: comentario → DM → lead en el pipeline.
                     Solo si abre conversación: un halago se agradece y listo. */}
-                {ultimo.abrirDM !== false && (
+                {ultimo.destinosPrevistos?.privada && (
                 <div className="mt-2.5 space-y-1 rounded-chip bg-carta px-3 py-2 text-[0.8rem] text-tinta-2 ring-1 ring-linea">
-                  <p className="font-semibold text-tinta">El ciclo completo:</p>
-                  <p>1️⃣ Responde el comentario e invita al privado</p>
-                  <p>2️⃣ Abre un DM y la IA sigue la venta ahí (como en WhatsApp)</p>
-                  <p>
-                    3️⃣ Entra al pipeline como lead{" "}
-                    {ultimo.leadId && (
-                      <Link href={`/conversacion/${ultimo.leadId}`} className="font-semibold text-brasa-texto hover:text-brasa-hondo">
-                        — ver la conversación →
-                      </Link>
-                    )}
-                  </p>
+                  <p>Si Meta acepta el flujo real, intentaría abrir un DM y enlazar al autor como lead.</p>
                 </div>
                 )}
                 <p className="mt-1.5 text-[0.76rem] text-frio">
-                  {redes && redes.length > 0
-                    ? "(Es una simulación: no se publica nada en tus redes.)"
-                    : "(Es una simulación — el envío real a Instagram se activa al conectar tus redes.)"}
+                  No se publicó nada en tus redes.
                 </p>
               </>
             ) : (
               <p className="mt-1.5 text-[0.84rem] text-frio">
-                No es compra, pregunta ni halago → no se responde (no gasta). Queda registrado igual.
+                No se propondría una respuesta pública. Esta prueba no queda registrada.
               </p>
             )}
           </div>
@@ -270,9 +276,11 @@ export default function ComentariosPanel() {
         {estado === "cargando" && <SkeletonLista filas={3} />}
         {estado === "error" && (
           <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-            <p className="font-semibold text-tinta">No pudimos cargar los comentarios. Recarga.</p>
+            <p role="alert" className="font-semibold text-tinta">No pudimos cargar los comentarios.</p>
+            <button onClick={() => setIntento((n) => n + 1)} className="mt-2 font-semibold text-brasa-texto">Reintentar</button>
           </div>
         )}
+        {errorRefresco && estado === "ok" && <p role="status" className="mb-2 text-sm text-calor-hondo">No pudimos actualizar: {errorRefresco} <button onClick={() => void cargar(true)} className="font-semibold underline">Reintentar</button></p>}
         {estado === "ok" && comentarios.length === 0 && conFiltros && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Ningún comentario con estos filtros</p>
@@ -286,18 +294,18 @@ export default function ComentariosPanel() {
         )}
         {estado === "ok" && comentarios.length === 0 && !conFiltros && redes && redes.length > 0 && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
-            <p className="text-[1.02rem] font-bold text-tinta">Todavía no llegó ningún comentario con intención de compra</p>
+            <p className="text-[1.02rem] font-bold text-tinta">Aún no hay comentarios</p>
             <p className="mt-1 text-[0.88rem] text-frio">
               Cuando alguien comente tus publicaciones de {textoRedes(redes)}, aparece aquí.
               Los comentarios anteriores a la conexión no llegan.
             </p>
           </div>
         )}
-        {estado === "ok" && comentarios.length === 0 && !conFiltros && (!redes || redes.length === 0) && (
+        {estado === "ok" && comentarios.length === 0 && !conFiltros && redes !== null && redes.length === 0 && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
-            <p className="text-[1.02rem] font-bold text-tinta">Todavía no hay comentarios captados</p>
+            <p className="text-[1.02rem] font-bold text-tinta">Aún no hay comentarios</p>
             <p className="mt-1 text-[0.88rem] text-frio">
-              Cuando conectes tus redes, los comentarios con intención van a aparecer aquí.
+              Cuando conectes tus redes, los comentarios nuevos aparecerán aquí.
             </p>
             <Link
               href="/configuracion"
@@ -307,18 +315,26 @@ export default function ComentariosPanel() {
             </Link>
           </div>
         )}
+        {estado === "ok" && comentarios.length === 0 && !conFiltros && redes === null && (
+          <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
+            <p className="font-bold text-tinta">Aún no hay comentarios</p>
+            <p className="mt-1 text-sm text-frio">No pudimos confirmar el estado de las redes; reintenta la carga antes de conectarlas.</p>
+          </div>
+        )}
 
         {estado === "ok" && comentarios.length > 0 && (
           <div className="space-y-2.5">
             {comentarios.map((c) => {
               const et = INTENCION[c.intencion ?? "otro"] ?? INTENCION.otro;
+              const version = generacion.current;
               return (
                 <ComentarioCaptado
                   key={c.id}
                   c={c}
                   etiqueta={et}
                   tenant={g.tenantLista}
-                  onRespondido={(nuevo) => setComentarios((xs) => xs.map((x) => (x.id === nuevo.id ? { ...x, ...nuevo } : x)))}
+                  onRespondido={(nuevo) => { if (version === generacion.current) setComentarios((xs) => xs.map((x) => (x.id === nuevo.id ? { ...x, ...nuevo } : x))); }}
+                  onActualizar={() => { if (version === generacion.current) void cargar(true); }}
                 />
               );
             })}
@@ -331,6 +347,7 @@ export default function ComentariosPanel() {
                 {cargandoMas ? "Cargando…" : "Ver más comentarios"}
               </button>
             )}
+            {errorMas && <p role="alert" className="text-sm text-calor-hondo">{errorMas} <button onClick={verMas} className="font-semibold underline">Reintentar</button></p>}
           </div>
         )}
       </div>
@@ -348,15 +365,19 @@ const RED: Record<string, string> = { instagram: "Instagram", messenger: "Facebo
  * pueden responder: no existen en Meta.
  */
 function ComentarioCaptado({
-  c, etiqueta, tenant, onRespondido,
+  c, etiqueta, tenant, onRespondido, onActualizar,
 }: {
   c: Comentario;
   etiqueta: { texto: string; clase: string };
   tenant?: string;
   onRespondido: (c: Comentario) => void;
+  onActualizar: () => void;
 }) {
-  const esSimulacion = c.postExterno === "post_demo";
+  const esSimulacion = c.esPrueba || c.postExterno === "post_demo";
   const red = RED[c.canal] ?? c.canal;
+  const envio = describirEnvio({ ...c, esPrueba: !!esSimulacion });
+  const puedePublica = !c.respondido && ["pendiente", "omitido", "fallido"].includes(c.estadoPublico ?? "omitido");
+  const puedePrivada = !c.dmAbierto && ["pendiente", "omitido", "fallido"].includes(c.estadoPrivado ?? "omitido");
   const [abierto, setAbierto] = useState(false);
   const [respuesta, setRespuesta] = useState("");
   const [privado, setPrivado] = useState(false);
@@ -368,15 +389,17 @@ function ComentarioCaptado({
     if (!t || enviando) return;
     setEnviando(true);
     setAviso(null);
-    const r = await responderComentario(c.id, { texto: t, privado, tenant });
+    const r = await responderComentario(c.id, { texto: t, privado: !puedePublica || privado, tenant });
     setEnviando(false);
     if (r.ok) {
       onRespondido(r.comentario);
-      setAviso({ ok: true, texto: `Respondido en ${red}${r.privada ? " y por privado" : ""}.` });
+      const salidas = [r.publica ? `en ${red}` : "", r.privada ? "por privado" : ""].filter(Boolean).join(" y ");
+      setAviso({ ok: true, texto: `Meta aceptó la respuesta ${salidas}.${r.error ? ` Otra salida falló: ${r.error}` : ""}` });
       setRespuesta("");
       setAbierto(false);
     } else {
       setAviso({ ok: false, texto: r.error });
+      onActualizar();
     }
   }
 
@@ -392,6 +415,14 @@ function ComentarioCaptado({
         </span>
       </div>
       <p className="mt-1 text-[0.9rem] text-tinta-2">“{c.texto}”</p>
+
+      <div className="mt-2 flex flex-wrap gap-2 text-[0.76rem] text-tinta-2">
+        <span className="rounded-chip bg-arena px-2 py-1">Público: {envio.publico}</span>
+        <span className="rounded-chip bg-arena px-2 py-1">DM: {envio.privado}</span>
+        {esSimulacion && <span className="rounded-chip bg-tibio-suave px-2 py-1">Prueba histórica</span>}
+      </div>
+      {envio.requiereRevision && <p role="status" className="mt-2 text-[0.8rem] text-calor-hondo">Meta pudo haber recibido el mensaje. Revísalo allí antes de volver a responder.</p>}
+      {(c.errorPublico || c.errorPrivado) && <p className="mt-1 text-[0.78rem] text-calor-hondo">{[c.errorPublico, c.errorPrivado].filter(Boolean).join(" · ")}</p>}
 
       {c.respondido && c.respuestaTexto && (
         <div className="mt-2 rounded-chip bg-brasa-suave/40 px-3 py-2 text-[0.84rem] text-tinta-2">
@@ -412,12 +443,12 @@ function ComentarioCaptado({
             Ver conversación →
           </Link>
         )}
-        {!esSimulacion && !abierto && (
+        {!esSimulacion && !abierto && (puedePublica || puedePrivada) && (
           <button
             onClick={() => { setAbierto(true); setAviso(null); }}
             className="text-[0.82rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
           >
-            Responder
+            {puedePublica ? "Responder" : "Escribir por privado"}
           </button>
         )}
       </div>
@@ -431,11 +462,11 @@ function ComentarioCaptado({
             maxLength={1000}
             autoFocus
             aria-label={`Respuesta al comentario de ${c.autorNombre ?? "este cliente"}`}
-            placeholder={`Tu respuesta sale en ${red}, debajo del comentario`}
+            placeholder={puedePublica ? `Tu respuesta sale en ${red}, debajo del comentario` : "Tu respuesta se enviará solo por privado"}
             className="w-full resize-none rounded-chip bg-carta px-3 py-2 text-[0.88rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
           />
           <label className="flex items-center gap-2 text-[0.82rem] text-tinta-2">
-            <input type="checkbox" checked={privado} onChange={(e) => setPrivado(e.target.checked)} />
+            <input type="checkbox" checked={!puedePublica || privado} disabled={!puedePublica || !puedePrivada} onChange={(e) => setPrivado(e.target.checked)} />
             También escribirle por privado (le llega como mensaje)
           </label>
           <div className="flex gap-2">
@@ -444,7 +475,7 @@ function ComentarioCaptado({
               disabled={enviando || !respuesta.trim()}
               className="rounded-chip bg-brasa px-4 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
             >
-              {enviando ? "Respondiendo…" : `Responder en ${red}`}
+              {enviando ? "Respondiendo…" : puedePublica ? `Responder en ${red}` : "Enviar por privado"}
             </button>
             <button
               onClick={() => { setAbierto(false); setAviso(null); }}

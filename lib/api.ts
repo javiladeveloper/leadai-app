@@ -963,6 +963,11 @@ export async function obtenerMiPlan(tenant?: string): Promise<MiPlan | null> {
   }
 }
 
+/** Comentarios necesita distinguir error de carga de ausencia de configuración. */
+export function obtenerMiPlanComentarios(tenant?: string): Promise<MiPlan> {
+  return api<MiPlan>("/mi-plan", { tenant });
+}
+
 export async function guardarMiPlan(cfg: {
   insistencia?: "poca" | "normal" | "mucha";
   botActivo?: boolean;
@@ -1691,6 +1696,10 @@ export async function listarCanales(tenant?: string): Promise<Canal[]> {
   try { return await api<Canal[]>("/canales", { tenant }); } catch { return []; }
 }
 
+export function listarCanalesComentarios(tenant?: string): Promise<Canal[]> {
+  return api<Canal[]>("/canales", { tenant });
+}
+
 // URL de autorización OAuth para conectar una red (abre el popup de la red).
 export async function obtenerUrlOAuth(tipo: TipoCanal): Promise<string | null> {
   try {
@@ -1751,6 +1760,12 @@ export interface Comentario {
   respondido: boolean;
   respuestaTexto: string | null;
   dmAbierto: boolean;
+  esPrueba?: boolean;
+  estadoPublico?: "omitido" | "pendiente" | "enviando" | "enviado" | "fallido" | "incierto";
+  estadoPrivado?: "omitido" | "pendiente" | "enviando" | "enviado" | "fallido" | "incierto";
+  errorPublico?: string | null;
+  errorPrivado?: string | null;
+  textoDM?: string | null;
   leadId: string | null;
   creadoEn: string;
 }
@@ -1764,6 +1779,7 @@ export interface FiltrosComentarios {
   desde?: string;
   /** ISO: cursor de "ver más" — los anteriores a esta fecha. */
   antesDe?: string;
+  antesId?: string;
   limit?: number;
 }
 
@@ -1774,12 +1790,8 @@ export async function listarComentarios(
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(filtros)) if (v !== undefined && v !== "") q.set(k, String(v));
   const qs = q.toString();
-  try {
-    const r = await api<{ items: Comentario[]; hayMas?: boolean }>(`/comentarios${qs ? `?${qs}` : ""}`, { tenant });
-    return { items: r.items, hayMas: r.hayMas ?? false };
-  } catch {
-    return { items: [], hayMas: false };
-  }
+  const r = await api<{ items: Comentario[]; hayMas?: boolean }>(`/comentarios${qs ? `?${qs}` : ""}`, { tenant });
+  return { items: r.items, hayMas: r.hayMas ?? false };
 }
 
 /**
@@ -1789,13 +1801,13 @@ export async function listarComentarios(
 export async function responderComentario(
   id: string,
   input: { texto: string; privado: boolean; tenant?: string },
-): Promise<{ ok: true; comentario: Comentario; privada: boolean } | { ok: false; error: string }> {
+): Promise<{ ok: true; comentario: Comentario; publica: boolean; privada: boolean; error?: string } | { ok: false; error: string }> {
   try {
-    const r = await api<{ comentario: Comentario; publica: boolean; privada: boolean }>(
+    const r = await api<{ comentario: Comentario; publica: boolean; privada: boolean; error?: string }>(
       `/comentarios/${encodeURIComponent(id)}/responder`,
       { method: "POST", tenant: input.tenant, body: { texto: input.texto, privado: input.privado } },
     );
-    return { ok: true, comentario: r.comentario, privada: r.privada };
+    return { ok: true, comentario: r.comentario, publica: r.publica, privada: r.privada, error: r.error };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo responder" };
   }
@@ -1806,11 +1818,11 @@ export async function simularComentario(input: {
   texto: string;
   autorNombre?: string;
   tenant?: string;
-}): Promise<{ ok: boolean; intencion?: string; respondido?: boolean; respuesta?: string; abrirDM?: boolean; leadId?: string; error?: string }> {
+}): Promise<{ ok: boolean; intencion?: string; respuesta?: string | null; enviado?: false; destinosPrevistos?: { publica: boolean; privada: boolean }; error?: string }> {
   try {
     // Ids únicos por simulación (evita chocar con el unique de idempotencia).
     const n = `sim-${Math.random().toString(36).slice(2, 10)}`;
-    const r = await api<{ procesado: boolean; intencion?: string; respondido?: boolean; respuesta?: string; abrirDM?: boolean; leadId?: string }>(
+    const r = await api<{ intencion: string; respuesta: string | null; enviado: false; destinosPrevistos: { publica: boolean; privada: boolean } }>(
       "/comentarios/simular",
       {
         method: "POST",
@@ -1824,7 +1836,7 @@ export async function simularComentario(input: {
         },
       },
     );
-    return { ok: true, intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, abrirDM: r.abrirDM, leadId: r.leadId };
+    return { ok: true, intencion: r.intencion, respuesta: r.respuesta, enviado: false, destinosPrevistos: r.destinosPrevistos };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo simular" };
   }

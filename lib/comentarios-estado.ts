@@ -28,3 +28,35 @@ export function redesDeComentarios(canales: CanalMinimo[]): string[] {
 export function textoRedes(redes: string[]): string {
   return redes.join(" y ");
 }
+
+export interface ComentarioConEstado {
+  id: string;
+  creadoEn: string;
+  respondido: boolean;
+  dmAbierto: boolean;
+  estadoPublico?: string;
+  estadoPrivado?: string;
+  errorPublico?: string | null;
+  errorPrivado?: string | null;
+  esPrueba?: boolean;
+}
+
+/** El refresco de la primera página no borra las páginas antiguas. */
+export function fusionarComentarios<T extends { id: string; creadoEn: string }>(actuales: T[], recientes: T[]): T[] {
+  const porId = new Map(actuales.map((c) => [c.id, c]));
+  for (const c of recientes) porId.set(c.id, c);
+  return [...porId.values()].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn) || b.id.localeCompare(a.id));
+}
+
+export function describirEnvio(c: ComentarioConEstado): { publico: string; privado: string; requiereRevision: boolean } {
+  if (c.esPrueba) return { publico: "Vista previa", privado: "Vista previa", requiereRevision: false };
+  const describir = (estado: string | undefined, legado: boolean) => {
+    const e = estado ?? (legado ? "enviado" : "omitido");
+    return ({ enviado: "Enviado", fallido: "Falló", incierto: "Revisar en Meta", enviando: "Enviando", pendiente: "Pendiente", omitido: "No enviado" } as Record<string, string>)[e] ?? "No enviado";
+  };
+  return {
+    publico: describir(c.estadoPublico, c.respondido),
+    privado: describir(c.estadoPrivado, c.dmAbierto),
+    requiereRevision: c.estadoPublico === "incierto" || c.estadoPrivado === "incierto",
+  };
+}

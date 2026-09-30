@@ -17,7 +17,7 @@ Rama: `codex/marketing-auditoria-sin-deploy`, creada desde `f2eac24` y actualiza
 - Errores visibles y reintentables, rollback de ajustes y conservación del contenido ante fallos. Publicación parcial: no reenviar a redes ya exitosas.
 - Todos los horarios devueltos por el backend; entradas de archivos y controles mejor etiquetados para teclado.
 - Se eliminó únicamente un `export` inválido en `app/(panel)/conversaciones/page.tsx` para que Next compile. No cambia el adaptador `autorDe`.
-- Se ocultó la bolsa publicitaria futura y se eliminó su consulta del creador: la pantalla sólo comunica que Meta cobra al medio de pago del negocio. Aún no publicar: el backend conserva un bloqueo por saldo de LeadAI que debe resolverse antes del despliegue.
+- Se ocultó la bolsa publicitaria futura y se eliminó su consulta del creador: la pantalla sólo comunica que Meta cobra al medio de pago del negocio. En la rama coordinada del backend ya se desactivó por defecto el débito y requisito de bolsa; el código queda para un eventual modelo de recargas.
 - Pausar o reanudar una campaña ahora muestra el error de API y evita dobles clics, en lugar de recargar la lista como si hubiera funcionado.
 
 ## Verificación
@@ -28,7 +28,7 @@ Pruebas con APIs y contactos ficticios, sin gasto. Se añadieron suites conductu
 
 Build local: `node node_modules/next/dist/bin/next build --webpack`. El worktree usa un enlace de dependencias que Turbopack rechaza fuera de su raíz; se verificó con webpack sin cambiar la configuración de despliegue.
 
-Pendiente antes de integrar: definir si el servidor debe desactivar el débito/requisito de bolsa para anuncios nuevos (conservar el código para un futuro modelo de recargas), o si sólo se quería ocultar el saldo. La segunda opción mantiene imposible publicar con bolsa en cero y contradice el texto actual de cobro directo por Meta.
+Antes de integrar, publicar primero el backend que incorpora `ADS_COBRO_BOLSA=false` por defecto y sólo después el panel; nunca activar esa variable sin volver a mostrar y explicar la bolsa al cliente. Esta coordinación no levanta la restricción vigente del video de Meta.
 
 No se verificaron dispositivos móviles físicos, lector de pantalla, publicación/cobro reales ni nuevos permisos Meta. La edición in situ de borradores remotos sigue sin endpoint: se puede retomar lo guardado o descartar el borrador local para crear otro explícitamente, sólo si el remoto sigue siendo un borrador comprobado. Los estados ambiguos requieren revisión.
 

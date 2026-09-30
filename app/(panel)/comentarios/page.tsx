@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { haySesion } from "@/lib/auth";
-import { listarComentarios, listarCanales, simularComentario, responderComentario, type Comentario } from "@/lib/api";
+import { listarComentarios, listarCanales, simularComentario, responderComentario, type Comentario, type FiltrosComentarios } from "@/lib/api";
 import { redesDeComentarios, textoRedes } from "@/lib/comentarios-estado";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
@@ -13,9 +13,36 @@ import { HeroSeccion, ComentariosIlustracion } from "@/components/panel/HeroSecc
 
 type Estado = "cargando" | "ok" | "error";
 
+/**
+ * LOS FILTROS DE LA LISTA (2026-09-29). Con la respuesta automática entran
+ * todos —halagos incluidos— y "se ven todos juntos" (Jonathan). Tipo mezcla
+ * intención y estado porque es como lo piensa el dueño: "¿quién quiere
+ * comprar?", "¿qué me falta contestar?".
+ */
+type Red = "" | "instagram" | "messenger";
+type Tipo = "" | "compra" | "pregunta" | "halago" | "sin_responder";
+type Rango = "todo" | "hoy" | "7" | "30";
+interface Filtros { red: Red; tipo: Tipo; rango: Rango }
+const SIN_FILTROS: Filtros = { red: "", tipo: "", rango: "todo" };
+
+function aApi(f: Filtros): FiltrosComentarios {
+  const out: FiltrosComentarios = {};
+  if (f.red) out.canal = f.red;
+  if (f.tipo === "sin_responder") out.respondido = "no";
+  else if (f.tipo) out.intencion = f.tipo;
+  if (f.rango !== "todo") {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (f.rango !== "hoy") d.setDate(d.getDate() - (Number(f.rango) - 1));
+    out.desde = d.toISOString();
+  }
+  return out;
+}
+
 // Etiqueta visual por intención detectada por la IA.
 const INTENCION: Record<string, { texto: string; clase: string }> = {
   compra: { texto: "🛒 Intención de compra", clase: "bg-calor-suave text-calor-hondo" },
+  pregunta: { texto: "❓ Pregunta", clase: "bg-brasa-suave text-brasa-texto" },
   halago: { texto: "💬 Halago", clase: "bg-tibio-suave text-tibio" },
   spam: { texto: "🚫 Spam", clase: "bg-arena text-frio" },
   otro: { texto: "· Otro", clase: "bg-arena text-frio" },
@@ -31,13 +58,18 @@ export default function ComentariosPanel() {
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [texto, setTexto] = useState("");
   const [simulando, setSimulando] = useState(false);
-  const [ultimo, setUltimo] = useState<{ intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string } | null>(null);
+  const [ultimo, setUltimo] = useState<{ intencion?: string; respondido?: boolean; respuesta?: string; abrirDM?: boolean; leadId?: string } | null>(null);
   /**
    * QUÉ REDES DE COMENTARIOS TIENE ESTE NEGOCIO (2026-09-18). `null` mientras
    * se lee. Jonathan, con Instagram y Facebook conectados en Sania: "me sigue
    * apareciendo este mensaje" — el aviso de conectar estaba fijo en la página.
    */
   const [redes, setRedes] = useState<string[] | null>(null);
+  const [filtros, setFiltros] = useState<Filtros>(SIN_FILTROS);
+  const [hayMas, setHayMas] = useState(false);
+  const [cargandoMas, setCargandoMas] = useState(false);
+  /** Cuántos se ven: el refresco automático relee esa cantidad, no solo la primera página. */
+  const cuantos = useRef(0);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -53,23 +85,44 @@ export default function ComentariosPanel() {
     try {
       // Los canales se leen junto con el log: sin ellos no se sabe si el aviso
       // que corresponde es "conecta tus redes" o "ya están conectadas".
+      const limit = silencioso ? Math.min(100, Math.max(30, cuantos.current)) : 30;
       const [lista, canales] = await Promise.all([
-        listarComentarios(g.tenantLista),
+        listarComentarios(g.tenantLista, { ...aApi(filtros), limit }),
         listarCanales(g.tenantLista),
       ]);
-      setComentarios(lista);
+      setComentarios(lista.items);
+      cuantos.current = lista.items.length;
+      setHayMas(lista.hayMas);
       setRedes(redesDeComentarios(canales));
       setEstado("ok");
     } catch {
       // Un refresco en segundo plano que falla no borra lo que ya se ve.
       if (!silencioso) setEstado("error");
     }
-  }, [g.tenantLista]);
+  }, [g.tenantLista, filtros]);
 
   useEffect(() => {
     if (!listo || !g.listaLista) return;
     cargar();
   }, [listo, g.listaLista, cargar]);
+
+  /** "Ver más": los anteriores al último que ya se ve (cursor por fecha). */
+  async function verMas() {
+    const ultimoVisto = comentarios[comentarios.length - 1];
+    if (!ultimoVisto || cargandoMas) return;
+    setCargandoMas(true);
+    const r = await listarComentarios(g.tenantLista, { ...aApi(filtros), antesDe: ultimoVisto.creadoEn, limit: 30 });
+    setCargandoMas(false);
+    setComentarios((xs) => {
+      const vistos = new Set(xs.map((x) => x.id));
+      const todos = [...xs, ...r.items.filter((x) => !vistos.has(x.id))];
+      cuantos.current = todos.length;
+      return todos;
+    });
+    setHayMas(r.hayMas);
+  }
+
+  const conFiltros = filtros.red !== "" || filtros.tipo !== "" || filtros.rango !== "todo";
 
   /**
    * LOS COMENTARIOS NUEVOS APARECEN SOLOS (2026-09-29). Jonathan, grabando la
@@ -93,7 +146,7 @@ export default function ComentariosPanel() {
     const r = await simularComentario({ texto: t, autorNombre: "Cliente de prueba", tenant: g.tenantLista });
     setSimulando(false);
     if (r.ok) {
-      setUltimo({ intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, leadId: r.leadId });
+      setUltimo({ intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, abrirDM: r.abrirDM, leadId: r.leadId });
       setTexto("");
       cargar(); // refresca el log con el nuevo comentario
     }
@@ -112,7 +165,7 @@ export default function ComentariosPanel() {
           del embudo sin él — abría con un aviso amarillo de advertencia. */}
       <HeroSeccion
         titulo="Los comentarios también venden"
-        bajada="Cuando alguien comenta tu publicación con intención de compra, la IA le responde e invita al privado — y entra a tu pipeline como lead."
+        bajada="Cuando alguien pregunta o quiere comprar, la IA le responde e invita al privado — y entra a tu pipeline como lead. Si te felicitan, le agradece."
         nota="Aquí ves todo lo que captó y puedes probar cómo respondería."
         dibujo={<ComentariosIlustracion />}
       />
@@ -131,8 +184,8 @@ export default function ComentariosPanel() {
       )}
       {redes !== null && redes.length > 0 && (
         <div className="rounded-tarjeta bg-brasa-suave/40 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-brasa/20">
-          ✅ {textoRedes(redes)} {redes.length > 1 ? "conectados" : "conectado"}: cuando alguien comente una
-          publicación con intención de compra, la IA le responde e invita al privado.
+          ✅ {textoRedes(redes)} {redes.length > 1 ? "conectados" : "conectado"}: si alguien pregunta o quiere
+          comprar, la IA le responde e invita al privado; si te felicita, le agradece.
         </div>
       )}
 
@@ -174,7 +227,9 @@ export default function ComentariosPanel() {
                 <p className="mt-1.5 text-[0.88rem] text-tinta">
                   <span className="text-frio">Así respondería en el comentario: </span>“{ultimo.respuesta}”
                 </p>
-                {/* El ciclo completo: comentario → DM → lead en el pipeline */}
+                {/* El ciclo completo: comentario → DM → lead en el pipeline.
+                    Solo si abre conversación: un halago se agradece y listo. */}
+                {ultimo.abrirDM !== false && (
                 <div className="mt-2.5 space-y-1 rounded-chip bg-carta px-3 py-2 text-[0.8rem] text-tinta-2 ring-1 ring-linea">
                   <p className="font-semibold text-tinta">El ciclo completo:</p>
                   <p>1️⃣ Responde el comentario e invita al privado</p>
@@ -188,6 +243,7 @@ export default function ComentariosPanel() {
                     )}
                   </p>
                 </div>
+                )}
                 <p className="mt-1.5 text-[0.76rem] text-frio">
                   {redes && redes.length > 0
                     ? "(Es una simulación: no se publica nada en tus redes.)"
@@ -196,7 +252,7 @@ export default function ComentariosPanel() {
               </>
             ) : (
               <p className="mt-1.5 text-[0.84rem] text-frio">
-                No es intención de compra → la IA no responde (no gasta). Queda registrado igual.
+                No es compra, pregunta ni halago → no se responde (no gasta). Queda registrado igual.
               </p>
             )}
           </div>
@@ -207,13 +263,28 @@ export default function ComentariosPanel() {
       <div>
         <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Comentarios captados</h2>
 
+        {redes !== null && redes.length > 0 && (
+          <BarraFiltros filtros={filtros} redes={redes} onCambiar={setFiltros} />
+        )}
+
         {estado === "cargando" && <SkeletonLista filas={3} />}
         {estado === "error" && (
           <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
             <p className="font-semibold text-tinta">No pudimos cargar los comentarios. Recarga.</p>
           </div>
         )}
-        {estado === "ok" && comentarios.length === 0 && redes && redes.length > 0 && (
+        {estado === "ok" && comentarios.length === 0 && conFiltros && (
+          <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
+            <p className="text-[1.02rem] font-bold text-tinta">Ningún comentario con estos filtros</p>
+            <button
+              onClick={() => setFiltros(SIN_FILTROS)}
+              className="mt-3 text-[0.88rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
+            >
+              Quitar filtros
+            </button>
+          </div>
+        )}
+        {estado === "ok" && comentarios.length === 0 && !conFiltros && redes && redes.length > 0 && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Todavía no llegó ningún comentario con intención de compra</p>
             <p className="mt-1 text-[0.88rem] text-frio">
@@ -222,7 +293,7 @@ export default function ComentariosPanel() {
             </p>
           </div>
         )}
-        {estado === "ok" && comentarios.length === 0 && (!redes || redes.length === 0) && (
+        {estado === "ok" && comentarios.length === 0 && !conFiltros && (!redes || redes.length === 0) && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Todavía no hay comentarios captados</p>
             <p className="mt-1 text-[0.88rem] text-frio">
@@ -251,6 +322,15 @@ export default function ComentariosPanel() {
                 />
               );
             })}
+            {hayMas && (
+              <button
+                onClick={verMas}
+                disabled={cargandoMas}
+                className="w-full rounded-tarjeta bg-carta py-3 text-[0.88rem] font-semibold text-brasa-texto ring-1 ring-linea transition hover:bg-arena/50 disabled:opacity-50"
+              >
+                {cargandoMas ? "Cargando…" : "Ver más comentarios"}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -382,5 +462,60 @@ function ComentarioCaptado({
         </p>
       )}
     </article>
+  );
+}
+
+const TIPOS: Array<{ v: Tipo; texto: string }> = [
+  { v: "", texto: "Todos" },
+  { v: "compra", texto: "🛒 Compra" },
+  { v: "pregunta", texto: "❓ Preguntas" },
+  { v: "halago", texto: "💬 Halagos" },
+  { v: "sin_responder", texto: "Sin responder" },
+];
+const RANGOS: Array<{ v: Rango; texto: string }> = [
+  { v: "todo", texto: "Todo" },
+  { v: "hoy", texto: "Hoy" },
+  { v: "7", texto: "7 días" },
+  { v: "30", texto: "30 días" },
+];
+
+function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={activo}
+      className={`shrink-0 rounded-full px-3 py-1.5 text-[0.8rem] font-semibold transition ${
+        activo ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea hover:bg-arena/60"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Red, tipo y fecha. La red solo aparece si el negocio tiene las dos conectadas. */
+function BarraFiltros({ filtros, redes, onCambiar }: { filtros: Filtros; redes: string[]; onCambiar: (f: Filtros) => void }) {
+  const set = (p: Partial<Filtros>) => onCambiar({ ...filtros, ...p });
+  return (
+    <div className="mb-3 space-y-2">
+      {redes.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+          <Chip activo={filtros.red === ""} onClick={() => set({ red: "" })}>Todas las redes</Chip>
+          <Chip activo={filtros.red === "instagram"} onClick={() => set({ red: "instagram" })}>Instagram</Chip>
+          <Chip activo={filtros.red === "messenger"} onClick={() => set({ red: "messenger" })}>Facebook</Chip>
+        </div>
+      )}
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+        {TIPOS.map((t) => (
+          <Chip key={t.v || "todos"} activo={filtros.tipo === t.v} onClick={() => set({ tipo: t.v })}>{t.texto}</Chip>
+        ))}
+      </div>
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+        <span className="shrink-0 text-[0.76rem] font-semibold uppercase tracking-wide text-frio">Fecha</span>
+        {RANGOS.map((r) => (
+          <Chip key={r.v} activo={filtros.rango === r.v} onClick={() => set({ rango: r.v })}>{r.texto}</Chip>
+        ))}
+      </div>
+    </div>
   );
 }

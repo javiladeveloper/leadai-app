@@ -1747,7 +1747,7 @@ export interface Comentario {
   postExterno: string;
   autorNombre: string | null;
   texto: string;
-  intencion: string | null; // compra | halago | spam | otro
+  intencion: string | null; // compra | pregunta | halago | spam | otro
   respondido: boolean;
   respuestaTexto: string | null;
   dmAbierto: boolean;
@@ -1755,12 +1755,30 @@ export interface Comentario {
   creadoEn: string;
 }
 
-export async function listarComentarios(tenant?: string): Promise<Comentario[]> {
+/** Filtros de la lista de comentarios (2026-09-29). Todos opcionales. */
+export interface FiltrosComentarios {
+  canal?: "instagram" | "messenger";
+  intencion?: "compra" | "pregunta" | "halago" | "spam" | "otro" | "sin_clasificar";
+  respondido?: "si" | "no";
+  /** ISO: solo los de esta fecha en adelante. */
+  desde?: string;
+  /** ISO: cursor de "ver más" — los anteriores a esta fecha. */
+  antesDe?: string;
+  limit?: number;
+}
+
+export async function listarComentarios(
+  tenant?: string,
+  filtros: FiltrosComentarios = {},
+): Promise<{ items: Comentario[]; hayMas: boolean }> {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(filtros)) if (v !== undefined && v !== "") q.set(k, String(v));
+  const qs = q.toString();
   try {
-    const r = await api<{ items: Comentario[] }>("/comentarios", { tenant });
-    return r.items;
+    const r = await api<{ items: Comentario[]; hayMas?: boolean }>(`/comentarios${qs ? `?${qs}` : ""}`, { tenant });
+    return { items: r.items, hayMas: r.hayMas ?? false };
   } catch {
-    return [];
+    return { items: [], hayMas: false };
   }
 }
 
@@ -1788,11 +1806,11 @@ export async function simularComentario(input: {
   texto: string;
   autorNombre?: string;
   tenant?: string;
-}): Promise<{ ok: boolean; intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string; error?: string }> {
+}): Promise<{ ok: boolean; intencion?: string; respondido?: boolean; respuesta?: string; abrirDM?: boolean; leadId?: string; error?: string }> {
   try {
     // Ids únicos por simulación (evita chocar con el unique de idempotencia).
     const n = `sim-${Math.random().toString(36).slice(2, 10)}`;
-    const r = await api<{ procesado: boolean; intencion?: string; respondido?: boolean; respuesta?: string; leadId?: string }>(
+    const r = await api<{ procesado: boolean; intencion?: string; respondido?: boolean; respuesta?: string; abrirDM?: boolean; leadId?: string }>(
       "/comentarios/simular",
       {
         method: "POST",
@@ -1806,7 +1824,7 @@ export async function simularComentario(input: {
         },
       },
     );
-    return { ok: true, intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, leadId: r.leadId };
+    return { ok: true, intencion: r.intencion, respondido: r.respondido, respuesta: r.respuesta, abrirDM: r.abrirDM, leadId: r.leadId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo simular" };
   }

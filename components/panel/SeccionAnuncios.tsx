@@ -64,6 +64,10 @@ function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreN
   // antes de saber si ya está conectada, que se ve peor que esperar un instante.
   const [conectada, setConectada] = useState<boolean | null>(null);
 
+  // Sube al conectar la cuenta desde "Conectar mi cuenta de Meta": relee el
+  // estado y aparecen las pestañas sin recargar la página.
+  const [version, setVersion] = useState(0);
+
   useEffect(() => {
     let vivo = true;
     setConectada(null);
@@ -74,7 +78,7 @@ function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreN
       else setConectada(e.conectada);
     }).catch(() => { if (vivo) setError(true); });
     return () => { vivo = false; };
-  }, [tenant, intento]);
+  }, [tenant, intento, version]);
 
   if (error) return <div role="alert" className="space-y-2 rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
     <p>No pudimos comprobar la conexión de anuncios de este negocio.</p>
@@ -86,7 +90,9 @@ function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreN
   }
   // Sin cuenta NO se pintan las pestañas: mostrar navegación que no lleva a
   // ningún lado es lo que hace que alguien toque cinco veces antes de entender.
-  if (!conectada) return <AnunciosSinConectar />;
+  if (!conectada) {
+    return <AnunciosSinConectar tenant={tenant} onConectada={() => { setSolapa("crear"); setVersion((v) => v + 1); }} />;
+  }
 
   return (
     <div>

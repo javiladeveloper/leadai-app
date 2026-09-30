@@ -2743,6 +2743,37 @@ export async function estadoAnuncios(tenant?: string): Promise<EstadoAnuncios | 
   try { return await api<EstadoAnuncios>("/anuncios/estado", { tenant }); } catch { return null; }
 }
 
+// ── CONECTAR LA CUENTA DE ANUNCIOS DE META (2026-09-29) ──
+export interface CuentaAdsMeta { id: string; nombre: string; moneda?: string; activa: boolean }
+export interface PaginaAdsMeta { id: string; nombre: string }
+
+/** La URL del login de Meta para autorizar la cuenta publicitaria. */
+export async function urlConexionAdsMeta(tenant?: string): Promise<string | null> {
+  try { return (await api<{ url: string }>("/anuncios/meta/url", { tenant })).url; } catch { return null; }
+}
+
+/** Lo que el dueño autorizó en Meta y falta elegir. `null` = todavía no volvió. */
+export async function opcionesAdsMeta(
+  tenant?: string,
+): Promise<{ cuentas: CuentaAdsMeta[]; paginas: PaginaAdsMeta[] } | null> {
+  try {
+    return (await api<{ opciones: { cuentas: CuentaAdsMeta[]; paginas: PaginaAdsMeta[] } | null }>(
+      "/anuncios/meta/opciones", { tenant },
+    )).opciones;
+  } catch { return null; }
+}
+
+export async function conectarAdsMeta(
+  cuentaId: string, paginaId: string, tenant?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await api("/anuncios/meta/conectar", { method: "POST", tenant, body: { cuentaId, paginaId } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo conectar la cuenta" };
+  }
+}
+
 export interface BolsaAnuncios {
   bonoCentavos: number;
   bonoPlanCentavos: number;

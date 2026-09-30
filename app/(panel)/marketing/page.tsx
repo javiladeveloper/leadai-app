@@ -44,9 +44,19 @@ export default function MarketingPanel() {
     : t === "automatico" ? "automatico"
     : "anuncios";
   const [pestania, setPestania] = useState<Pestania>(inicial);
+  const [menuVertical, setMenuVertical] = useState(false);
   // Atrás/Adelante cambia la URL sin remontar la página: la URL vuelve a ser
   // la fuente de verdad cuando el navegador navega por el historial.
   useEffect(() => { setPestania(inicial); }, [t]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const medio = window.matchMedia("(min-width: 1280px)");
+    const actualizar = () => setMenuVertical(medio.matches);
+    actualizar();
+    medio.addEventListener("change", actualizar);
+    return () => medio.removeEventListener("change", actualizar);
+  }, []);
 
   /**
    * ¿SU PLAN INCLUYE MARKETING? (2026-08-31, plan Full.)
@@ -121,6 +131,14 @@ export default function MarketingPanel() {
     router.replace(`/marketing?t=${mostrar}`, { scroll: false });
   }, [mostrar, pestania, router]);
 
+  useEffect(() => {
+    if (tieneMarketing !== true || menuVertical || typeof document === "undefined") return;
+    const lista = document.getElementById("marketing-tablist");
+    if (lista && lista.scrollWidth > lista.clientWidth) {
+      document.getElementById(`marketing-tab-${mostrar}`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [mostrar, tieneMarketing, menuVertical]);
+
   function moverConTeclado(evento: React.KeyboardEvent<HTMLButtonElement>, actual: Pestania) {
     const disponibles: Pestania[] = [
       ...(caps.tieneAnuncios ? ["anuncios" as const] : []),
@@ -128,8 +146,8 @@ export default function MarketingPanel() {
       "publicar", "presencia", "automatico",
     ];
     const indice = disponibles.indexOf(actual);
-    const destino = evento.key === "ArrowRight" ? disponibles[(indice + 1) % disponibles.length]
-      : evento.key === "ArrowLeft" ? disponibles[(indice - 1 + disponibles.length) % disponibles.length]
+    const destino = evento.key === (menuVertical ? "ArrowDown" : "ArrowRight") ? disponibles[(indice + 1) % disponibles.length]
+      : evento.key === (menuVertical ? "ArrowUp" : "ArrowLeft") ? disponibles[(indice - 1 + disponibles.length) % disponibles.length]
       : evento.key === "Home" ? disponibles[0]
       : evento.key === "End" ? disponibles[disponibles.length - 1]
       : null;
@@ -229,7 +247,7 @@ export default function MarketingPanel() {
       <div className="grid gap-6 xl:grid-cols-[245px_minmax(0,1fr)] xl:items-start xl:gap-8">
       <nav className="min-w-0 xl:sticky xl:top-5" aria-label="Áreas de Marketing">
         <p className="mb-2 hidden px-3 text-xs font-bold uppercase tracking-[0.08em] text-frio xl:block">Trabaja por objetivo</p>
-        <div className="flex gap-2 overflow-x-auto pb-2 xl:flex-col xl:overflow-visible xl:rounded-2xl xl:bg-carta xl:p-2 xl:shadow-[var(--sombra-tarjeta)]" role="tablist" aria-label="Áreas de Marketing">
+        <div id="marketing-tablist" className="flex gap-2 overflow-x-auto pb-2 xl:flex-col xl:overflow-visible xl:rounded-2xl xl:bg-carta xl:p-2 xl:shadow-[var(--sombra-tarjeta)]" role="tablist" aria-label="Áreas de Marketing" aria-orientation={menuVertical ? "vertical" : "horizontal"}>
         {([
           { id: "anuncios", label: "Anuncios", ayuda: "Traer gente nueva", icono: <IconoMegafono />, cap: "tieneAnuncios" },
           { id: "campanias", label: "Campañas", ayuda: "Hacer que vuelvan", icono: <IconoRepetir />, cap: "tieneCampanias" },

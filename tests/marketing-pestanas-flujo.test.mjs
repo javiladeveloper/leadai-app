@@ -4,7 +4,7 @@ import { createElement } from 'react';
 import { cargarModulo } from './helpers/cargar-modulo-marketing.mjs';
 import { renderer, texto } from './helpers/render-marketing.mjs';
 
-async function montarMarketing({ inicial = 'anuncios', anuncios = true, campanias = true } = {}) {
+async function montarMarketing({ inicial = 'anuncios', anuncios = true, campanias = true, entorno = {} } = {}) {
   const r = renderer();
   let params = new URLSearchParams(`t=${inicial}`);
   let capacidades = { tieneAnuncios: anuncios, tieneCampanias: campanias };
@@ -34,7 +34,7 @@ async function montarMarketing({ inicial = 'anuncios', anuncios = true, campania
     '@/components/panel/PresenciaEditor': { PresenciaEditor: () => createElement('span', {}, 'Contenido presencia') },
     '@/components/panel/SeccionAnuncios': { SeccionAnuncios: () => createElement('span', {}, 'Contenido anuncios') },
     '@/components/panel/HeroSeccion': { HeroSeccion: vacio, MarketingIlustracion: vacio },
-  }, { Cargando: () => createElement('p', {}, 'Cargando') });
+  }, { Cargando: () => createElement('p', {}, 'Cargando'), ...entorno });
   r.montar(mod.default); await r.flush();
   return {
     r, navegaciones,
@@ -83,6 +83,33 @@ test('las pestañas exponen nombre, panel y navegación de teclado', async () =>
   assert.ok(anuncios.props.id && anuncios.props['aria-controls']);
   assert.equal(anuncios.props.tabIndex, 0);
   anuncios.props.onKeyDown({ key: 'ArrowRight', preventDefault() {} }); await m.r.flush();
+  assert.equal(m.tab('Campañas').props['aria-selected'], true);
+  m.r.desmontar();
+});
+
+test('al abrir una pestaña profunda en móvil, la navegación la deja visible', async () => {
+  const desplazamientos = [];
+  const document = {
+    getElementById(id) {
+      if (id === 'marketing-tablist') return { scrollWidth: 800, clientWidth: 320 };
+      if (id === 'marketing-tab-automatico') return { scrollIntoView: opciones => desplazamientos.push(opciones) };
+      return null;
+    },
+  };
+  const m = await montarMarketing({ inicial: 'automatico', entorno: { document } });
+  assert.equal(m.tab('Automático').props['aria-selected'], true);
+  assert.equal(desplazamientos.length, 1);
+  assert.equal(desplazamientos[0].block, 'nearest');
+  assert.equal(desplazamientos[0].inline, 'nearest');
+  m.r.desmontar();
+});
+
+test('en escritorio el menú vertical anuncia su orientación y acepta flecha abajo', async () => {
+  const window = { matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) };
+  const m = await montarMarketing({ entorno: { window } });
+  assert.equal(m.r.nodos(n => n.props.role === 'tablist')[0].props['aria-orientation'], 'vertical');
+  m.tab('Anuncios').props.onKeyDown({ key: 'ArrowDown', preventDefault() {} });
+  await m.r.flush();
   assert.equal(m.tab('Campañas').props['aria-selected'], true);
   m.r.desmontar();
 });

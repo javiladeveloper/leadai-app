@@ -1750,12 +1750,30 @@ export interface Comentario {
   creadoEn: string;
 }
 
-export async function listarComentarios(tenant?: string): Promise<Comentario[]> {
+/** Filtros de la lista de comentarios (2026-09-29). Todos opcionales. */
+export interface FiltrosComentarios {
+  canal?: "instagram" | "messenger";
+  intencion?: "compra" | "pregunta" | "halago" | "spam" | "otro" | "sin_clasificar";
+  respondido?: "si" | "no";
+  /** ISO: solo los de esta fecha en adelante. */
+  desde?: string;
+  /** ISO: cursor de "ver más" — los anteriores a esta fecha. */
+  antesDe?: string;
+  limit?: number;
+}
+
+export async function listarComentarios(
+  tenant?: string,
+  filtros: FiltrosComentarios = {},
+): Promise<{ items: Comentario[]; hayMas: boolean }> {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(filtros)) if (v !== undefined && v !== "") q.set(k, String(v));
+  const qs = q.toString();
   try {
-    const r = await api<{ items: Comentario[] }>("/comentarios", { tenant });
-    return r.items;
+    const r = await api<{ items: Comentario[]; hayMas?: boolean }>(`/comentarios${qs ? `?${qs}` : ""}`, { tenant });
+    return { items: r.items, hayMas: r.hayMas ?? false };
   } catch {
-    return [];
+    return { items: [], hayMas: false };
   }
 }
 

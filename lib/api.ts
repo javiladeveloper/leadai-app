@@ -9,12 +9,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 export class ApiError extends Error {
   status: number;
+  data?: unknown;
   // Sin "parameter property" (`public status`): los tests corren este archivo
   // con `--experimental-strip-types`, que no la soporta (2026-09-22).
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, data?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -69,7 +71,7 @@ export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
 
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new ApiError(res.status, data.error ?? `Error ${res.status}`);
+    throw new ApiError(res.status, data.error ?? `Error ${res.status}`, data);
   }
   // 204 sin cuerpo
   if (res.status === 204) return undefined as T;
@@ -1801,7 +1803,7 @@ export async function listarComentarios(
 export async function responderComentario(
   id: string,
   input: { texto: string; privado: boolean; tenant?: string },
-): Promise<{ ok: true; comentario: Comentario; publica: boolean; privada: boolean; error?: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; comentario: Comentario; publica: boolean; privada: boolean; error?: string } | { ok: false; error: string; comentario?: Comentario }> {
   try {
     const r = await api<{ comentario: Comentario; publica: boolean; privada: boolean; error?: string }>(
       `/comentarios/${encodeURIComponent(id)}/responder`,
@@ -1809,7 +1811,9 @@ export async function responderComentario(
     );
     return { ok: true, comentario: r.comentario, publica: r.publica, privada: r.privada, error: r.error };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "No se pudo responder" };
+    const comentario = e instanceof ApiError && e.data && typeof e.data === "object" && "comentario" in e.data
+      ? (e.data as { comentario?: Comentario }).comentario : undefined;
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo responder", comentario };
   }
 }
 

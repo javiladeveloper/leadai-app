@@ -44,3 +44,10 @@ test('la vista previa conserva destinos previstos sin atribuir entrega real', as
   assert.equal(r.enviado, false);
   assert.deepEqual(r.destinosPrevistos, { publica: true, privada: true });
 });
+
+test('un 502 conserva el estado actualizado para bloquear reenvíos inciertos', async () => {
+  const { api } = cliente({ error: 'Meta no confirmó', comentario: { id: 'c1', estadoPublico: 'incierto' } }, 502);
+  const r = await api.responderComentario('c1', { texto: 'Hola', privado: false, tenant: 'negocio-B' });
+  assert.equal(r.ok, false);
+  assert.equal(r.comentario.estadoPublico, 'incierto');
+});

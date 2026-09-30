@@ -63,7 +63,12 @@ export default function ComentariosPanel() {
   const [errorRedes, setErrorRedes] = useState("");
   const [errorMas, setErrorMas] = useState("");
   const [errorRefresco, setErrorRefresco] = useState("");
+  const [claveDatos, setClaveDatos] = useState("");
+  const [claveRedes, setClaveRedes] = useState("");
+  const [claveErrorRedes, setClaveErrorRedes] = useState("");
+  const [claveSimulacion, setClaveSimulacion] = useState("");
   const [intento, setIntento] = useState(0);
+  const [cursorHueco, setCursorHueco] = useState<{ antesDe: string; antesId: string } | null>(null);
   /**
    * QUÉ REDES DE COMENTARIOS TIENE ESTE NEGOCIO (2026-09-18). `null` mientras
    * se lee. Jonathan, con Instagram y Facebook conectados en Sania: "me sigue
@@ -74,6 +79,11 @@ export default function ComentariosPanel() {
   const [hayMas, setHayMas] = useState(false);
   const [cargandoMas, setCargandoMas] = useState(false);
   const generacion = useRef(0);
+  const generacionRedes = useRef(0);
+  const secuenciaSondeo = useRef(0);
+  const comentariosActuales = useRef<Comentario[]>([]);
+
+  useEffect(() => { comentariosActuales.current = comentarios; }, [comentarios]);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
@@ -83,42 +93,77 @@ export default function ComentariosPanel() {
   // Modo global: barra de negocios; el log se lee del negocio enfocado y la
   // simulación adopta ese negocio (g.adoptar).
   const g = useSeccionGlobal();
+  const claveNegocio = g.tenantLista ?? "negocio-activo";
+  const claveVista = `${claveNegocio}|${JSON.stringify(filtros)}`;
+  const datosVigentes = g.listaLista && claveDatos === claveVista;
+  const redesVigentes = g.listaLista && claveRedes === claveNegocio;
 
   const cargar = useCallback(async (silencioso = false, version = generacion.current) => {
+    const secuencia = ++secuenciaSondeo.current;
     if (!silencioso) setEstado("cargando");
     try {
-      const lista = await listarComentarios(g.tenantLista, { ...aApi(filtros), limit: 30 });
-      if (version !== generacion.current) return;
-      setComentarios((xs) => silencioso ? fusionarComentarios(xs, lista.items) : lista.items);
-      if (!silencioso) setHayMas(lista.hayMas);
+      let pagina = await listarComentarios(g.tenantLista, { ...aApi(filtros), limit: 30 });
+      if (version !== generacion.current || secuencia !== secuenciaSondeo.current) return;
+      const conocidos = new Set(comentariosActuales.current.map((c) => c.id));
+      const nuevos = [...pagina.items];
+      let vueltas = 0;
+      // Si hubo más de 30 nuevos mientras la pestaña estaba oculta, cerrar
+      // el hueco hasta encontrar uno ya cargado (sin perder páginas antiguas).
+      while (silencioso && conocidos.size > 0 && pagina.hayMas && !nuevos.some((c) => conocidos.has(c.id)) && vueltas < 5) {
+        const ultimo = nuevos[nuevos.length - 1];
+        if (!ultimo) break;
+        pagina = await listarComentarios(g.tenantLista, { ...aApi(filtros), antesDe: ultimo.creadoEn, antesId: ultimo.id, limit: 100 });
+        if (version !== generacion.current || secuencia !== secuenciaSondeo.current) return;
+        nuevos.push(...pagina.items);
+        vueltas++;
+        if (pagina.items.length === 0) break;
+      }
+      const solapa = nuevos.some((c) => conocidos.has(c.id));
+      if (silencioso && conocidos.size > 0 && !solapa && pagina.hayMas) {
+        const ultimo = nuevos[nuevos.length - 1];
+        if (ultimo) setCursorHueco({ antesDe: ultimo.creadoEn, antesId: ultimo.id });
+      } else setCursorHueco(null);
+      setComentarios((xs) => silencioso && (solapa || pagina.hayMas) ? fusionarComentarios(xs, nuevos) : nuevos);
+      if (!silencioso) setHayMas(pagina.hayMas);
+      setClaveDatos(claveVista);
       setEstado("ok");
       setErrorRefresco("");
     } catch (e) {
-      if (version !== generacion.current) return;
-      if (!silencioso) setEstado("error");
+      if (version !== generacion.current || secuencia !== secuenciaSondeo.current) return;
+      if (!silencioso) { setClaveDatos(claveVista); setEstado("error"); }
       else setErrorRefresco(e instanceof Error ? e.message : "No pudimos actualizar los comentarios.");
     }
-  }, [g.tenantLista, filtros]);
+  }, [g.tenantLista, filtros, claveVista]);
 
   useEffect(() => {
     if (!listo || !g.listaLista) return;
     const version = ++generacion.current;
     setComentarios([]);
-    setRedes(null);
+    setClaveDatos("");
     setHayMas(false);
+    setCursorHueco(null);
     setCargandoMas(false);
     setSimulando(false);
     setErrorMas("");
-    setErrorRedes("");
     setUltimo(null);
     void cargar(false, version);
-    void listarCanalesComentarios(g.tenantLista).then((canales) => {
-      if (version === generacion.current) setRedes(redesDeComentarios(canales));
-    }).catch((e: unknown) => {
-      if (version === generacion.current) setErrorRedes(e instanceof Error ? e.message : "No pudimos leer las redes.");
-    });
     return () => { generacion.current++; };
-  }, [listo, g.listaLista, g.tenantLista, cargar, intento]);
+  }, [listo, g.listaLista, g.tenantLista, claveVista, cargar, intento]);
+
+  useEffect(() => {
+    if (!listo || !g.listaLista) return;
+    const version = ++generacionRedes.current;
+    setRedes(null);
+    setClaveRedes("");
+    setErrorRedes("");
+    setClaveErrorRedes("");
+    void listarCanalesComentarios(g.tenantLista).then((canales) => {
+      if (version === generacionRedes.current) { setRedes(redesDeComentarios(canales)); setClaveRedes(claveNegocio); }
+    }).catch((e: unknown) => {
+      if (version === generacionRedes.current) { setErrorRedes(e instanceof Error ? e.message : "No pudimos leer las redes."); setClaveErrorRedes(claveNegocio); }
+    });
+    return () => { generacionRedes.current++; };
+  }, [listo, g.listaLista, g.tenantLista, claveNegocio, intento]);
 
   /** "Ver más": los anteriores al último que ya se ve (cursor por fecha). */
   async function verMas() {
@@ -148,10 +193,30 @@ export default function ComentariosPanel() {
   useEffect(() => {
     if (!listo || !g.listaLista) return;
     const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") void cargar(true);
+      if (document.visibilityState === "visible" && !cursorHueco) void cargar(true);
     }, 10_000);
     return () => window.clearInterval(id);
-  }, [listo, g.listaLista, cargar]);
+  }, [listo, g.listaLista, cargar, cursorHueco]);
+
+  async function completarHueco() {
+    if (!cursorHueco) return;
+    const version = generacion.current;
+    const secuencia = ++secuenciaSondeo.current;
+    const conocidos = new Set(comentariosActuales.current.map((c) => c.id));
+    let cursor = cursorHueco;
+    try {
+      for (let i = 0; i < 5; i++) {
+        const pagina = await listarComentarios(g.tenantLista, { ...aApi(filtros), ...cursor, limit: 100 });
+        if (version !== generacion.current || secuencia !== secuenciaSondeo.current) return;
+        const solapa = pagina.items.some((c) => conocidos.has(c.id));
+        setComentarios((xs) => fusionarComentarios(xs, pagina.items));
+        const ultimo = pagina.items[pagina.items.length - 1];
+        if (solapa || !pagina.hayMas || !ultimo) { setCursorHueco(null); return; }
+        cursor = { antesDe: ultimo.creadoEn, antesId: ultimo.id };
+        setCursorHueco(cursor);
+      }
+    } catch (e) { setErrorRefresco(e instanceof Error ? e.message : "No pudimos completar los comentarios recientes."); }
+  }
 
   async function probar() {
     const t = texto.trim();
@@ -165,6 +230,7 @@ export default function ComentariosPanel() {
     setSimulando(false);
     if (r.ok) {
       setUltimo({ intencion: r.intencion, respuesta: r.respuesta, destinosPrevistos: r.destinosPrevistos });
+      setClaveSimulacion(claveVista);
       setTexto("");
     } else setErrorSimulacion(r.error ?? "No pudimos generar la vista previa.");
   }
@@ -193,20 +259,20 @@ export default function ComentariosPanel() {
 
       {/* El aviso depende de las redes: el de conectar solo si no hay ninguna
           (2026-09-18). Antes era fijo y Sania lo veía con las dos conectadas. */}
-      {redes !== null && redes.length === 0 && (
+      {redesVigentes && redes !== null && redes.length === 0 && (
         <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
           Conecta Instagram o Facebook para empezar a recibir comentarios. Puedes probar la respuesta abajo sin enviar nada.
         </div>
       )}
-      {redes !== null && redes.length > 0 && (
+      {redesVigentes && redes !== null && redes.length > 0 && (
         <div className="rounded-tarjeta bg-brasa-suave/40 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-brasa/20">
           {textoRedes(redes)} {redes.length > 1 ? "conectados" : "conectado"}. La conexión registrada no confirma por sí sola los permisos ni la entrega de respuestas de Meta.
         </div>
       )}
-      {errorRedes && <div role="alert" className="rounded-tarjeta bg-calor-suave p-3 text-sm text-calor-hondo">No pudimos comprobar las redes: {errorRedes} <button onClick={() => setIntento((n) => n + 1)} className="font-semibold underline">Reintentar</button></div>}
+      {g.listaLista && errorRedes && claveErrorRedes === claveNegocio && !redesVigentes && <div role="alert" className="rounded-tarjeta bg-calor-suave p-3 text-sm text-calor-hondo">No pudimos comprobar las redes: {errorRedes} <button onClick={() => setIntento((n) => n + 1)} className="font-semibold underline">Reintentar</button></div>}
 
       {/* Ajustes: activar/desactivar + mensaje personalizado */}
-      <AjustesComentarios key={g.tenantLista ?? "negocio-activo"} tenant={g.tenantLista} />
+      {g.listaLista && <AjustesComentarios key={g.tenantLista ?? "negocio-activo"} tenant={g.tenantLista} />}
 
       {/* Simulador: probar el flujo sin Meta */}
       <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
@@ -225,7 +291,7 @@ export default function ComentariosPanel() {
           />
           <button
             onClick={probar}
-            disabled={simulando || !texto.trim()}
+            disabled={simulando || !texto.trim() || !g.listaLista}
             className="shrink-0 rounded-chip bg-brasa px-4 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
           >
             {simulando ? "Probando…" : "Probar"}
@@ -233,7 +299,7 @@ export default function ComentariosPanel() {
         </div>
 
         {errorSimulacion && <p role="alert" className="mt-3 text-sm text-calor-hondo">{errorSimulacion}</p>}
-        {ultimo && (
+        {ultimo && claveSimulacion === claveVista && (
           <div className="mt-3 rounded-tarjeta bg-arena/50 px-4 py-3">
             <p className="text-[0.8rem] font-semibold text-tinta">Vista previa · no enviada</p>
             <p className="text-[0.8rem] font-semibold text-tinta-2">
@@ -269,19 +335,20 @@ export default function ComentariosPanel() {
       <div>
         <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Comentarios captados</h2>
 
-        {redes !== null && redes.length > 0 && (
+        {redesVigentes && redes !== null && redes.length > 0 && (
           <BarraFiltros filtros={filtros} redes={redes} onCambiar={setFiltros} />
         )}
 
-        {estado === "cargando" && <SkeletonLista filas={3} />}
-        {estado === "error" && (
+        {(estado === "cargando" || !datosVigentes) && <SkeletonLista filas={3} />}
+        {estado === "error" && datosVigentes && (
           <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
             <p role="alert" className="font-semibold text-tinta">No pudimos cargar los comentarios.</p>
             <button onClick={() => setIntento((n) => n + 1)} className="mt-2 font-semibold text-brasa-texto">Reintentar</button>
           </div>
         )}
-        {errorRefresco && estado === "ok" && <p role="status" className="mb-2 text-sm text-calor-hondo">No pudimos actualizar: {errorRefresco} <button onClick={() => void cargar(true)} className="font-semibold underline">Reintentar</button></p>}
-        {estado === "ok" && comentarios.length === 0 && conFiltros && (
+        {errorRefresco && estado === "ok" && datosVigentes && <p role="status" className="mb-2 text-sm text-calor-hondo">No pudimos actualizar: {errorRefresco} <button onClick={() => void (cursorHueco ? completarHueco() : cargar(true))} className="font-semibold underline">Reintentar</button></p>}
+        {cursorHueco && datosVigentes && <button onClick={() => void completarHueco()} className="mb-2 w-full rounded-tarjeta bg-tibio-suave px-4 py-2 text-sm font-semibold text-tinta">Hay más comentarios nuevos · completar carga</button>}
+        {estado === "ok" && datosVigentes && comentarios.length === 0 && conFiltros && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Ningún comentario con estos filtros</p>
             <button
@@ -292,7 +359,7 @@ export default function ComentariosPanel() {
             </button>
           </div>
         )}
-        {estado === "ok" && comentarios.length === 0 && !conFiltros && redes && redes.length > 0 && (
+        {estado === "ok" && datosVigentes && comentarios.length === 0 && !conFiltros && redesVigentes && redes && redes.length > 0 && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Aún no hay comentarios</p>
             <p className="mt-1 text-[0.88rem] text-frio">
@@ -301,7 +368,7 @@ export default function ComentariosPanel() {
             </p>
           </div>
         )}
-        {estado === "ok" && comentarios.length === 0 && !conFiltros && redes !== null && redes.length === 0 && (
+        {estado === "ok" && datosVigentes && comentarios.length === 0 && !conFiltros && redesVigentes && redes !== null && redes.length === 0 && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="text-[1.02rem] font-bold text-tinta">Aún no hay comentarios</p>
             <p className="mt-1 text-[0.88rem] text-frio">
@@ -315,14 +382,14 @@ export default function ComentariosPanel() {
             </Link>
           </div>
         )}
-        {estado === "ok" && comentarios.length === 0 && !conFiltros && redes === null && (
+        {estado === "ok" && datosVigentes && comentarios.length === 0 && !conFiltros && !redesVigentes && (
           <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
             <p className="font-bold text-tinta">Aún no hay comentarios</p>
-            <p className="mt-1 text-sm text-frio">No pudimos confirmar el estado de las redes; reintenta la carga antes de conectarlas.</p>
+            <p className="mt-1 text-sm text-frio">{errorRedes ? "No pudimos confirmar el estado de las redes; reintenta la carga antes de conectarlas." : "Comprobando las redes conectadas…"}</p>
           </div>
         )}
 
-        {estado === "ok" && comentarios.length > 0 && (
+        {estado === "ok" && datosVigentes && comentarios.length > 0 && (
           <div className="space-y-2.5">
             {comentarios.map((c) => {
               const et = INTENCION[c.intencion ?? "otro"] ?? INTENCION.otro;
@@ -333,7 +400,12 @@ export default function ComentariosPanel() {
                   c={c}
                   etiqueta={et}
                   tenant={g.tenantLista}
-                  onRespondido={(nuevo) => { if (version === generacion.current) setComentarios((xs) => xs.map((x) => (x.id === nuevo.id ? { ...x, ...nuevo } : x))); }}
+                  onRespondido={(nuevo) => {
+                    if (version !== generacion.current) return;
+                    secuenciaSondeo.current++;
+                    setComentarios((xs) => xs.map((x) => (x.id === nuevo.id ? { ...x, ...nuevo } : x))
+                      .filter((x) => filtros.tipo !== "sin_responder" || !x.respondido));
+                  }}
                   onActualizar={() => { if (version === generacion.current) void cargar(true); }}
                 />
               );
@@ -382,7 +454,7 @@ function ComentarioCaptado({
   const [respuesta, setRespuesta] = useState("");
   const [privado, setPrivado] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [aviso, setAviso] = useState<{ tipo: "ok" | "parcial" | "error"; texto: string } | null>(null);
 
   async function enviar() {
     const t = respuesta.trim();
@@ -394,12 +466,13 @@ function ComentarioCaptado({
     if (r.ok) {
       onRespondido(r.comentario);
       const salidas = [r.publica ? `en ${red}` : "", r.privada ? "por privado" : ""].filter(Boolean).join(" y ");
-      setAviso({ ok: true, texto: `Meta aceptó la respuesta ${salidas}.${r.error ? ` Otra salida falló: ${r.error}` : ""}` });
+      setAviso({ tipo: r.error ? "parcial" : "ok", texto: `Meta aceptó la respuesta ${salidas}.${r.error ? ` Otra salida falló: ${r.error}` : ""}` });
       setRespuesta("");
       setAbierto(false);
     } else {
-      setAviso({ ok: false, texto: r.error });
-      onActualizar();
+      setAviso({ tipo: "error", texto: r.error });
+      if (r.comentario) onRespondido(r.comentario);
+      else onActualizar();
     }
   }
 
@@ -488,8 +561,8 @@ function ComentarioCaptado({
       )}
 
       {aviso && (
-        <p className={`mt-2 text-[0.82rem] font-semibold ${aviso.ok ? "text-brasa-hondo" : "text-calor-hondo"}`}>
-          {aviso.ok ? "✓ " : ""}{aviso.texto}
+        <p role="status" className={`mt-2 text-[0.82rem] font-semibold ${aviso.tipo === "ok" ? "text-brasa-hondo" : "text-calor-hondo"}`}>
+          {aviso.tipo === "ok" ? "✓ " : ""}{aviso.texto}
         </p>
       )}
     </article>

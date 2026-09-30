@@ -90,7 +90,14 @@ function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreN
 
   return (
     <div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-linea pb-5">
+        <div>
+          <h2 className="text-[1.55rem] font-bold tracking-[-0.02em] text-tinta">Anuncios</h2>
+          <p className="mt-1 max-w-[65ch] text-[0.85rem] text-tinta-2">Consulta qué resultados están medidos y prepara el siguiente anuncio para este negocio.</p>
+        </div>
+        {solapa !== "crear" && <button type="button" onClick={() => { setCreadorVisitado(true); setSolapa("crear"); }} className="rounded-xl bg-orbita px-5 text-[0.8rem] font-bold text-sobre-orbita transition hover:bg-orbita-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa-texto">Crear anuncio</button>}
+      </div>
+      <div className="mt-4 flex gap-5 overflow-x-auto border-b border-linea" aria-label="Vistas de anuncios">
         {SOLAPAS.map((s) => (
           <button
             key={s.id}
@@ -98,10 +105,10 @@ function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreN
             aria-pressed={solapa === s.id}
             onClick={() => { setSolapa(s.id); if (s.id === "crear") setCreadorVisitado(true); }}
             title={s.ayuda}
-            className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
+            className={`min-h-12 shrink-0 border-b-2 px-1 py-2 text-[0.8rem] font-semibold transition ${
               solapa === s.id
-                ? "bg-brasa text-sobre-brasa"
-                : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-carta hover:text-tinta"
+                ? "border-brasa-texto text-tinta"
+                : "border-transparent text-frio hover:text-tinta"
             }`}
           >
             {s.etiqueta}

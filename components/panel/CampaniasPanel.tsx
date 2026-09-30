@@ -18,7 +18,7 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
-import { HeroSeccion, CabeceraFormulario, CampaniaIlustracion } from "@/components/panel/HeroSeccion";
+import { CabeceraFormulario } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -437,27 +437,15 @@ function ContenidoCampanias(
 
   return (
     <div className={embebido ? "space-y-6" : "mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8"}>
-      {embebido && (
-        <HeroSeccion
-          titulo="Hazle acordar a los que ya te compraron"
-          bajada={<>Un mensaje por WhatsApp a tus clientes de siempre: la promo del día, un plato nuevo, o que hace rato no vienen.</>}
-          nota="Es la venta más barata: ya te conocen y ya te compraron una vez."
-          dibujo={<CampaniaIlustracion />}
-        />
-      )}
-
-      {/* EL AVISO DEL GASTO (2026-08-27, Jonathan: "este mensaje de advertencia
-          también debería ir en campañas, más que todo la parte del gasto").
-          Tiene razón y es el mismo caso que los anuncios: cada mensaje de
-          plantilla tiene un peaje que Meta le cobra AL NEGOCIO, directo. No
-          sale de su plan ni de nuestra bolsa, y enterarse por la factura de
-          Meta es la peor forma de descubrirlo. */}
-      <div className="rounded-tarjeta bg-tibio-suave/50 px-4 py-3 text-[0.84rem] text-tinta-2 ring-1 ring-tibio/30">
-        💬 Cada mensaje que envías tiene un costo que <b>Meta le cobra a tu
-        cuenta de WhatsApp</b>, no a LeadAI. Tu plan limita cuántos puedes
-        mandar al mes; el precio por mensaje lo pone Meta.
-      </div>
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-linea pb-5">
+        {embebido && (
+          <div>
+            <h2 className="text-[1.55rem] font-bold tracking-[-0.02em] text-tinta">Campañas de WhatsApp</h2>
+            <p className="mt-2 max-w-[65ch] text-[0.86rem] leading-relaxed text-tinta-2">
+              Vuelve a conversar con tus clientes usando plantillas aprobadas por Meta. Prepara la audiencia, revisa el mensaje y decide cuándo enviarlo.
+            </p>
+          </div>
+        )}
         {!embebido && (
           <div>
             <p className="eyebrow">Tu embudo</p>
@@ -473,12 +461,18 @@ function ContenidoCampanias(
         {!creando && pestania === "campanias" && (
           <button
             onClick={() => setCreando(true)}
-            className={`rounded-chip bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo ${embebido ? "ml-auto" : ""}`}
+            className={`rounded-xl bg-orbita px-5 py-2.5 text-sm font-bold text-sobre-orbita transition hover:bg-orbita-hondo ${embebido ? "ml-auto" : ""}`}
           >
             + Nueva campaña
           </button>
         )}
       </header>
+
+      {/* Meta cobra el envío a la cuenta del negocio; no sale de la bolsa de LeadAI. */}
+      <div className="flex items-start gap-3 rounded-xl bg-tibio-suave/60 px-4 py-3 text-[0.8rem] leading-relaxed text-tinta-2">
+        <span aria-hidden className="mt-0.5 text-tibio">ⓘ</span>
+        <span>Cada mensaje tiene un costo que <b>Meta cobra a tu cuenta de WhatsApp</b>, no a LeadAI. Tu plan limita la cantidad mensual; Meta fija el precio por mensaje.</span>
+      </div>
 
       {!embebido && g.modoGlobal && (
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
@@ -519,7 +513,7 @@ function ContenidoCampanias(
       )}
 
       {/* Pestañas */}
-      <div className="flex gap-1.5">
+      <div className="flex gap-6 border-b border-linea">
         {/* "Envíos", no "Campañas" (2026-08-24): esta pantalla ahora vive
             dentro de Marketing, bajo una pestaña que YA se llama Campañas.
             Repetir la palabra un nivel más abajo hacía que dos controles
@@ -529,8 +523,8 @@ function ContenidoCampanias(
           <button
             key={id}
             onClick={() => setPestania(id)}
-            className={`rounded-chip px-4 py-2 text-sm font-semibold transition ${
-              pestania === id ? "bg-tinta text-carta" : "bg-arena text-tinta-2 hover:bg-linea"
+            className={`min-h-12 border-b-2 px-1 py-2 text-[0.85rem] font-semibold transition ${
+              pestania === id ? "border-brasa-texto text-tinta" : "border-transparent text-frio hover:text-tinta"
             }`}
           >
             {label}
@@ -540,7 +534,7 @@ function ContenidoCampanias(
 
       {/* ── Nueva campaña ── */}
       {pestania === "campanias" && creando && (
-        <div className="space-y-4 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+        <div className="max-w-4xl space-y-5 rounded-2xl bg-arena/60 p-4 sm:p-6">
           {/* Antes: un "Nueva campaña" suelto y campos debajo. No decía qué
               iba a pasar al terminar, que es lo que frena a alguien que nunca
               mandó una. */}
@@ -716,7 +710,7 @@ function ContenidoCampanias(
             <button
               onClick={crearCampaniaSubmit}
               disabled={enviandoForm || !nombre.trim() || !plantillaSel || contactosValidos === 0 || (plantillaElegida?.encabezadoTipo === "IMAGE" && !encabezadoUrl)}
-              className="rounded-chip bg-brasa px-5 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
+              className="rounded-xl bg-orbita px-5 py-2 text-sm font-bold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-50"
             >
               {enviandoForm ? "Creando…" : "Lanzar campaña"}
             </button>

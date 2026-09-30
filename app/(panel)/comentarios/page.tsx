@@ -9,7 +9,6 @@ import { redesDeComentarios, textoRedes, fusionarComentarios, describirEnvio } f
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { AjustesComentarios } from "@/components/panel/AjustesComentarios";
-import { HeroSeccion, ComentariosIlustracion } from "@/components/panel/HeroSeccion";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -238,20 +237,14 @@ export default function ComentariosPanel() {
   if (!listo) return null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">
-      <header>
-        <p className="eyebrow">Tu embudo</p>
-        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Comentarios</h1>
+    <div className="mx-auto max-w-[1440px] space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-linea pb-6">
+        <div>
+          <h1 className="text-[2rem] font-bold tracking-[-0.025em] text-tinta sm:text-[2.4rem]">Comentarios</h1>
+          <p className="mt-2 max-w-[65ch] text-[0.88rem] text-tinta-2">Sigue las preguntas y oportunidades que llegan desde Facebook e Instagram. Responde aquí cuando haga falta.</p>
+        </div>
+        <Link href="/marketing" className="inline-flex min-h-12 items-center rounded-xl bg-carta px-4 text-[0.8rem] font-semibold text-tinta ring-1 ring-linea transition hover:bg-arena-2">Volver a Marketing</Link>
       </header>
-
-      {/* El hero que le faltaba (pasada UX 2026-09-06): era la única sección
-          del embudo sin él — abría con un aviso amarillo de advertencia. */}
-      <HeroSeccion
-        titulo="Los comentarios también venden"
-        bajada="Cuando alguien pregunta o quiere comprar, la IA le responde e invita al privado — y entra a tu pipeline como lead. Si te felicitan, le agradece."
-        nota="Aquí ves todo lo que captó y puedes probar cómo respondería."
-        dibujo={<ComentariosIlustracion />}
-      />
 
       {g.modoGlobal && (
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
@@ -271,11 +264,11 @@ export default function ComentariosPanel() {
       )}
       {g.listaLista && errorRedes && claveErrorRedes === claveNegocio && !redesVigentes && <div role="alert" className="rounded-tarjeta bg-calor-suave p-3 text-sm text-calor-hondo">No pudimos comprobar las redes: {errorRedes} <button onClick={() => setIntento((n) => n + 1)} className="font-semibold underline">Reintentar</button></div>}
 
-      {/* Ajustes: activar/desactivar + mensaje personalizado */}
+      <div className="grid items-start gap-5 lg:grid-cols-2">
+      {/* Ajustes y simulación comparten fila; la actividad conserva el ancho para leer los comentarios. */}
       {g.listaLista && <AjustesComentarios key={g.tenantLista ?? "negocio-activo"} tenant={g.tenantLista} />}
 
-      {/* Simulador: probar el flujo sin Meta */}
-      <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+      <div className="rounded-2xl bg-carta p-5 shadow-[var(--sombra-tarjeta)]">
         <h2 className="text-[1.05rem] font-bold text-tinta">Prueba la respuesta de la IA</h2>
         <p className="mt-1 text-[0.82rem] text-frio">
           Escribe un comentario como lo haría un cliente. Es una vista previa: no crea leads ni envía mensajes.
@@ -330,10 +323,17 @@ export default function ComentariosPanel() {
           </div>
         )}
       </div>
+      </div>
 
       {/* Log de comentarios */}
       <div>
-        <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Comentarios captados</h2>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-linea pb-3">
+          <div>
+            <h2 className="text-[1.35rem] font-bold text-tinta">Actividad reciente</h2>
+            <p className="mt-1 text-[0.8rem] text-frio">Comentarios captados para este negocio. Filtra para encontrar los que necesitan atención.</p>
+          </div>
+          {estado === "ok" && datosVigentes && <p className="text-[0.76rem] font-semibold text-tinta-2">{comentarios.length} en esta vista</p>}
+        </div>
 
         {redesVigentes && redes !== null && redes.length > 0 && (
           <BarraFiltros filtros={filtros} redes={redes} onCambiar={setFiltros} />
@@ -390,7 +390,7 @@ export default function ComentariosPanel() {
         )}
 
         {estado === "ok" && datosVigentes && comentarios.length > 0 && (
-          <div className="space-y-2.5">
+          <div className="divide-y divide-linea rounded-2xl bg-carta shadow-[var(--sombra-tarjeta)]">
             {comentarios.map((c) => {
               const et = INTENCION[c.intencion ?? "otro"] ?? INTENCION.otro;
               const version = generacion.current;
@@ -477,7 +477,7 @@ function ComentarioCaptado({
   }
 
   return (
-    <article className="rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+    <article className="p-4 sm:p-5">
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 flex-1 font-semibold text-tinta">
           {c.autorNombre ?? "Alguien"} comentó

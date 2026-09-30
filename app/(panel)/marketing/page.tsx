@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Cargando } from "@/components/Cargando";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { haySesion, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import { obtenerMiPlan } from "@/lib/api";
 import { MarketingBloqueado } from "@/components/panel/MarketingBloqueado";
@@ -13,24 +14,11 @@ import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
 import { SeccionAnuncios } from "@/components/panel/SeccionAnuncios";
 import { AjustesMarketing } from "@/components/panel/AjustesMarketing";
 import PublicarPanel from "@/components/panel/PublicarPanel";
-import { HeroSeccion, MarketingIlustracion } from "@/components/panel/HeroSeccion";
 
 /**
- * MARKETING: TRAER CLIENTES Y HACERLOS VOLVER (2026-08-24).
- *
- * Anuncios y Campañas eran dos ítems sueltos del menú que, sueltos, no se leen
- * como lo mismo: uno trae gente nueva y el otro le vuelve a escribir a la que
- * ya vino. El dueño buscaba "lo de traer clientes" y encontraba dos entradas
- * que no se explican solas.
- *
- * Ahora son una sección con dos pestañas. Las pantallas de adentro NO se
- * reescribieron: se montan tal cual, en modo `embebido` para que no repitan el
- * título ni la barra de negocios, que ahora viven acá arriba. Reescribirlas
- * habría puesto en riesgo dos flujos que ya funcionan —crear un anuncio con
- * presupuesto real y mandar una campaña— a cambio de nada visible.
- *
- * Las rutas viejas siguen existiendo y redirigen acá: un link guardado o un
- * historial del navegador no puede terminar en 404.
+ * Marketing reúne las tareas de captación y retención en un espacio de trabajo.
+ * Las áreas conservan sus propios flujos; esta página sólo coordina navegación,
+ * negocio enfocado y montaje de los editores para no perder borradores.
  */
 
 type Pestania = "anuncios" | "campanias" | "presencia" | "publicar" | "automatico";
@@ -216,44 +204,32 @@ export default function MarketingPanel() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-5 py-6 lg:px-8">
-      <header>
-        <p className="eyebrow">Tu embudo</p>
-        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Marketing</h1>
+    <div className="mx-auto max-w-[1440px] space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+      <header className="overflow-hidden rounded-2xl bg-superficie-honda px-6 py-7 text-carta sm:px-8 lg:flex lg:items-end lg:justify-between lg:gap-12 lg:px-10 lg:py-9">
+        <div className="max-w-2xl">
+          <h1 className="text-[2rem] font-bold tracking-[-0.025em] sm:text-[2.6rem]">Marketing</h1>
+          <p className="mt-2 text-base font-semibold text-carta">Que te conozcan, que vuelvan.</p>
+          <p className="mt-2 max-w-[65ch] text-[0.9rem] leading-relaxed text-carta/75">
+            Anuncios para atraer personas, campañas para volver a conversar y comentarios para detectar oportunidades.
+          </p>
+        </div>
+        <Link href="/comentarios" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-orbita px-5 text-sm font-bold text-sobre-orbita transition hover:bg-orbita-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-carta lg:mt-0">
+          Ver comentarios <span aria-hidden className="ml-2">↗</span>
+        </Link>
       </header>
-
-      {/* El hero que faltaba (pasada UX 2026-09-06): la página que ORIGINÓ el
-          patrón hero era la única del embudo que abría con el h1 pelado
-          mientras sus cuatro pestañas sí lo tienen por dentro. */}
-      <HeroSeccion
-        titulo="Que te conozcan, que vuelvan"
-        bajada="Trae clientes nuevos con anuncios, haz volver a los que ya te compraron, y publica en todas tus redes de una."
-        dibujo={<MarketingIlustracion />}
-      />
 
       {g.modoGlobal && (
         <BarraNegociosGlobal negocios={g.negocios} enfocado={g.enfocado} onElegir={g.setEnfocado} />
       )}
 
-      {/* A QUIÉN le estás gastando la plata: con varios negocios esto es
-          información crítica, no una nota al pie — banner con peso propio. */}
-      {nombreNegocio && g.modoGlobal && (
-        <p className="flex items-center gap-2.5 rounded-tarjeta border border-brasa/30 bg-brasa-suave px-4 py-3 text-[0.9rem] font-semibold text-tinta">
-          <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brasa/15 text-base">📣</span>
-          <span>
-            Estás haciendo marketing para <strong>{nombreNegocio}</strong>
-          </span>
-        </p>
+      {nombreNegocio && (
+        <p className="text-[0.82rem] text-tinta-2">Espacio de trabajo de <strong className="text-tinta">{nombreNegocio}</strong></p>
       )}
 
-      {/* LAS PESTAÑAS. Mismo patrón que las de Campañas por dentro, para que
-          quien ya usó esa pantalla no tenga que aprender otro control. */}
-      {/* LAS PESTAÑAS COMO TARJETAS (2026-08-27, Jonathan: "este diseño de la
-          parte de los selectores, TRISTE Y POBRE").
-          Eran cuatro chips de texto: "Anuncios", "Campañas"… nombres que no
-          dicen qué hace cada uno. Ahora cada una lleva su icono y su frase, así
-          se elige por lo que se quiere LOGRAR y no por adivinar el nombre. */}
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3" role="tablist" aria-label="Áreas de Marketing">
+      <div className="grid gap-6 xl:grid-cols-[245px_minmax(0,1fr)] xl:items-start xl:gap-8">
+      <nav className="min-w-0 xl:sticky xl:top-5" aria-label="Áreas de Marketing">
+        <p className="mb-2 hidden px-3 text-xs font-bold uppercase tracking-[0.08em] text-frio xl:block">Trabaja por objetivo</p>
+        <div className="flex gap-2 overflow-x-auto pb-2 xl:flex-col xl:overflow-visible xl:rounded-2xl xl:bg-carta xl:p-2 xl:shadow-[var(--sombra-tarjeta)]" role="tablist" aria-label="Áreas de Marketing">
         {([
           { id: "anuncios", label: "Anuncios", ayuda: "Traer gente nueva", icono: <IconoMegafono />, cap: "tieneAnuncios" },
           { id: "campanias", label: "Campañas", ayuda: "Hacer que vuelvan", icono: <IconoRepetir />, cap: "tieneCampanias" },
@@ -282,34 +258,37 @@ export default function MarketingPanel() {
               tabIndex={activa ? 0 : -1}
               onClick={() => elegir(p.id)}
               onKeyDown={(e) => moverConTeclado(e, p.id)}
-              className={`flex flex-col items-start gap-2 rounded-tarjeta p-3.5 text-left transition ${
+              className={`flex min-w-[150px] shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition xl:w-full xl:min-w-0 ${
                 activa
-                  ? "bg-superficie-honda text-arena shadow-[var(--sombra-tarjeta)]"
-                  : "bg-carta text-tinta-2 ring-1 ring-linea hover:bg-arena/60"
+                  ? "bg-superficie-honda text-carta"
+                  : "bg-carta text-tinta-2 ring-1 ring-linea hover:bg-arena xl:ring-0"
               }`}
             >
               <span
-                className={`grid h-9 w-9 place-items-center rounded-full ${
-                  activa ? "bg-arena/15 text-arena" : "bg-brasa/12 text-brasa-texto"
+                className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+                  activa ? "bg-carta/15 text-carta" : "bg-brasa-suave text-brasa-texto"
                 }`}
                 aria-hidden
               >
                 {p.icono}
               </span>
               <span className="min-w-0">
-                <span className={`block text-[0.92rem] font-bold ${activa ? "text-arena" : "text-tinta"}`}>
+                <span className={`block text-[0.86rem] font-bold ${activa ? "text-carta" : "text-tinta"}`}>
                   {p.label}
                 </span>
-                <span className={`mt-0.5 block text-[0.78rem] ${activa ? "text-arena/70" : "text-frio"}`}>
+                <span className={`mt-0.5 hidden text-[0.7rem] leading-snug xl:block ${activa ? "text-carta/70" : "text-frio"}`}>
                   {p.ayuda}
                 </span>
               </span>
             </button>
           );
         })}
-      </div>
-
-      <div id="marketing-panel" role="tabpanel" aria-labelledby={`marketing-tab-${mostrar}`} tabIndex={0}>
+        </div>
+        <Link href="/comentarios" className="mt-3 hidden min-h-12 items-center justify-between rounded-xl px-3 text-[0.8rem] font-semibold text-tinta-2 transition hover:bg-carta hover:text-tinta xl:flex">
+          Comentarios <span aria-hidden>↗</span>
+        </Link>
+      </nav>
+      <div id="marketing-panel" role="tabpanel" aria-labelledby={`marketing-tab-${mostrar}`} tabIndex={0} className="min-w-0 space-y-5">
       {/* Publicar permanece montado tras visitarlo para conservar el trabajo
           al cambiar de pestaña. El tenant identifica y aísla su instancia;
           no se persiste el borrador fuera de esta pantalla. */}
@@ -348,6 +327,7 @@ export default function MarketingPanel() {
       ) : mostrar === "automatico" ? (
         <AjustesMarketing key={tenantPlan} tenant={tenantPlan} />
       ) : null}
+      </div>
       </div>
     </div>
   );

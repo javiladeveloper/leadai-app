@@ -29,9 +29,9 @@ const REDES = [
   // no en perfiles personales). El label lo deja claro para el negocio.
   { id: "messenger", label: "Página de Facebook" },
   // TikTok publica DE VERDAD (2026-08-26): necesita la cuenta conectada en
-  // Configuración → Canales y un VIDEO en la publicación. Mientras la app de
-  // TikTok no pase su revisión, el video queda PRIVADO en el perfil (solo lo
-  // ve el dueño; puede hacerlo público a mano) — límite de TikTok, no nuestro.
+  // Configuración → Canales y un VIDEO en la publicación. Desde el 1-oct-2026
+  // (audit de Direct Post aprobado) el video sale con la visibilidad que elige
+  // el dueño, público incluido; antes TikTok lo forzaba a privado.
   { id: "tiktok", label: "TikTok (video)" },
 ];
 

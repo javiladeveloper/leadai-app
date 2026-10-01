@@ -3,6 +3,7 @@
 // Componente reutilizable: la página de Next no recibe la prop embebido.
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { normalizarLink } from "@/lib/link-publicacion";
 import { useRouter } from "next/navigation";
 import { haySesion, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import {
@@ -67,6 +68,7 @@ interface MetaMedia {
 
 // Un chequeo por red: `bloqueo` impide publicar, `aviso` deja pero advierte.
 interface Chequeo { nivel: "aviso" | "bloqueo"; texto: string }
+
 
 // REQUISITOS POR PLATAFORMA (2026-08-26, pedido de Jonathan: "ver que cumpla
 // con todo lo que pide cada plataforma para que salga bien"). Se validan acá,
@@ -159,6 +161,7 @@ export default function PublicarPanel(
 
   // Editor
   const [texto, setTexto] = useState("");
+  const [linkTexto, setLinkTexto] = useState("");
   /**
    * CARRUSEL: VARIAS IMÁGENES EN UN POST (2026-09-19, pedido de Jonathan
    * "¿puedo subir varias imágenes?" al ir a publicar las piezas de Sania).
@@ -509,8 +512,12 @@ export default function PublicarPanel(
   // Lo que falta para poder publicar, dicho en vez de un botón gris y mudo.
   const falta = faltaParaPublicar({ texto, cantidadMedia: mediaUrls.length, redes, programar, fecha, formato });
 
+  // La historia no lleva texto ni link: ahí el campo ni aparece.
+  const linkNormalizado = formato === "historia" ? {} : normalizarLink(linkTexto);
+
   async function publicar() {
     if ((!texto.trim() && formato !== "historia") || redes.length === 0 || publicacionOcupada.current || publicando || subiendo || falta.length > 0) return;
+    if (linkNormalizado.error) { setMsg(linkNormalizado.error); return; }
     const canales = redes.filter((red) => redesReintentoRef.current === null || redesReintentoRef.current.includes(red));
     if (canales.length === 0) return;
     const bloqueo = [...chequeos.flatMap((c) => c.lista), ...historia].find((x) => x.nivel === "bloqueo");
@@ -528,6 +535,7 @@ export default function PublicarPanel(
     try {
     const r = await crearPublicacion({
       texto: texto.trim(),
+      link: linkNormalizado.link,
       mediaUrls,
       tipoMedia: tipoMediaDe(mediaUrls.length, tipoMedia === "video"),
       canales,
@@ -563,7 +571,7 @@ export default function PublicarPanel(
       } else {
         redesReintentoRef.current = null;
         setRedesReintento(null);
-        setTexto(""); quitarMedia(); setProgramar(false); setFecha("");
+        setTexto(""); setLinkTexto(""); quitarMedia(); setProgramar(false); setFecha("");
         setMsg(`✓ ${mensajeTrasPublicar(formato, programar)}`);
       }
       // TikTok procesa el video unos minutos: se sigue su estado para que el
@@ -728,6 +736,33 @@ export default function PublicarPanel(
           placeholder="Escribe tu post, o toca una plantilla de arriba…"
           className="mt-1.5 w-full resize-none rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa/40"
         />
+
+        {/* Link opcional (ver `normalizarLink`). */}
+        {formato !== "historia" && (
+          <div className="mt-3">
+            <label htmlFor={`${id}-link`} className="text-[0.9rem] font-bold text-tinta">
+              Link <span className="font-normal text-frio">(opcional)</span>
+            </label>
+            <input
+              id={`${id}-link`}
+              type="url"
+              inputMode="url"
+              value={linkTexto}
+              onChange={(e) => setLinkTexto(e.target.value)}
+              placeholder="https://tu-web.com/promo"
+              aria-invalid={Boolean(linkNormalizado.error)}
+              className={`mt-1.5 w-full rounded-tarjeta bg-arena/60 px-3 py-2.5 text-[0.9rem] text-tinta outline-none ring-1 focus:ring-brasa/40 ${linkNormalizado.error ? "ring-alerta" : "ring-linea"}`}
+            />
+            {linkNormalizado.error ? (
+              <p className="mt-1 text-[0.78rem] font-semibold text-alerta-hondo">{linkNormalizado.error}</p>
+            ) : linkNormalizado.link && (redes.includes("instagram") || redes.includes("tiktok")) ? (
+              <p className="mt-1 text-[0.78rem] text-frio">
+                En Instagram y TikTok el link va al final del texto pero no se puede tocar: ponlo también en tu bio.
+                En Facebook sí se toca.
+              </p>
+            ) : null}
+          </div>
+        )}
 
         {/* Media */}
         <div className="mt-3">

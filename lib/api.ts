@@ -2035,6 +2035,8 @@ export async function crearPublicacion(input: {
   ajustesTikTok?: AjustesTikTok;
   /** Post/Reel, historia o los dos (2026-09-25). Sin él, post como siempre. */
   formato?: "post" | "historia" | "ambos";
+  /** Link opcional (2026-10-01): Facebook lo muestra con vista previa; en Instagram y TikTok va al final del texto. */
+  link?: string;
 }, tenant?: string): Promise<{ ok: boolean; error?: string; publicacion?: Publicacion | null }> {
   try {
     const r = await api<{ publicacion?: Publicacion | null }>("/publicaciones", { method: "POST", body: input, tenant });

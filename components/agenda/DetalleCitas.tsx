@@ -11,6 +11,7 @@ import type { CitaAgenda } from "@/lib/api";
 import { horaLima, tipoDeCita } from "@/lib/agenda";
 import { colorDe } from "./colores";
 import { ResultadoLlamada } from "./ResultadoLlamada";
+import { AgendarOtra } from "./AgendarOtra";
 
 const chip =
   "inline-flex min-h-10! items-center rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-linea focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa";
@@ -29,6 +30,7 @@ export function TarjetaCita({
   colores,
   onConversacion,
   onActualizada,
+  onAgendada,
   resultadoAbierto = false,
 }: {
   cita: CitaAgenda;
@@ -36,6 +38,8 @@ export function TarjetaCita({
   onConversacion: (c: CitaAgenda) => void;
   /** La cita después de anotar cómo le fue a la llamada. */
   onActualizada: (c: CitaAgenda) => void;
+  /** Se agendó otra llamada desde esta: la agenda se vuelve a pedir. */
+  onAgendada: () => void;
   resultadoAbierto?: boolean;
 }) {
   const cancelada = c.estado === "cancelada";
@@ -81,6 +85,7 @@ export function TarjetaCita({
         </button>
       </div>
       <ResultadoLlamada cita={c} abiertoAlInicio={resultadoAbierto} onGuardada={onActualizada} />
+      <AgendarOtra cita={c} onAgendada={onAgendada} />
     </article>
   );
 }
@@ -92,6 +97,7 @@ export function DetalleCitas({
   onCerrar,
   onConversacion,
   onActualizada,
+  onAgendada,
   accion,
 }: {
   titulo: string;
@@ -100,6 +106,7 @@ export function DetalleCitas({
   onCerrar: () => void;
   onConversacion: (c: CitaAgenda) => void;
   onActualizada: (c: CitaAgenda) => void;
+  onAgendada: () => void;
   /** Un botón extra bajo el título (ej. "Ver el día"). */
   accion?: React.ReactNode;
 }) {
@@ -181,6 +188,7 @@ export function DetalleCitas({
               colores={colores}
               onConversacion={onConversacion}
               onActualizada={onActualizada}
+              onAgendada={onAgendada}
               // Una sola reunión abierta: si ya pasó, el formulario listo.
               resultadoAbierto={citas.length === 1}
             />

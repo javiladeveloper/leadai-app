@@ -3054,6 +3054,15 @@ export async function anotarResultadoCita(
     method: "PATCH", body: cambio, conEmpresa: false,
   })).cita;
 }
+/**
+ * Agenda a mano en MI Google Calendar (p. ej. al reagendar). 409 = choca o
+ * sin calendario conectado; el `message` del error es el del backend.
+ */
+export async function agendarCita(c: {
+  tenantId: string; leadId: string; inicio: string; invitarCliente: boolean; desdeCitaId?: string;
+}): Promise<CitaAgenda> {
+  return (await api<{ cita: CitaAgenda }>("/agenda/citas", { method: "POST", body: c, conEmpresa: false })).cita;
+}
 export function obtenerQuienAtiende(): Promise<QuienAtiende> {
   return api("/agenda/quien-atiende");
 }

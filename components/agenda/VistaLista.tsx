@@ -13,12 +13,14 @@ export function VistaLista({
   colores,
   onConversacion,
   onActualizada,
+  onAgendada,
 }: {
   citas: CitaAgenda[];
   hoy: string;
   colores: Map<string, number>;
   onConversacion: (c: CitaAgenda) => void;
   onActualizada: (c: CitaAgenda) => void;
+  onAgendada: () => void;
 }) {
   return (
     <div className="space-y-5">
@@ -29,7 +31,7 @@ export function VistaLista({
             {d.dia === hoy && <span className="ml-2 rounded-chip bg-brasa-suave px-2 py-0.5 text-brasa-texto">hoy</span>}
           </h3>
           {d.citas.map((c) => (
-            <TarjetaCita key={c.id} cita={c} colores={colores} onConversacion={onConversacion} onActualizada={onActualizada} />
+            <TarjetaCita key={c.id} cita={c} colores={colores} onConversacion={onConversacion} onActualizada={onActualizada} onAgendada={onAgendada} />
           ))}
         </section>
       ))}

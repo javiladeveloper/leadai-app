@@ -119,6 +119,11 @@ export default function AgendaPanel() {
     router.push(`/conversacion/${c.leadId}`);
   }
 
+  /** Otra llamada recién agendada: se vuelve a pedir el periodo (lo que se ve se queda). */
+  function recargar() {
+    setIntento((n) => n + 1);
+  }
+
   /** La cita con su resultado recién anotado reemplaza a la de la lista. */
   function actualizarCita(c: CitaAgenda) {
     setDatos((d) => (d ? { ...d, citas: d.citas.map((x) => (x.id === c.id ? c : x)) } : d));
@@ -232,6 +237,7 @@ export default function AgendaPanel() {
           colores={colores}
           onConversacion={abrirConversacion}
           onActualizada={actualizarCita}
+          onAgendada={recargar}
         />
       )}
 
@@ -243,6 +249,7 @@ export default function AgendaPanel() {
           onCerrar={() => setDetalle(null)}
           onConversacion={abrirConversacion}
           onActualizada={actualizarCita}
+          onAgendada={recargar}
           accion={
             <button
               type="button"
@@ -262,6 +269,7 @@ export default function AgendaPanel() {
           onCerrar={() => setDetalle(null)}
           onConversacion={abrirConversacion}
           onActualizada={actualizarCita}
+          onAgendada={recargar}
         />
       )}
     </div>

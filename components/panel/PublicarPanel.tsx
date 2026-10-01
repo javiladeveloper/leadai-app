@@ -10,6 +10,8 @@ import {
   listarPublicaciones, plantillasPost, subirMediaPost, crearPublicacion,
   listarCanales, borrarPublicacion, opcionesTikTok, estadoTikTok,
   type Publicacion, type PlantillaPost, type OpcionesTikTok,
+  vistaDeLink,
+  type VistaLink,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import {
@@ -515,6 +517,22 @@ export default function PublicarPanel(
   // La historia no lleva texto ni link: ahí el campo ni aparece.
   const linkNormalizado = formato === "historia" ? {} : normalizarLink(linkTexto);
 
+  // LA TARJETA DEL LINK (2026-10-01): se lee con una pausa de 600 ms (no una
+  // consulta por tecla). `undefined` = leyendo; `null` = la página no tiene
+  // tarjeta. La respuesta de un link anterior no pisa la del actual.
+  const [leida, setLeida] = useState<{ url: string; vista: VistaLink | null } | null>(null);
+  const linkValido = linkNormalizado.link;
+  // Derivado, no guardado: si lo leído es de OTRO link, todavía se está leyendo.
+  const vistaLink: VistaLink | null | undefined = !linkValido ? null : leida?.url === linkValido ? leida.vista : undefined;
+  useEffect(() => {
+    if (!linkValido) return;
+    let vigente = true;
+    const t = setTimeout(() => {
+      void vistaDeLink(linkValido, g.tenantLista).then((vista) => { if (vigente) setLeida({ url: linkValido, vista }); });
+    }, 600);
+    return () => { vigente = false; clearTimeout(t); };
+  }, [linkValido, g.tenantLista]);
+
   async function publicar() {
     if ((!texto.trim() && formato !== "historia") || redes.length === 0 || publicacionOcupada.current || publicando || subiendo || falta.length > 0) return;
     if (linkNormalizado.error) { setMsg(linkNormalizado.error); return; }
@@ -870,7 +888,7 @@ export default function PublicarPanel(
             Antes había UNA tarjeta genérica: servía para ver que la foto cargó,
             no para lo que importa — cada red recorta y corta el texto distinto,
             y el dueño se enteraba después de publicar. */}
-        {(texto.trim() || mediaUrl) && (
+        {(texto.trim() || mediaUrl || linkValido) && (
           <div className="mt-4">
             <PreviewRedes
               redes={redes}
@@ -879,6 +897,8 @@ export default function PublicarPanel(
               mediaUrls={mediaUrls}
               tipoMedia={tipoMedia}
               formato={formato}
+              link={linkValido}
+              vistaLink={vistaLink}
               cuando={
                 programar && fecha
                   ? new Date(fecha).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })

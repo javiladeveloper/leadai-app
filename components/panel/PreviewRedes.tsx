@@ -1,5 +1,6 @@
 "use client";
 
+import type { VistaLink } from "@/lib/api";
 import { useState } from "react";
 
 /**
@@ -37,6 +38,8 @@ export function PreviewRedes({
   tipoMedia,
   cuando,
   formato = "post",
+  link,
+  vistaLink,
 }: {
   /** Las que eligió publicar. Vacío = se muestra Instagram como referencia. */
   redes: string[];
@@ -53,6 +56,10 @@ export function PreviewRedes({
   cuando: string;
   /** Post, historia o los dos: la historia tiene su propia pestaña. */
   formato?: "post" | "historia" | "ambos";
+  /** El link del post, ya normalizado (2026-10-01). */
+  link?: string;
+  /** La tarjeta que arma Facebook con el link; `undefined` mientras se lee. */
+  vistaLink?: VistaLink | null;
 }) {
   const disponibles = (["instagram", "messenger", "tiktok"] as RedId[]).filter(
     (r) => redes.includes(r) && !(formato === "historia" && r === "tiktok"),
@@ -100,7 +107,7 @@ export function PreviewRedes({
         <PreviewInstagram
           inicial={inicial}
           negocio={negocio}
-          texto={texto}
+          texto={conLink(texto, link)}
           mediaUrls={mediaUrls}
           tipoMedia={tipoMedia}
         />
@@ -109,16 +116,18 @@ export function PreviewRedes({
         <PreviewFacebook
           inicial={inicial}
           negocio={negocio}
-          texto={texto}
+          texto={mediaUrls.length > 0 ? conLink(texto, link) : texto}
           mediaUrls={mediaUrls}
           tipoMedia={tipoMedia}
           cuando={cuando}
+          link={mediaUrls.length > 0 ? undefined : link}
+          vistaLink={vistaLink}
         />
       )}
       {activa === "tiktok" && (
         <PreviewTikTok
           negocio={negocio}
-          texto={texto}
+          texto={conLink(texto, link)}
           mediaUrls={mediaUrls}
           tipoMedia={tipoMedia}
         />
@@ -313,11 +322,45 @@ function PreviewInstagram({
 }
 
 /** FACEBOOK: horizontal, y el texto se corta con "Ver más" a las ~3 líneas. */
+/**
+ * EL LINK EN CADA RED (2026-10-01): Facebook sin foto arma su tarjeta (ver
+ * `TarjetaLink`); con foto, o en Instagram y TikTok, el link va al final del
+ * texto. Es lo mismo que hace el backend al publicar (`textoConLink`).
+ */
+function conLink(texto: string, link?: string): string {
+  if (!link || texto.includes(link)) return texto;
+  return texto.trim() ? `${texto.trimEnd()}\n\n${link}` : link;
+}
+
+/** La tarjeta del link COMO LA ARMA FACEBOOK: imagen, dominio en mayúsculas, título y descripción. */
+function TarjetaLink({ link, vista }: { link: string; vista: VistaLink | null | undefined }) {
+  if (vista === undefined) {
+    return <div className="aspect-[1.91/1] w-full animate-pulse bg-[#f0f2f5]" aria-label="Leyendo el link" />;
+  }
+  if (vista === null) {
+    return <p className="px-3 pb-2.5 text-[0.8rem] text-[#1877f2] underline">{link}</p>;
+  }
+  return (
+    <div className="border-y border-[#ced0d4] bg-[#f0f2f5]">
+      {vista.imagen && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={vista.imagen} alt="" className="aspect-[1.91/1] w-full object-cover" />
+      )}
+      <div className="px-3 py-2">
+        <p className="truncate text-[0.68rem] uppercase text-[#65676b]">{vista.sitio}</p>
+        {vista.titulo && <p className="line-clamp-2 text-[0.82rem] font-semibold text-[#050505]">{vista.titulo}</p>}
+        {vista.descripcion && <p className="line-clamp-1 text-[0.74rem] text-[#65676b]">{vista.descripcion}</p>}
+      </div>
+    </div>
+  );
+}
+
 function PreviewFacebook({
-  inicial, negocio, texto, mediaUrls, tipoMedia, cuando,
+  inicial, negocio, texto, mediaUrls, tipoMedia, cuando, link, vistaLink,
 }: {
   inicial: string; negocio: string; texto: string;
   mediaUrls: string[]; tipoMedia: "imagen" | "video" | null; cuando: string;
+  link?: string; vistaLink?: VistaLink | null;
 }) {
   const largo = texto.trim().length > 160;
   return (
@@ -341,6 +384,8 @@ function PreviewFacebook({
       )}
       {mediaUrls.length > 0 ? (
         <Media mediaUrls={mediaUrls} tipoMedia={tipoMedia} clase="max-h-64 w-full bg-black object-contain" />
+      ) : link ? (
+        <TarjetaLink link={link} vista={vistaLink} />
       ) : (
         <SinMedia alto="aspect-[4/3]" />
       )}

@@ -127,6 +127,19 @@ async function sincronizarPredeterminada(remota: string | null | undefined): Pro
   localStorage.setItem(CLAVE_PREDETERMINADA_SUBIDA, "1");
 }
 
+/** Lo que Facebook muestra de un link (Open Graph): imagen, título, descripción y sitio. */
+export interface VistaLink { url: string; titulo: string | null; descripcion: string | null; imagen: string | null; sitio: string }
+
+/** La tarjeta que armará Facebook con el link, para verla ANTES de publicar. `null` = no hay tarjeta. */
+export async function vistaDeLink(url: string, tenant?: string): Promise<VistaLink | null> {
+  try {
+    const r = await api<{ vista: VistaLink | null }>(`/publicaciones/vista-link?url=${encodeURIComponent(url)}`, { tenant });
+    return r.vista;
+  } catch {
+    return null;
+  }
+}
+
 /** Fija (o quita, con null) el negocio predeterminado en el backend: lo ven el panel y la app. */
 export async function fijarNegocioPredeterminado(tenantId: string | null): Promise<void> {
   await api("/auth/negocio-predeterminado", { method: "PUT", body: { tenantId }, conEmpresa: false });

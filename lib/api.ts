@@ -2,7 +2,7 @@
 // Autenticación: token de usuario (Bearer) + header X-Tenant-Id para elegir la
 // empresa activa. El token y la empresa se guardan en el navegador (ver auth.ts).
 
-import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, EMPRESA_GLOBAL, type EmpresaResumen, empresasSinRestaurantes } from "./auth";
+import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, EMPRESA_GLOBAL, type EmpresaResumen, empresasSinRestaurantes, leerEmpresaPredeterminada, guardarEmpresaPredeterminada } from "./auth";
 import { cuerpoParaFetch } from "./cuerpo";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
@@ -86,10 +86,11 @@ export async function api<T>(ruta: string, opts: Opciones = {}): Promise<T> {
 export async function refrescarSesion(): Promise<boolean> {
   const sesion = leerSesion();
   if (!sesion) return false;
-  const r = await api<{ empresas: EmpresaResumen[]; esSuperAdmin: boolean }>(
+  const r = await api<{ empresas: EmpresaResumen[]; esSuperAdmin: boolean; tenantPredeterminado?: string | null }>(
     "/auth/yo",
     { conEmpresa: false },
   );
+  await sincronizarPredeterminada(r.tenantPredeterminado);
   // Se compara contra la lista YA sin restaurantes: la guardada nunca los
   // tiene, y comparar con la cruda marcaría "cambio" en cada carga.
   const empresas = empresasSinRestaurantes(r.empresas);
@@ -100,6 +101,35 @@ export async function refrescarSesion(): Promise<boolean> {
     guardarSesion({ ...sesion, empresas, esSuperAdmin: r.esSuperAdmin });
   }
   return cambio;
+}
+
+/**
+ * EL NEGOCIO PREDETERMINADO VIVE EN EL BACKEND (2026-10-01, Jonathan: "la web
+ * tiene un campo de negocio por defecto, deberíamos compartir ese campo").
+ * Antes era solo de este navegador; ahora lo comparten el panel y la app
+ * (`Usuario.tenantPredeterminado`). El localStorage queda como caché para que
+ * cada sección lo lea al instante.
+ *
+ * Una sola vez por navegador: si el backend todavía no tiene uno y este
+ * navegador sí (lo que el dueño ya había elegido antes de este cambio), se sube.
+ * Después manda el backend: un "quitar" hecho en la app también se respeta acá.
+ */
+const CLAVE_PREDETERMINADA_SUBIDA = "leadai.empresa.predeterminada.subida";
+async function sincronizarPredeterminada(remota: string | null | undefined): Promise<void> {
+  if (remota === undefined || typeof window === "undefined") return;
+  const local = leerEmpresaPredeterminada();
+  const yaSubida = localStorage.getItem(CLAVE_PREDETERMINADA_SUBIDA) === "1";
+  if (!remota && local && !yaSubida) {
+    await fijarNegocioPredeterminado(local).catch(() => undefined);
+  } else if (remota !== local) {
+    guardarEmpresaPredeterminada(remota);
+  }
+  localStorage.setItem(CLAVE_PREDETERMINADA_SUBIDA, "1");
+}
+
+/** Fija (o quita, con null) el negocio predeterminado en el backend: lo ven el panel y la app. */
+export async function fijarNegocioPredeterminado(tenantId: string | null): Promise<void> {
+  await api("/auth/negocio-predeterminado", { method: "PUT", body: { tenantId }, conEmpresa: false });
 }
 
 // Conecta WhatsApp por Embedded Signup: manda el code (+ ids) del popup de Meta

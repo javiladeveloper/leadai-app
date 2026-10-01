@@ -26,7 +26,7 @@ import { AjustesVendedora } from "@/components/panel/AjustesVendedora";
 import { MiCalendario } from "@/components/panel/MiCalendario";
 import { useCapacidadesOptimista, type Capacidades } from "@/lib/modo-negocio";
 import { empresasVisibles } from "@/lib/auth";
-import { estadoExportacion } from "@/lib/api";
+import { estadoExportacion, fijarNegocioPredeterminado } from "@/lib/api";
 import type { NegocioBandeja } from "@/lib/api";
 
 // Configuración del panel unificado (decisión 2026-07-22): TODO lo
@@ -295,6 +295,8 @@ function ConfiguracionInner() {
                   const v = e.target.checked ? tenantCfg : null;
                   guardarEmpresaPredeterminada(v);
                   setPredeterminada(v);
+                  // También en el backend: la app abre en el mismo negocio.
+                  void fijarNegocioPredeterminado(v).catch(() => undefined);
                 }}
                 className="accent-brasa"
               />

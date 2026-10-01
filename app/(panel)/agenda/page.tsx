@@ -119,6 +119,11 @@ export default function AgendaPanel() {
     router.push(`/conversacion/${c.leadId}`);
   }
 
+  /** La cita con su resultado recién anotado reemplaza a la de la lista. */
+  function actualizarCita(c: CitaAgenda) {
+    setDatos((d) => (d ? { ...d, citas: d.citas.map((x) => (x.id === c.id ? c : x)) } : d));
+  }
+
   function verDia(dia: string) {
     setFecha(dia);
     elegirVista("dia");
@@ -221,7 +226,13 @@ export default function AgendaPanel() {
         />
       )}
       {citas && vista === "lista" && (
-        <VistaLista citas={visibles} hoy={hoy} colores={colores} onConversacion={abrirConversacion} />
+        <VistaLista
+          citas={visibles}
+          hoy={hoy}
+          colores={colores}
+          onConversacion={abrirConversacion}
+          onActualizada={actualizarCita}
+        />
       )}
 
       {detalle?.tipo === "dia" && (
@@ -231,6 +242,7 @@ export default function AgendaPanel() {
           colores={colores}
           onCerrar={() => setDetalle(null)}
           onConversacion={abrirConversacion}
+          onActualizada={actualizarCita}
           accion={
             <button
               type="button"
@@ -249,6 +261,7 @@ export default function AgendaPanel() {
           colores={colores}
           onCerrar={() => setDetalle(null)}
           onConversacion={abrirConversacion}
+          onActualizada={actualizarCita}
         />
       )}
     </div>

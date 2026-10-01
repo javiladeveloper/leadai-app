@@ -3009,7 +3009,10 @@ export interface CitaAgenda {
   id: string; tenantId: string; negocio: string; leadId: string; cliente: string | null;
   inicio: string; fin: string; meetLink: string | null; telefono: string | null; correo: string | null;
   resumen: string | null; estado: string; atiende: string | null;
+  /** Cómo le fue a la llamada (2026-10-01); null = sin anotar. */
+  resultado?: ResultadoCita | null; notaResultado?: string | null; resultadoEn?: string | null;
 }
+export type ResultadoCita = "interesado" | "otra_fecha" | "no_contesto" | "no_interesado";
 export interface QuienAtiende {
   usuarioId: string | null; fijo: boolean;
   miembros: { usuarioId: string; nombre: string | null; email: string; conCalendario: boolean }[];
@@ -3041,6 +3044,15 @@ export async function listarAgenda(desde: Date, hasta: Date, tenantId?: string):
   const qs = new URLSearchParams({ desde: desde.toISOString(), hasta: hasta.toISOString() });
   if (tenantId) qs.set("tenantId", tenantId);
   return (await api<{ citas: CitaAgenda[] }>(`/agenda?${qs}`, { conEmpresa: false })).citas;
+}
+/** Anota cómo le fue a la llamada: quien atiende, o el dueño/admin. `null` borra. */
+export async function anotarResultadoCita(
+  id: string,
+  cambio: { resultado: ResultadoCita | null; nota: string | null },
+): Promise<CitaAgenda> {
+  return (await api<{ cita: CitaAgenda }>(`/agenda/${encodeURIComponent(id)}/resultado`, {
+    method: "PATCH", body: cambio, conEmpresa: false,
+  })).cita;
 }
 export function obtenerQuienAtiende(): Promise<QuienAtiende> {
   return api("/agenda/quien-atiende");

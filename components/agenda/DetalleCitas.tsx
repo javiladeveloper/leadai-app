@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import type { CitaAgenda } from "@/lib/api";
 import { horaLima, tipoDeCita } from "@/lib/agenda";
 import { colorDe } from "./colores";
+import { ResultadoLlamada } from "./ResultadoLlamada";
 
 const chip =
   "inline-flex min-h-10! items-center rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-linea focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa";
@@ -27,10 +28,15 @@ export function TarjetaCita({
   cita: c,
   colores,
   onConversacion,
+  onActualizada,
+  resultadoAbierto = false,
 }: {
   cita: CitaAgenda;
   colores: Map<string, number>;
   onConversacion: (c: CitaAgenda) => void;
+  /** La cita después de anotar cómo le fue a la llamada. */
+  onActualizada: (c: CitaAgenda) => void;
+  resultadoAbierto?: boolean;
 }) {
   const cancelada = c.estado === "cancelada";
   const color = colorDe(colores, c.tenantId);
@@ -74,6 +80,7 @@ export function TarjetaCita({
           Ver conversación
         </button>
       </div>
+      <ResultadoLlamada cita={c} abiertoAlInicio={resultadoAbierto} onGuardada={onActualizada} />
     </article>
   );
 }
@@ -84,6 +91,7 @@ export function DetalleCitas({
   colores,
   onCerrar,
   onConversacion,
+  onActualizada,
   accion,
 }: {
   titulo: string;
@@ -91,6 +99,7 @@ export function DetalleCitas({
   colores: Map<string, number>;
   onCerrar: () => void;
   onConversacion: (c: CitaAgenda) => void;
+  onActualizada: (c: CitaAgenda) => void;
   /** Un botón extra bajo el título (ej. "Ver el día"). */
   accion?: React.ReactNode;
 }) {
@@ -166,7 +175,15 @@ export function DetalleCitas({
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 pb-8">
           {citas.length === 0 && <p className="text-[0.9rem] text-frio">No hay reuniones este día.</p>}
           {citas.map((c) => (
-            <TarjetaCita key={c.id} cita={c} colores={colores} onConversacion={onConversacion} />
+            <TarjetaCita
+              key={c.id}
+              cita={c}
+              colores={colores}
+              onConversacion={onConversacion}
+              onActualizada={onActualizada}
+              // Una sola reunión abierta: si ya pasó, el formulario listo.
+              resultadoAbierto={citas.length === 1}
+            />
           ))}
         </div>
       </div>

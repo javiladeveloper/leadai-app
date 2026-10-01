@@ -1,0 +1,167 @@
+"use client";
+
+// CÓMO LE FUE A LA LLAMADA (2026-10-01, pedido de Jonathan: "una vez llamo
+// necesito una sección para colocar notas… si estuvo interesado, nos
+// reagendó"). Un toque para el resultado y la nota en sus palabras. Lo
+// mismo que la app (ResultadoLlamadaUi.kt): mismas cuatro opciones.
+
+import { useId, useState } from "react";
+import { anotarResultadoCita, type CitaAgenda, type ResultadoCita } from "@/lib/api";
+
+export const RESULTADOS: { valor: ResultadoCita; etiqueta: string; clase: string }[] = [
+  { valor: "interesado", etiqueta: "Interesado", clase: "bg-brasa-suave text-brasa-texto" },
+  { valor: "otra_fecha", etiqueta: "Quiere otra fecha", clase: "bg-tibio-suave text-tinta" }, // distinto de "Interesado": hay que volver a llamar
+  { valor: "no_contesto", etiqueta: "No contestó", clase: "bg-arena-2 text-tinta-2" },
+  { valor: "no_interesado", etiqueta: "No le interesa", clase: "bg-arena-2 text-frio" },
+];
+
+const LARGO_NOTA = 2000;
+
+/** ¿Ya toca anotar? Desde que empezó la reunión, o si ya tiene algo anotado. */
+export function puedeAnotar(c: CitaAgenda, ahoraMs: number): boolean {
+  return c.estado !== "cancelada" && (Date.parse(c.inicio) <= ahoraMs || tieneResultado(c));
+}
+
+export function tieneResultado(c: CitaAgenda): boolean {
+  return Boolean(c.resultado) || Boolean(c.notaResultado?.trim());
+}
+
+export function ResultadoLlamada({
+  cita: c,
+  abiertoAlInicio = false,
+  onGuardada,
+}: {
+  cita: CitaAgenda;
+  /** En el detalle de UNA reunión pasada sin anotar, el formulario ya abierto. */
+  abiertoAlInicio?: boolean;
+  onGuardada: (c: CitaAgenda) => void;
+}) {
+  // El reloj se lee una vez al montar: alcanza para saber si la reunión ya pasó.
+  const [ahoraMs] = useState(() => Date.now());
+  const [editando, setEditando] = useState(abiertoAlInicio && !tieneResultado(c));
+  const [resultado, setResultado] = useState<ResultadoCita | null>(c.resultado ?? null);
+  const [nota, setNota] = useState(c.notaResultado ?? "");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const idNota = useId();
+
+  if (!puedeAnotar(c, ahoraMs)) return null;
+
+  const elegido = RESULTADOS.find((r) => r.valor === c.resultado);
+  const cambio = resultado !== (c.resultado ?? null) || nota.trim() !== (c.notaResultado ?? "").trim();
+
+  function abrir() {
+    setResultado(c.resultado ?? null);
+    setNota(c.notaResultado ?? "");
+    setError(null);
+    setEditando(true);
+  }
+
+  async function guardar() {
+    setGuardando(true);
+    setError(null);
+    try {
+      const guardada = await anotarResultadoCita(c.id, { resultado, nota: nota.trim() || null });
+      onGuardada(guardada);
+      setEditando(false);
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : "No se pudo guardar. Intenta de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (!editando) {
+    if (!tieneResultado(c)) {
+      return (
+        <button
+          type="button"
+          onClick={abrir}
+          className="mt-3 inline-flex min-h-10! items-center rounded-chip px-1 text-[0.85rem] font-semibold text-brasa-texto underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-brasa"
+        >
+          Anotar cómo te fue
+        </button>
+      );
+    }
+    return (
+      <div className="mt-3 rounded-tarjeta bg-arena p-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-frio">Cómo te fue</p>
+          <button
+            type="button"
+            onClick={abrir}
+            className="min-h-0! text-[0.8rem] font-semibold text-brasa-texto underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-brasa"
+          >
+            Editar
+          </button>
+        </div>
+        {elegido && (
+          <span className={`mt-1 inline-flex rounded-chip px-2.5 py-1 text-[0.78rem] font-semibold ${elegido.clase}`}>
+            {elegido.etiqueta}
+          </span>
+        )}
+        {c.notaResultado?.trim() && (
+          <p className="mt-1.5 whitespace-pre-wrap break-words text-[0.88rem] text-tinta">{c.notaResultado}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-tarjeta bg-arena p-3">
+      <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-frio">¿Cómo te fue?</p>
+      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Resultado de la llamada">
+        {RESULTADOS.map((r) => {
+          const activo = resultado === r.valor;
+          return (
+            <button
+              key={r.valor}
+              type="button"
+              aria-pressed={activo}
+              // Tocar el elegido lo quita: se puede dejar solo la nota.
+              onClick={() => setResultado(activo ? null : r.valor)}
+              className={`inline-flex min-h-10! items-center rounded-chip px-3 py-1.5 text-[0.8rem] font-semibold ring-1 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa ${
+                activo ? "bg-tinta text-carta ring-tinta" : "bg-carta text-tinta-2 ring-linea hover:bg-linea"
+              }`}
+            >
+              {r.etiqueta}
+            </button>
+          );
+        })}
+      </div>
+      <label htmlFor={idNota} className="mt-3 block text-[0.8rem] font-semibold text-tinta-2">
+        Notas de la llamada
+      </label>
+      <textarea
+        id={idNota}
+        value={nota}
+        onChange={(e) => setNota(e.target.value.slice(0, LARGO_NOTA))}
+        rows={3}
+        placeholder="Ej.: le interesa el plan de 3 doctores, llamarlo el sábado a la 1 pm"
+        className="mt-1 w-full resize-y rounded-tarjeta border border-linea bg-carta px-3 py-2 text-[0.9rem] text-tinta outline-none focus:border-brasa"
+      />
+      {error && (
+        <p className="mt-1 text-[0.8rem] font-semibold text-alerta" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="mt-2 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setEditando(false)}
+          className="inline-flex min-h-10! items-center rounded-chip px-3 text-[0.85rem] font-semibold text-tinta-2 hover:bg-linea focus-visible:outline-2 focus-visible:outline-brasa"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={!cambio || guardando}
+          className="inline-flex min-h-10! items-center rounded-chip bg-brasa px-4 text-[0.85rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
+        >
+          {guardando ? "Guardando…" : "Guardar"}
+        </button>
+      </div>
+    </div>
+  );
+}

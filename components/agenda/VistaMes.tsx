@@ -10,6 +10,7 @@
 import type { CitaAgenda } from "@/lib/api";
 import { DIAS_SEMANA_CORTOS, nombreDelDia, horaLima, resumenDelDia } from "@/lib/agenda";
 import { colorDe } from "./colores";
+import { MarcaNota, textoMarca } from "./ResultadoLlamada";
 
 export function VistaMes({
   dias,
@@ -96,11 +97,12 @@ export function VistaMes({
                           key={c.id}
                           type="button"
                           onClick={() => onCita(c)}
-                          aria-label={`${horaLima(c.inicio)} ${c.cliente || "Cliente"}, ${c.negocio}${cancelada ? ", cancelada" : ""}`}
+                          aria-label={`${horaLima(c.inicio)} ${c.cliente || "Cliente"}, ${c.negocio}${cancelada ? ", cancelada" : ""}${textoMarca(c) ? `, ${textoMarca(c)}` : ""}`}
                           className={`pointer-events-auto relative z-10 block min-h-0! w-full truncate rounded-md border-l-[3px] px-1.5 py-0.5 text-left text-[0.72rem] leading-tight focus-visible:outline-2 focus-visible:outline-brasa ${
                             colorDe(colores, c.tenantId).bloque
                           } ${cancelada ? "line-through opacity-50" : ""}`}
                         >
+                          <MarcaNota cita={c} className="mr-1" />
                           <span className="font-semibold">{horaLima(c.inicio)}</span> {c.cliente || "Cliente"}
                         </button>
                       );

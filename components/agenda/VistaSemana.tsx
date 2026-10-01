@@ -16,6 +16,7 @@ import {
 } from "@/lib/agenda";
 import { colorDe } from "./colores";
 import { IconoTipo } from "./DetalleCitas";
+import { MarcaNota, textoMarca } from "./ResultadoLlamada";
 
 export function VistaSemana({
   dias,
@@ -143,7 +144,7 @@ export function VistaSemana({
                       <button
                         type="button"
                         onClick={() => onCita(c)}
-                        aria-label={`${horaLima(c.inicio)} a ${horaLima(c.fin)}, ${c.cliente || "Cliente"}, ${c.negocio}${cancelada ? ", cancelada" : ""}`}
+                        aria-label={`${horaLima(c.inicio)} a ${horaLima(c.fin)}, ${c.cliente || "Cliente"}, ${c.negocio}${cancelada ? ", cancelada" : ""}${textoMarca(c) ? `, ${textoMarca(c)}` : ""}`}
                         className={`absolute min-h-0! overflow-hidden rounded-md border-l-[3px] px-1.5 py-0.5 text-left text-[0.72rem] leading-tight shadow-sm transition hover:z-10 hover:shadow-md focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-brasa ${
                           colorDe(colores, c.tenantId).bloque
                         } ${cancelada ? "line-through opacity-50" : ""}`}
@@ -159,12 +160,14 @@ export function VistaSemana({
                             en sílabas no se lee. */}
                         {compacto ? (
                           <span className="block truncate">
+                            <MarcaNota cita={c} className="mr-1" />
                             <span className="font-semibold">{horaLima(c.inicio)}</span> <IconoTipo cita={c} />{" "}
                             {c.cliente || "Cliente"}
                           </span>
                         ) : (
                           <>
                             <span className="block truncate">
+                              <MarcaNota cita={c} className="mr-1" />
                               <span className="font-semibold">{horaLima(c.inicio)}</span> <IconoTipo cita={c} />
                               {detallado && <span className="font-semibold"> {c.cliente || "Cliente"}</span>}
                             </span>
@@ -178,6 +181,10 @@ export function VistaSemana({
                         )}
                         {!compacto && detallado && c.atiende && (
                           <span className="block truncate opacity-80">Atiende {c.atiende}</span>
+                        )}
+                        {/* En el Día hay espacio: la nota misma, para leerla sin abrir. */}
+                        {!compacto && detallado && c.notaResultado?.trim() && (
+                          <span className="block truncate italic">✎ {c.notaResultado}</span>
                         )}
                       </button>
                     </div>

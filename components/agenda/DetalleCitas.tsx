@@ -10,7 +10,7 @@ import { createPortal } from "react-dom";
 import type { CitaAgenda } from "@/lib/api";
 import { horaLima, tipoDeCita } from "@/lib/agenda";
 import { colorDe } from "./colores";
-import { ResultadoLlamada } from "./ResultadoLlamada";
+import { MarcaNota, ResultadoLlamada } from "./ResultadoLlamada";
 import { AgendarOtra } from "./AgendarOtra";
 
 const chip =
@@ -49,6 +49,7 @@ export function TarjetaCita({
     <article className={`rounded-tarjeta bg-carta p-4 ring-1 ring-linea ${cancelada ? "opacity-60" : ""}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className={`min-w-0 break-words font-semibold text-tinta ${cancelada ? "line-through" : ""}`}>
+          <MarcaNota cita={c} className="mr-1.5" />
           <IconoTipo cita={c} /> {horaLima(c.inicio)}–{horaLima(c.fin)} · {c.cliente || "Cliente"}
         </p>
         <span className="inline-flex items-center gap-1.5 text-[0.75rem] text-frio">

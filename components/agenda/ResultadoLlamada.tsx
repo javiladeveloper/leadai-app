@@ -8,12 +8,46 @@
 import { useId, useState } from "react";
 import { anotarResultadoCita, type CitaAgenda, type ResultadoCita } from "@/lib/api";
 
-export const RESULTADOS: { valor: ResultadoCita; etiqueta: string; clase: string }[] = [
-  { valor: "interesado", etiqueta: "Interesado", clase: "bg-brasa-suave text-brasa-texto" },
-  { valor: "otra_fecha", etiqueta: "Quiere otra fecha", clase: "bg-tibio-suave text-tinta" }, // distinto de "Interesado": hay que volver a llamar
-  { valor: "no_contesto", etiqueta: "No contestó", clase: "bg-arena-2 text-tinta-2" },
-  { valor: "no_interesado", etiqueta: "No le interesa", clase: "bg-arena-2 text-frio" },
+// `clase`: la etiqueta suave del detalle. `marca`: el circulito sólido que
+// distingue en el calendario la reunión que ya tiene nota (mismos colores
+// que la app: verde interesado, naranja volver a llamar, ámbar no contestó).
+export const RESULTADOS: { valor: ResultadoCita; etiqueta: string; clase: string; marca: string }[] = [
+  { valor: "interesado", etiqueta: "Interesado", clase: "bg-brasa-suave text-brasa-texto", marca: "bg-emerald-600 text-white" },
+  { valor: "otra_fecha", etiqueta: "Quiere otra fecha", clase: "bg-calor-suave text-calor-hondo", marca: "bg-orange-500 text-white" },
+  { valor: "no_contesto", etiqueta: "No contestó", clase: "bg-tibio-suave text-tinta", marca: "bg-amber-500 text-white" },
+  { valor: "no_interesado", etiqueta: "No le interesa", clase: "bg-arena-2 text-frio", marca: "bg-slate-400 text-white" },
 ];
+
+/** Solo nota, sin resultado marcado. */
+const MARCA_SOLO_NOTA = "bg-tinta text-carta";
+
+/** "Interesado · con nota", para el aria-label y el title del calendario. */
+export function textoMarca(c: CitaAgenda): string | null {
+  if (!tieneResultado(c)) return null;
+  const r = RESULTADOS.find((x) => x.valor === c.resultado);
+  const conNota = Boolean(c.notaResultado?.trim());
+  if (!r) return "Con nota";
+  return conNota ? `${r.etiqueta} · con nota` : r.etiqueta;
+}
+
+/**
+ * La marca de una reunión con nota o resultado: un circulito con ✎ del color
+ * del resultado. Va al inicio del bloque en Mes, Semana, Día y Lista.
+ */
+export function MarcaNota({ cita: c, className = "" }: { cita: CitaAgenda; className?: string }) {
+  const texto = textoMarca(c);
+  if (!texto) return null;
+  const r = RESULTADOS.find((x) => x.valor === c.resultado);
+  return (
+    <span
+      title={texto}
+      aria-hidden
+      className={`inline-grid h-4 w-4 shrink-0 place-items-center rounded-full align-[-0.15em] text-[0.62rem] font-bold leading-none ${r?.marca ?? MARCA_SOLO_NOTA} ${className}`}
+    >
+      ✎
+    </span>
+  );
+}
 
 const LARGO_NOTA = 2000;
 

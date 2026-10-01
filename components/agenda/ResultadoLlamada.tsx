@@ -17,9 +17,9 @@ export const RESULTADOS: { valor: ResultadoCita; etiqueta: string; clase: string
 
 const LARGO_NOTA = 2000;
 
-/** ¿Ya toca anotar? Desde que empezó la reunión, o si ya tiene algo anotado. */
-export function puedeAnotar(c: CitaAgenda, ahoraMs: number): boolean {
-  return c.estado !== "cancelada" && (Date.parse(c.inicio) <= ahoraMs || tieneResultado(c));
+/** ¿Ya empezó la reunión? Antes, la sección es "Notas"; después, "¿Cómo te fue?". */
+export function yaEmpezo(c: CitaAgenda, ahoraMs: number): boolean {
+  return Date.parse(c.inicio) <= ahoraMs;
 }
 
 export function tieneResultado(c: CitaAgenda): boolean {
@@ -38,14 +38,18 @@ export function ResultadoLlamada({
 }) {
   // El reloj se lee una vez al montar: alcanza para saber si la reunión ya pasó.
   const [ahoraMs] = useState(() => Date.now());
-  const [editando, setEditando] = useState(abiertoAlInicio && !tieneResultado(c));
+  // El formulario abierto solo en el detalle de una reunión que ya pasó y no tiene nada.
+  const [editando, setEditando] = useState(() => abiertoAlInicio && yaEmpezo(c, ahoraMs) && !tieneResultado(c));
   const [resultado, setResultado] = useState<ResultadoCita | null>(c.resultado ?? null);
   const [nota, setNota] = useState(c.notaResultado ?? "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const idNota = useId();
 
-  if (!puedeAnotar(c, ahoraMs)) return null;
+  // Las notas se escriben cuando sea: antes (para preparar la llamada),
+  // durante o después. Pedido de Jonathan con Lara a las 16:00.
+  if (c.estado === "cancelada") return null;
+  const empezo = yaEmpezo(c, ahoraMs) || Boolean(c.resultado);
 
   const elegido = RESULTADOS.find((r) => r.valor === c.resultado);
   const cambio = resultado !== (c.resultado ?? null) || nota.trim() !== (c.notaResultado ?? "").trim();
@@ -79,14 +83,14 @@ export function ResultadoLlamada({
           onClick={abrir}
           className="mt-3 inline-flex min-h-10! items-center rounded-chip px-1 text-[0.85rem] font-semibold text-brasa-texto underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-brasa"
         >
-          Anotar cómo te fue
+          {empezo ? "Anotar cómo te fue" : "Agregar notas"}
         </button>
       );
     }
     return (
       <div className="mt-3 rounded-tarjeta bg-arena p-3">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-frio">Cómo te fue</p>
+          <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-frio">{empezo ? "Cómo te fue" : "Notas"}</p>
           <button
             type="button"
             onClick={abrir}
@@ -109,7 +113,7 @@ export function ResultadoLlamada({
 
   return (
     <div className="mt-3 rounded-tarjeta bg-arena p-3">
-      <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-frio">¿Cómo te fue?</p>
+      <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-frio">{empezo ? "¿Cómo te fue?" : "Notas"}</p>
       <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Resultado de la llamada">
         {RESULTADOS.map((r) => {
           const activo = resultado === r.valor;

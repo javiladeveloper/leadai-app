@@ -18,6 +18,11 @@ export const MENSAJES_A_PEDIR = 150;
 export const MENSAJES_VISIBLES = 60;
 /** Cuántos más trae cada toque de "Ver mensajes anteriores". */
 export const TRAMO = 100;
+/**
+ * Los que trae el sondeo de 4 s del chat abierto (2026-10-05): solo lo último,
+ * que se pega a lo que ya está en pantalla (lib/bandeja-rapida.ts).
+ */
+export const MENSAJES_SONDEO = 30;
 /** Tope del backend para `ultimos`. */
 export const MAX_PEDIDO = 1000;
 

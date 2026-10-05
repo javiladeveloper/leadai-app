@@ -24,6 +24,26 @@ export function agregarPaginaVieja<T extends { id: string }>(actuales: T[], pagi
   return [...actuales, ...pagina.filter((l) => !ids.has(l.id))];
 }
 
+/**
+ * EL SONDEO DEL CHAT ABIERTO TRAE SOLO LO ÚLTIMO (2026-10-05, "cuando hago click
+ * en una conversación demora mucho"). Cada 4 s se volvían a pedir los últimos
+ * 150 mensajes del chat abierto. Ahora el sondeo pide unos pocos y se pegan a
+ * los que ya están en pantalla:
+ *
+ * - lo que trae el sondeo manda (puede traer un estado nuevo: enviado → leído);
+ * - de lo anterior se queda solo lo MÁS VIEJO que el primero del sondeo;
+ * - los provisionales (`enviando-…`) se van: el servidor ya trae el real.
+ */
+export function mezclarMensajesRecientes<T extends { id: string; creadoEn: string }>(anteriores: T[], recientes: T[]): T[] {
+  if (recientes.length === 0) return anteriores.filter((m) => !m.id.startsWith("enviando-"));
+  const desde = new Date(recientes[0].creadoEn).getTime();
+  const ids = new Set(recientes.map((m) => m.id));
+  const viejos = anteriores.filter(
+    (m) => !m.id.startsWith("enviando-") && !ids.has(m.id) && new Date(m.creadoEn).getTime() < desde,
+  );
+  return [...viejos, ...recientes];
+}
+
 const ZONA = "America/Lima";
 const diaDe = (d: Date) => d.toLocaleDateString("es-PE", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" });
 

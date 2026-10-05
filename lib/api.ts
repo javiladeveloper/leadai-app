@@ -424,6 +424,12 @@ export interface Lead {
   // Etiquetas libres del contacto (chips de la ficha).
   etiquetas?: string[];
   creadoEn: string;
+  /**
+   * Fecha del ÚLTIMO MENSAJE (la mantiene un trigger en la base). Es el orden
+   * de la bandeja: la hora que se muestra tiene que ser esta, no la de la
+   * última escritura (2026-10-05, "se desacomoda por última actualización").
+   */
+  ultimoMensajeEn?: string | null;
   actualizadoEn: string;
 }
 
@@ -663,16 +669,17 @@ export async function listarBandejaGlobal(filtros?: {
  * llega y suma las demás detrás (ver lib/bandeja-rapida.ts), en vez de esperar
  * a bajar las 20 en serie.
  */
-export async function paginaLeads(cursor: string | null): Promise<{ items: Lead[]; siguienteCursor: string | null }> {
-  const qs = new URLSearchParams({ limit: "100" });
+export async function paginaLeads(cursor: string | null, limite = 100): Promise<{ items: Lead[]; siguienteCursor: string | null }> {
+  const qs = new URLSearchParams({ limit: String(limite) });
   if (cursor) qs.set("cursor", cursor);
   return api(`/leads?${qs.toString()}`);
 }
 
 export async function paginaBandejaGlobal(
   cursor: string | null,
+  limite = 100,
 ): Promise<{ negocios: NegocioBandeja[]; items: LeadGlobal[]; siguienteCursor: string | null }> {
-  const qs = new URLSearchParams({ limit: "100" });
+  const qs = new URLSearchParams({ limit: String(limite) });
   if (cursor) qs.set("cursor", cursor);
   return api(`/bandeja-global?${qs.toString()}`, { conEmpresa: false });
 }
@@ -1360,7 +1367,17 @@ export async function subirFotoVendedor(imagen: string): Promise<{ ok: boolean; 
 
 // ── Equipo (trabajadores del negocio) ──────────────────────
 export type RolMiembro = "owner" | "admin" | "agente" | "ventas" | "marketing" | "mozo" | "cocina" | "operador";
-export interface MiembroEquipo { usuarioId: string; email: string; nombre: string | null; rol: RolMiembro }
+export interface MiembroEquipo {
+  usuarioId: string; email: string; nombre: string | null; rol: RolMiembro;
+  /** ¿Entra al reparto de leads por carga? (2026-10-05). Ausente = sí (backend viejo). */
+  recibeLeads?: boolean;
+}
+
+/** Prende/apaga que esta persona reciba leads del reparto (solo administradores). */
+export async function cambiarRecibeLeads(usuarioId: string, recibeLeads: boolean): Promise<{ ok: boolean; error?: string }> {
+  try { await api(`/equipo/miembro/${usuarioId}/reparto`, { method: "PATCH", body: { recibeLeads } }); return { ok: true }; }
+  catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" }; }
+}
 export interface InvitacionPendiente { id: string; email: string; rol: RolMiembro; token: string; creadoEn: string }
 
 export async function obtenerEquipo(tenant?: string): Promise<{ miembros: MiembroEquipo[]; invitaciones: InvitacionPendiente[] }> {

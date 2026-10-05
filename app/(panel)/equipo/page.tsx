@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import { haySesion, rolEnEmpresaActiva, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import { useCapacidades } from "@/lib/modo-negocio";
 import {
-  obtenerEquipo, invitarMiembro, cancelarInvitacion, quitarMiembro, obtenerMiPlan, exportarNegocio,
+  obtenerEquipo, invitarMiembro, cancelarInvitacion, quitarMiembro, obtenerMiPlan, exportarNegocio, cambiarRecibeLeads,
   type MiembroEquipo, type InvitacionPendiente,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
 import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 import { QuienAtiende } from "@/components/panel/QuienAtiende";
+
+// Roles que entran al reparto de leads (espejo de ROLES_QUE_VENDEN en leadia/src/core/reparto-vendedores.ts).
+const VENDEN: string[] = ["owner", "admin", "agente", "ventas"];
 
 const ROL_LABEL: Record<string, string> = {
   owner: "Dueño", admin: "Administrador", agente: "Vendedor", mozo: "Mozo",
@@ -288,6 +291,12 @@ function EquipoPanel() {
           {/* Miembros */}
           <div>
             <p className="mb-2 text-[0.85rem] font-bold uppercase tracking-wide text-frio">En el equipo</p>
+            {/* El reparto por carga (2026-10-05): cada lead que pasa a una persona va a
+                quien tiene menos. Quien solo supervisa —el dueño, casi siempre— se apaga. */}
+            <p className="mb-3 text-[0.82rem] text-tinta-2">
+              Cada lead que necesita una persona va a quien tiene menos leads activos.
+              Apaga <strong>Recibe leads</strong> a quien solo supervisa.
+            </p>
             <div className="space-y-2">
               {miembros.map((m) => (
                 <div key={m.usuarioId} className="flex items-center gap-3 rounded-tarjeta bg-carta p-3.5 ring-1 ring-linea">
@@ -301,6 +310,24 @@ function EquipoPanel() {
                   <span className="shrink-0 rounded-chip bg-arena px-2.5 py-1 text-[0.72rem] font-bold text-tinta-2">
                     {ROL_LABEL[m.rol] ?? m.rol}
                   </span>
+                  {VENDEN.includes(m.rol) && (
+                    <button
+                      role="switch"
+                      aria-checked={m.recibeLeads !== false}
+                      onClick={async () => {
+                        const nuevo = m.recibeLeads === false;
+                        setMiembros((ms) => ms.map((x) => (x.usuarioId === m.usuarioId ? { ...x, recibeLeads: nuevo } : x)));
+                        const r = await cambiarRecibeLeads(m.usuarioId, nuevo);
+                        if (!r.ok) cargar();
+                      }}
+                      title={m.recibeLeads === false ? "No recibe leads del reparto" : "Recibe leads del reparto"}
+                      className={`shrink-0 rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ring-1 transition-colors ${
+                        m.recibeLeads === false ? "bg-carta text-frio ring-linea" : "bg-brasa-suave text-brasa-hondo ring-transparent"
+                      }`}
+                    >
+                      {m.recibeLeads === false ? "No recibe leads" : "Recibe leads"}
+                    </button>
+                  )}
                   {m.rol !== "owner" && (
                     <button
                       onClick={async () => { await quitarMiembro(m.usuarioId); cargar(); }}

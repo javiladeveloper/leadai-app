@@ -38,9 +38,9 @@ import { AvisoVentanaCerrada, ChipVentana } from "@/components/VentanaWhatsApp";
 import { ventanaWhatsApp } from "@/lib/ventana-whatsapp";
 import type { Mensaje as MensajeUI } from "@/lib/tipos";
 import { useCapacidades } from "@/lib/modo-negocio";
-import { MENSAJES_A_PEDIR, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
+import { MENSAJES_A_PEDIR, MENSAJES_SONDEO, MENSAJES_VISIBLES, tramoVisible, verAnteriores } from "@/lib/chat-tramos";
 import { useChatAlFinal } from "@/lib/useChatAlFinal";
-import { agregarPaginaVieja, horaDe, mezclarPaginaReciente, separadorDeDia } from "@/lib/bandeja-rapida";
+import { agregarPaginaVieja, horaDe, mezclarMensajesRecientes, mezclarPaginaReciente, separadorDeDia } from "@/lib/bandeja-rapida";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -93,7 +93,7 @@ function aTarjeta(lead: LeadLista, conEtiqueta: boolean): TarjetaLeadProps {
     temperatura: lead.nivelInteres,
     urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
     resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
-    haceMinutos: minutosDesde(lead.actualizadoEn),
+    haceMinutos: minutosDesde(lead.ultimoMensajeEn ?? lead.creadoEn),
   };
 }
 
@@ -270,13 +270,13 @@ export default function ConversacionesPanel() {
   // cada sondeo de 4 s.
   // Modo global: conversaciones de TODOS los negocios de captación con su
   // etiqueta. Modo empresa: solo la activa, como siempre.
-  const pedirPagina = useCallback(async (cursor: string | null) => {
+  const pedirPagina = useCallback(async (cursor: string | null, limite?: number) => {
     if (esModoGlobal()) {
-      const r = await paginaBandejaGlobal(cursor);
+      const r = await paginaBandejaGlobal(cursor, limite);
       setNegocios(r.negocios);
       return r as { items: LeadLista[]; siguienteCursor: string | null };
     }
-    return (await paginaLeads(cursor)) as { items: LeadLista[]; siguienteCursor: string | null };
+    return (await paginaLeads(cursor, limite)) as { items: LeadLista[]; siguienteCursor: string | null };
   }, []);
 
   // Una carga completa nueva cancela la anterior (p. ej. al volver a entrar).
@@ -302,10 +302,14 @@ export default function ConversacionesPanel() {
     }
   }, [pedirPagina]);
 
-  /** Sondeo y tras cada acción: solo lo que se movió (la primera página). */
+  /**
+   * Sondeo y tras cada acción: solo lo que se movió. Una página CORTA (2026-10-05):
+   * cada 4 s se bajaban 100 conversaciones enteras (~110 KB, ~2,5 s) para
+   * enterarse de las dos o tres que cambiaron. Las demás ya están en pantalla.
+   */
   const cargarReciente = useCallback(async () => {
     try {
-      const r = await pedirPagina(null);
+      const r = await pedirPagina(null, 25);
       setLeads((prev) => mezclarPaginaReciente(prev, r.items));
       setEstadoLista("ok");
     } catch (e) {
@@ -345,6 +349,29 @@ export default function ConversacionesPanel() {
     } catch (e) {
       void e;
       setEstadoLead("error");
+    }
+  }, [guardarEnCache]);
+
+  /**
+   * SONDEO DEL CHAT ABIERTO (2026-10-05): trae solo los últimos mensajes y los
+   * pega a los que ya están (lib/bandeja-rapida.ts). Antes cada 4 s volvían a
+   * bajar los últimos 150.
+   */
+  const cargarLeadSondeo = useCallback(async (id: string, tenant?: string) => {
+    try {
+      const r = await obtenerLead(id, tenant, MENSAJES_SONDEO);
+      if (abiertoRef.current && abiertoRef.current !== id) return;
+      if (!r) { setSeleccionadoId(null); return; }
+      setLead((prev) => {
+        const junto = prev && prev.id === id
+          ? { ...r, mensajes: mezclarMensajesRecientes(prev.mensajes, r.mensajes) }
+          : r;
+        guardarEnCache(id, junto);
+        return junto;
+      });
+      setEstadoLead("ok");
+    } catch (e) {
+      void e; // un sondeo fallido no tumba el chat que ya se ve
     }
   }, [guardarEnCache]);
 
@@ -413,7 +440,7 @@ export default function ConversacionesPanel() {
   // (con 10s la conversación se percibía congelada — feedback 2026-08-04).
   usePolling(() => {
     cargarReciente();
-    if (seleccionadoId && !enviando && notaEdit === null) cargarLead(seleccionadoId, tenantSel);
+    if (seleccionadoId && !enviando && notaEdit === null) cargarLeadSondeo(seleccionadoId, tenantSel);
   }, 4000);
 
   async function enviarRespuesta() {
@@ -896,7 +923,7 @@ export default function ConversacionesPanel() {
                             {l.nombre ?? l.contactoExterno}
                           </span>
                           <span className="shrink-0 text-[0.7rem] text-frio">
-                            {haceTexto(minutosDesde(l.actualizadoEn))}
+                            {haceTexto(minutosDesde(l.ultimoMensajeEn ?? l.creadoEn))}
                           </span>
                         </span>
                         {/* El resumen solo donde la IA lo genera: en pedidos

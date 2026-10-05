@@ -14,6 +14,7 @@ import { PresenciaEditor } from "@/components/panel/PresenciaEditor";
 import { SeccionAnuncios } from "@/components/panel/SeccionAnuncios";
 import { AjustesMarketing } from "@/components/panel/AjustesMarketing";
 import PublicarPanel from "@/components/panel/PublicarPanel";
+import { GoogleAdsPanel } from "@/components/panel/GoogleAdsPanel";
 
 /**
  * Marketing reúne las tareas de captación y retención en un espacio de trabajo.
@@ -21,7 +22,7 @@ import PublicarPanel from "@/components/panel/PublicarPanel";
  * negocio enfocado y montaje de los editores para no perder borradores.
  */
 
-type Pestania = "anuncios" | "campanias" | "presencia" | "publicar" | "automatico";
+type Pestania = "anuncios" | "google" | "campanias" | "presencia" | "publicar" | "automatico";
 
 export default function MarketingPanel() {
   const router = useRouter();
@@ -42,6 +43,7 @@ export default function MarketingPanel() {
     : t === "presencia" ? "presencia"
     : t === "publicar" ? "publicar"
     : t === "automatico" ? "automatico"
+    : t === "google" ? "google"
     : "anuncios";
   const [pestania, setPestania] = useState<Pestania>(inicial);
   const [menuVertical, setMenuVertical] = useState(false);
@@ -117,7 +119,7 @@ export default function MarketingPanel() {
   // `presencia` no tiene capacidad: Google Maps le sirve a cualquier negocio
   // con dirección, sea restaurante o consultorio. Por eso nunca cae de ella.
   const mostrar: Pestania =
-    pestania === "anuncios" && !caps.tieneAnuncios ? (caps.tieneCampanias ? "campanias" : "presencia")
+    (pestania === "anuncios" || pestania === "google") && !caps.tieneAnuncios ? (caps.tieneCampanias ? "campanias" : "presencia")
     : pestania === "campanias" && !caps.tieneCampanias ? (caps.tieneAnuncios ? "anuncios" : "presencia")
     : pestania;
 
@@ -141,7 +143,7 @@ export default function MarketingPanel() {
 
   function moverConTeclado(evento: React.KeyboardEvent<HTMLButtonElement>, actual: Pestania) {
     const disponibles: Pestania[] = [
-      ...(caps.tieneAnuncios ? ["anuncios" as const] : []),
+      ...(caps.tieneAnuncios ? ["anuncios" as const, "google" as const] : []),
       ...(caps.tieneCampanias ? ["campanias" as const] : []),
       "publicar", "presencia", "automatico",
     ];
@@ -250,6 +252,9 @@ export default function MarketingPanel() {
         <div id="marketing-tablist" className="flex gap-2 overflow-x-auto pb-2 xl:flex-col xl:overflow-visible xl:rounded-2xl xl:bg-carta xl:p-2 xl:shadow-[var(--sombra-tarjeta)]" role="tablist" aria-label="Áreas de Marketing" aria-orientation={menuVertical ? "vertical" : "horizontal"}>
         {([
           { id: "anuncios", label: "Anuncios", ayuda: "Traer gente nueva", icono: <IconoMegafono />, cap: "tieneAnuncios" },
+          // GOOGLE ADS (2026-10-05): solo lectura de la cuenta del negocio,
+          // con los contactos que esos anuncios trajeron a LeadAI.
+          { id: "google", label: "Google Ads", ayuda: "Quién te busca en Google", icono: <IconoLupa />, cap: "tieneAnuncios" },
           { id: "campanias", label: "Campañas", ayuda: "Hacer que vuelvan", icono: <IconoRepetir />, cap: "tieneCampanias" },
           // PUBLICAR entra a Marketing (2026-08-27, Jonathan: "lo que tenemos
           // en la aplicación que irá para Guisela, poder publicar videos e
@@ -342,6 +347,8 @@ export default function MarketingPanel() {
       ) : mostrar === "publicar" ? null
       : mostrar === "anuncios" ? (
         <SeccionAnuncios tenant={tenantPlan} nombreNegocio={nombreNegocio} />
+      ) : mostrar === "google" ? (
+        <GoogleAdsPanel key={tenantPlan} tenant={tenantPlan} />
       ) : mostrar === "automatico" ? (
         <AjustesMarketing key={tenantPlan} tenant={tenantPlan} />
       ) : null}
@@ -392,6 +399,15 @@ function IconoUbicacion() {
     <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z" />
       <circle cx="12" cy="10" r="2.6" />
+    </svg>
+  );
+}
+
+function IconoLupa() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M20 20l-4.2-4.2" />
     </svg>
   );
 }

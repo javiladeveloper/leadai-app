@@ -33,6 +33,7 @@ async function montarMarketing({ inicial = 'anuncios', anuncios = true, campania
     '@/components/panel/PublicarPanel': { __esModule: true, default: () => createElement('span', {}, 'Contenido publicar') },
     '@/components/panel/PresenciaEditor': { PresenciaEditor: () => createElement('span', {}, 'Contenido presencia') },
     '@/components/panel/SeccionAnuncios': { SeccionAnuncios: () => createElement('span', {}, 'Contenido anuncios') },
+    '@/components/panel/GoogleAdsPanel': { GoogleAdsPanel: () => createElement('span', {}, 'Contenido google ads') },
     '@/components/panel/HeroSeccion': { HeroSeccion: vacio, MarketingIlustracion: vacio },
   }, { Cargando: () => createElement('p', {}, 'Cargando'), ...entorno });
   r.montar(mod.default); await r.flush();
@@ -82,8 +83,9 @@ test('las pestañas exponen nombre, panel y navegación de teclado', async () =>
   const anuncios = m.tab('Anuncios');
   assert.ok(anuncios.props.id && anuncios.props['aria-controls']);
   assert.equal(anuncios.props.tabIndex, 0);
+  // Después de Anuncios viene Google Ads (2026-10-05): misma familia, se paga.
   anuncios.props.onKeyDown({ key: 'ArrowRight', preventDefault() {} }); await m.r.flush();
-  assert.equal(m.tab('Campañas').props['aria-selected'], true);
+  assert.equal(m.tab('Google Ads').props['aria-selected'], true);
   m.r.desmontar();
 });
 
@@ -110,6 +112,6 @@ test('en escritorio el menú vertical anuncia su orientación y acepta flecha ab
   assert.equal(m.r.nodos(n => n.props.role === 'tablist')[0].props['aria-orientation'], 'vertical');
   m.tab('Anuncios').props.onKeyDown({ key: 'ArrowDown', preventDefault() {} });
   await m.r.flush();
-  assert.equal(m.tab('Campañas').props['aria-selected'], true);
+  assert.equal(m.tab('Google Ads').props['aria-selected'], true);
   m.r.desmontar();
 });

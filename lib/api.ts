@@ -3087,3 +3087,55 @@ export function obtenerQuienAtiende(): Promise<QuienAtiende> {
 export function guardarQuienAtiende(usuarioId: string): Promise<{ ok: true }> {
   return api("/agenda/quien-atiende", { method: "PUT", body: { usuarioId } });
 }
+
+/* ── GOOGLE ADS (2026-10-05) ─────────────────────────────────────────────
+   Solo lectura: el dueño conecta su cuenta de Google Ads y ve en Marketing
+   gasto, clics, búsquedas y cuántos contactos le trajo Google. */
+
+export interface CuentaGoogleAds { id: string; nombre: string; moneda: string; esAdministrador: boolean }
+
+export interface EstadoGoogleAds {
+  disponible: boolean;
+  conectado: boolean;
+  cuenta: { id: string; idLegible: string; nombre: string; moneda: string } | null;
+  correo: string | null;
+  opciones: CuentaGoogleAds[] | null;
+}
+
+export interface MetricasGoogleAds {
+  cuenta: { id: string; idLegible: string; nombre: string; moneda: string };
+  periodo: { dias: number; desde: string; hasta: string };
+  total: { impresiones: number; clics: number; costo: number; conversiones: number; ctr: number; cpc: number };
+  campanias: Array<{ id: string; nombre: string; estado: string; impresiones: number; clics: number; costo: number; conversiones: number; ctr: number; cpc: number }>;
+  busquedas: Array<{ termino: string; impresiones: number; clics: number; costo: number; conversiones: number }>;
+  dias: Array<{ fecha: string; costo: number; clics: number; conversiones: number }>;
+  contactos: { total: number; demos: number; costoPorContacto: number | null };
+  actualizadoEn: string;
+}
+
+export async function estadoGoogleAds(tenant?: string): Promise<EstadoGoogleAds | null> {
+  try { return await api<EstadoGoogleAds>("/google-ads/estado", { tenant }); } catch { return null; }
+}
+
+export async function urlConexionGoogleAds(tenant?: string): Promise<string | null> {
+  try { return (await api<{ url: string }>("/google-ads/url", { tenant })).url; } catch { return null; }
+}
+
+export async function conectarGoogleAds(
+  customerId: string, tenant?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await api("/google-ads/conectar", { method: "POST", tenant, body: { customerId } });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo conectar la cuenta" };
+  }
+}
+
+export async function desconectarGoogleAds(tenant?: string): Promise<boolean> {
+  try { await api("/google-ads", { method: "DELETE", tenant }); return true; } catch { return false; }
+}
+
+export async function metricasGoogleAds(dias: number, tenant?: string): Promise<MetricasGoogleAds> {
+  return api<MetricasGoogleAds>(`/google-ads/metricas?dias=${dias}`, { tenant });
+}

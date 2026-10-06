@@ -3106,9 +3106,20 @@ export interface MetricasGoogleAds {
   cuenta: { id: string; idLegible: string; nombre: string; moneda: string };
   periodo: { dias: number; desde: string; hasta: string };
   total: { impresiones: number; clics: number; costo: number; conversiones: number; ctr: number; cpc: number };
-  campanias: Array<{ id: string; nombre: string; estado: string; impresiones: number; clics: number; costo: number; conversiones: number; ctr: number; cpc: number }>;
+  campanias: Array<{
+    id: string; nombre: string; estado: string; impresiones: number; clics: number; costo: number; conversiones: number; ctr: number; cpc: number;
+    /** 0-100; null mientras Google no tiene datos. Opcional: cachés viejas no lo traen. */
+    cuota?: { aparecio: number | null; perdidaPresupuesto: number | null; perdidaRanking: number | null };
+  }>;
   busquedas: Array<{ termino: string; impresiones: number; clics: number; costo: number; conversiones: number }>;
   dias: Array<{ fecha: string; costo: number; clics: number; conversiones: number }>;
+  // Detalle (backend 2026-10-05). Opcionales: un backend anterior no los manda.
+  grupos?: Array<{ nombre: string; estado: string; impresiones: number; clics: number; costo: number; conversiones: number; ctr: number; cpc: number }>;
+  palabras?: Array<{ texto: string; concordancia: string; grupo: string; calidad: number | null; impresiones: number; clics: number; costo: number; conversiones: number }>;
+  conversionesPorTipo?: Array<{ nombre: string; conversiones: number }>;
+  dispositivos?: Array<{ dispositivo: string; impresiones: number; clics: number; costo: number; conversiones: number }>;
+  ciudades?: Array<{ ciudad: string; impresiones: number; clics: number; costo: number }>;
+  horas?: Array<{ hora: number; impresiones: number; clics: number }>;
   contactos: { total: number; demos: number; costoPorContacto: number | null };
   actualizadoEn: string;
 }

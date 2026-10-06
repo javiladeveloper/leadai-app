@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ApiError, conectarGoogleAds, desconectarGoogleAds, estadoGoogleAds, metricasGoogleAds, urlConexionGoogleAds,
   type CuentaGoogleAds, type EstadoGoogleAds, type MetricasGoogleAds,
@@ -247,17 +247,74 @@ function MetricasGoogle({ tenant, estado, onDesconectar }: { tenant?: string; es
             </div>
           )}
 
+          <AvisoCuota campanias={m.campanias} />
+
           <Tabla
             titulo="Campañas"
             vacio="Sin campañas con actividad en este periodo."
-            cabeza={["Campaña", "Estado", "Gasto", "Clics", "Costo/clic", "Conv."]}
-            filas={m.campanias.map((c) => [c.nombre, c.estado, dinero(c.costo, moneda), entero(c.clics), dinero(c.cpc, moneda), String(c.conversiones)])}
+            cabeza={["Campaña", "Estado", "Gasto", "Clics", "Costo/clic", "Apareciste", "Conv."]}
+            filas={m.campanias.map((c) => [
+              c.nombre, c.estado, dinero(c.costo, moneda), entero(c.clics), dinero(c.cpc, moneda),
+              c.cuota?.aparecio != null ? `${c.cuota.aparecio}%` : "—", String(c.conversiones),
+            ])}
+            nota="«Apareciste»: de cada 100 búsquedas que calzaban con tus palabras, en cuántas salió tu anuncio. Google lo calcula cuando junta suficientes datos."
           />
+
+          {(m.grupos?.length ?? 0) > 0 && (
+            <Tabla
+              titulo="Por especialidad"
+              vacio=""
+              cabeza={["Grupo", "Visto", "Clics", "Lo tocó", "Gasto", "Conv."]}
+              filas={m.grupos!.map((g) => [
+                g.nombre, entero(g.impresiones), entero(g.clics), `${g.ctr}%`, dinero(g.costo, moneda), String(g.conversiones),
+              ])}
+              apagadas={m.grupos!.map((g) => g.impresiones === 0)}
+              nota={m.grupos!.some((g) => g.impresiones === 0) ? "Las filas en gris no salieron en ninguna búsqueda: sus palabras casi no se buscan o compiten con otras." : undefined}
+            />
+          )}
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Barras
+              titulo="Dónde te vieron"
+              vacio="Google todavía no reporta ciudades."
+              filas={(m.ciudades ?? []).map((c) => ({ etiqueta: c.ciudad, valor: c.impresiones, detalle: `${entero(c.impresiones)} vistas · ${entero(c.clics)} clics` }))}
+            />
+            <Barras
+              titulo="Desde qué aparato"
+              vacio="Google todavía no reporta aparatos."
+              filas={(m.dispositivos ?? []).map((d) => ({
+                etiqueta: d.dispositivo.charAt(0).toUpperCase() + d.dispositivo.slice(1),
+                valor: d.impresiones,
+                detalle: `${entero(d.impresiones)} vistas · ${entero(d.clics)} clics · ${dinero(d.costo, moneda)}`,
+              }))}
+            />
+            <Horas horas={m.horas ?? []} />
+            <Conversiones tipos={m.conversionesPorTipo ?? []} />
+          </div>
+
+          {(m.palabras?.length ?? 0) > 0 && (
+            <Tabla
+              titulo="Tus palabras clave"
+              vacio=""
+              cabeza={["Palabra", "Visto", "Clics", "Gasto", "Calidad"]}
+              filas={m.palabras!.map((p) => [
+                <span key="p">
+                  {p.texto}
+                  <span className="block text-[0.72rem] font-normal text-frio">{p.grupo} · {p.concordancia}</span>
+                </span>,
+                entero(p.impresiones), entero(p.clics), dinero(p.costo, moneda),
+                p.calidad != null ? `${p.calidad}/10` : "—",
+              ])}
+              nota="Calidad: la nota de 1 a 10 que Google le pone a cada palabra (más alta = pagas menos por clic). Aparece cuando la palabra junta suficientes búsquedas."
+            />
+          )}
+
           <Tabla
             titulo="Qué buscó la gente"
             vacio="Google todavía no reporta búsquedas para este periodo."
-            cabeza={["Búsqueda", "Clics", "Gasto", "Conv."]}
-            filas={m.busquedas.map((b) => [b.termino, entero(b.clics), dinero(b.costo, moneda), String(b.conversiones)])}
+            cabeza={["Búsqueda", "Visto", "Clics", "Gasto", "Conv."]}
+            filas={m.busquedas.map((b) => [b.termino, entero(b.impresiones), entero(b.clics), dinero(b.costo, moneda), String(b.conversiones)])}
+            nota="Lo que la gente escribió de verdad. Si ves búsquedas que no son de clientes (empleo, cursos, gratis), conviene excluirlas."
           />
           <p className="text-[0.76rem] text-frio">
             Los contactos desde Google son los que llegaron a LeadAI desde tu web después de entrar por un anuncio. Google Ads
@@ -283,7 +340,11 @@ function Cifra({ titulo, valor, nota, destacado }: { titulo: string; valor: stri
   );
 }
 
-function Tabla({ titulo, cabeza, filas, vacio }: { titulo: string; cabeza: string[]; filas: string[][]; vacio: string }) {
+function Tabla({ titulo, cabeza, filas, vacio, nota, apagadas }: {
+  titulo: string; cabeza: string[]; filas: ReactNode[][]; vacio: string; nota?: string;
+  /** Filas sin actividad: se muestran pero en gris, para que salte lo que sí rinde. */
+  apagadas?: boolean[];
+}) {
   return (
     <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
       <p className="text-[0.86rem] font-bold text-tinta">{titulo}</p>
@@ -299,7 +360,7 @@ function Tabla({ titulo, cabeza, filas, vacio }: { titulo: string; cabeza: strin
             </thead>
             <tbody>
               {filas.map((f, i) => (
-                <tr key={`${f[0]}-${i}`} className="border-t border-linea">
+                <tr key={i} className={`border-t border-linea ${apagadas?.[i] ? "opacity-50" : ""}`}>
                   {f.map((celda, j) => (
                     <td key={j} className={`py-2 tabular-nums ${j === 0 ? "pr-3 font-semibold text-tinta" : "text-right text-tinta-2"}`}>{celda}</td>
                   ))}
@@ -308,6 +369,116 @@ function Tabla({ titulo, cabeza, filas, vacio }: { titulo: string; cabeza: strin
             </tbody>
           </table>
         </div>
+      )}
+      {nota && filas.length > 0 && <p className="mt-3 text-[0.74rem] text-frio">{nota}</p>}
+    </div>
+  );
+}
+
+/**
+ * Lo único accionable que Google calcula solo: si te estás perdiendo búsquedas
+ * por PLATA (subir el presupuesto) o por RANKING (mejorar anuncio/puja). Se
+ * muestra solo cuando pasa del 20 %: un aviso permanente se deja de leer.
+ */
+function AvisoCuota({ campanias }: { campanias: MetricasGoogleAds["campanias"] }) {
+  const avisos = campanias.flatMap((c) => {
+    const q = c.cuota;
+    if (!q) return [];
+    const out: string[] = [];
+    if ((q.perdidaPresupuesto ?? 0) >= 20) {
+      out.push(`«${c.nombre}» no salió en ${q.perdidaPresupuesto}% de las búsquedas porque se acabó el presupuesto del día. Subirlo trae más clics al mismo costo.`);
+    }
+    if ((q.perdidaRanking ?? 0) >= 20) {
+      out.push(`«${c.nombre}» no salió en ${q.perdidaRanking}% de las búsquedas porque otros anuncios quedaron mejor posicionados. Mejorar los textos o el tope por clic ayuda.`);
+    }
+    return out;
+  });
+  if (avisos.length === 0) return null;
+  return (
+    <div className="rounded-tarjeta bg-calor-suave/50 p-4 ring-1 ring-calor/30">
+      {avisos.map((a) => <p key={a} className="text-[0.86rem] font-semibold text-tinta">{a}</p>)}
+    </div>
+  );
+}
+
+function Barras({ titulo, filas, vacio }: { titulo: string; vacio: string; filas: Array<{ etiqueta: string; valor: number; detalle: string }> }) {
+  const max = Math.max(1, ...filas.map((f) => f.valor));
+  return (
+    <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+      <p className="text-[0.86rem] font-bold text-tinta">{titulo}</p>
+      {filas.length === 0 ? (
+        <p className="mt-2 text-[0.84rem] text-frio">{vacio}</p>
+      ) : (
+        <ul className="mt-3 space-y-2.5">
+          {filas.map((f) => (
+            <li key={f.etiqueta}>
+              <div className="flex items-baseline justify-between gap-3 text-[0.82rem]">
+                <span className="truncate font-semibold text-tinta">{f.etiqueta}</span>
+                <span className="shrink-0 tabular-nums text-frio">{f.detalle}</span>
+              </div>
+              <div className="mt-1 h-1.5 rounded-full bg-arena">
+                <div className="h-full rounded-full bg-brasa/70" style={{ width: `${Math.max(3, (f.valor / max) * 100)}%` }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Las 24 horas siempre, aunque Google solo mande las que tuvieron vistas: así se ve el hueco. */
+function Horas({ horas }: { horas: NonNullable<MetricasGoogleAds["horas"]> }) {
+  const porHora = new Map(horas.map((h) => [h.hora, h]));
+  const max = Math.max(1, ...horas.map((h) => h.impresiones));
+  const pico = horas.length ? horas.reduce((a, b) => (b.impresiones > a.impresiones ? b : a)) : null;
+  return (
+    <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+      <p className="text-[0.86rem] font-bold text-tinta">A qué hora te buscan</p>
+      {horas.length === 0 ? (
+        <p className="mt-2 text-[0.84rem] text-frio">Google todavía no reporta horas.</p>
+      ) : (
+        <>
+          <div className="mt-3 flex h-20 items-end gap-[2px]" aria-label="Vistas por hora del día">
+            {Array.from({ length: 24 }, (_, h) => {
+              const d = porHora.get(h);
+              return (
+                <div
+                  key={h}
+                  title={`${h}:00 · ${d?.impresiones ?? 0} vistas · ${d?.clics ?? 0} clics`}
+                  className={`flex-1 rounded-t ${d ? "bg-brasa/70 hover:bg-brasa" : "bg-arena"}`}
+                  style={{ height: `${d ? Math.max(6, (d.impresiones / max) * 100) : 4}%` }}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-1 flex justify-between text-[0.7rem] tabular-nums text-frio">
+            <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+          </div>
+          {pico && <p className="mt-2 text-[0.78rem] text-frio">Más vistas a las {pico.hora}:00 ({entero(pico.impresiones)}).</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Conversiones({ tipos }: { tipos: NonNullable<MetricasGoogleAds["conversionesPorTipo"]> }) {
+  return (
+    <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+      <p className="text-[0.86rem] font-bold text-tinta">Qué hicieron después del clic</p>
+      {tipos.length === 0 ? (
+        <p className="mt-2 text-[0.84rem] text-frio">
+          Todavía nadie escribió por WhatsApp, llamó ni agendó desde un anuncio en este periodo. Cuando pase, aparece aquí separado por acción.
+        </p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {tipos.map((t) => (
+            <li key={t.nombre} className="flex items-baseline justify-between gap-3 border-t border-linea pt-2 text-[0.84rem] first:border-t-0 first:pt-0">
+              <span className="font-semibold text-tinta">{t.nombre}</span>
+              <span className="tabular-nums text-tinta-2">{t.conversiones}</span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

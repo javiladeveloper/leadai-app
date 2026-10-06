@@ -2426,6 +2426,8 @@ export interface PlantillaHSM {
   idioma: string;
   cuerpo: string;
   encabezadoTipo?: string; // '' | IMAGE | VIDEO | DOCUMENT
+  /** Archivo de ejemplo con que Meta aprobó el encabezado (URL firmada, vence). */
+  encabezadoEjemplo?: string | null;
 }
 export interface CampaniaHSM {
   id: string;

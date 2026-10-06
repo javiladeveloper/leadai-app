@@ -17,6 +17,7 @@ import {
   type EstadoPagoCampanias,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { VistaEncabezado } from "@/components/panel/VistaEncabezado";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { CabeceraFormulario } from "@/components/panel/HeroSeccion";
 
@@ -740,6 +741,8 @@ function ContenidoCampanias(
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${et.clase}`}>{et.texto}</span>
                     </div>
                     <p className="mt-1 line-clamp-2 text-[0.84rem] text-tinta-2">{c.cuerpoVista || c.plantillaNombre}</p>
+                    {/* La imagen que sale CON esta campaña (puede no ser la del ejemplo de la plantilla). */}
+                    <VistaEncabezado tipo={c.encabezadoTipo} url={c.encabezadoUrl} etiqueta={`Imagen de la campaña ${c.nombre}`} />
                     {/* Barra de progreso del envío */}
                     <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-arena">
                       <div className="h-full rounded-full bg-brasa transition-all" style={{ width: `${progreso}%` }} />
@@ -883,7 +886,8 @@ function ContenidoCampanias(
                       </p>
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${et.clase}`}>{et.texto}</span>
                     </div>
-                    <p className="mt-1 whitespace-pre-wrap text-[0.84rem] text-tinta-2">{p.cuerpo}</p>
+                    <VistaEncabezado tipo={p.encabezadoTipo} url={p.encabezadoEjemplo} etiqueta={`Encabezado de la plantilla ${p.nombre}`} />
+                    <p className="mt-2 whitespace-pre-wrap text-[0.84rem] text-tinta-2">{p.cuerpo}</p>
                     <div className="mt-2 flex justify-end">
                       <button
                         onClick={() => borrarPlantilla(p.nombre)}

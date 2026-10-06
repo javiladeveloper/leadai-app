@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BadgeCanal } from "@/components/BadgeCanal";
+import { OrigenLead } from "@/components/panel/OrigenLead";
 import PopupLead from "@/components/panel/PopupLead";
 import { BarraNegociosGlobal } from "@/components/panel/GlobalNegocios";
 import type { NegocioBandeja } from "@/lib/api";
@@ -340,11 +341,9 @@ export default function SeguimientoPanel() {
                               💬 vino de un comentario
                             </span>
                           )}
-                          {lead.origenEtiqueta?.startsWith("ad:") && (
-                            <span className="rounded-full bg-brasa-suave px-2 py-0.5 text-[0.66rem] font-bold text-brasa-hondo">
-                              📣 {lead.origenEtiqueta.slice(3)}
-                            </span>
-                          )}
+                          {/* De dónde vino, igual que en Conversaciones (2026-10-06): antes
+                              acá salía el id crudo del anuncio ("📣 120256…"). */}
+                          {lead.origenEtiqueta !== "comentario" && <OrigenLead lead={lead} compacto />}
                         </div>
 
                         {/* Acciones de cierre — solo en etapas activas.

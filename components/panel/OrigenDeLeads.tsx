@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { origenDeLeads, type FilaOrigenLeads } from "@/lib/api";
 import { ErrorMarketing, importeMarketing, useLecturaMarketing } from "./marketing-lectura";
+import { ChipPlataforma } from "./OrigenLead";
 
 /**
  * QUÉ PUBLICIDAD TE TRAE CLIENTES (2026-09-17, pedido de Jonathan: "tampoco
@@ -75,7 +76,7 @@ function Fila({ f, maximo }: { f: FilaOrigenLeads & { moneda?: string | null }; 
     <div className="rounded-lg bg-arena/40 px-4 py-3">
       <div className="flex items-baseline justify-between gap-3">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span aria-hidden className="shrink-0">{icono}</span>
+          {f.plataforma ? <ChipPlataforma plataforma={f.plataforma} /> : <span aria-hidden className="shrink-0">{icono}</span>}
           <span className="truncate text-[0.86rem] font-semibold text-tinta">{f.etiqueta}</span>
         </span>
         <span className="shrink-0 text-[0.86rem] font-bold tabular-nums text-tinta">
@@ -99,7 +100,7 @@ function Fila({ f, maximo }: { f: FilaOrigenLeads & { moneda?: string | null }; 
         )}
         {/* Un anuncio sin gasto todavía NO se pinta como "gratis": el cron del
             histórico corre una vez al día y el hueco es temporal. */}
-        {f.tipo === "anuncio" && f.costoPorLeadCentavos === undefined && (
+        {f.tipo === "anuncio" && f.plataforma === "meta" && f.costoPorLeadCentavos === undefined && (
           <span>Costo no disponible</span>
         )}
         {f.campania && <span className="truncate">· {f.campania}</span>}

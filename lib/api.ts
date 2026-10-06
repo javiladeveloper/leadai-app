@@ -410,6 +410,8 @@ export interface Lead {
   origen?: {
     etiqueta: string;
     tipo: "anuncio" | "link" | "manual" | "otro";
+    /** En qué plataforma se pagó (2026-10-06). Ausente = no vino de publicidad. */
+    plataforma?: "meta" | "google" | "tiktok";
     campania?: string;
     gastoCentavos?: number;
     costoCentavos?: number;
@@ -2771,6 +2773,7 @@ export async function embudoAnuncios(tenant?: string, dias = 30): Promise<Embudo
 export interface FilaOrigenLeads {
   etiqueta: string;
   tipo: "anuncio" | "link" | "manual" | "otro";
+  plataforma?: "meta" | "google" | "tiktok";
   adId?: string;
   campania?: string;
   leads: number;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { ReporteAnuncios } from "@/components/panel/ReporteAnuncios";
 import { MetricasAnuncios } from "@/components/panel/MetricasAnuncios";
 import { RendimientoAnuncios } from "@/components/panel/RendimientoAnuncios";
@@ -10,6 +11,9 @@ import { OrigenDeLeads } from "@/components/panel/OrigenDeLeads";
 import { EmbudoAnuncios } from "@/components/panel/EmbudoAnuncios";
 import { AnunciosSinConectar } from "@/components/panel/AnunciosSinConectar";
 import { estadoAnuncios } from "@/lib/api";
+import { rolEnEmpresaActiva } from "@/lib/auth";
+
+const sinSuscripcion = () => () => {};
 
 /**
  * ANUNCIOS, ORDENADO POR PREGUNTA (2026-09-17, pedido de Jonathan: "organiza
@@ -55,6 +59,7 @@ export function SeccionAnuncios(props: { tenant?: string; nombreNegocio?: string
 
 function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreNegocio?: string }) {
   const [solapa, setSolapa] = useState<Solapa>("resumen");
+  const esMarketing = useSyncExternalStore(sinSuscripcion, () => rolEnEmpresaActiva() === "marketing", () => false);
   const [dias, setDias] = useState<7 | 30 | 90>(30);
   const [creadorVisitado, setCreadorVisitado] = useState(false);
   const [solicitudHistorial, setSolicitudHistorial] = useState(0);
@@ -138,7 +143,24 @@ function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreN
       <div className="mt-4">
         {solapa === "resumen" && (
           <div className="space-y-4">
-            <ReporteAnuncios tenant={tenant} dias={dias} />
+            {/* EL MARKETERO NO PIDE /reportes/anuncios (2026-10-07): en negocios
+                de pedidos trae las VENTAS, y ese puesto no ve la plata del
+                negocio. Tiene la misma tabla —con campaña, conjunto, fechas y
+                demos— en Reportes → Publicidad; se le manda allá en vez de
+                pintarle un error. */}
+            {esMarketing ? (
+              <div className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+                <h3 className="text-[1.05rem] font-bold text-tinta">Rendimiento de tus anuncios</h3>
+                <p className="mt-1 text-sm text-frio">
+                  El detalle por anuncio —gasto, leads, demos, costo por lead y por demo, con campaña, conjunto y fechas— está en Reportes.
+                </p>
+                <Link href="/reportes" className="mt-3 inline-flex rounded-chip bg-brasa px-4 py-2 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo">
+                  Ver en Reportes → Publicidad
+                </Link>
+              </div>
+            ) : (
+              <ReporteAnuncios tenant={tenant} dias={dias} />
+            )}
             {/* DE DÓNDE TE ESCRIBEN. Se queda en Resumen porque mide gente que
                 escribió —no clics— y es lo que responde si conviene el gasto.
                 El embudo, en cambio, explica el PORQUÉ: eso es análisis. */}

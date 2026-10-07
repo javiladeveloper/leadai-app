@@ -35,6 +35,8 @@ export function renderer() {
       });
     },
     useId() { const i = cursor++; return `campo-${actual.ruta}-${i}`; },
+    // En el cliente devuelve el valor actual de la fuente (rol, sesión...).
+    useSyncExternalStore(_suscribir, leer) { return leer(); },
   };
   function visitar(nodo, ruta, vivos) {
     if (nodo == null || typeof nodo === 'boolean') return null;

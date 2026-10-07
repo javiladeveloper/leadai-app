@@ -107,3 +107,25 @@ test('Marketing propaga su tenant visible a Automatizaciones', async () => {
   r.montar(mod.default); await r.flush();
   assert.equal(recibido.tenant, 'B');
 });
+
+test('el puesto de marketing no pide el reporte con ventas: se le manda a Reportes → Publicidad', async () => {
+  const r = renderer(), recibidas = {};
+  const componente = nombre => props => { recibidas[nombre] = props; return null; };
+  const { SeccionAnuncios } = cargarModulo('components/panel/SeccionAnuncios.tsx', {
+    react: r.hooks,
+    '@/lib/auth': { rolEnEmpresaActiva: () => 'marketing' },
+    '@/lib/api': { estadoAnuncios: async () => ({ conectada: true }) },
+    '@/components/panel/ReporteAnuncios': { ReporteAnuncios: componente('reporte') },
+    '@/components/panel/MetricasAnuncios': { MetricasAnuncios: componente('metricas') },
+    '@/components/panel/EmbudoAnuncios': { EmbudoAnuncios: componente('embudo') },
+    '@/components/panel/RendimientoAnuncios': { RendimientoAnuncios: componente('rendimiento') },
+    '@/components/panel/AnunciosPanel': { __esModule: true, default: () => null },
+    '@/components/panel/PublicosMeta': { PublicosMeta: componente('publicos') },
+    '@/components/panel/OrigenDeLeads': { OrigenDeLeads: componente('origen') },
+    '@/components/panel/AnunciosSinConectar': { AnunciosSinConectar: () => null },
+  });
+  r.montar(SeccionAnuncios, { tenant: 'B' }); await r.flush();
+  assert.equal(recibidas.reporte, undefined);
+  assert.equal(recibidas.origen.dias, 30);
+  assert.ok(r.nodos(n => n.props?.href === '/reportes').length === 1);
+});

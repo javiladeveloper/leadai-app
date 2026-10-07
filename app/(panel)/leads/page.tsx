@@ -49,6 +49,8 @@ function aTarjeta(lead: Lead): TarjetaLeadProps {
     urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
     resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
     haceMinutos: minutosDesde(lead.actualizadoEn),
+    origen: lead.origen,
+    entro: new Date(lead.creadoEn).toLocaleDateString("es-PE", { day: "numeric", month: "short" }),
   };
 }
 

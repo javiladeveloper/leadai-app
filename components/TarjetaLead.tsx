@@ -4,6 +4,8 @@ import type { Temperatura } from "@/lib/tipos";
 import { haceTexto } from "@/lib/leads";
 import { ChipTemp } from "./ChipTemp";
 import { BadgeCanal } from "./BadgeCanal";
+import { ChipPlataforma } from "./panel/OrigenLead";
+import type { Lead } from "@/lib/api";
 
 // Shape mínimo que la tarjeta necesita para renderizarse. Tanto el `Lead` de
 // demo (lib/tipos, usado hoy en Conversaciones) como el `Lead` real del
@@ -19,6 +21,14 @@ export interface TarjetaLeadProps {
   resumenIA: string;
   ultimoMensaje?: string;
   haceMinutos?: number;
+  /**
+   * DE DÓNDE VINO Y CUÁNTO COSTÓ (2026-10-07, Jonathan: "en la sección leads
+   * podrías colocar esos detalles, no solo el resumen"). Opcional: las
+   * pantallas que no lo tienen siguen igual.
+   */
+  origen?: Lead["origen"];
+  /** Cuándo entró, en texto ("5 oct"). */
+  entro?: string;
 }
 
 // Avatar con inicial, teñido por temperatura (lenguaje visual del Inicio).
@@ -80,6 +90,8 @@ export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
       {/* Resumen de la IA — el corazón de la tarjeta */}
       <p className="mt-2.5 text-[0.95rem] leading-snug text-tinta-2">{lead.resumenIA}</p>
 
+      {lead.origen && <LineaOrigen origen={lead.origen} entro={lead.entro} />}
+
       {(lead.ultimoMensaje || lead.haceMinutos !== undefined) && (
         <div className="mt-3 flex items-center justify-between">
           <p className="truncate pr-3 text-[0.85rem] italic text-frio">
@@ -112,5 +124,32 @@ export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
     <Link href={`/conversacion/${lead.id}`} className={clases}>
       {cuerpo}
     </Link>
+  );
+}
+
+const soles = (c: number) =>
+  `S/${(c / 100).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/**
+ * Una línea bajo el resumen: plataforma, anuncio, campaña y el costo repartido.
+ * El costo lleva "aprox." porque es el gasto del anuncio dividido entre los
+ * leads que trajo, no lo que costó esta persona.
+ */
+function LineaOrigen({ origen, entro }: { origen: NonNullable<Lead["origen"]>; entro?: string }) {
+  return (
+    <div className="mt-3 rounded-lg bg-arena/50 px-3 py-2 text-[0.78rem]">
+      <p className="flex min-w-0 items-center gap-1.5">
+        <ChipPlataforma plataforma={origen.plataforma} />
+        <span className="truncate font-semibold text-tinta">{origen.etiqueta}</span>
+        {origen.costoCentavos !== undefined && (
+          <span className="ml-auto shrink-0 tabular-nums text-tinta-2">≈ {soles(origen.costoCentavos)}</span>
+        )}
+      </p>
+      {(origen.campania || entro) && (
+        <p className="mt-0.5 truncate text-frio">
+          {[origen.campania && `Campaña: ${origen.campania}`, entro && `Entró el ${entro}`].filter(Boolean).join(" · ")}
+        </p>
+      )}
+    </div>
   );
 }

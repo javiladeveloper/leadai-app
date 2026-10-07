@@ -2781,6 +2781,22 @@ export interface FilaOrigenLeads {
   gastoCentavos?: number;
   moneda?: string | null;
   costoPorLeadCentavos?: number;
+  /**
+   * PARA DISTINGUIR COPIAS DEL MISMO ANUNCIO (2026-10-07, Jonathan: "se repiten
+   * algunas cosas con montos distintos"): conjunto y fechas lo vuelven único.
+   */
+  conjunto?: string;
+  desde?: string;
+  hasta?: string;
+  activo?: boolean;
+  impresiones?: number;
+  clics?: number;
+  conversacionesMeta?: number;
+  respondieron?: number;
+  demos?: number;
+  ventas?: number;
+  /** Los leads de la fila (hasta 50): se despliegan al tocarla. */
+  detalle?: { id: string; nombre: string | null; nivel: string; estado: string; creadoEn: string; demo: boolean; mensajes: number }[];
 }
 
 /**
@@ -2795,6 +2811,92 @@ export async function origenDeLeads(
     `/anuncios/origen-leads?dias=${dias}`, { tenant },
   );
   return r.origenes;
+}
+
+export type PlataformaAds = "meta" | "google" | "tiktok";
+
+export interface AnuncioReporte {
+  adId: string;
+  plataforma: PlataformaAds;
+  nombre: string;
+  campania: string | null;
+  conjunto: string | null;
+  desde: string | null;
+  hasta: string | null;
+  activo: boolean;
+  gastoCentavos: number;
+  impresiones: number;
+  clics: number;
+  conversacionesMeta: number;
+  leads: number;
+  respondieron: number;
+  interesados: number;
+  calientes: number;
+  demos: number;
+  ventas: number;
+  costoPorLeadCentavos: number | null;
+  costoPorDemoCentavos: number | null;
+  leadIds: string[];
+}
+
+export interface LeadReporte {
+  id: string;
+  nombre: string | null;
+  telefono: string | null;
+  creadoEn: string;
+  resumen: string | null;
+  plataforma: PlataformaAds | "directo";
+  origen: string;
+  adId: string | null;
+  campania: string | null;
+  conjunto: string | null;
+  costoCentavos: number | null;
+  nivel: string;
+  estado: string;
+  etapa: string | null;
+  demo: string | null;
+  especialidad: string | null;
+  ciudad: string | null;
+  mensajesDelCliente: number;
+}
+
+export interface GrupoReporte { clave: string; leads: number; calientes: number; demos: number; ventas: number }
+
+export interface ReporteMarketing {
+  periodo: { desde: string; hasta: string; dias: number };
+  moneda: "PEN";
+  totales: {
+    invertidoCentavos: number;
+    invertidoMetaCentavos: number;
+    invertidoGoogleCentavos: number | null;
+    leads: number;
+    leadsDeAnuncios: number;
+    respondieron: number;
+    interesados: number;
+    calientes: number;
+    demos: number;
+    ventas: number;
+    costoPorLeadCentavos: number | null;
+    costoPorInteresadoCentavos: number | null;
+    costoPorDemoCentavos: number | null;
+    costoPorVentaCentavos: number | null;
+  };
+  porPlataforma: (GrupoReporte & { gastoCentavos: number | null; costoPorLeadCentavos: number | null })[];
+  anuncios: AnuncioReporte[];
+  porEspecialidad: GrupoReporte[];
+  porCiudad: GrupoReporte[];
+  porDiaSemana: { dia: number; leads: number; calientes: number }[];
+  lectura: string[];
+  leads: LeadReporte[];
+}
+
+/**
+ * EL REPORTE DEL MARKETERO (2026-10-07): cada lead con su anuncio, campaña,
+ * conjunto y costo; calidad por anuncio y una lectura en frases. Vive bajo
+ * /anuncios para que el rol marketing lo pueda pedir.
+ */
+export async function reporteMarketing(dias = 30, tenant?: string): Promise<ReporteMarketing> {
+  return api<ReporteMarketing>(`/anuncios/reporte-marketing?dias=${dias}`, { tenant });
 }
 
 export interface EstadoAnuncios {

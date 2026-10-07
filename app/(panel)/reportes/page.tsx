@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { haySesion } from "@/lib/auth";
+import { haySesion, rolEnEmpresaActiva } from "@/lib/auth";
 import {
   obtenerComisiones, actualizarComision, type Comision,
   obtenerReporteNegocio, obtenerReporteGlobal, obtenerMiPlan,
@@ -12,6 +12,7 @@ import {
 import { SkeletonReportes } from "@/components/Skeletons";
 import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, ReportesIlustracion } from "@/components/panel/HeroSeccion";
+import { ReporteMarketing } from "@/components/panel/ReporteMarketing";
 
 const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
 
@@ -85,18 +86,7 @@ function ReportesPanel() {
   const mostrarGlobal = !!global && global.negocios.length > 1;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 lg:px-8">
-      <HeroSeccion
-        titulo="Cómo te fue, en números"
-        bajada={<>Cuánto entró, de dónde vinieron tus clientes y qué días vendes más. Sin planillas ni cuentas a mano.</>}
-        dibujo={<ReportesIlustracion />}
-      />
-
-      <header>
-        <p className="eyebrow">Tus ventas</p>
-        <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Reportes</h1>
-      </header>
-
+    <div className="space-y-6">
       {cargando ? (
         <SkeletonReportes />
       ) : error ? (
@@ -351,13 +341,78 @@ function ReportesPanel() {
   );
 }
 
+type Pestana = "publicidad" | "ventas";
+const sinSuscripcion = () => () => {};
+
+/**
+ * REPORTES CON PUBLICIDAD (2026-10-07, Jonathan: "tenemos sección reportes
+ * pero está muy vacía"; su marketero: "quiero ver cada lead, de qué publicidad
+ * vino y cuánto costó").
+ *
+ * Dos pestañas: "Publicidad" (el reporte del marketero) y "Ventas y
+ * comisiones" (lo que ya había). El puesto de MARKETING ve solo la primera:
+ * las rutas de comisiones y reporte de negocio le dan 403 en el backend, y
+ * pedirlas igual pintaría un error en vez de un permiso que no tiene.
+ */
+function Reportes() {
+  const router = useRouter();
+  // El rol sale del almacenamiento local: en el servidor vale `null` y la
+  // pantalla espera a montar, así el primer render coincide con el del server.
+  const rol = useSyncExternalStore(sinSuscripcion, () => rolEnEmpresaActiva() ?? "", () => null);
+  const [pestana, setPestana] = useState<Pestana>("publicidad");
+
+  useEffect(() => {
+    if (!haySesion()) router.replace("/");
+  }, [router]);
+
+  if (rol === null) return null;
+  const soloPublicidad = rol === "marketing";
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 lg:px-8">
+      <HeroSeccion
+        titulo="Cómo te fue, en números"
+        bajada={<>Cuánto invertiste, qué anuncio trae clientes de verdad, cuánto entró y dónde se caen las ventas. Sin planillas ni cuentas a mano.</>}
+        dibujo={<ReportesIlustracion />}
+      />
+
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="eyebrow">{soloPublicidad ? "Tu publicidad" : "Tu negocio"}</p>
+          <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Reportes</h1>
+        </div>
+        {!soloPublicidad && (
+          <div role="tablist" aria-label="Tipo de reporte" className="flex gap-1 rounded-chip bg-arena p-1">
+            {([["publicidad", "Publicidad"], ["ventas", "Ventas y comisiones"]] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={pestana === id}
+                onClick={() => setPestana(id)}
+                className={`rounded-chip px-4 py-2 text-[0.85rem] font-semibold transition focus-visible:outline-2 focus-visible:outline-brasa ${
+                  pestana === id ? "bg-carta text-tinta shadow-sm" : "text-tinta-2 hover:text-tinta"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </header>
+
+      {soloPublicidad || pestana === "publicidad" ? <ReporteMarketing /> : <ReportesPanel />}
+    </div>
+  );
+}
+
 // Pantalla por-negocio en el panel unificado: chips arriba para elegir el
 // negocio (fija la empresa activa y remonta el contenido — ver
 // SeccionPorNegocio).
 export default function ReportesPanelPorNegocio() {
   return (
     <SeccionPorNegocio>
-      <ReportesPanel />
+      <Reportes />
     </SeccionPorNegocio>
   );
 }

@@ -817,6 +817,12 @@ export interface FilaAnuncioReporte {
   gastoCentavos: number;
   roas: number | null;
   costoPorVentaCentavos: number | null;
+  /** Para distinguir copias del mismo anuncio (2026-10-07). */
+  campania?: string;
+  conjunto?: string;
+  desde?: string;
+  hasta?: string;
+  activo?: boolean;
 }
 export interface ReporteAnuncios {
   periodo: { desde: string; hasta: string; dias: number; descripcion?: string };
@@ -2897,6 +2903,36 @@ export interface ReporteMarketing {
  */
 export async function reporteMarketing(dias = 30, tenant?: string): Promise<ReporteMarketing> {
   return api<ReporteMarketing>(`/anuncios/reporte-marketing?dias=${dias}`, { tenant });
+}
+
+/**
+ * EL MISMO REPORTE EN EXCEL (2026-10-07, Jonathan: "¿una descarga en Excel
+ * más rápido, no?"). Lo arma el servidor como .xlsx de verdad —hojas, montos
+ * como número, filtros— en vez de un CSV que Excel abre en una sola columna.
+ * Con `fetch` y no un link: la ruta pide sesión.
+ */
+export async function descargarReporteMarketingExcel(dias = 30, tenant?: string): Promise<boolean> {
+  const sesion = leerSesion();
+  const empresa = tenant ?? leerEmpresaActiva();
+  try {
+    const res = await fetch(`${API_URL}/anuncios/reporte-marketing/excel?dias=${dias}`, {
+      headers: {
+        ...(sesion?.token ? { Authorization: `Bearer ${sesion.token}` } : {}),
+        ...(empresa ? { "X-Tenant-Id": empresa } : {}),
+      },
+    });
+    if (!res.ok) return false;
+    const nombre = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? `reporte-marketing-${dias}-dias.xlsx`;
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre;
+    a.click();
+    URL.revokeObjectURL(url);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export interface EstadoAnuncios {

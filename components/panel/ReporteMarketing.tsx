@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Fragment, useCallback, useMemo, useState } from "react";
 import {
-  reporteMarketing, type AnuncioReporte, type GrupoReporte, type LeadReporte,
+  descargarReporteMarketingExcel, reporteMarketing, type AnuncioReporte, type GrupoReporte, type LeadReporte,
   type ReporteMarketing as Reporte,
 } from "@/lib/api";
 import { puedeAbrirConversacion } from "@/lib/auth";
@@ -23,7 +23,7 @@ import { ChipPlataforma } from "./OrigenLead";
  *  3. Cada anuncio con campaña, conjunto y fechas (las copias se llaman igual)
  *     y, al tocarlo, los leads que trajo.
  *  4. Especialidad, ciudad y día: a quién y cuándo apuntar.
- *  5. Cada lead, con filtros y descarga en CSV.
+ *  5. Cada lead, con filtros. Todo se baja en Excel (lo arma el servidor).
  */
 
 const PERIODOS = [7, 30, 90] as const;
@@ -56,6 +56,13 @@ export function ReporteMarketing({ tenant }: { tenant?: string } = {}) {
   const [dias, setDias] = useState<number>(30);
   const cargar = useCallback(() => reporteMarketing(dias, tenant), [dias, tenant]);
   const { datos: r, cargando, error, reintentar } = useLecturaMarketing<Reporte>(`${tenant}:${dias}`, cargar);
+  const [bajando, setBajando] = useState<"no" | "si" | "error">("no");
+
+  async function bajarExcel() {
+    setBajando("si");
+    const ok = await descargarReporteMarketingExcel(dias, tenant);
+    setBajando(ok ? "no" : "error");
+  }
 
   return (
     <div className="space-y-5">
@@ -69,6 +76,7 @@ export function ReporteMarketing({ tenant }: { tenant?: string } = {}) {
             </p>
           )}
         </div>
+        <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label="Período" className="flex gap-1 rounded-chip bg-arena p-1">
           {PERIODOS.map((p) => (
             <button
@@ -84,7 +92,19 @@ export function ReporteMarketing({ tenant }: { tenant?: string } = {}) {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={bajarExcel}
+          disabled={bajando === "si" || !r}
+          className="rounded-chip bg-brasa px-4 py-2 text-[0.82rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo focus-visible:outline-2 focus-visible:outline-brasa disabled:opacity-60"
+        >
+          {bajando === "si" ? "Preparando Excel…" : "Descargar Excel"}
+        </button>
+        </div>
       </div>
+      {bajando === "error" && (
+        <p role="alert" className="text-[0.82rem] text-calor-hondo">No se pudo descargar el Excel. Inténtalo de nuevo en un momento.</p>
+      )}
 
       {error ? (
         <ErrorMarketing mensaje={error} reintentar={reintentar} />
@@ -447,27 +467,6 @@ function TablaLeads({ leads, dias }: { leads: LeadReporte[]; dias: number }) {
     });
   }, [leads, origen, calidad, q]);
 
-  function descargar() {
-    const cols = [
-      "Fecha", "Nombre", ...(verTelefono ? ["Teléfono"] : []), "Plataforma", "Anuncio u origen", "Campaña", "Conjunto",
-      "Costo aprox (S/)", "Nivel", "Estado", "Demo", "Especialidad", "Ciudad", "Mensajes del cliente", "Resumen",
-    ];
-    const celda = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
-    const filas = visibles.map((l) => [
-      fechaHora(l.creadoEn), l.nombre, ...(verTelefono ? [l.telefono] : []),
-      l.plataforma === "directo" ? "Sin anuncio" : l.plataforma, l.origen, l.campania, l.conjunto,
-      l.costoCentavos !== null ? (l.costoCentavos / 100).toFixed(2) : "", NIVEL[l.nivel]?.label ?? l.nivel,
-      ESTADO[l.estado] ?? l.estado, l.demo ? fechaHora(l.demo) : "", l.especialidad, l.ciudad, l.mensajesDelCliente, l.resumen,
-    ].map(celda).join(","));
-    const csv = "﻿" + [cols.map(celda).join(","), ...filas].join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `leads-marketing-${dias}-dias.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   const chip = (activo: boolean) =>
     `rounded-chip px-3 py-1.5 text-[0.78rem] font-semibold transition focus-visible:outline-2 focus-visible:outline-brasa ${
       activo ? "bg-tinta text-carta" : "bg-arena text-tinta-2 hover:bg-arena-2"
@@ -481,14 +480,6 @@ function TablaLeads({ leads, dias }: { leads: LeadReporte[]; dias: number }) {
             <h3 className="text-[1.05rem] font-bold text-tinta">Cada lead</h3>
             <p className="mt-0.5 text-[0.8rem] text-frio">{visibles.length} de {leads.length} en {dias} días</p>
           </div>
-          <button
-            type="button"
-            onClick={descargar}
-            disabled={visibles.length === 0}
-            className="rounded-chip bg-brasa px-4 py-2 text-[0.8rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
-          >
-            Descargar CSV
-          </button>
         </div>
         <div className="flex flex-wrap gap-2">
           {([["todos", "Todos"], ["anuncios", "De anuncios"], ["directo", "Sin anuncio"]] as const).map(([id, label]) => (

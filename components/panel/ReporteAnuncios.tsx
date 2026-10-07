@@ -35,7 +35,7 @@ function ReporteContenido({ tenant, dias }: { tenant?: string; dias: number }) {
         <table className="w-full text-sm">
           <caption className="sr-only">{ventasMedidas ? "Gasto, resultados y retorno registrado por anuncio" : "Gasto e interesados registrados por anuncio"}</caption>
           <thead><tr className="border-b border-linea text-left text-frio">
-            <th scope="col" className="pb-2 pr-3">Anuncio</th><th scope="col" className="pb-2 pr-3 text-right">Gasto Meta{r.moneda ? ` (${r.moneda})` : ""}</th>
+            <th scope="col" className="pb-2 pr-3">Anuncio</th><th scope="col" className="pb-2 pr-3">Fechas</th><th scope="col" className="pb-2 pr-3 text-right">Gasto Meta{r.moneda ? ` (${r.moneda})` : ""}</th>
             {ventasMedidas && <th scope="col" className="pb-2 pr-3 text-right">Ventas registradas (PEN)</th>}
             <th scope="col" className="pb-2 pr-3 text-right">{resultado?.etiqueta ?? "Interesados registrados"}</th>
             {ventasMedidas && <th scope="col" className="pb-2 text-right">Retorno registrado</th>}
@@ -44,7 +44,32 @@ function ReporteContenido({ tenant, dias }: { tenant?: string; dias: number }) {
             const gastoConocido = f.gastoConocido === true && !r.sinGasto && Number.isFinite(f.gastoCentavos);
             const retornoMedido = gastoConocido && ventasMedidas && r.moneda === "PEN" && f.gastoCentavos > 0 && f.roas !== null && Number.isFinite(f.roas);
             return <tr key={f.origen} className="border-b border-linea/60 last:border-0">
-              <th scope="row" className="py-3 pr-3 text-left font-semibold text-tinta">{f.nombre || f.origen}</th>
+              {/* CAMPAÑA, CONJUNTO Y FECHAS (2026-10-07, captura de Jonathan:
+                  "¿cómo diferencio esto? son muy parecidos"). Las copias de un
+                  anuncio se llaman igual; esto es lo que las separa. */}
+              <th scope="row" className="max-w-[22rem] py-3 pr-3 text-left font-normal">
+                <span className="block truncate font-semibold text-tinta">
+                  {/^\d{6,}$/.test(f.nombre || f.origen) ? "Anuncio de otra cuenta" : f.nombre || f.origen}
+                </span>
+                {/^\d{6,}$/.test(f.nombre || f.origen) && (
+                  <span className="mt-0.5 block truncate text-[0.76rem] text-frio">Sin nombre ni gasto en esta cuenta · id {f.origen}</span>
+                )}
+                {(f.campania || f.conjunto) && (
+                  <span className="mt-0.5 block truncate text-[0.76rem] text-frio">
+                    {[f.campania, f.conjunto && f.conjunto !== f.nombre ? f.conjunto : null].filter(Boolean).join(" · ")}
+                  </span>
+                )}
+              </th>
+              <td className="whitespace-nowrap py-3 pr-3 text-[0.8rem] text-tinta-2">
+                {f.desde ? <>
+                  <span className="tabular-nums">{fechaCorta(f.desde)} → {fechaCorta(f.hasta)}</span>
+                  {f.activo !== undefined && (
+                    <span className={`ml-1.5 rounded-chip px-1.5 py-px text-[0.68rem] font-bold ${f.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"}`}>
+                      {f.activo ? "Activo" : "Detenido"}
+                    </span>
+                  )}
+                </> : <span className="text-frio">—</span>}
+              </td>
               <td className="py-3 pr-3 text-right tabular-nums text-tinta-2">{gastoConocido ? importe(f.gastoCentavos, r.moneda) : "No medido"}</td>
               {ventasMedidas && <td className="py-3 pr-3 text-right tabular-nums text-tinta-2">{importe(f.ventasCentavos, "PEN")}</td>}
               <td className="py-3 pr-3 text-right tabular-nums text-tinta-2">{ventasMedidas && resultado?.tipo === "pedidos" ? f.compradores : f.interesados ?? "No medidos"}</td>
@@ -72,4 +97,10 @@ function importe(centavos: number, moneda?: string | null) {
 function fecha(valor: string) {
   const d = new Date(valor.length === 10 ? `${valor}T12:00:00` : valor);
   return Number.isNaN(d.getTime()) ? "Fecha no disponible" : d.toLocaleDateString("es-PE");
+}
+
+function fechaCorta(valor?: string) {
+  if (!valor) return "";
+  const d = new Date(`${valor}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("es-PE", { day: "numeric", month: "short" });
 }

@@ -418,6 +418,9 @@ export interface Lead {
     leadsDelAnuncio?: number;
     adId?: string;
   } | null;
+  /** La venta REAL: cuándo pagó y cuánto (2026-10-07). */
+  ventaEn?: string | null;
+  ventaCentavos?: number | null;
   // Chatbot ON/OFF por conversación: true = el humano tomó este chat y la IA calla acá.
   botPausado?: boolean;
   // Etapa personalizada del embudo (id en las etapas del negocio) y asignación.
@@ -2843,7 +2846,16 @@ export interface AnuncioReporte {
   costoPorLeadCentavos: number | null;
   costoPorDemoCentavos: number | null;
   leadIds: string[];
+  ingresosCentavos?: number;
+  /** Contra la meta de costo (2026-10-07). */
+  semaforo?: "verde" | "amarillo" | "rojo" | null;
+  /** ¿La gente ya se cansó de verlo? */
+  cansancio?: { nivel: "alto" | "medio" | null; ctr7: number | null; ctrPrevio7: number | null; frecuenciaDiaria: number | null; motivo: string | null };
+  atencion?: AtencionReporte;
+  objeciones?: { clave: string; leads: number }[];
 }
+
+export interface AtencionReporte { alEquipo: number; seEnfriaron: number; esperando: number; medianaRespuestaMin: number | null }
 
 export interface LeadReporte {
   id: string;
@@ -2861,32 +2873,57 @@ export interface LeadReporte {
   estado: string;
   etapa: string | null;
   demo: string | null;
+  /** La venta REAL: cuándo pagó (2026-10-07). */
+  venta?: string | null;
+  ventaCentavos?: number | null;
   especialidad: string | null;
   ciudad: string | null;
   mensajesDelCliente: number;
+  temas?: string[];
+  objeciones?: string[];
+  atencion?: { alEquipo: boolean; respuestaMin: number | null; seEnfrio: boolean; esperando: boolean };
 }
 
 export interface GrupoReporte { clave: string; leads: number; calientes: number; demos: number; ventas: number }
 
+export interface TotalesMarketing {
+  invertidoCentavos: number;
+  invertidoMetaCentavos: number;
+  invertidoGoogleCentavos: number | null;
+  leads: number;
+  leadsDeAnuncios: number;
+  respondieron: number;
+  interesados: number;
+  calientes: number;
+  demos: number;
+  ventas: number;
+  ingresosCentavos?: number;
+  retorno?: number | null;
+  costoPorLeadCentavos: number | null;
+  costoPorInteresadoCentavos: number | null;
+  costoPorDemoCentavos: number | null;
+  costoPorVentaCentavos: number | null;
+}
+
+export interface DiaMarketing { fecha: string; gastoCentavos: number; leads: number; calientes: number; demos: number }
+export interface TramoMarketing { dias: number; gastoCentavos: number; leads: number; demos: number; costoPorLeadCentavos: number | null }
+export interface NotaMarketing { id: string; fecha: string; texto: string; efecto: { antes: TramoMarketing; despues: TramoMarketing } | null }
+export interface MetasMarketing { costoLeadCentavos?: number | null; costoDemoCentavos?: number | null }
+
 export interface ReporteMarketing {
   periodo: { desde: string; hasta: string; dias: number };
   moneda: "PEN";
-  totales: {
-    invertidoCentavos: number;
-    invertidoMetaCentavos: number;
-    invertidoGoogleCentavos: number | null;
-    leads: number;
-    leadsDeAnuncios: number;
-    respondieron: number;
-    interesados: number;
-    calientes: number;
-    demos: number;
-    ventas: number;
-    costoPorLeadCentavos: number | null;
-    costoPorInteresadoCentavos: number | null;
-    costoPorDemoCentavos: number | null;
-    costoPorVentaCentavos: number | null;
-  };
+  anterior?: TotalesMarketing | null;
+  periodoAnterior?: { desde: string; hasta: string };
+  porHora?: { hora: number; leads: number; calientes: number; demos: number }[];
+  porDia?: DiaMarketing[];
+  notas?: NotaMarketing[];
+  atencion?: AtencionReporte;
+  temas?: { clave: string; leads: number }[];
+  objeciones?: { clave: string; leads: number }[];
+  metas?: MetasMarketing;
+  reporteSemanalActivo?: boolean;
+  totales: TotalesMarketing;
   porPlataforma: (GrupoReporte & { gastoCentavos: number | null; costoPorLeadCentavos: number | null })[];
   anuncios: AnuncioReporte[];
   porEspecialidad: GrupoReporte[];
@@ -2911,6 +2948,35 @@ export async function reporteMarketing(dias = 30, tenant?: string): Promise<Repo
  * como número, filtros— en vez de un CSV que Excel abre en una sola columna.
  * Con `fetch` y no un link: la ruta pide sesión.
  */
+/** La bitácora del marketero (2026-10-07). */
+export function crearNotaMarketing(fecha: string, texto: string, tenant?: string) {
+  return api<{ id: string }>("/anuncios/notas", { method: "POST", body: { fecha, texto }, tenant });
+}
+export function borrarNotaMarketing(id: string, tenant?: string) {
+  return api<{ ok: true }>(`/anuncios/notas/${encodeURIComponent(id)}`, { method: "DELETE", tenant });
+}
+export function guardarMetasMarketing(metas: MetasMarketing, tenant?: string) {
+  return api<MetasMarketing>("/anuncios/metas", { method: "PUT", body: metas, tenant });
+}
+export function activarReporteSemanal(activo: boolean, tenant?: string) {
+  return api<{ activo: boolean }>("/anuncios/reporte-semanal", { method: "PUT", body: { activo }, tenant });
+}
+/** Público de Meta con los leads filtrados en el reporte (solo dueño/admin). */
+export function crearPublicoConLeads(leadIds: string[], nombre: string, conSimilar: boolean, tenant?: string) {
+  return api<{ ok: boolean; mensaje?: string; contactos?: number }>("/anuncios/publicos/desde-ids", {
+    method: "POST", body: { leadIds, nombre, conSimilar }, tenant,
+  });
+}
+/** La venta REAL: el cliente pagó (2026-10-07). `centavos` opcional. */
+export function marcarVentaLead(leadId: string, centavos: number | null, fecha?: string) {
+  return api<{ ventaEn: string; ventaCentavos: number | null }>(`/leads/${encodeURIComponent(leadId)}/venta`, {
+    method: "PUT", body: { centavos, ...(fecha ? { fecha } : {}) },
+  });
+}
+export function quitarVentaLead(leadId: string) {
+  return api<{ ok: true }>(`/leads/${encodeURIComponent(leadId)}/venta`, { method: "DELETE" });
+}
+
 export async function descargarReporteMarketingExcel(dias = 30, tenant?: string): Promise<boolean> {
   const sesion = leerSesion();
   const empresa = tenant ?? leerEmpresaActiva();

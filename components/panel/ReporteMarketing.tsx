@@ -9,6 +9,10 @@ import {
 import { puedeAbrirConversacion } from "@/lib/auth";
 import { ErrorMarketing, useLecturaMarketing } from "./marketing-lectura";
 import { ChipPlataforma } from "./OrigenLead";
+import {
+  Bitacora, Cambio, ChipCansancio, CrearPublico, FrenosYTemas, GraficoDiario, MetasYAvisos, PorHora, PuntoSemaforo,
+  TarjetaAtencion, tiempoRespuesta,
+} from "./ReporteMarketingExtras";
 
 /**
  * EL REPORTE DEL MARKETERO (2026-10-07, pedido de su equipo de marketing:
@@ -114,13 +118,13 @@ export function ReporteMarketing({ tenant }: { tenant?: string } = {}) {
           <div className="h-64 animate-pulse rounded-tarjeta bg-arena-2/70" />
         </div>
       ) : (
-        <Contenido r={r} />
+        <Contenido r={r} recargar={reintentar} tenant={tenant} />
       )}
     </div>
   );
 }
 
-function Contenido({ r }: { r: Reporte }) {
+function Contenido({ r, recargar, tenant }: { r: Reporte; recargar: () => void; tenant?: string }) {
   const t = r.totales;
   const porId = useMemo(() => new Map(r.leads.map((l) => [l.id, l])), [r.leads]);
   const ciudades = r.porCiudad.filter((c) => c.clave !== "Sin dato");
@@ -142,6 +146,9 @@ function Contenido({ r }: { r: Reporte }) {
           </ul>
         </div>
       )}
+
+      {r.porDia && r.porDia.length > 0 && <GraficoDiario dias={r.porDia} notas={r.notas ?? []} />}
+      <Bitacora notas={r.notas ?? []} recargar={recargar} tenant={tenant} />
 
       {r.porPlataforma.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -167,15 +174,24 @@ function Contenido({ r }: { r: Reporte }) {
         </div>
       )}
 
+      {r.atencion && <TarjetaAtencion a={r.atencion} />}
+
       <TablaAnuncios anuncios={r.anuncios} porId={porId} />
+
+      <FrenosYTemas objeciones={r.objeciones ?? []} temas={r.temas ?? []} total={t.leads} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Grupos titulo="Por especialidad" grupos={r.porEspecialidad} />
         <PorDia dias={r.porDiaSemana} />
       </div>
-      {ciudades.length > 0 && <Grupos titulo="Por ciudad" grupos={r.porCiudad} />}
+      <div className={`grid gap-4 ${ciudades.length > 0 ? "lg:grid-cols-2" : ""}`}>
+        {r.porHora && <PorHora horas={r.porHora} />}
+        {ciudades.length > 0 && <Grupos titulo="Por ciudad" grupos={r.porCiudad} />}
+      </div>
 
-      <TablaLeads leads={r.leads} dias={r.periodo.dias} />
+      <MetasYAvisos metas={r.metas ?? {}} semanal={r.reporteSemanalActivo ?? false} recargar={recargar} tenant={tenant} />
+
+      <TablaLeads leads={r.leads} dias={r.periodo.dias} tenant={tenant} />
 
       <p className="text-[0.76rem] leading-relaxed text-frio">
         El costo por lead es el gasto del anuncio en el período repartido entre los leads que trajo en ese mismo
@@ -194,12 +210,15 @@ function Contenido({ r }: { r: Reporte }) {
  */
 function EscaleraCosto({ r }: { r: Reporte }) {
   const t = r.totales;
+  const a = r.anterior ?? null;
   const peldanos = [
-    { titulo: "Leads de anuncios", n: t.leadsDeAnuncios, costo: t.costoPorLeadCentavos, nota: `${t.leads} en total` },
-    { titulo: "Respondieron", n: t.respondieron, costo: null, nota: `${pct(t.respondieron, t.leads)} de los leads` },
-    { titulo: "Interesados", n: t.interesados, costo: t.costoPorInteresadoCentavos, nota: `${t.calientes} calientes` },
-    { titulo: "Demos", n: t.demos, costo: t.costoPorDemoCentavos, nota: pct(t.demos, t.leads) + " de los leads" },
-    { titulo: "Ventas", n: t.ventas, costo: t.costoPorVentaCentavos, nota: pct(t.ventas, t.demos) + " de las demos" },
+    { titulo: "Leads de anuncios", n: t.leadsDeAnuncios, nA: a?.leadsDeAnuncios, costo: t.costoPorLeadCentavos, costoA: a?.costoPorLeadCentavos, nota: `${t.leads} en total` },
+    { titulo: "Respondieron", n: t.respondieron, nA: a?.respondieron, costo: null, costoA: null, nota: `${pct(t.respondieron, t.leads)} de los leads` },
+    { titulo: "Interesados", n: t.interesados, nA: a?.interesados, costo: t.costoPorInteresadoCentavos, costoA: a?.costoPorInteresadoCentavos, nota: `${t.calientes} calientes` },
+    { titulo: "Demos", n: t.demos, nA: a?.demos, costo: t.costoPorDemoCentavos, costoA: a?.costoPorDemoCentavos, nota: pct(t.demos, t.leads) + " de los leads" },
+    // VENTA = PAGÓ (2026-10-07), no "ganado": se marca en la ficha del lead.
+    { titulo: "Ventas pagadas", n: t.ventas, nA: a?.ventas, costo: t.costoPorVentaCentavos, costoA: a?.costoPorVentaCentavos,
+      nota: t.ingresosCentavos ? `${soles(t.ingresosCentavos)} ingresos${t.retorno ? ` · ${t.retorno}x` : ""}` : "Se marcan en la ficha del lead" },
   ];
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
@@ -210,15 +229,25 @@ function EscaleraCosto({ r }: { r: Reporte }) {
           Meta {soles(t.invertidoMetaCentavos)}
           {t.invertidoGoogleCentavos !== null && ` · Google ${soles(t.invertidoGoogleCentavos)}`}
         </p>
+        {a && (
+          <p className="mt-2 text-[0.74rem] text-carta/70">
+            Antes: {soles(a.invertidoCentavos)}
+            {r.periodoAnterior && ` (${fechaCorta(r.periodoAnterior.desde)} – ${fechaCorta(r.periodoAnterior.hasta)})`}
+          </p>
+        )}
       </div>
       <ol className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="Costo por etapa">
         {peldanos.map((p) => (
           <li key={p.titulo} className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
             <p className="text-[0.76rem] font-semibold text-frio">{p.titulo}</p>
-            <p className="mt-1 text-[1.6rem] font-bold leading-none tabular-nums text-tinta">{p.n}</p>
+            <p className="mt-1 flex items-baseline gap-1.5">
+              <span className="text-[1.6rem] font-bold leading-none tabular-nums text-tinta">{p.n}</span>
+              <Cambio actual={p.n} previo={p.nA} />
+            </p>
             {p.costo !== null && (
-              <p className="mt-2 text-[0.8rem] tabular-nums text-tinta-2">
-                <b className="text-brasa-texto">{soles(p.costo)}</b> c/u
+              <p className="mt-2 flex items-baseline gap-1.5 text-[0.8rem] tabular-nums text-tinta-2">
+                <span><b className="text-brasa-texto">{soles(p.costo)}</b> c/u</span>
+                <Cambio actual={p.costo} previo={p.costoA} menosEsMejor />
               </p>
             )}
             <p className="mt-1 text-[0.72rem] text-frio">{p.nota}</p>
@@ -282,6 +311,7 @@ function TablaAnuncios({ anuncios, porId }: { anuncios: AnuncioReporte[]; porId:
                         <span aria-hidden className={`mt-0.5 text-frio transition ${abre ? "rotate-90" : ""}`}>›</span>
                         <span className="min-w-0">
                           <span className="flex items-center gap-1.5">
+                            <PuntoSemaforo s={a.semaforo} />
                             <ChipPlataforma plataforma={a.plataforma} />
                             <span className="truncate font-semibold text-tinta">{a.nombre}</span>
                           </span>
@@ -294,6 +324,7 @@ function TablaAnuncios({ anuncios, porId }: { anuncios: AnuncioReporte[]; porId:
                             >
                               {a.activo ? "Activo" : "Detenido"}
                             </span>
+                            <ChipCansancio nivel={a.cansancio?.nivel} motivo={a.cansancio?.motivo} />
                             {a.desde && <span>{fechaCorta(a.desde)} → {fechaCorta(a.hasta)}</span>}
                           </span>
                         </span>
@@ -339,6 +370,18 @@ function DetalleAnuncio({ a, leads }: { a: AnuncioReporte; leads: LeadReporte[] 
         {a.conversacionesMeta > 0 && ` · Meta contó ${a.conversacionesMeta} conversaciones; aquí llegaron ${a.leads}`}
         {` · Id ${a.adId}`}
       </p>
+      {a.cansancio?.motivo && (
+        <p className="text-[0.8rem] text-calor-hondo">Cansancio: {a.cansancio.motivo}</p>
+      )}
+      {a.atencion && a.atencion.alEquipo > 0 && (
+        <p className="text-[0.8rem] text-tinta-2">
+          Equipo: {a.atencion.alEquipo} pidieron a una persona · respuesta en {tiempoRespuesta(a.atencion.medianaRespuestaMin)} (mediana)
+          {a.atencion.seEnfriaron > 0 && <b className="text-calor-hondo"> · {a.atencion.seEnfriaron} sin respuesta</b>}
+        </p>
+      )}
+      {(a.objeciones ?? []).length > 0 && (
+        <p className="text-[0.8rem] text-tinta-2">Lo que frena a sus leads: {a.objeciones!.map((o) => `${o.clave} (${o.leads})`).join(", ")}</p>
+      )}
       {leads.length === 0 ? (
         <p className="text-[0.84rem] text-frio">Este anuncio gastó pero no trajo leads en el período.</p>
       ) : (
@@ -440,10 +483,10 @@ function PorDia({ dias }: { dias: Reporte["porDiaSemana"] }) {
 }
 
 type FiltroOrigen = "todos" | "anuncios" | "directo";
-type FiltroCalidad = "todos" | "interesados" | "demo" | "sin_respuesta";
+type FiltroCalidad = "todos" | "interesados" | "demo" | "pagaron" | "sin_respuesta";
 
 /** Cada lead, uno por fila: el caso concreto detrás de cada número. */
-function TablaLeads({ leads, dias }: { leads: LeadReporte[]; dias: number }) {
+function TablaLeads({ leads, dias, tenant }: { leads: LeadReporte[]; dias: number; tenant?: string }) {
   const [origen, setOrigen] = useState<FiltroOrigen>("todos");
   const [calidad, setCalidad] = useState<FiltroCalidad>("todos");
   const [q, setQ] = useState("");
@@ -461,6 +504,7 @@ function TablaLeads({ leads, dias }: { leads: LeadReporte[]; dias: number }) {
       if (calidad === "interesados" && l.nivel !== "tibio" && l.nivel !== "caliente") return false;
       if (calidad === "demo" && !l.demo) return false;
       if (calidad === "sin_respuesta" && l.mensajesDelCliente > 1) return false;
+      if (calidad === "pagaron" && !l.venta) return false;
       if (t && ![l.nombre, l.origen, l.campania, l.conjunto, l.resumen, l.especialidad, l.ciudad]
         .some((x) => (x ?? "").toLowerCase().includes(t))) return false;
       return true;
@@ -480,13 +524,14 @@ function TablaLeads({ leads, dias }: { leads: LeadReporte[]; dias: number }) {
             <h3 className="text-[1.05rem] font-bold text-tinta">Cada lead</h3>
             <p className="mt-0.5 text-[0.8rem] text-frio">{visibles.length} de {leads.length} en {dias} días</p>
           </div>
+          <CrearPublico ids={visibles.map((l) => l.id)} puede={verTelefono} tenant={tenant} />
         </div>
         <div className="flex flex-wrap gap-2">
           {([["todos", "Todos"], ["anuncios", "De anuncios"], ["directo", "Sin anuncio"]] as const).map(([id, label]) => (
             <button key={id} type="button" aria-pressed={origen === id} onClick={() => setOrigen(id)} className={chip(origen === id)}>{label}</button>
           ))}
           <span aria-hidden className="mx-1 w-px self-stretch bg-linea" />
-          {([["todos", "Cualquier nivel"], ["interesados", "Interesados"], ["demo", "Con demo"], ["sin_respuesta", "No respondieron"]] as const).map(([id, label]) => (
+          {([["todos", "Cualquier nivel"], ["interesados", "Interesados"], ["demo", "Con demo"], ["pagaron", "Pagaron"], ["sin_respuesta", "No respondieron"]] as const).map(([id, label]) => (
             <button key={id} type="button" aria-pressed={calidad === id} onClick={() => setCalidad(id)} className={chip(calidad === id)}>{label}</button>
           ))}
           <input
@@ -548,6 +593,8 @@ function TablaLeads({ leads, dias }: { leads: LeadReporte[]; dias: number }) {
                       <span className="flex flex-wrap gap-1">
                         <span className={`rounded-chip px-1.5 py-px text-[0.7rem] font-bold ${n.clase}`}>{n.label}</span>
                         {l.demo && <span className="rounded-chip bg-ok/12 px-1.5 py-px text-[0.7rem] font-bold text-ok">Demo {fechaCorta(l.demo)}</span>}
+                        {l.venta && <span className="rounded-chip bg-ok px-1.5 py-px text-[0.7rem] font-bold text-carta">Pagó{l.ventaCentavos ? ` ${soles(l.ventaCentavos)}` : ""}</span>}
+                        {l.atencion?.seEnfrio && <span className="rounded-chip bg-calor/15 px-1.5 py-px text-[0.7rem] font-bold text-calor-hondo">Sin respuesta del equipo</span>}
                       </span>
                       <span className="mt-1 block text-[0.72rem] text-frio">
                         {ESTADO[l.estado] ?? l.estado} · {l.mensajesDelCliente <= 1 ? "no respondió" : `${l.mensajesDelCliente} mensajes`}

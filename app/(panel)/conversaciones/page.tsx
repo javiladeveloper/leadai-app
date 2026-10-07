@@ -1,6 +1,7 @@
 "use client";
 
 import { OrigenLead } from "@/components/panel/OrigenLead";
+import { VentaLead } from "@/components/panel/VentaLead";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -1234,6 +1235,11 @@ export default function ConversacionesPanel() {
                     correcto pero ilegible. */}
                 <div className="mt-2">
                   <OrigenLead lead={lead} />
+                </div>
+                {/* LA VENTA REAL (2026-10-07): "ganado" es "agendó la demo";
+                    esto es "pagó", y alimenta el costo por cliente del reporte. */}
+                <div className="mt-2">
+                  <VentaLead key={lead.id} leadId={lead.id} ventaEn={lead.ventaEn} ventaCentavos={lead.ventaCentavos} />
                 </div>
               </div>
 

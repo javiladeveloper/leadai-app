@@ -8,13 +8,7 @@
 
 import { useId, useState } from "react";
 import { agendarCita, type CitaAgenda } from "@/lib/api";
-import { hoyLima } from "@/lib/agenda";
-
-/** De 07:00 a 21:30, cada media hora. */
-const HORAS = Array.from({ length: 30 }, (_, i) => {
-  const m = 7 * 60 + i * 30;
-  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-});
+import { HORAS_AGENDAR as HORAS, hoyLima } from "@/lib/agenda";
 
 export function AgendarOtra({ cita: c, onAgendada }: { cita: CitaAgenda; onAgendada: (nueva: CitaAgenda) => void }) {
   const [abierto, setAbierto] = useState(false);

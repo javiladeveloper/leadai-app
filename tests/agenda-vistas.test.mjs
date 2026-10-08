@@ -178,3 +178,20 @@ test('esVista valida lo que venga de localStorage', () => {
   assert.equal(esVista('anio'), false);
   assert.equal(esVista(null), false);
 });
+
+test('agendar desde un espacio: media hora hacia abajo, ISO en Lima y lo que ya pasó', async () => {
+  const { HORAS_AGENDAR, mediaHoraDe, inicioEnLima, mediaHoraPasada } = await import('../lib/agenda.ts');
+  assert.equal(HORAS_AGENDAR[0], '07:00');
+  assert.equal(HORAS_AGENDAR[HORAS_AGENDAR.length - 1], '21:30');
+  assert.equal(mediaHoraDe(10 * 60 + 47), '10:30');
+  assert.equal(mediaHoraDe(10 * 60), '10:00');
+  assert.equal(mediaHoraDe(-5), '00:00');
+  assert.equal(mediaHoraDe(24 * 60 + 10), '23:30');
+  assert.equal(inicioEnLima('2026-10-12', '10:30'), '2026-10-12T10:30:00-05:00');
+  assert.equal(new Date(inicioEnLima('2026-10-12', '10:30')).toISOString(), '2026-10-12T15:30:00.000Z');
+  // 10:40 en Lima: la media hora de las 10:30 todavía corre; la de las 10:00 ya pasó.
+  const ahora = new Date('2026-10-12T15:40:00.000Z');
+  assert.equal(mediaHoraPasada('2026-10-12', '10:30', ahora), false);
+  assert.equal(mediaHoraPasada('2026-10-12', '10:00', ahora), true);
+  assert.equal(mediaHoraPasada('2026-10-11', '23:30', ahora), true);
+});

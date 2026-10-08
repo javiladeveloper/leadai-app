@@ -8,13 +8,18 @@
 // · Mes · Lista, con flechas y "Hoy". Todo en hora de Lima (UTC-5 fija), sea
 // cual sea el huso del navegador; la semana empieza el lunes. Cada periodo le
 // pide a `listarAgenda` SOLO su rango (Mes = 42 días; el backend corta en 92).
+//
+// AGENDAR DESDE LA AGENDA (2026-10-08, Jonathan: "si selecciono un espacio de
+// tiempo... anexar un lead y listo"): tocar un espacio libre en Semana/Día, el
+// botón "Agendar reunión" o "Agendar en este día" (detalle del día en Mes)
+// abre `AgendarReunion`. La cita nueva entra a la lista sin volver a pedirla.
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { listarAgenda, type CitaAgenda } from "@/lib/api";
 import {
-  agruparPorDia, coloresDeNegocios, diaLima, esVista, hoyLima, moverPeriodo, nombreDelDia, rangoDeVista,
+  agruparPorDia, coloresDeNegocios, diaLima, esVista, horaLima, hoyLima, moverPeriodo, nombreDelDia, rangoDeVista,
   tituloDePeriodo, type VistaAgenda,
 } from "@/lib/agenda";
 import { empresasVisibles, guardarEmpresaActiva } from "@/lib/auth";
@@ -24,6 +29,7 @@ import { VistaMes } from "@/components/agenda/VistaMes";
 import { VistaSemana } from "@/components/agenda/VistaSemana";
 import { VistaLista } from "@/components/agenda/VistaLista";
 import { DetalleCitas } from "@/components/agenda/DetalleCitas";
+import { AgendarReunion } from "@/components/agenda/AgendarReunion";
 import { colorDe } from "@/components/agenda/colores";
 
 const CLAVE_VISTA = "agenda.vista";
@@ -58,6 +64,9 @@ export default function AgendaPanel() {
   const [datos, setDatos] = useState<{ clave: string; citas: CitaAgenda[] } | null>(null);
   const [intento, setIntento] = useState(0);
   const [fallo, setFallo] = useState<string | null>(null);
+  /** El espacio elegido para una reunión nueva (hora "" = sin elegir). */
+  const [nueva, setNueva] = useState<{ dia: string; hora: string } | null>(null);
+  const [agendada, setAgendada] = useState<CitaAgenda | null>(null);
 
   const hoy = hoyLima(ahora);
   const rango = useMemo(() => rangoDeVista(vista, fecha), [vista, fecha]);
@@ -135,6 +144,20 @@ export default function AgendaPanel() {
     setDetalle(null);
   }
 
+  function abrirNueva(dia: string, hora = "") {
+    setDetalle(null);
+    setNueva({ dia: dia < hoy ? hoy : dia, hora });
+  }
+
+  /** La reunión recién agendada entra a lo que se ve, sin volver a pedir el periodo. */
+  function alAgendar(c: CitaAgenda) {
+    setNueva(null);
+    setAgendada(c);
+    setDatos((d) => (d && !d.citas.some((x) => x.id === c.id) ? { ...d, citas: [...d.citas, c] } : d));
+    // Si se agendó en otro periodo, se va a verla (ese periodo se pide entero).
+    if (!rango.dias.includes(diaLima(c.inicio))) setFecha(diaLima(c.inicio));
+  }
+
   const citaAbierta = detalle?.tipo === "cita" ? visibles.find((c) => c.id === detalle.id) : undefined;
 
   return (
@@ -143,21 +166,32 @@ export default function AgendaPanel() {
         <div>
           <p className="eyebrow">Ventas</p>
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Agenda</h1>
-          <p className="mt-1 text-[0.92rem] text-frio">Las reuniones que el bot agendó para ti.</p>
+          <p className="mt-1 text-[0.92rem] text-frio">
+            Las reuniones que el bot agendó para ti. Para agendar una, toca un espacio libre.
+          </p>
         </div>
-        {negocios.size > 1 && (
-          <select
-            value={negocio}
-            onChange={(e) => setNegocio(e.target.value)}
-            aria-label="Filtrar por negocio"
-            className="max-w-full rounded-tarjeta border border-linea bg-carta px-3 py-2.5 text-[0.9rem] text-tinta outline-none focus:border-brasa"
+        <div className="flex max-w-full flex-wrap items-center gap-2">
+          {negocios.size > 1 && (
+            <select
+              value={negocio}
+              onChange={(e) => setNegocio(e.target.value)}
+              aria-label="Filtrar por negocio"
+              className="max-w-full rounded-tarjeta border border-linea bg-carta px-3 py-2.5 text-[0.9rem] text-tinta outline-none focus:border-brasa"
+            >
+              <option value="todos">Todos los negocios</option>
+              {[...negocios.entries()].map(([id, n]) => (
+                <option key={id} value={id}>{n}</option>
+              ))}
+            </select>
+          )}
+          <button
+            type="button"
+            onClick={() => abrirNueva(vista === "dia" ? fecha : hoy)}
+            className="inline-flex min-h-11! items-center rounded-tarjeta bg-brasa px-4 text-[0.9rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
           >
-            <option value="todos">Todos los negocios</option>
-            {[...negocios.entries()].map(([id, n]) => (
-              <option key={id} value={id}>{n}</option>
-            ))}
-          </select>
-        )}
+            + Agendar reunión
+          </button>
+        </div>
       </header>
 
       <BarraAgenda
@@ -168,6 +202,38 @@ export default function AgendaPanel() {
         onMover={(d) => setFecha((f) => moverPeriodo(vista, f, d))}
         onHoy={() => setFecha(hoy)}
       />
+
+      {agendada && (
+        <div
+          className="flex items-start justify-between gap-3 rounded-tarjeta bg-brasa-suave p-3 ring-1 ring-brasa/30"
+          role="status"
+        >
+          <div className="min-w-0 text-[0.9rem] text-tinta">
+            <p className="font-semibold">
+              Listo: reunión con {agendada.cliente || "el cliente"} el {nombreDelDia(diaLima(agendada.inicio))} a las{" "}
+              {horaLima(agendada.inicio)}. Ya está en tu Google Calendar.
+            </p>
+            {agendada.meetLink && (
+              <a
+                href={agendada.meetLink}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-0.5 inline-block max-w-full break-all font-semibold text-brasa-texto underline"
+              >
+                {agendada.meetLink}
+              </a>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setAgendada(null)}
+            aria-label="Cerrar aviso"
+            className="grid h-10 min-h-10! w-10 shrink-0 place-items-center rounded-chip text-[1.3rem] leading-none text-tinta-2 hover:bg-carta/60 focus-visible:outline-2 focus-visible:outline-brasa"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {enLeyenda.length > 1 && (
         <ul className="flex flex-wrap gap-x-4 gap-y-1.5" aria-label="Colores por negocio">
@@ -228,6 +294,7 @@ export default function AgendaPanel() {
           colores={colores}
           onCita={(c) => setDetalle({ tipo: "cita", id: c.id })}
           onDia={verDia}
+          onEspacio={abrirNueva}
         />
       )}
       {citas && vista === "lista" && (
@@ -251,13 +318,24 @@ export default function AgendaPanel() {
           onActualizada={actualizarCita}
           onAgendada={recargar}
           accion={
-            <button
-              type="button"
-              onClick={() => verDia(detalle.dia)}
-              className="mt-1 min-h-0! text-[0.8rem] font-semibold text-brasa-texto underline focus-visible:outline-2 focus-visible:outline-brasa"
-            >
-              Ver el día por horas
-            </button>
+            <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              <button
+                type="button"
+                onClick={() => verDia(detalle.dia)}
+                className="min-h-0! text-[0.8rem] font-semibold text-brasa-texto underline focus-visible:outline-2 focus-visible:outline-brasa"
+              >
+                Ver el día por horas
+              </button>
+              {detalle.dia >= hoy && (
+                <button
+                  type="button"
+                  onClick={() => abrirNueva(detalle.dia)}
+                  className="min-h-0! text-[0.8rem] font-semibold text-brasa-texto underline focus-visible:outline-2 focus-visible:outline-brasa"
+                >
+                  Agendar en este día
+                </button>
+              )}
+            </span>
           }
         />
       )}
@@ -270,6 +348,17 @@ export default function AgendaPanel() {
           onConversacion={abrirConversacion}
           onActualizada={actualizarCita}
           onAgendada={recargar}
+        />
+      )}
+      {nueva && (
+        <AgendarReunion
+          dia={nueva.dia}
+          hora={nueva.hora}
+          tenantId={negocio === "todos" ? undefined : negocio}
+          variosNegocios={negocios.size > 1}
+          colores={colores}
+          onCerrar={() => setNueva(null)}
+          onAgendada={alAgendar}
         />
       )}
     </div>

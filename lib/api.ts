@@ -3289,6 +3289,22 @@ export async function agendarCita(c: {
 }): Promise<CitaAgenda> {
   return (await api<{ cita: CitaAgenda }>("/agenda/citas", { method: "POST", body: c, conEmpresa: false })).cita;
 }
+/** Un lead para anexar a una reunión nueva desde la Agenda (2026-10-08). */
+export interface LeadParaAgendar {
+  id: string; tenantId: string; negocio: string; nombre: string | null;
+  /** Solo si el contacto es un número (WhatsApp o lead a mano). */
+  telefono: string | null; canal: string;
+}
+/**
+ * Leads de los negocios donde la persona atiende, por nombre o teléfono. Sin
+ * texto, los que escribieron hace menos. Con `tenantId`, solo de ese negocio.
+ */
+export async function buscarLeadsParaAgendar(q: string, tenantId?: string): Promise<LeadParaAgendar[]> {
+  const qs = new URLSearchParams();
+  if (q.trim()) qs.set("q", q.trim().slice(0, 80));
+  if (tenantId) qs.set("tenantId", tenantId);
+  return (await api<{ leads: LeadParaAgendar[] }>(`/agenda/leads?${qs}`, { conEmpresa: false })).leads;
+}
 export function obtenerQuienAtiende(): Promise<QuienAtiende> {
   return api("/agenda/quien-atiende");
 }

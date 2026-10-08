@@ -316,3 +316,30 @@ export function coloresDeNegocios(tenantIds: string[], tamano = 8): Map<string, 
 export function resumenDelDia<T>(citas: T[], max = 3): { mostradas: T[]; resto: number } {
   return { mostradas: citas.slice(0, max), resto: Math.max(0, citas.length - max) };
 }
+
+// ── Agendar desde un espacio libre (2026-10-08) ─────────────────────────────
+
+/** Las horas que se ofrecen al agendar a mano: de 07:00 a 21:30, cada media hora. */
+export const HORAS_AGENDAR: string[] = Array.from({ length: 30 }, (_, i) => {
+  const m = 7 * 60 + i * 30;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+});
+
+/**
+ * La media hora donde cae un punto de la grilla, como "HH:MM": se redondea
+ * hacia abajo (tocar a las 10:47 propone las 10:30, el bloque que se tocó).
+ */
+export function mediaHoraDe(minutosDelDia: number): string {
+  const m = Math.min(23 * 60 + 30, Math.max(0, Math.floor(minutosDelDia / 30) * 30));
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** El inicio en ISO con el desfase de Lima, como lo espera `POST /agenda/citas`. */
+export function inicioEnLima(dia: string, hora: string): string {
+  return `${dia}T${hora}:00-05:00`;
+}
+
+/** ¿Esa media hora ya terminó? (no se ofrece agendar en algo que ya pasó). */
+export function mediaHoraPasada(dia: string, hora: string, ahora: Date = new Date()): boolean {
+  return new Date(inicioEnLima(dia, hora)).getTime() + 30 * 60_000 <= ahora.getTime();
+}

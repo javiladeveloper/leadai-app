@@ -8,11 +8,17 @@
 // La grilla scrollea DENTRO de su caja (en X en el celular, en Y si es alta):
 // la página nunca scrollea de costado, y la cabecera de días y la columna de
 // horas quedan fijas.
+//
+// AGENDAR EN UN ESPACIO LIBRE (2026-10-08): tocar el fondo de una columna (no
+// una cita) propone esa media hora para una reunión nueva. Con mouse, un
+// bloque punteado muestra qué media hora se va a tomar. Lo que ya pasó no se
+// ofrece. Para teclado está el botón "Agendar reunión" de la página.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CitaAgenda } from "@/lib/api";
 import {
   DIAS_SEMANA_CORTOS, diaDeSemana, horaLima, minutosLima, nombreDelDia, posicionarEnDia, rangoDeHoras, diaLima,
+  mediaHoraDe, mediaHoraPasada,
 } from "@/lib/agenda";
 import { colorDe } from "./colores";
 import { IconoTipo } from "./DetalleCitas";
@@ -26,6 +32,7 @@ export function VistaSemana({
   colores,
   onCita,
   onDia,
+  onEspacio,
 }: {
   dias: string[];
   hoy: string;
@@ -35,6 +42,8 @@ export function VistaSemana({
   onCita: (c: CitaAgenda) => void;
   /** Tocar la cabecera de un día (solo en Semana) lleva a la vista Día. */
   onDia?: (dia: string) => void;
+  /** Tocar un espacio libre: el día y la media hora ("HH:MM") para agendar ahí. */
+  onEspacio?: (dia: string, hora: string) => void;
 }) {
   const detallado = dias.length === 1;
   const pxHora = detallado ? 64 : 52;
@@ -43,6 +52,15 @@ export function VistaSemana({
   const totalMin = (horas.hasta - horas.desde) * 60;
   const alto = (totalMin / 60) * pxHora;
   const caja = useRef<HTMLDivElement>(null);
+  const [fantasma, setFantasma] = useState<{ dia: string; hora: string } | null>(null);
+
+  /** La media hora libre bajo el puntero, o null si es una cita o ya pasó. */
+  function espacioEn(e: React.MouseEvent<HTMLDivElement>, dia: string): string | null {
+    if (e.target !== e.currentTarget) return null;
+    const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
+    const hora = mediaHoraDe(horas.desde * 60 + (y / pxHora) * 60);
+    return mediaHoraPasada(dia, hora, ahora) ? null : hora;
+  }
 
   // Al cambiar de periodo, arrancar mirando la primera cita (o "ahora" si es
   // hoy y no hay citas), con una hora de aire arriba.
@@ -124,12 +142,31 @@ export function VistaSemana({
           {dias.map((d) => {
             const pos = posicionarEnDia(citasPorDia.get(d) ?? [], d, horas.desde);
             const lineaAhora = d === hoy && hoyVisible;
+            const fantasmaAqui = fantasma?.dia === d ? fantasma.hora : null;
             return (
               <div
                 key={d}
                 role="list"
                 aria-label={`Reuniones del ${nombreDelDia(d)}`}
-                className="relative border-l border-linea"
+                className={`relative border-l border-linea ${onEspacio && fantasmaAqui ? "cursor-pointer" : ""}`}
+                onClick={
+                  onEspacio
+                    ? (e) => {
+                        const hora = espacioEn(e, d);
+                        setFantasma(null);
+                        if (hora) onEspacio(d, hora);
+                      }
+                    : undefined
+                }
+                onMouseMove={
+                  onEspacio
+                    ? (e) => {
+                        const hora = espacioEn(e, d);
+                        if (hora !== fantasmaAqui) setFantasma(hora ? { dia: d, hora } : null);
+                      }
+                    : undefined
+                }
+                onMouseLeave={onEspacio ? () => setFantasma(null) : undefined}
                 style={{
                   height: alto,
                   backgroundImage: `repeating-linear-gradient(to bottom, var(--color-linea) 0 1px, transparent 1px ${pxHora}px)`,
@@ -190,6 +227,18 @@ export function VistaSemana({
                     </div>
                   );
                 })}
+                {fantasmaAqui && (
+                  <div
+                    className="pointer-events-none absolute inset-x-0.5 rounded-md border border-dashed border-brasa bg-brasa-suave/60 px-1.5 text-[0.72rem] font-semibold leading-tight text-brasa-texto"
+                    style={{
+                      top: ((minutosDeHora(fantasmaAqui) - horas.desde * 60) / 60) * pxHora + 1,
+                      height: (30 / 60) * pxHora - 2,
+                    }}
+                    aria-hidden
+                  >
+                    + {fantasmaAqui}
+                  </div>
+                )}
                 {lineaAhora && (
                   <div
                     className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-alerta"
@@ -206,4 +255,9 @@ export function VistaSemana({
       </div>
     </div>
   );
+}
+
+function minutosDeHora(hora: string): number {
+  const [h, m] = hora.split(":").map(Number);
+  return h * 60 + m;
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 /**
  * EL HERO DE UNA SECCIÓN DE MARKETING (2026-08-27, pedido de Jonathan).
  *
@@ -21,18 +23,77 @@ export function HeroSeccion({
   bajada,
   nota,
   dibujo,
+  plegable,
 }: {
   titulo: string;
   bajada: React.ReactNode;
   /** Una línea más chica debajo: el detalle que saca la duda. */
   nota?: React.ReactNode;
   dibujo: React.ReactNode;
+  /**
+   * SE PUEDE PLEGAR (2026-10-09). En Leads, Seguimiento y Reportes el hero
+   * explica la sección la primera vez, pero a la vigésima visita es un bloque
+   * enorme que empuja el trabajo hacia abajo. Con `plegable="<clave>"` lleva
+   * un "Ocultar", y la elección se recuerda en este navegador.
+   *
+   * Plegable va DEBAJO del h1 de la página y su titular no es un encabezado:
+   * es la explicación de la sección, no un segundo título que compita con
+   * el h1.
+   */
+  plegable?: string;
 }) {
+  const clave = plegable ? `leadai.hero.${plegable}` : null;
+  // Las pantallas que lo usan pintan después de montar (esperan la sesión),
+  // así que acá ya hay `window` y no hay desfase con el servidor.
+  const [plegado, setPlegado] = useState(() => {
+    if (!clave || typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(clave) === "1";
+    } catch {
+      return false; // sin storage (modo privado): se ve desplegado
+    }
+  });
+  function alternar(nuevo: boolean) {
+    setPlegado(nuevo);
+    if (!clave) return;
+    try {
+      if (nuevo) window.localStorage.setItem(clave, "1");
+      else window.localStorage.removeItem(clave);
+    } catch {
+      /* sin storage: vale solo por esta visita */
+    }
+  }
+
+  if (clave && plegado) {
+    return (
+      <button
+        type="button"
+        onClick={() => alternar(false)}
+        className="inline-flex min-h-0 items-center gap-1.5 rounded-chip px-1 py-1 text-[0.8rem] font-semibold text-frio transition hover:text-brasa-texto"
+        aria-expanded={false}
+      >
+        <span aria-hidden>ⓘ</span> ¿Para qué sirve esta sección?
+      </button>
+    );
+  }
+
+  const Titular = clave ? "p" : "h2";
   return (
-    <div className="overflow-hidden rounded-tarjeta bg-superficie-honda text-arena">
+    <div className="relative overflow-hidden rounded-tarjeta bg-superficie-honda text-arena">
+      {clave && (
+        <button
+          type="button"
+          onClick={() => alternar(true)}
+          aria-expanded
+          aria-label="Ocultar esta explicación"
+          className="absolute right-3 top-3 z-10 min-h-0 rounded-chip px-2.5 py-1 text-[0.75rem] font-semibold text-arena/60 transition hover:bg-white/10 hover:text-arena"
+        >
+          Ocultar
+        </button>
+      )}
       <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:p-7">
         <div className="min-w-0 flex-1">
-          <h2 className="text-[1.45rem] font-bold leading-tight sm:text-[1.7rem]">{titulo}</h2>
+          <Titular className="text-[1.45rem] font-bold leading-tight sm:text-[1.7rem]">{titulo}</Titular>
           <p className="mt-2.5 text-[0.95rem] text-arena/80">{bajada}</p>
           {nota && <p className="mt-2 text-[0.9rem] text-arena/70">{nota}</p>}
         </div>

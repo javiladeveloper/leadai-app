@@ -7,6 +7,7 @@ import { volarAlCarrito } from "@/lib/vuelo-carrito";
 import { usarNumeroAnimado } from "@/lib/usar-numero-animado";
 import { IconoWhatsApp, IconoInstagram, IconoMessenger, IconoTikTok } from "@/components/Iconos";
 import { use } from "react";
+import { solesDeCentavos } from "@/lib/dinero";
 
 /**
  * LA CARTA PÚBLICA — el cliente arma su pedido y vuelve a WhatsApp.
@@ -172,7 +173,8 @@ interface Cotizacion {
   totalCentavos: number;
 }
 
-const soles = (centavos: number) => `S/${(centavos / 100).toFixed(2)}`;
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09).
+const soles = solesDeCentavos;
 
 /**
  * Sin tildes, para buscar. Nadie escribe "acevichado" con tilde cuando busca

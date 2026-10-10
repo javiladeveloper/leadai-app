@@ -13,4 +13,5 @@ export function precioRecargaCentavos(hits: number, tramos: TramoRecarga[]): num
   return Math.round(hits * (tramo?.centavosPorHit ?? 0));
 }
 
-export const soles = (centavos: number): string => `S/${(centavos / 100).toFixed(2)}`;
+// El formato vive en lib/dinero.ts (2026-10-09): uno solo para toda la web.
+export { solesDeCentavos as soles } from "./dinero";

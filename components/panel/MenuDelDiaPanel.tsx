@@ -7,6 +7,7 @@ import {
   type MenuDelDia, type OpcionMenuDia, type MenuProgramado,
 } from "@/lib/carta";
 import { SkeletonLista } from "@/components/Skeletons";
+import { solesDeCentavos } from "@/lib/dinero";
 
 /**
  * EL MENÚ DE HOY (2026-08-31, feedback de un restaurante real: "tenemos menús
@@ -19,9 +20,8 @@ import { SkeletonLista } from "@/components/Skeletons";
  * publica el nuevo.
  */
 
-function soles(centavos: number): string {
-  return `S/${(centavos / 100).toFixed(2)}`;
-}
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09).
+const soles = solesDeCentavos;
 
 /** "13.50" o "13" → céntimos; null si no es un precio. */
 function aCentavos(texto: string): number | null {

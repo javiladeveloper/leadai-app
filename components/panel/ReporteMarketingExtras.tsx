@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { solesOGuion } from "@/lib/dinero";
 import {
   activarReporteSemanal, borrarNotaMarketing, crearNotaMarketing, crearPublicoConLeads, guardarMetasMarketing,
   type AtencionReporte, type DiaMarketing, type MetasMarketing, type NotaMarketing,
@@ -12,10 +13,8 @@ import {
  * ese archivo siga leyéndose de arriba a abajo.
  */
 
-export const soles = (c: number | null | undefined) =>
-  typeof c === "number" && Number.isFinite(c)
-    ? `S/${(c / 100).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : "—";
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09).
+export const soles = solesOGuion;
 const fechaCorta = (v: string) => {
   const d = new Date(`${v}T12:00:00`);
   return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString("es-PE", { day: "numeric", month: "short" });

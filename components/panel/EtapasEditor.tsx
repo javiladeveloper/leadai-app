@@ -22,8 +22,9 @@ const COLORES: { id: EtapaEmbudo["color"]; clase: string }[] = [
 const MOTORES: { id: EtapaEmbudo["motor"]; label: string }[] = [
   { id: "nuevo", label: "Lead nuevo (la IA lo atiende)" },
   { id: "nutriendo", label: "En seguimiento (la IA nutre)" },
-  { id: "escalado", label: "Lo atiende un humano" },
-  { id: "ganado", label: "Cierre ganado ✓" },
+  // Los mismos nombres que el resto de la web (2026-10-09).
+  { id: "escalado", label: "Para atender (lo atiende una persona)" },
+  { id: "ganado", label: "Ganado ✓" },
   { id: "perdido", label: "Cierre perdido ✕" },
 ];
 
@@ -78,7 +79,7 @@ export function EtapasEditor() {
     const r = await guardarEtapas(etapas);
     setMensaje(
       r.ok
-        ? { ok: true, texto: "Etapas guardadas. Tu bandeja ya las usa." }
+        ? { ok: true, texto: "Etapas guardadas. Conversaciones y Seguimiento ya las usan." }
         : { ok: false, texto: r.error ?? "No se pudieron guardar." },
     );
     setGuardando(false);

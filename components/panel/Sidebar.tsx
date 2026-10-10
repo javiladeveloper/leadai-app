@@ -50,7 +50,9 @@ export const SECCIONES: Seccion[] = [
   { href: "/carta", label: "Carta", Icono: IconoOportunidades, requiere: "tieneCarta", rapido: 2 },
 
   // ── VENTAS: el ciclo del lead, de la primera charla al cierre ──
-  { href: "/seguimiento", label: "Seguimiento", corto: "Pipeline", Icono: IconoSeguimiento, requiere: "tieneEmbudo", rapido: 2, grupo: "Ventas" },
+  // Sin `corto` (2026-10-09): "Pipeline" era un segundo nombre para la
+  // misma sección, y "Seguimiento" entra en la barra de abajo.
+  { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento, requiere: "tieneEmbudo", rapido: 2, grupo: "Ventas" },
   { href: "/leads", label: "Leads", Icono: IconoBandeja, requiere: "calificaLeads", rapido: 3, grupo: "Ventas" },
   // Las reuniones que el bot agendó para ESTA persona, en todos sus negocios (2026-09-26).
   { href: "/agenda", label: "Agenda", Icono: IconoSeguimiento, requiere: "calificaLeads", grupo: "Ventas" },

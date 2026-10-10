@@ -26,7 +26,7 @@ import {
 // tampoco la ve acá (antes se ofrecían puertas que el menú no tenía).
 const ACCESOS = [
   { href: "/conversaciones", titulo: "Conversaciones", Icono: IconoConversaciones },
-  { href: "/seguimiento", titulo: "Pipeline", Icono: IconoSeguimiento },
+  { href: "/seguimiento", titulo: "Seguimiento", Icono: IconoSeguimiento },
   { href: "/leads", titulo: "Leads", Icono: IconoBandeja },
   { href: "/agenda", titulo: "Agenda", Icono: IconoSeguimiento },
   { href: "/reportes", titulo: "Reportes", Icono: IconoReportes },

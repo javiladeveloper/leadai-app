@@ -7,7 +7,7 @@ import { ConsumoAgentes } from "@/components/admin/ConsumoAgentes";
 
 const NIVEL_LABEL: Record<string, string> = { caliente: "🔥 Calientes", tibio: "🌤 Tibios", frio: "❄️ Fríos" };
 const ESTADO_LABEL: Record<string, string> = {
-  nuevo: "Nuevos", nutriendo: "Nutriendo", escalado: "Escalados", ganado: "Ganados", perdido: "Perdidos",
+  nuevo: "Nuevos", nutriendo: "Nutriendo", escalado: "Para atender", ganado: "Ganados", perdido: "Perdidos",
 };
 
 function Tarjeta({ valor, label }: { valor: number | string; label: string }) {

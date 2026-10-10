@@ -1,6 +1,7 @@
 "use client";
 
 import type { Lead } from "@/lib/api";
+import { solesDeCentavos } from "@/lib/dinero";
 
 /**
  * DE DÓNDE VINO ESTE LEAD Y CUÁNTO COSTÓ (2026-09-17, pedido de Jonathan:
@@ -45,11 +46,8 @@ export function ChipPlataforma({ plataforma }: { plataforma?: string }) {
   );
 }
 
-function soles(centavos: number): string {
-  return `S/${(centavos / 100).toLocaleString("es-PE", {
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  })}`;
-}
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09).
+const soles = solesDeCentavos;
 
 export function OrigenLead({
   lead, compacto = false,

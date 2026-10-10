@@ -12,6 +12,7 @@ import { AccionesContacto } from "@/components/AccionesContacto";
 import { urlGestionarAnuncio } from "@/lib/enlaces";
 import { ErrorMarketing, useLecturaMarketing } from "./marketing-lectura";
 import { ChipPlataforma } from "./OrigenLead";
+import { solesOGuion } from "@/lib/dinero";
 import {
   Bitacora, Cambio, ChipCansancio, CrearPublico, FrenosYTemas, GraficoDiario, MetasYAvisos, PorHora, PuntoSemaforo,
   TarjetaAtencion, tiempoRespuesta,
@@ -43,13 +44,11 @@ const NIVEL: Record<string, { label: string; clase: string }> = {
   frio: { label: "Frío", clase: "bg-arena text-frio" },
 };
 const ESTADO: Record<string, string> = {
-  nuevo: "Nuevo", nutriendo: "En seguimiento", escalado: "Pasado al equipo", ganado: "Ganado", perdido: "Perdido",
+  nuevo: "Nuevo", nutriendo: "En seguimiento", escalado: "Para atender", ganado: "Ganado", perdido: "Perdido",
 };
 
-const soles = (c: number | null | undefined) =>
-  typeof c === "number" && Number.isFinite(c)
-    ? `S/${(c / 100).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : "—";
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09).
+const soles = solesOGuion;
 const pct = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 100)} %` : "—");
 const fechaCorta = (v: string | null) => {
   if (!v) return "";

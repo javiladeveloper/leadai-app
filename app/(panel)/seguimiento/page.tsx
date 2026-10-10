@@ -3,16 +3,18 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { haySesion, esModoGlobal, filtroInicialDeBandeja, leerEmpresaActiva } from "@/lib/auth";
+import { haySesion, esModoGlobal, filtroInicialDeBandeja, leerEmpresaActiva, puedeAbrirConversacion } from "@/lib/auth";
 import {
   paginaLeadsFiltrada,
   paginaBandejaGlobalFiltrada,
   cargarProgresivo,
   tieneCanalActivo,
   accionLead,
+  obtenerEtapas,
   type Lead,
-  type EstadoLead,
 } from "@/lib/api";
+import { ETAPAS_DEFAULT, MOTORES_CERRADOS, PUNTO_ETAPA, etapaVisibleDe, type EtapaEmbudo } from "@/lib/etapas";
+import { CierreLead } from "@/components/panel/CierreLead";
 import { useAbrirLead } from "@/components/LinkLead";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
@@ -31,22 +33,23 @@ type Estado = "cargando" | "ok" | "error";
 
 // En modo global el lead trae de qué negocio viene; en modo empresa esos
 // campos no existen (van `undefined` y nada cambia).
-type LeadPipeline = Lead & { tenantId?: string; negocioNombre?: string };
+type LeadTablero = Lead & { tenantId?: string; negocioNombre?: string };
 
-// Las etapas del pipeline en orden de avance. Los `estado` son los valores
-// reales del backend; los `titulo` son en lenguaje simple (mismos que en Leads).
-const ETAPAS: {
-  estado: EstadoLead;
-  titulo: string;
-  ayuda: string;
-  acento: string; // clase de color para el punto/encabezado de la columna
-}[] = [
-  { estado: "nuevo", titulo: "Nuevos", ayuda: "Recién llegaron", acento: "bg-brasa" },
-  { estado: "nutriendo", titulo: "En seguimiento", ayuda: "El bot los está trabajando", acento: "bg-tibio" },
-  { estado: "escalado", titulo: "Para atender", ayuda: "Listos para que entres tú", acento: "bg-brasa-hondo" },
-  { estado: "ganado", titulo: "Ganados", ayuda: "Cerraste la venta", acento: "bg-ok" },
-  { estado: "perdido", titulo: "Perdidos", ayuda: "No avanzaron", acento: "bg-frio" },
-];
+/**
+ * LAS ETAPAS SON LAS DEL NEGOCIO (2026-10-09). El tablero tenía cinco
+ * columnas fijas mientras Conversaciones usaba las etapas que el dueño
+ * configuró ("Agendó demo", "Demo hecha"…): el mismo lead estaba en una
+ * columna acá y en otra allá. Ahora las dos usan `obtenerEtapas` y la misma
+ * regla (`etapaVisibleDe`, lib/etapas.ts). En "Todos mis negocios" se usan
+ * las de siempre: cada negocio tiene las suyas y no se pueden mezclar.
+ */
+const AYUDA_MOTOR: Record<EtapaEmbudo["motor"], string> = {
+  nuevo: "Recién llegaron",
+  nutriendo: "El bot los está trabajando",
+  escalado: "Listos para que entres tú",
+  ganado: "Lograron lo que buscabas",
+  perdido: "No avanzaron",
+};
 
 const NIVEL_ETIQUETA: Record<Lead["nivelInteres"], { texto: string; clase: string }> = {
   caliente: { texto: "🔴 Caliente", clase: "bg-calor-suave text-calor-hondo" },
@@ -58,10 +61,11 @@ const NIVEL_ETIQUETA: Record<Lead["nivelInteres"], { texto: string; clase: strin
 // "ver más". La columna tiene scroll interno, así que nunca crece infinito.
 const PAGINA_ETAPA = 12;
 
-// Seguimiento: tablero por etapas de venta. Cada columna es un estado del lead;
-// las tarjetas se pueden marcar como ganado o descartar sin salir de la vista.
+// Seguimiento: tablero por etapas de venta. Cada columna es una etapa del
+// negocio; las tarjetas se marcan "Ganado" o se descartan sin salir de la vista
+// (el mismo CierreLead de la ficha de Conversaciones).
 //
-// `?etapa=<estado>` (2026-10-09): Reportes ("dónde se te caen las ventas")
+// `?etapa=<id o estado>` (2026-10-09): Reportes ("dónde se te caen las ventas")
 // lleva acá con el escalón que tocaste; esa columna se resalta y se trae a la
 // vista.
 export default function SeguimientoPanel() {
@@ -78,7 +82,7 @@ function SeguimientoInner() {
   const abrirLead = useAbrirLead();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
-  const [leads, setLeads] = useState<LeadPipeline[]>([]);
+  const [leads, setLeads] = useState<LeadTablero[]>([]);
   // Mientras llegan las páginas que siguen a la primera (ver `cargar`).
   const [completando, setCompletando] = useState(false);
   const [etapaDestacada, setEtapaDestacada] = useState<string | null>(() => params.get("etapa"));
@@ -99,36 +103,20 @@ function SeguimientoInner() {
   // Buscador del tablero: por nombre, contacto o resumen de la IA (cliente).
   const [busqueda, setBusqueda] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
-  // Lead abierto en el popup de vista rápida (1 click). El doble click entra a
-  // la conversación directamente. Usamos un timer para distinguir 1 de 2 clicks.
-  const [leadAbierto, setLeadAbierto] = useState<LeadPipeline | null>(null);
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Lead abierto en el popup de vista rápida.
+  //
+  // UN CLIC ABRE AL INSTANTE (2026-10-09). Antes el clic esperaba 220 ms por si
+  // venía un segundo clic —el doble clic, escondido, abría el chat—: el popup
+  // se sentía lento y nadie sabía del doble clic. Ahora el clic abre ya, y
+  // "Abrir chat" es un botón visible en cada tarjeta.
+  const [leadAbierto, setLeadAbierto] = useState<LeadTablero | null>(null);
   // Cuántas tarjetas mostrar por etapa (paginación en cliente con "ver más").
   // Cada columna arranca mostrando PAGINA_ETAPA y crece de a tandas.
   const [visiblePorEtapa, setVisiblePorEtapa] = useState<Record<string, number>>({});
-
-  // 1 click abre el popup; 2 clicks entran a la conversación (cancela el popup).
-  const alHacerClick = useCallback(
-    (lead: LeadPipeline) => {
-      if (clickTimer.current) clearTimeout(clickTimer.current);
-      clickTimer.current = setTimeout(() => {
-        setLeadAbierto(lead);
-        clickTimer.current = null;
-      }, 220);
-    },
-    [],
-  );
-  const alDobleClick = useCallback(
-    (lead: LeadPipeline) => {
-      if (clickTimer.current) {
-        clearTimeout(clickTimer.current);
-        clickTimer.current = null;
-      }
-      // A la ficha única, con el negocio del lead.
-      abrirLead(lead.id, lead.tenantId);
-    },
-    [abrirLead],
-  );
+  // Las etapas del negocio que se mira (ver AYUDA_MOTOR arriba).
+  const [etapas, setEtapas] = useState<EtapaEmbudo[]>(ETAPAS_DEFAULT);
+  // ¿Son las del negocio (se mueve por id) o las de siempre ("Todos")?
+  const [etapasPropias, setEtapasPropias] = useState(false);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -154,7 +142,7 @@ function SeguimientoInner() {
     // AL VOLVER, EL TABLERO DE LA ÚLTIMA VEZ (2026-10-09): se pinta al
     // instante y se reemplaza cuando termina de llegar el nuevo.
     const clave = `seguimiento@${global ? "global" : leerEmpresaActiva() || "-"}`;
-    const guardado = leerCache<{ leads: LeadPipeline[]; negocios: NegocioBandeja[] }>(clave);
+    const guardado = leerCache<{ leads: LeadTablero[]; negocios: NegocioBandeja[] }>(clave);
     if (guardado) {
       setLeads(guardado.leads);
       setNegocios(guardado.negocios);
@@ -163,10 +151,10 @@ function SeguimientoInner() {
       setEstado((e) => (e === "ok" ? "ok" : "cargando"));
     }
     setCompletando(true);
-    let acumulado: LeadPipeline[] = [];
+    let acumulado: LeadTablero[] = [];
     let negociosVistos: NegocioBandeja[] = [];
     try {
-      await cargarProgresivo<LeadPipeline, { items: LeadPipeline[]; siguienteCursor: string | null; negocios?: NegocioBandeja[] }>(
+      await cargarProgresivo<LeadTablero, { items: LeadTablero[]; siguienteCursor: string | null; negocios?: NegocioBandeja[] }>(
         (cursor) => (global ? paginaBandejaGlobalFiltrada({}, cursor) : paginaLeadsFiltrada({}, cursor)),
         (items, { primera, ultima, respuesta }) => {
           if (respuesta.negocios) { negociosVistos = respuesta.negocios; setNegocios(respuesta.negocios); }
@@ -200,12 +188,37 @@ function SeguimientoInner() {
     { maxEdadMs: 60_000 },
   );
 
+  // Las etapas del negocio que se mira: con un negocio enfocado (o uno solo),
+  // las suyas; en "Todos mis negocios", las de siempre.
+  useEffect(() => {
+    if (!listo) return;
+    if (esModoGlobal() && !filtroNegocio) {
+      setEtapas(ETAPAS_DEFAULT);
+      setEtapasPropias(false);
+      return;
+    }
+    let vivo = true;
+    obtenerEtapas(filtroNegocio || undefined).then((e) => {
+      if (!vivo) return;
+      setEtapas(e);
+      setEtapasPropias(true);
+    });
+    return () => { vivo = false; };
+  }, [listo, filtroNegocio]);
+
+  // `?etapa=` puede traer el id de una etapa o un estado del motor (Reportes
+  // manda el estado: "escalado"). Se resalta esa columna, o la primera de ese
+  // estado.
+  const idDestacado = etapaDestacada
+    ? (etapas.find((e) => e.id === etapaDestacada) ?? etapas.find((e) => e.motor === etapaDestacada))?.id ?? null
+    : null;
+
   // La columna pedida por la URL se trae a la vista una vez que hay datos.
   useEffect(() => {
-    if (estado === "ok" && etapaDestacada) {
+    if (estado === "ok" && idDestacado) {
       columnaDestacada.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
     }
-  }, [estado, etapaDestacada]);
+  }, [estado, idDestacado]);
 
   useEffect(() => {
     if (!listo) return;
@@ -216,8 +229,8 @@ function SeguimientoInner() {
   // los calientes arriba (lo más urgente), luego tibios, luego fríos.
   const porEtapa = useMemo(() => {
     const ORDEN_NIVEL: Record<Lead["nivelInteres"], number> = { caliente: 0, tibio: 1, frio: 2 };
-    const mapa = new Map<EstadoLead, LeadPipeline[]>();
-    for (const et of ETAPAS) mapa.set(et.estado, []);
+    const mapa = new Map<string, LeadTablero[]>();
+    for (const et of etapas) mapa.set(et.id, []);
     const q = busqueda.trim().toLowerCase();
     const visibles = leads
       .filter((l) => !filtroNegocio || l.tenantId === filtroNegocio)
@@ -228,41 +241,42 @@ function SeguimientoInner() {
           l.contactoExterno.toLowerCase().includes(q) ||
           (l.resumenIA ?? "").toLowerCase().includes(q),
       );
-    for (const l of visibles) mapa.get(l.estado)?.push(l);
+    for (const l of visibles) mapa.get(etapaVisibleDe(l, etapas).id)?.push(l);
     for (const lista of mapa.values()) {
       lista.sort((a, b) => ORDEN_NIVEL[a.nivelInteres] - ORDEN_NIVEL[b.nivelInteres]);
     }
     return mapa;
-  }, [leads, filtroNegocio, busqueda]);
+  }, [leads, filtroNegocio, busqueda, etapas]);
 
-  async function mover(
-    lead: LeadPipeline,
-    accion: { tipo: "marcar_ganado" | "descartar" },
-  ) {
-    setOcupado(lead.id);
-    // En modo global la acción viaja al negocio del lead (tenant explícito).
-    const r = await accionLead(lead.id, accion, lead.tenantId);
-    setOcupado(null);
-    if (r.ok) {
-      // Actualización optimista local: movemos el lead a la etapa destino
-      // sin recargar toda la lista.
-      const destino: EstadoLead = accion.tipo === "marcar_ganado" ? "ganado" : "perdido";
-      setLeads((prev) =>
-        prev.map((l) => (l.id === lead.id ? { ...l, estado: destino } : l)),
-      );
-    } else {
-      // Si falla, recargamos para volver al estado real del servidor.
-      cargar();
-    }
+  // CierreLead (tarjeta o popup) ya hizo la acción: acá solo se mueve la
+  // tarjeta. La etapa propia se suelta: manda el estado nuevo.
+  function alCerrar(lead: LeadTablero, nuevo: "ganado" | "perdido") {
+    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, estado: nuevo, etapaEmbudo: null } : l)));
   }
 
-  // Mover A MANO entre etapas abiertas (o reabrir un terminal) — contrato
-  // mover_etapa del backend (pedido de Jonathan: "debería poder dejarme mover
-  // entre los niveles del CRM a un prospecto"). Optimista, igual que mover().
-  async function moverEtapa(lead: LeadPipeline, etapa: "nuevo" | "nutriendo" | "escalado") {
+  /**
+   * Mover A MANO a otra etapa (o reabrir un cerrado) — contrato mover_etapa
+   * (pedido de Jonathan: "debería poder dejarme mover entre los niveles del
+   * CRM a un prospecto"). Optimista.
+   *
+   * Con las etapas del negocio se mueve por id (el backend sincroniza el
+   * estado). En "Todos mis negocios" las etapas son las de siempre y cada
+   * lead es de un negocio con las suyas: se mueve por estado del motor, y los
+   * cierres van por "Ganado"/"Descartar" como siempre.
+   */
+  async function moverA(lead: LeadTablero, et: EtapaEmbudo) {
     setOcupado(lead.id);
-    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, estado: etapa } : l)));
-    const r = await accionLead(lead.id, { tipo: "mover_etapa", etapa }, lead.tenantId);
+    setLeads((prev) => prev.map((l) => (l.id === lead.id
+      ? { ...l, estado: et.motor, etapaEmbudo: etapasPropias ? et.id : null }
+      : l)));
+    const accion = etapasPropias
+      ? { tipo: "mover_etapa" as const, etapaId: et.id }
+      : et.motor === "ganado"
+        ? { tipo: "marcar_ganado" as const }
+        : et.motor === "perdido"
+          ? { tipo: "descartar" as const }
+          : { tipo: "mover_etapa" as const, etapa: et.motor as "nuevo" | "nutriendo" | "escalado" };
+    const r = await accionLead(lead.id, accion, lead.tenantId);
     setOcupado(null);
     if (!r.ok) cargar();
   }
@@ -271,19 +285,12 @@ function SeguimientoInner() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 lg:px-8">
-      <HeroSeccion
-        titulo="En qué va cada venta, sin anotarlo aparte"
-        bajada={<>Cada cliente avanza por etapas —nuevo, en conversación, ganado— y lo mueves con un toque cuando cierras o descartas.</>}
-        nota="La IA lo va moviendo sola según lo que responde el cliente."
-        dibujo={<SeguimientoIlustracion />}
-      />
-
-      {/* Solo eyebrow + h1 (la bajada repetía el hero, pasada UX 2026-09-06)
-          y el buscador SUBE a la cabecera con su lupa de verdad — flotaba
-          suelto entre bloques con un emoji de placeholder. */}
+      {/* El título PRIMERO y el hero debajo, plegable (2026-10-09): antes el
+          hero iba arriba con su propio titular grande y el h1 "Seguimiento"
+          quedaba como un segundo título. El buscador vive en la cabecera. */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Tu pipeline</p>
+          <p className="eyebrow">Ventas</p>
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Seguimiento</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -303,7 +310,7 @@ function SeguimientoInner() {
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre o lo que dijo…"
               className="w-full rounded-chip bg-carta py-2.5 pl-10 pr-4 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40"
-              aria-label="Buscar en el pipeline"
+              aria-label="Buscar en Seguimiento"
             />
           </label>
           <button
@@ -314,6 +321,14 @@ function SeguimientoInner() {
           </button>
         </div>
       </header>
+
+      <HeroSeccion
+        plegable="seguimiento"
+        titulo="En qué va cada venta, sin anotarlo aparte"
+        bajada={<>Cada cliente avanza por las etapas de tu negocio y lo mueves con un toque: «Ganado» cuando logra lo que buscabas, «Pagó» cuando entra la plata.</>}
+        nota="La IA lo va moviendo sola según lo que responde el cliente."
+        dibujo={<SeguimientoIlustracion />}
+      />
 
       {negocios.length > 1 && (
         <BarraNegociosGlobal
@@ -326,17 +341,17 @@ function SeguimientoInner() {
 
       {estado === "cargando" && <SkeletonLista filas={5} />}
 
-      {estado === "error" && <ErrorConReintento mensaje="No pudimos cargar tu pipeline." reintentar={cargar} />}
+      {estado === "error" && <ErrorConReintento mensaje="No pudimos cargar Seguimiento." reintentar={cargar} />}
 
       {etapaDestacada && estado === "ok" && (
         <div className="flex flex-wrap items-center gap-2" role="status">
           <span className="inline-flex items-center gap-2 rounded-chip bg-brasa-suave px-3 py-1.5 text-[0.82rem] font-semibold text-brasa-texto">
-            Mirando: {ETAPAS.find((e) => e.estado === etapaDestacada)?.titulo ?? etapaDestacada}
+            Mirando: {etapas.find((e) => e.id === idDestacado)?.nombre ?? etapaDestacada}
             <button
               type="button"
               onClick={() => { setEtapaDestacada(null); router.replace("/seguimiento", { scroll: false }); }}
               aria-label="Dejar de resaltar la etapa"
-              className="text-[1rem] leading-none"
+              className="min-h-0 text-[1rem] leading-none"
             >
               ×
             </button>
@@ -347,7 +362,7 @@ function SeguimientoInner() {
       {estado === "ok" && leads.length === 0 && (
         <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="text-[1.05rem] font-bold text-tinta">
-            Todavía no hay ventas en tu pipeline
+            Todavía no hay ventas en Seguimiento
           </p>
           <p className="mt-1 text-[0.9rem] text-frio">
             Cuando lleguen leads por WhatsApp, van a ir apareciendo aquí por etapa.
@@ -365,24 +380,27 @@ function SeguimientoInner() {
       )}
 
       {estado === "ok" && leads.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          {ETAPAS.map((et) => {
-            const items = porEtapa.get(et.estado) ?? [];
-            const cerrable = et.estado !== "ganado" && et.estado !== "perdido";
-            const visible = visiblePorEtapa[et.estado] ?? PAGINA_ETAPA;
+        // Con las etapas del negocio puede haber de 2 a 12 columnas: en
+        // escritorio van en fila con scroll horizontal, cada una de ancho fijo.
+        <div className="grid gap-4 md:grid-cols-2 xl:flex xl:overflow-x-auto xl:pb-2">
+          {etapas.map((et) => {
+            const items = porEtapa.get(et.id) ?? [];
+            const cerrable = !MOTORES_CERRADOS.has(et.motor);
+            const visible = visiblePorEtapa[et.id] ?? PAGINA_ETAPA;
             const mostrados = items.slice(0, visible);
             const restantes = items.length - mostrados.length;
-            const destacada = etapaDestacada === et.estado;
+            const destacada = idDestacado === et.id;
             return (
               <section
-                key={et.estado}
+                key={et.id}
                 ref={destacada ? columnaDestacada : undefined}
-                className={`flex min-w-0 flex-col ${destacada ? "rounded-tarjeta bg-brasa-suave/40 p-2 ring-2 ring-brasa" : ""}`}
+                aria-label={et.nombre}
+                className={`flex min-w-0 flex-col xl:w-64 xl:shrink-0 ${destacada ? "rounded-tarjeta bg-brasa-suave/40 p-2 ring-2 ring-brasa" : ""}`}
               >
                 {/* Encabezado de columna */}
                 <div className="flex items-center gap-2 px-1 pb-3">
-                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${et.acento}`} />
-                  <h2 className="text-[0.95rem] font-bold text-tinta">{et.titulo}</h2>
+                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${PUNTO_ETAPA[et.color]}`} />
+                  <h2 className="truncate text-[0.95rem] font-bold text-tinta">{et.nombre}</h2>
                   <span className="ml-auto rounded-full bg-arena px-2 py-0.5 text-xs font-bold tabular-nums text-tinta-2">
                     {items.length}
                   </span>
@@ -393,8 +411,8 @@ function SeguimientoInner() {
                 <div className="flex max-h-[calc(100vh-13rem)] flex-col gap-2.5 overflow-y-auto pr-0.5">
                   {items.length === 0 && (
                     <div className="rounded-tarjeta border border-dashed border-linea px-3 py-6 text-center">
-                      <span aria-hidden className={`mx-auto block h-2.5 w-2.5 rounded-full ${et.acento} opacity-40`} />
-                      <p className="mt-2 text-[0.8rem] text-frio">{et.ayuda}</p>
+                      <span aria-hidden className={`mx-auto block h-2.5 w-2.5 rounded-full ${PUNTO_ETAPA[et.color]} opacity-40`} />
+                      <p className="mt-2 text-[0.8rem] text-frio">{AYUDA_MOTOR[et.motor]}</p>
                     </div>
                   )}
 
@@ -404,15 +422,20 @@ function SeguimientoInner() {
                     return (
                       <article
                         key={lead.id}
-                        onClick={() => alHacerClick(lead)}
-                        onDoubleClick={() => alDobleClick(lead)}
-                        title="Un click: ver detalle · Doble click: abrir conversación"
+                        onClick={() => setLeadAbierto(lead)}
                         className="cursor-pointer rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="block min-w-0 flex-1 truncate font-semibold text-tinta">
+                          {/* El nombre es el botón de "ver detalle": así se llega
+                              también con el teclado (la tarjeta entera es para
+                              el mouse). */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setLeadAbierto(lead); }}
+                            className="block min-h-0 min-w-0 flex-1 truncate text-left font-semibold text-tinta hover:underline"
+                          >
                             {lead.nombre ?? lead.contactoExterno}
-                          </span>
+                          </button>
                           <span
                             className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${nivel.clase}`}
                           >
@@ -433,6 +456,9 @@ function SeguimientoInner() {
                               🏢 {lead.negocioNombre}
                             </span>
                           )}
+                          {lead.ventaEn && (
+                            <span className="rounded-full bg-ok/12 px-2 py-0.5 text-[0.66rem] font-bold text-ok">💰 Pagó</span>
+                          )}
                           {lead.origenEtiqueta === "comentario" && (
                             <span className="rounded-full bg-tibio-suave px-2 py-0.5 text-[0.66rem] font-bold text-tibio">
                               💬 vino de un comentario
@@ -443,48 +469,52 @@ function SeguimientoInner() {
                           {lead.origenEtiqueta !== "comentario" && <OrigenLead lead={lead} compacto />}
                         </div>
 
-                        {/* Acciones de cierre — solo en etapas activas.
-                            stopPropagation: no abrir el popup al usar los botones. */}
+                        {/* Cerrar: el mismo flujo que la ficha (CierreLead). */}
                         {cerrable && (
-                          <div className="mt-3 flex gap-2">
-                            <button
-                              disabled={trabajando}
-                              onClick={(e) => { e.stopPropagation(); mover(lead, { tipo: "marcar_ganado" }); }}
-                              className="flex-1 rounded-chip bg-ok/12 px-2.5 py-1.5 text-[0.78rem] font-bold text-ok transition hover:bg-ok/20 disabled:opacity-50"
-                            >
-                              Gané
-                            </button>
-                            <button
-                              disabled={trabajando}
-                              onClick={(e) => { e.stopPropagation(); mover(lead, { tipo: "descartar" }); }}
-                              className="flex-1 rounded-chip bg-arena px-2.5 py-1.5 text-[0.78rem] font-bold text-frio transition hover:bg-linea disabled:opacity-50"
-                            >
-                              Descartar
-                            </button>
+                          <div className="mt-3">
+                            <CierreLead
+                              leadId={lead.id}
+                              estado={lead.estado}
+                              tenant={lead.tenantId}
+                              compacto
+                              onCambio={(nuevo) => alCerrar(lead, nuevo)}
+                            />
                           </div>
                         )}
 
-                        {/* Mover a mano entre etapas abiertas — y "Reabrir" en
-                            Ganados/Perdidos (contrato mover_etapa). */}
-                        <select
-                          value=""
-                          disabled={trabajando}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            const v = e.target.value as "" | "nuevo" | "nutriendo" | "escalado";
-                            if (v) moverEtapa(lead, v);
-                          }}
-                          aria-label="Mover el lead a otra etapa"
-                          className="mt-2 w-full cursor-pointer rounded-chip border border-linea bg-carta px-2.5 py-2 text-[0.8rem] font-semibold text-tinta-2 transition hover:border-brasa/50 hover:text-tinta"
-                        >
-                          <option value="">{cerrable ? "↔ Mover a…" : "↩ Reabrir en…"}</option>
-                          {ETAPAS.filter(
-                            (e2) => e2.estado !== lead.estado && e2.estado !== "ganado" && e2.estado !== "perdido",
-                          ).map((e2) => (
-                            <option key={e2.estado} value={e2.estado}>{e2.titulo}</option>
-                          ))}
-                        </select>
+                        <div className="mt-2 flex gap-2">
+                          {/* Mover a otra etapa del negocio — y "Reabrir" en
+                              las cerradas (contrato mover_etapa). */}
+                          <select
+                            value=""
+                            disabled={trabajando}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              const destino = etapas.find((x) => x.id === e.target.value);
+                              if (destino) void moverA(lead, destino);
+                            }}
+                            aria-label="Mover el lead a otra etapa"
+                            className="min-w-0 flex-1 cursor-pointer rounded-chip border border-linea bg-carta px-2.5 py-2 text-[0.8rem] font-semibold text-tinta-2 transition hover:border-brasa/50 hover:text-tinta"
+                          >
+                            <option value="">{cerrable ? "↔ Mover a…" : "↩ Reabrir en…"}</option>
+                            {etapas
+                              .filter((e2) => e2.id !== et.id && (cerrable || !MOTORES_CERRADOS.has(e2.motor)))
+                              .map((e2) => (
+                                <option key={e2.id} value={e2.id}>{e2.nombre}</option>
+                              ))}
+                          </select>
+                          {/* EL CHAT, A LA VISTA (2026-10-09): era el doble clic. */}
+                          {puedeAbrirConversacion() && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); abrirLead(lead.id, lead.tenantId); }}
+                              className="shrink-0 rounded-chip bg-arena px-3 py-2 text-[0.78rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-linea"
+                            >
+                              Abrir chat
+                            </button>
+                          )}
+                        </div>
                       </article>
                     );
                   })}
@@ -495,7 +525,7 @@ function SeguimientoInner() {
                       onClick={() =>
                         setVisiblePorEtapa((prev) => ({
                           ...prev,
-                          [et.estado]: visible + PAGINA_ETAPA,
+                          [et.id]: visible + PAGINA_ETAPA,
                         }))
                       }
                       className="rounded-chip bg-arena px-3 py-2 text-[0.8rem] font-semibold text-tinta-2 transition hover:bg-linea"
@@ -510,15 +540,15 @@ function SeguimientoInner() {
         </div>
       )}
 
-      {/* Popup de vista rápida (1 click sobre una tarjeta): resumen +
-          conversación completa + responder, sin salir del tablero. Doble click
-          en la tarjeta entra directo a la conversación. */}
+      {/* Popup de vista rápida (un clic sobre una tarjeta): resumen,
+          conversación, responder, cerrar y "Pagó", sin salir del tablero. */}
       {leadAbierto && (
         <PopupLead
+          key={leadAbierto.id}
           lead={leadAbierto}
           tenant={leadAbierto.tenantId}
           onCerrar={() => setLeadAbierto(null)}
-          onCambio={(tipo) => mover(leadAbierto, { tipo })}
+          onCambio={(nuevo) => alCerrar(leadAbierto, nuevo)}
         />
       )}
     </div>

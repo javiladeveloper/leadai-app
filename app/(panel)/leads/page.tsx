@@ -291,19 +291,11 @@ function LeadsPanelInner() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-5 py-6 lg:px-8">
-      {/* EL HERO (2026-08-27, Jonathan: "el mismo esfuerzo que metimos para
-          marketing... deberíamos tenerlo para cada sección"). Un título de una
-          palabra no le dice a nadie qué hace acá ni por dónde empezar. */}
-      <HeroSeccion
-        titulo="Todos los que te escribieron, en un solo lugar"
-        bajada={<>Cada persona que te contactó por WhatsApp queda acá, con lo que la IA entendió de su mensaje.</>}
-        nota="Los marcados como calientes son a los que conviene escribirles hoy."
-        dibujo={<LeadsIlustracion />}
-      />
-
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Tu bandeja</p>
+          {/* El eyebrow es el bloque del menú (2026-10-09): "Tu bandeja" era un
+              tercer nombre para lo mismo que el menú llama Conversaciones. */}
+          <p className="eyebrow">Ventas</p>
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Leads</h1>
         </div>
         <button
@@ -313,6 +305,19 @@ function LeadsPanelInner() {
           ＋ Nuevo lead
         </button>
       </header>
+
+      {/* EL HERO (2026-08-27, Jonathan: "el mismo esfuerzo que metimos para
+          marketing... deberíamos tenerlo para cada sección"). Un título de una
+          palabra no le dice a nadie qué hace acá ni por dónde empezar.
+          Debajo del h1 y plegable (2026-10-09): explica, no compite con el
+          título, y quien ya lo leyó lo oculta. */}
+      <HeroSeccion
+        plegable="leads"
+        titulo="Todos los que te escribieron, en un solo lugar"
+        bajada={<>Cada persona que te contactó por WhatsApp queda acá, con lo que la IA entendió de su mensaje.</>}
+        nota="Los marcados como calientes son a los que conviene escribirles hoy."
+        dibujo={<LeadsIlustracion />}
+      />
 
       {/* Búsqueda dentro de la bandeja — con su lupa de verdad, no un emoji
           de placeholder (pasada UX 2026-09-06). */}

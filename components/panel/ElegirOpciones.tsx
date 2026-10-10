@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { solesDeCentavos } from "@/lib/dinero";
 import { sinTildes, type Carta, type GrupoOpciones } from "@/lib/carta";
 
 /**
@@ -45,7 +46,8 @@ export interface OpcionesElegidas {
  */
 const OPCIONES_PARA_BUSCADOR = 8;
 
-const soles = (c: number) => `S/${(c / 100).toFixed(2)}`;
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09).
+const soles = solesDeCentavos;
 
 export default function ElegirOpciones({
   titulo,

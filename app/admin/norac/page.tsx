@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { adminResumenNorac, type ResumenNorac } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { solesDeCentavos } from "@/lib/dinero";
 
 /**
  * TORRE DE CONTROL NORAC (super admin, 2026-08-29).
@@ -21,9 +22,8 @@ const NOMBRE_MARCA: Record<string, string> = {
   leadai: "LeadAI", sania: "Sania", fitcore: "FitCore",
 };
 
-function soles(centavos: number): string {
-  return `S/ ${(centavos / 100).toLocaleString("es-PE", { maximumFractionDigits: 0 })}`;
-}
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09).
+const soles = solesDeCentavos;
 
 export default function AdminNorac() {
   const [r, setR] = useState<ResumenNorac | null>(null);

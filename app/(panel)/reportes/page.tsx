@@ -17,10 +17,12 @@ import {
 } from "@/lib/enlaces";
 import { SkeletonReportes } from "@/components/Skeletons";
 import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
+import { soles as solesFmt } from "@/lib/dinero";
 import { HeroSeccion, ReportesIlustracion } from "@/components/panel/HeroSeccion";
 import { ReporteMarketing } from "@/components/panel/ReporteMarketing";
 
-const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09). Acá los montos vienen en soles.
+const soles = solesFmt;
 
 const estadoColor: Record<string, string> = {
   pagada: "bg-ok/15 text-ok",
@@ -340,13 +342,13 @@ function ReportesPanel() {
               <span aria-hidden className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-arena text-3xl">📈</span>
               <p className="mt-3 text-[1.1rem] font-semibold text-tinta">Aún no tienes ventas registradas</p>
               <p className="mt-2 text-[0.95rem] text-tinta-2">
-                Cuando marques un lead como ganado en Seguimiento, su comisión aparece acá.
+                Cuando marques un lead como «Ganado» con el monto de la venta, su comisión aparece acá.
               </p>
               <Link
                 href="/seguimiento"
                 className="mt-4 inline-flex rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo"
               >
-                Ir a mi pipeline
+                Ir a Seguimiento
               </Link>
             </div>
           ) : (
@@ -435,12 +437,6 @@ function Reportes() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 lg:px-8">
-      <HeroSeccion
-        titulo="Cómo te fue, en números"
-        bajada={<>Cuánto invertiste, qué anuncio trae clientes de verdad, cuánto entró y dónde se caen las ventas. Sin planillas ni cuentas a mano.</>}
-        dibujo={<ReportesIlustracion />}
-      />
-
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow">{soloPublicidad ? "Tu publicidad" : "Tu negocio"}</p>
@@ -465,6 +461,15 @@ function Reportes() {
           </div>
         )}
       </header>
+
+      {/* Debajo del h1 y plegable (2026-10-09): el hero explica la sección;
+          a la vigésima visita estorba, y su titular ya no compite con el h1. */}
+      <HeroSeccion
+        plegable="reportes"
+        titulo="Cómo te fue, en números"
+        bajada={<>Cuánto invertiste, qué anuncio trae clientes de verdad, cuánto entró y dónde se caen las ventas. Sin planillas ni cuentas a mano.</>}
+        dibujo={<ReportesIlustracion />}
+      />
 
       {soloPublicidad || pestana === "publicidad" ? <ReporteMarketing /> : <ReportesPanel />}
     </div>

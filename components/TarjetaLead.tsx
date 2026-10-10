@@ -6,6 +6,7 @@ import { ChipTemp } from "./ChipTemp";
 import { BadgeCanal } from "./BadgeCanal";
 import { ChipPlataforma } from "./panel/OrigenLead";
 import type { Lead } from "@/lib/api";
+import { solesDeCentavos } from "@/lib/dinero";
 
 // Shape mínimo que la tarjeta necesita para renderizarse. Tanto el `Lead` de
 // demo (lib/tipos, usado hoy en Conversaciones) como el `Lead` real del
@@ -133,8 +134,8 @@ export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
   );
 }
 
-const soles = (c: number) =>
-  `S/${(c / 100).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09).
+const soles = solesDeCentavos;
 
 /**
  * Una línea bajo el resumen: plataforma, anuncio, campaña y el costo repartido.

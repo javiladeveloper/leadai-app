@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import { solesDeCentavos } from "@/lib/dinero";
 
 /**
  * EL ESTADO DEL PEDIDO, EN UNA PÁGINA (2026-09-06) — Fase 1 de la app de
@@ -22,7 +23,8 @@ interface EstadoPedido {
   motorizadoNombre?: string | null;
 }
 
-const soles = (c: number) => `S/${(c / 100).toFixed(2)}`;
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09).
+const soles = solesDeCentavos;
 
 /** Los pasos del viaje, en orden, con cómo se le cuentan al cliente. */
 const PASOS: { id: string[]; icono: string; titulo: string }[] = [

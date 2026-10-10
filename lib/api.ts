@@ -5,6 +5,7 @@
 import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, EMPRESA_GLOBAL, type EmpresaResumen, empresasSinRestaurantes, leerEmpresaPredeterminada, guardarEmpresaPredeterminada } from "./auth";
 import { cuerpoParaFetch } from "./cuerpo";
 import { invalidar, pedir } from "./cache-datos";
+import { normalizarEtapas, ETAPAS_DEFAULT, type EtapaEmbudo } from "./etapas";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -357,29 +358,9 @@ export async function guardarPerfil(
 }
 
 export type NivelInteres = "frio" | "tibio" | "caliente";
-// Etapas PERSONALIZADAS del embudo (capa CRM visible; el motor no cambia).
-export interface EtapaEmbudo {
-  id: string;
-  nombre: string;
-  color: "brasa" | "tibio" | "calor" | "ok" | "frio";
-  motor: "nuevo" | "nutriendo" | "escalado" | "ganado" | "perdido";
-}
-export const ETAPAS_DEFAULT: EtapaEmbudo[] = [
-  { id: "nuevo", nombre: "Nuevos", color: "brasa", motor: "nuevo" },
-  { id: "nutriendo", nombre: "En seguimiento", color: "tibio", motor: "nutriendo" },
-  { id: "escalado", nombre: "Escalados", color: "calor", motor: "escalado" },
-  { id: "ganado", nombre: "Ganados", color: "ok", motor: "ganado" },
-  { id: "perdido", nombre: "Perdidos", color: "frio", motor: "perdido" },
-];
-// Etapa visible de un lead: su custom (si existe) o la mapeada desde el motor.
-export function etapaVisibleDe(
-  lead: { etapaEmbudo?: string | null; estado: string },
-  etapas: EtapaEmbudo[],
-): EtapaEmbudo {
-  const porId = lead.etapaEmbudo ? etapas.find((e) => e.id === lead.etapaEmbudo) : undefined;
-  if (porId) return porId;
-  return etapas.find((e) => e.motor === lead.estado) ?? etapas[0];
-}
+// Las etapas del embudo viven en lib/etapas.ts (puro, con tests) desde
+// 2026-10-09; se re-exportan acá para no mover cada import de la web.
+export { ETAPAS_DEFAULT, etapaVisibleDe, normalizarEtapas, type EtapaEmbudo } from "./etapas";
 // Etapas del negocio (del propio o de otro tenant del usuario, para la bandeja
 // global). Nunca lanza: sin permiso o error responde las default.
 export async function obtenerEtapas(tenant?: string): Promise<EtapaEmbudo[]> {
@@ -387,7 +368,8 @@ export async function obtenerEtapas(tenant?: string): Promise<EtapaEmbudo[]> {
     // Sale del MISMO /mi-plan que el candado de cada sección: Conversaciones
     // lo pedía dos veces por carga (etapas de la bandeja y de la ficha).
     const r = (await miPlanCacheado(tenant)) as MiPlan & { etapasEmbudo?: EtapaEmbudo[] };
-    return r?.etapasEmbudo?.length ? r.etapasEmbudo : ETAPAS_DEFAULT;
+    // Con los nombres de la web ("Para atender", no "Escalados"): ver lib/etapas.ts.
+    return r?.etapasEmbudo?.length ? normalizarEtapas(r.etapasEmbudo) : ETAPAS_DEFAULT;
   } catch {
     return ETAPAS_DEFAULT;
   }
@@ -3112,13 +3094,16 @@ export function crearPublicoConLeads(leadIds: string[], nombre: string, conSimil
   });
 }
 /** La venta REAL: el cliente pagó (2026-10-07). `centavos` opcional. */
-export function marcarVentaLead(leadId: string, centavos: number | null, fecha?: string) {
+// `tenant` (2026-10-09): "Pagó" ahora está en el popup de Seguimiento, que
+// muestra leads de cualquier negocio; sin el negocio del lead, el PUT iba a la
+// empresa activa y respondía 404.
+export function marcarVentaLead(leadId: string, centavos: number | null, fecha?: string, tenant?: string) {
   return api<{ ventaEn: string; ventaCentavos: number | null }>(`/leads/${encodeURIComponent(leadId)}/venta`, {
-    method: "PUT", body: { centavos, ...(fecha ? { fecha } : {}) },
+    method: "PUT", body: { centavos, ...(fecha ? { fecha } : {}) }, tenant,
   });
 }
-export function quitarVentaLead(leadId: string) {
-  return api<{ ok: true }>(`/leads/${encodeURIComponent(leadId)}/venta`, { method: "DELETE" });
+export function quitarVentaLead(leadId: string, tenant?: string) {
+  return api<{ ok: true }>(`/leads/${encodeURIComponent(leadId)}/venta`, { method: "DELETE", tenant });
 }
 
 export async function descargarReporteMarketingExcel(dias = 30, tenant?: string): Promise<boolean> {

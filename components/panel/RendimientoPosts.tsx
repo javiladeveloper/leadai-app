@@ -282,7 +282,7 @@ const NIVEL: Record<string, { texto: string; clase: string }> = {
 };
 
 const ESTADO: Record<string, string> = {
-  nuevo: "nuevo", nutriendo: "en seguimiento", escalado: "escalado a una persona", ganado: "compró", perdido: "perdido",
+  nuevo: "nuevo", nutriendo: "en seguimiento", escalado: "para atender", ganado: "ganado", perdido: "perdido",
 };
 
 function Detalle({ p, tenant }: { p: PostConResultados; tenant?: string }) {

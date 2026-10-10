@@ -5,6 +5,7 @@ import {
   ApiError, conectarGoogleAds, desconectarGoogleAds, estadoGoogleAds, metricasGoogleAds, urlConexionGoogleAds,
   type CuentaGoogleAds, type EstadoGoogleAds, type MetricasGoogleAds,
 } from "@/lib/api";
+import { soles } from "@/lib/dinero";
 
 /**
  * GOOGLE ADS EN MARKETING (2026-10-05, pedido de Jonathan: "¿podemos ver las
@@ -19,6 +20,8 @@ import {
 const RANGOS = [7, 14, 30, 90] as const;
 
 function dinero(v: number, moneda: string): string {
+  // En soles, el formato único de la web (lib/dinero.ts, 2026-10-09).
+  if (moneda === "PEN") return soles(v);
   const simbolo = moneda === "PEN" ? "S/" : moneda === "USD" ? "US$" : moneda ? `${moneda} ` : "";
   return `${simbolo}${v.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

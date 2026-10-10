@@ -2,6 +2,7 @@
 
 import { OrigenLead } from "@/components/panel/OrigenLead";
 import { VentaLead } from "@/components/panel/VentaLead";
+import { CierreLead } from "@/components/panel/CierreLead";
 import { NotaLead } from "@/components/panel/NotaLead";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -18,7 +19,6 @@ import {
   accionLead,
   actualizarLead,
   reiniciarLead,
-  calcularComision,
   obtenerEtapas,
   obtenerEquipo,
   obtenerFrasesRapidas,
@@ -56,7 +56,9 @@ import { useEsEscritorio } from "@/lib/useEsEscritorio";
 import { useDatos } from "@/lib/useDatos";
 import { rutaPrevia, nombreDeRuta } from "@/lib/historial";
 import { diaLima, hoyLima, horaLima, nombreDelDia } from "@/lib/agenda";
-import { URL_CONECTAR_CANALES, reunionUnible, telefonoDe, urlAgenda } from "@/lib/enlaces";
+import { URL_CONECTAR_CANALES, telefonoDe } from "@/lib/enlaces";
+import { ProximaCita } from "@/components/panel/ProximaCita";
+import { PUNTO_ETAPA } from "@/lib/etapas";
 
 type Estado = "cargando" | "ok" | "error" | "no-encontrado";
 
@@ -64,14 +66,8 @@ type Estado = "cargando" | "ok" | "error" | "no-encontrado";
 // campos van `undefined` y todo se comporta como siempre.
 type LeadLista = Lead & { tenantId?: string; negocioNombre?: string };
 
-// Color de cada etapa (tokens curados del design system) → clase del punto.
-const PUNTO: Record<EtapaEmbudo["color"], string> = {
-  brasa: "bg-brasa",
-  tibio: "bg-tibio",
-  calor: "bg-calor",
-  ok: "bg-ok",
-  frio: "bg-frio",
-};
+// Color de cada etapa: el mismo mapa que Seguimiento (lib/etapas.ts).
+const PUNTO = PUNTO_ETAPA;
 
 const NOMBRE_CANAL: Record<string, string> = {
   whatsapp: "WhatsApp",
@@ -269,7 +265,6 @@ function ConversacionesInner() {
   const [enviando, setEnviando] = useState(false);
   const [sugiriendo, setSugiriendo] = useState(false);
   const [togglingBot, setTogglingBot] = useState(false);
-  const [descartarConfirm, setDescartarConfirm] = useState(false);
   const [reiniciarConfirm, setReiniciarConfirm] = useState(false);
   const [copiado, setCopiado] = useState(false);
   // Celular: la ficha abre como hoja sobre el chat.
@@ -306,20 +301,7 @@ function ConversacionesInner() {
       }
     });
   }
-  const [ventaAbierta, setVentaAbierta] = useState(false);
-  const [montoVenta, setMontoVenta] = useState("");
-  const [comisionCalc, setComisionCalc] = useState<number | null>(null);
   const [accionError, setAccionError] = useState<string | null>(null);
-
-  // Calcula la comisión sugerida según la config del negocio cuando cambia el
-  // monto (debounce corto para no llamar en cada tecla).
-  useEffect(() => {
-    const monto = Number(montoVenta);
-    if (!ventaAbierta || !monto || monto <= 0) { setComisionCalc(null); return; }
-    const t = setTimeout(() => { calcularComision(monto, tenantSel).then(setComisionCalc); }, 350);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [montoVenta, ventaAbierta]);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -545,9 +527,8 @@ function ConversacionesInner() {
     } else {
       setEstadoLead("cargando");
     }
-    setVentaAbierta(false);
+    // El cierre (CierreLead) se remonta solo con `key={lead.id}`.
     setAccionError(null);
-    setDescartarConfirm(false);
     setReiniciarConfirm(false);
     setAgendada(null);
     cargarLead(seleccionadoId, tenantSel);
@@ -764,41 +745,6 @@ function ConversacionesInner() {
       await Promise.all([cargarLead(lead.id, tenantSel), cargarReciente()]);
     } else {
       setAccionError(r.error ?? "No se pudo cambiar la asignación.");
-    }
-    setEnviando(false);
-  }
-
-  async function descartar() {
-    if (!seleccionadoId || enviando) return;
-    setEnviando(true);
-    setAccionError(null);
-    const r = await accionLead(seleccionadoId, { tipo: "descartar" }, tenantSel);
-    if (r.ok) {
-      setDescartarConfirm(false);
-      await Promise.all([cargarLead(seleccionadoId, tenantSel), cargarReciente()]);
-    } else {
-      setAccionError(r.error ?? "No se pudo descartar.");
-    }
-    setEnviando(false);
-  }
-
-  async function registrarVenta() {
-    if (!seleccionadoId || enviando) return;
-    const monto = Number(montoVenta);
-    if (!montoVenta || Number.isNaN(monto) || monto <= 0) {
-      setAccionError("Ingresa un monto válido.");
-      return;
-    }
-    setEnviando(true);
-    setAccionError(null);
-    const r = await accionLead(seleccionadoId, { tipo: "marcar_ganado", monto }, tenantSel);
-    if (r.ok) {
-      setVentaAbierta(false);
-      setMontoVenta("");
-      await cargarLead(seleccionadoId, tenantSel);
-      await cargarReciente();
-    } else {
-      setAccionError(r.error ?? "No se pudo registrar la venta.");
     }
     setEnviando(false);
   }
@@ -1110,7 +1056,7 @@ function ConversacionesInner() {
           {/* Celular: la próxima reunión arriba del chat, que es donde se mira. */}
           {enMovil && leadAbierto.proximaCita && (
             <div className="border-b border-linea bg-carta px-3 py-2">
-              <TarjetaProximaCita cita={leadAbierto.proximaCita} compacta />
+              <ProximaCita cita={leadAbierto.proximaCita} compacta />
             </div>
           )}
 
@@ -1345,7 +1291,7 @@ function ConversacionesInner() {
         {/* LA VENTA REAL (2026-10-07): "ganado" es "agendó la demo";
             esto es "pagó", y alimenta el costo por cliente del reporte. */}
         <div className="mt-2">
-          <VentaLead key={leadAbierto.id} leadId={leadAbierto.id} ventaEn={leadAbierto.ventaEn} ventaCentavos={leadAbierto.ventaCentavos} />
+          <VentaLead key={leadAbierto.id} leadId={leadAbierto.id} ventaEn={leadAbierto.ventaEn} ventaCentavos={leadAbierto.ventaCentavos} tenant={tenantSel} />
         </div>
       </div>
 
@@ -1359,7 +1305,7 @@ function ConversacionesInner() {
           </p>
         )}
         {leadAbierto.proximaCita ? (
-          <TarjetaProximaCita cita={leadAbierto.proximaCita} />
+          <ProximaCita cita={leadAbierto.proximaCita} />
         ) : !agendada ? (
           <p className="text-[0.82rem] text-frio">Sin reuniones agendadas con esta persona.</p>
         ) : null}
@@ -1522,91 +1468,26 @@ function ConversacionesInner() {
         </details>
       )}
 
-      {/* Cierre: venta / descartar. Solo donde se cierra A MANO
+      {/* Cierre: GANADO / DESCARTAR. Solo donde se cierra A MANO
           (2026-08-19): en pedidos la venta la registra el PEDIDO y en
           una clínica la CITA; pedirle al dueño que además la anote es
           hacerle cargar dos veces lo mismo. Y "descartar este lead" no
-          tiene sentido con alguien que acaba de pedir comida. */}
-      {caps?.cierreManualDeVenta && (
-      <div className="flex flex-col gap-2">
-        {leadAbierto.estado === "ganado" ? (
-          <div className="rounded-tarjeta bg-ok/10 p-3.5 ring-1 ring-ok/30">
-            <p className="text-[0.9rem] font-bold text-ok">✓ Venta registrada</p>
-            <p className="text-[0.8rem] text-tinta-2">La verás en Reportes.</p>
-          </div>
-        ) : ventaAbierta ? (
-          <div className="flex flex-col gap-2 rounded-tarjeta bg-carta p-3 ring-1 ring-linea">
-            <label className="text-[0.8rem] font-bold text-tinta-2">Monto de la venta (S/)</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={montoVenta}
-              onChange={(e) => setMontoVenta(e.target.value)}
-              placeholder="0.00"
-              className="rounded-xl bg-arena px-3 py-2 text-[0.95rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
-            />
-            {comisionCalc !== null && (
-              <p className="text-[0.82rem] text-tinta-2">
-                Tu comisión: <b className="text-ok">S/{comisionCalc.toLocaleString("es-PE", { minimumFractionDigits: 2 })}</b>
-                <span className="text-frio"> (según tu config)</span>
-              </p>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={registrarVenta}
-                disabled={enviando}
-                className="flex-1 rounded-chip bg-ok py-2 text-[0.85rem] font-bold text-carta transition active:scale-[0.99] disabled:opacity-60"
-              >
-                Confirmar
-              </button>
-              <button
-                onClick={() => {
-                  setVentaAbierta(false);
-                  setMontoVenta("");
-                }}
-                className="flex-1 rounded-chip bg-arena-2 py-2 text-[0.85rem] font-bold text-tinta-2 transition active:scale-[0.99]"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setVentaAbierta(true)}
-            className="rounded-chip border-2 border-ok/40 bg-carta py-2.5 text-[0.9rem] font-bold text-ok transition active:scale-[0.99]"
-          >
-            Registrar venta
-          </button>
-        )}
+          tiene sentido con alguien que acaba de pedir comida.
 
-        {leadAbierto.estado !== "perdido" && leadAbierto.estado !== "ganado" && (
-          descartarConfirm ? (
-            <div className="flex gap-2">
-              <button
-                onClick={descartar}
-                disabled={enviando}
-                className="flex-1 rounded-chip bg-calor py-2 text-[0.82rem] font-bold text-carta active:scale-[0.99] disabled:opacity-60"
-              >
-                Sí, descartar
-              </button>
-              <button
-                onClick={() => setDescartarConfirm(false)}
-                className="flex-1 rounded-chip bg-arena-2 py-2 text-[0.82rem] font-bold text-tinta-2 active:scale-[0.99]"
-              >
-                No
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setDescartarConfirm(true)}
-              className="rounded-chip py-2 text-[0.82rem] font-bold text-frio transition hover:text-alerta"
-            >
-              Descartar este lead
-            </button>
-          )
-        )}
-      </div>
+          EL MISMO FLUJO QUE SEGUIMIENTO (2026-10-09): acá decía "Registrar
+          venta" con monto obligatorio y en el tablero "Gané" sin monto. Ahora
+          es CierreLead en los tres lugares: "Ganado" con monto opcional (para
+          la comisión) y "Descartar" con confirmación. "Pagó" va arriba. */}
+      {caps?.cierreManualDeVenta && (
+        <CierreLead
+          key={leadAbierto.id}
+          leadId={leadAbierto.id}
+          estado={leadAbierto.estado}
+          tenant={tenantSel}
+          onCambio={() => {
+            if (seleccionadoId) void Promise.all([cargarLead(seleccionadoId, tenantSel), cargarReciente()]);
+          }}
+        />
       )}
 
       {/* REINICIAR EL CHAT (2026-08-20, pedido de Jonathan): probar el
@@ -1869,46 +1750,5 @@ function BotonVolver({ onClick, etiqueta = "Volver a la lista" }: { onClick: () 
     >
       <IconoChevron className="h-6 w-6 rotate-90" />
     </button>
-  );
-}
-
-/**
- * LA PRÓXIMA REUNIÓN CON ESTE LEAD (2026-10-09). "Unirse" aparece desde 15
- * minutos antes y mientras dura; "Ver en agenda" abre ese día con la cita.
- */
-function TarjetaProximaCita({
-  cita,
-  compacta = false,
-}: {
-  cita: { id: string; inicio: string; fin: string; meetLink: string | null; atiende: string | null };
-  compacta?: boolean;
-}) {
-  const dia = diaLima(cita.inicio);
-  const cuando = `${dia === hoyLima() ? "Hoy" : nombreDelDia(dia)} ${horaLima(cita.inicio)}`;
-  const unible = !!cita.meetLink && reunionUnible(cita);
-  return (
-    <div className={`flex flex-wrap items-center gap-2 ${compacta ? "text-[0.8rem]" : "text-[0.85rem]"}`}>
-      <p className="min-w-0 flex-1 text-tinta">
-        <span className="font-bold first-letter:uppercase">Próxima reunión: </span>
-        <span className="first-letter:uppercase">{cuando}</span>
-        {cita.atiende && !compacta && <span className="block text-[0.75rem] text-frio">Atiende {cita.atiende}</span>}
-      </p>
-      {unible && (
-        <a
-          href={cita.meetLink!}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 rounded-chip bg-brasa px-3 py-1.5 text-[0.78rem] font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
-        >
-          Unirse
-        </a>
-      )}
-      <Link
-        href={urlAgenda({ fecha: dia, cita: cita.id, vista: "dia" })}
-        className="shrink-0 text-[0.78rem] font-bold text-brasa-texto underline-offset-2 hover:underline"
-      >
-        Ver en agenda
-      </Link>
-    </div>
   );
 }

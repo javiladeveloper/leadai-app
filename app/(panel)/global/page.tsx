@@ -18,13 +18,15 @@ import { IconoRayo } from "@/components/Iconos";
 import { SkeletonLista } from "@/components/Skeletons";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
+import { soles as solesFmt } from "@/lib/dinero";
 import { ESTADO_ABIERTOS, cumpleEstado, cumpleOrigen, esCalienteSinAtender } from "@/lib/enlaces";
 
 type Estado = "cargando" | "ok" | "error";
 type FiltroNivel = "todos" | NivelInteres;
 type FiltroEstado = "todos" | EstadoLead | typeof ESTADO_ABIERTOS;
 
-const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
+// Un solo formato de dinero en la web (lib/dinero.ts, 2026-10-09). Acá los montos vienen en soles.
+const soles = solesFmt;
 
 const FILTROS_NIVEL: { id: FiltroNivel; label: string }[] = [
   { id: "todos", label: "Todos" },

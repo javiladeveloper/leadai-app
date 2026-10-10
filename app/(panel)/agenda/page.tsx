@@ -26,7 +26,7 @@ import Link from "next/link";
 import { listarAgenda, type CitaAgenda } from "@/lib/api";
 import {
   agruparPorDia, coloresDeNegocios, diaLima, esVista, horaLima, hoyLima, moverPeriodo, nombreDelDia, rangoDeVista,
-  tituloDePeriodo, type VistaAgenda,
+  tituloDePeriodo, citaDeQuien, completarFiltroAtiende, type VistaAgenda, type FiltroAtiende,
 } from "@/lib/agenda";
 import { empresasVisibles } from "@/lib/auth";
 import { useAbrirLead } from "@/components/LinkLead";
@@ -93,7 +93,7 @@ function AgendaInner() {
   // "atiende X" en una cita. Las citas traen el NOMBRE de quien atiende y,
   // cuando el backend lo mande, su id: se filtra por el id si está, si no por
   // el nombre.
-  const [atiende, setAtiende] = useState<{ id: string | null; nombre: string } | null>(() => {
+  const [atiende, setAtiende] = useState<FiltroAtiende | null>(() => {
     const id = params.get("atiende");
     const nombre = params.get("quien");
     return id || nombre ? { id, nombre: nombre ?? "" } : null;
@@ -158,9 +158,16 @@ function AgendaInner() {
   }, [empresas, datos]);
   const colores = useMemo(() => coloresDeNegocios([...negocios.keys()]), [negocios]);
 
+  // POR ID CUANDO SE PUEDE (2026-10-09, ver `citaDeQuien` en lib/agenda.ts):
+  // un link con solo el nombre aprende el id de las citas (y la URL lo
+  // guarda), así dos personas con el mismo nombre no se mezclan.
+  useEffect(() => {
+    if (!citas) return;
+    const completo = completarFiltroAtiende(atiende, citas);
+    if (completo !== atiende) setAtiende(completo);
+  }, [citas, atiende]);
   const visibles = (citas ?? []).filter((c) =>
-    (negocio === "todos" || c.tenantId === negocio) &&
-    (!atiende || (c.atiendeId && atiende.id ? c.atiendeId === atiende.id : !!atiende.nombre && c.atiende === atiende.nombre)),
+    (negocio === "todos" || c.tenantId === negocio) && citaDeQuien(c, atiende),
   );
 
   // La URL acompaña lo que se mira (sin llenar el historial): se puede

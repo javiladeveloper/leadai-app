@@ -343,3 +343,50 @@ export function inicioEnLima(dia: string, hora: string): string {
 export function mediaHoraPasada(dia: string, hora: string, ahora: Date = new Date()): boolean {
   return new Date(inicioEnLima(dia, hora)).getTime() + 30 * 60_000 <= ahora.getTime();
 }
+
+/**
+ * QUIÉN ATIENDE, POR ID (2026-10-09, tanda "web").
+ *
+ * El filtro `?atiende=` de la Agenda (desde Equipo: "Ver su agenda", o
+ * tocando "atiende X" en una cita) comparaba el NOMBRE: dos personas con el
+ * mismo nombre se mezclaban, y alguien que se cambió el nombre perdía sus
+ * citas viejas. Las citas ya traen `atiendeId`: si la cita lo trae y el
+ * filtro también, se compara el id; si falta alguno de los dos (backend
+ * viejo, link con solo el nombre), se cae al nombre como antes.
+ */
+export interface FiltroAtiende {
+  id: string | null;
+  nombre: string;
+}
+
+export function citaDeQuien(
+  c: { atiende?: string | null; atiendeId?: string | null },
+  f: FiltroAtiende | null,
+): boolean {
+  if (!f) return true;
+  if (f.id && c.atiendeId) return c.atiendeId === f.id;
+  return !!f.nombre && c.atiende === f.nombre;
+}
+
+/**
+ * Completa el filtro con lo que traen las citas: un link con solo el nombre
+ * aprende el id (y desde ahí filtra por id), y uno con solo el id aprende el
+ * nombre para el chip "Solo las que atiende …". Devuelve el MISMO objeto si
+ * no hay nada que completar, para no disparar renders de más.
+ */
+export function completarFiltroAtiende(
+  f: FiltroAtiende | null,
+  citas: { atiende?: string | null; atiendeId?: string | null }[],
+): FiltroAtiende | null {
+  if (!f) return f;
+  if (!f.id && f.nombre) {
+    const ids = new Set(citas.filter((c) => c.atiende === f.nombre && c.atiendeId).map((c) => c.atiendeId as string));
+    // Solo si el nombre es de UNA persona: con dos homónimos no se adivina.
+    if (ids.size === 1) return { id: [...ids][0], nombre: f.nombre };
+  }
+  if (f.id && !f.nombre) {
+    const c = citas.find((x) => x.atiendeId === f.id && x.atiende);
+    if (c?.atiende) return { id: f.id, nombre: c.atiende };
+  }
+  return f;
+}

@@ -16,6 +16,7 @@ import {
   type PlantillaHSM, type CampaniaHSM, type CupoCampanias,
   type EstadoPagoCampanias,
 } from "@/lib/api";
+import { ConteosCampania, useEnviosDisponibles } from "@/components/panel/EnviosCampania";
 import { SkeletonLista } from "@/components/Skeletons";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { VistaEncabezado } from "@/components/panel/VistaEncabezado";
@@ -299,6 +300,8 @@ function ContenidoCampanias(
    * tenía campañas se le decía que no tenía ninguna. Ahora la lista muestra el
    * error con "Reintentar", y lo demás (plantillas, cupo) carga igual.
    */
+  const enviosDisponibles = useEnviosDisponibles(campanias, g.tenantLista);
+
   const cargar = useCallback(async () => {
     setEstado("cargando");
     const [c, p, q, ep] = await Promise.all([
@@ -764,13 +767,17 @@ function ContenidoCampanias(
                     <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-arena">
                       <div className="h-full rounded-full bg-brasa transition-all" style={{ width: `${progreso}%` }} />
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-[0.76rem] text-frio">
-                        {c.enviados} enviados · {c.fallidos} fallidos · <b className="text-ok">{c.respondieron} respondieron</b> · {c.totalDestinatarios} en total
-                        {c.programadaPara && c.estado === "enviando" && c.enviados === 0 && (
+                    <div className="mt-2 flex flex-wrap items-start justify-between gap-2">
+                      {/* "N respondieron" y "N fallidos" abren la lista de esos
+                          leads cuando el backend ya la sirve (2026-10-09). */}
+                      <ConteosCampania
+                        c={c}
+                        tenant={g.tenantLista}
+                        disponible={enviosDisponibles}
+                        extra={c.programadaPara && c.estado === "enviando" && c.enviados === 0 && (
                           <> · programada {new Date(c.programadaPara).toLocaleString("es-PE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</>
                         )}
-                      </p>
+                      />
                       {(c.estado === "enviando" || c.estado === "pausada") && (
                         <button
                           onClick={() => void cambiarEstadoCampania(c.id, c.estado === "pausada")}

@@ -47,3 +47,25 @@ test('el "hoy" de la agenda empieza a las 00:00 de Lima, no del navegador', () =
   // 00:10 del martes 29 en Lima.
   assert.equal(inicioDelDiaLima(new Date('2026-09-29T05:10:00.000Z')).toISOString(), '2026-09-29T05:00:00.000Z');
 });
+
+test('filtrar por quién atiende usa el id cuando la cita lo trae', async () => {
+  const { citaDeQuien } = await import('../lib/agenda.ts');
+  const ana1 = { atiende: 'Ana', atiendeId: 'u1' };
+  const ana2 = { atiende: 'Ana', atiendeId: 'u2' };
+  const vieja = { atiende: 'Ana', atiendeId: null };
+  assert.equal(citaDeQuien(ana1, { id: 'u1', nombre: 'Ana' }), true);
+  assert.equal(citaDeQuien(ana2, { id: 'u1', nombre: 'Ana' }), false, 'homónima: otra persona');
+  assert.equal(citaDeQuien(vieja, { id: 'u1', nombre: 'Ana' }), true, 'sin id en la cita, por nombre');
+  assert.equal(citaDeQuien(ana2, { id: null, nombre: 'Ana' }), true, 'link viejo: por nombre');
+  assert.equal(citaDeQuien(ana1, null), true);
+});
+
+test('el filtro aprende el id (o el nombre) de las citas', async () => {
+  const { completarFiltroAtiende } = await import('../lib/agenda.ts');
+  const citas = [{ atiende: 'Ana', atiendeId: 'u1' }, { atiende: 'Luis', atiendeId: 'u3' }];
+  assert.deepEqual(completarFiltroAtiende({ id: null, nombre: 'Ana' }, citas), { id: 'u1', nombre: 'Ana' });
+  assert.deepEqual(completarFiltroAtiende({ id: 'u3', nombre: '' }, citas), { id: 'u3', nombre: 'Luis' });
+  const homonimas = [...citas, { atiende: 'Ana', atiendeId: 'u2' }];
+  const f = { id: null, nombre: 'Ana' };
+  assert.equal(completarFiltroAtiende(f, homonimas), f, 'con dos Anas no adivina');
+});

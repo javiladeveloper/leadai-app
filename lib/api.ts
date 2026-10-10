@@ -3270,6 +3270,42 @@ export async function crearCampaniaHSM(input: {
   }
 }
 
+/**
+ * QUIÉNES RESPONDIERON (O FALLARON) UNA CAMPAÑA (2026-10-09). La tarjeta
+ * decía "12 respondieron" y no había forma de ver quiénes. `GET
+ * /campanias/:id/envios?estado=` los trae con su lead.
+ *
+ * Devuelve `null` si el backend responde 404: o la campaña no existe, o el
+ * backend todavía no tiene esta ruta (se publicó la web antes). La tarjeta
+ * entonces muestra el conteo como siempre, sin un link roto.
+ */
+export interface EnvioCampania {
+  leadId: string;
+  nombre: string | null;
+  contacto: string | null;
+  estado: string;
+  error: string | null;
+  enviadoEn: string | null;
+}
+export async function listarEnviosCampania(
+  id: string,
+  estado: "respondio" | "fallido",
+  opciones: { tenant?: string; cursor?: string | null; limite?: number } = {},
+): Promise<{ envios: EnvioCampania[]; siguienteCursor: string | null } | null> {
+  const qs = new URLSearchParams({ estado, limit: String(opciones.limite ?? 100) });
+  if (opciones.cursor) qs.set("cursor", opciones.cursor);
+  try {
+    const r = await api<{ envios?: EnvioCampania[]; siguienteCursor?: string | null }>(
+      `/campanias/${encodeURIComponent(id)}/envios?${qs.toString()}`,
+      { tenant: opciones.tenant },
+    );
+    return { envios: r?.envios ?? [], siguienteCursor: r?.siguienteCursor ?? null };
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
 export async function pausarCampania(id: string, reanudar: boolean, tenant?: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await api(`/campanias/${id}/${reanudar ? "reanudar" : "pausar"}`, { method: "POST", tenant });

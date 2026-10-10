@@ -150,3 +150,99 @@ export function IconoFlujos({ className }: P) {
     </svg>
   );
 }
+
+/* ── UN ÍCONO PROPIO POR SECCIÓN (2026-10-09) ──
+   El menú repetía íconos: Seguimiento y Agenda eran el mismo check,
+   Conversaciones, Comentarios y Equipo el mismo globo, Marketing y Placas el
+   mismo rayo, Reportes y Mi plan las mismas barras, Inicio y Cocina la misma
+   casa. Con el menú plegado (solo íconos) no había forma de distinguirlas.
+   Mismo trazo que los de arriba: 24×24, línea de 2, puntas redondeadas. */
+
+// Calendario — Agenda.
+export function IconoAgenda({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M3 10h18M8 3v4M16 3v4M8 14h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Tablero de columnas — Seguimiento (las etapas de la venta).
+export function IconoTablero({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="4" width="5" height="16" rx="1.5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <rect x="10" y="4" width="5" height="11" rx="1.5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <rect x="17" y="4" width="4" height="7" rx="1.5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Megáfono — Marketing.
+export function IconoMegafono({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 10v4a1 1 0 0 0 1 1h3l8 5V4L8 9H5a1 1 0 0 0-1 1Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M8 15l1.5 5M19.5 9.5a3.5 3.5 0 0 1 0 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Dos globos — Comentarios (lo que la gente escribe en tus posts).
+export function IconoComentarios({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M15 9h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1v3l-3-3h-4a2 2 0 0 1-2-2v-1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-3 3v-3a2 2 0 0 1-2-2V5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Dos personas — Equipo.
+export function IconoEquipo({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="8" r="3.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.2A6.5 6.5 0 0 1 21.5 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Placa con ondas — Placas NFC de reseñas.
+export function IconoPlaca({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="6" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M17.5 8.5a4 4 0 0 1 0 5M20 6a7.5 7.5 0 0 1 0 10M7 15h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Tarjeta de pago — Mi plan.
+export function IconoPlan({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M2 10h20M6 15h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Olla humeante — Cocina (despachar pedidos).
+export function IconoCocina({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 11h16v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6ZM2 11h20M9 7c0-1 1-1.5 1-2.5M14 7c0-1 1-1.5 1-2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Libro abierto — Carta (el menú del restaurante).
+export function IconoCarta({ className }: P) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2Zm0 0v14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

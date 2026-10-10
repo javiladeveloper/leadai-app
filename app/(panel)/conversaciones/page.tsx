@@ -231,7 +231,14 @@ function ConversacionesInner() {
   // CONVERSACIONES DE UNA PERSONA DEL EQUIPO (2026-10-09): desde Equipo, "Ver
   // sus conversaciones" abre la bandeja filtrada por quién la tiene asignada.
   const [filtroAsignado, setFiltroAsignado] = useState(() => params.get("asignado") ?? "");
-  const [busqueda, setBusqueda] = useState("");
+  // `?buscar=` (2026-10-09): el buscador del header manda acá cuando el
+  // negocio no tiene lista de Leads (un restaurante). Si ya se está acá y se
+  // busca otra cosa, la URL cambia y la búsqueda la sigue.
+  const buscarParam = params.get("buscar");
+  const [busqueda, setBusqueda] = useState(() => buscarParam ?? "");
+  useEffect(() => {
+    if (buscarParam !== null) setBusqueda(buscarParam);
+  }, [buscarParam]);
   // Etapas del negocio: las de la bandeja siguen al filtro de negocio (en
   // "Todos" del modo global se usan las default — cada negocio tiene las
   // suyas y no se pueden mezclar); las de la ficha siguen al lead elegido.

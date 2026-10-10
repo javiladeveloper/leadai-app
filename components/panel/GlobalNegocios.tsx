@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { guardarEmpresaActiva, leerEmpresaActiva, tieneVariosNegocios, empresasVisibles, EMPRESA_GLOBAL, empresaInicial, conPredeterminadaPrimero } from "@/lib/auth";
 import { negociosGlobal, type NegocioBandeja } from "@/lib/api";
 
@@ -161,7 +162,31 @@ export function BarraNegociosGlobal({
  * PanelCanales, etc.) siguen llamando a la API "como siempre" y les llega el
  * X-Tenant-Id correcto, sin pasarles tenant uno por uno.
  */
+/**
+ * EL NEGOCIO ELEGIDO SE RECUERDA ENTRE VISITAS (2026-10-09). Quien maneja
+ * varios negocios elegía el suyo en Reportes, se iba a Conversaciones y al
+ * volver Reportes arrancaba otra vez en el predeterminado. Ahora cada sección
+ * (por su ruta) recuerda el último que se miró en este navegador. Si ese
+ * negocio ya no está en la lista, manda el predeterminado como siempre.
+ */
+const CLAVE_NEGOCIO_SECCION = "leadai.negocio-seccion.";
+function leerNegocioDeSeccion(seccion: string): string | null {
+  try {
+    return window.localStorage.getItem(CLAVE_NEGOCIO_SECCION + seccion);
+  } catch {
+    return null; // sin storage (modo privado): manda el predeterminado
+  }
+}
+function guardarNegocioDeSeccion(seccion: string, tenantId: string): void {
+  try {
+    window.localStorage.setItem(CLAVE_NEGOCIO_SECCION + seccion, tenantId);
+  } catch {
+    /* sin storage: vale solo por esta visita */
+  }
+}
+
 export function SeccionPorNegocio({ children }: { children: React.ReactNode }) {
+  const seccion = usePathname() || "-";
   // OJO: acá van TODOS los negocios del usuario (sesión), NO solo los de
   // captación — un restaurante también se configura (canales, equipo, plan)
   // desde el panel. El recorte a captación es solo para AGRUPAR (bandejas /
@@ -178,7 +203,9 @@ export function SeccionPorNegocio({ children }: { children: React.ReactNode }) {
     setNegocios(lista);
     // El predeterminado del dueño gana sobre la ultima empresa activa, que
     // cambia sola cada vez que uno toca un chip.
-    const elegido = empresaInicial(lista) ?? "";
+    const recordado = leerNegocioDeSeccion(seccion);
+    const elegido = (recordado && lista.some((n) => n.tenantId === recordado) ? recordado : null)
+      ?? empresaInicial(lista) ?? "";
     if (elegido) {
       guardarEmpresaActiva(elegido);
       setTenant(elegido);
@@ -186,12 +213,13 @@ export function SeccionPorNegocio({ children }: { children: React.ReactNode }) {
       // Sin negocios en la sesión: comportamiento clásico con lo que hubiera.
       setTenant("__sin-negocios__");
     }
-  }, []);
+  }, [seccion]);
 
   if (!tenant) return null; // cargando la lista de negocios
 
   function elegir(t: string) {
     guardarEmpresaActiva(t);
+    guardarNegocioDeSeccion(seccion, t);
     setTenant(t);
   }
 

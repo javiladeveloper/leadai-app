@@ -7,7 +7,7 @@ import {
   obtenerResumen, obtenerUso, leadsRecientes, obtenerReporteNegocio, tieneCanalActivo, listarAgenda,
   type Resumen, type Uso, type Lead, type ReporteNegocio,
 } from "@/lib/api";
-import { IconoRayo, IconoConversaciones, IconoBandeja, IconoSeguimiento, IconoReportes } from "@/components/Iconos";
+import { IconoRayo, IconoConversaciones, IconoBandeja, IconoTablero, IconoAgenda, IconoReportes } from "@/components/Iconos";
 import { SkeletonMetricas } from "@/components/Skeletons";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { LinkLead } from "@/components/LinkLead";
@@ -26,9 +26,9 @@ import {
 // tampoco la ve acá (antes se ofrecían puertas que el menú no tenía).
 const ACCESOS = [
   { href: "/conversaciones", titulo: "Conversaciones", Icono: IconoConversaciones },
-  { href: "/seguimiento", titulo: "Seguimiento", Icono: IconoSeguimiento },
+  { href: "/seguimiento", titulo: "Seguimiento", Icono: IconoTablero },
   { href: "/leads", titulo: "Leads", Icono: IconoBandeja },
-  { href: "/agenda", titulo: "Agenda", Icono: IconoSeguimiento },
+  { href: "/agenda", titulo: "Agenda", Icono: IconoAgenda },
   { href: "/reportes", titulo: "Reportes", Icono: IconoReportes },
 ];
 

@@ -9,7 +9,9 @@ import { seccionesDe, agruparSecciones, type Seccion } from "@/lib/secciones";
 import { ContadorHits } from "@/components/panel/ContadorHits";
 import { LogoLeadAI } from "@/components/LogoLeadAI";
 import {
-  IconoInicio, IconoConversaciones, IconoSeguimiento, IconoFlujos,
+  IconoInicio, IconoConversaciones, IconoFlujos,
+  IconoAgenda, IconoTablero, IconoMegafono, IconoComentarios, IconoEquipo,
+  IconoPlaca, IconoPlan, IconoCocina, IconoCarta,
   IconoBandeja, IconoReportes, IconoConfig, IconoRayo, IconoOportunidades,
 } from "@/components/Iconos";
 
@@ -33,13 +35,14 @@ import {
 //
 // El orden IMPORTA: `agruparSecciones` junta solo items contiguos del mismo
 // grupo, así que las secciones de un grupo van seguidas en esta lista.
+// UN ÍCONO POR SECCIÓN (2026-10-09): ver la nota en components/Iconos.tsx.
 export const SECCIONES: Seccion[] = [
   { href: "/inicio", label: "Inicio", Icono: IconoInicio, rapido: 0 },
   { href: "/conversaciones", label: "Conversaciones", corto: "Chats", Icono: IconoConversaciones, rapido: 1 },
   // LA COCINA (2026-08-19): despachar pedidos desde la computadora. Existía
   // solo en la app, así que el dueño con la compu en el mostrador tenía que
   // agarrar el celular con las manos ocupadas.
-  { href: "/cocina", label: "Cocina", Icono: IconoInicio, requiere: "tieneCocina", rapido: 2 },
+  { href: "/cocina", label: "Cocina", Icono: IconoCocina, requiere: "tieneCocina", rapido: 2 },
   // La carta del restaurante: lo que ve el cliente en /c/<tenantId> y lo que
   // el bot lee para tomar pedidos. Se editaba en la app móvil hasta que se
   // movió acá (2026-08-17): 40 platos con el pulgar no los carga nadie.
@@ -47,22 +50,22 @@ export const SECCIONES: Seccion[] = [
   // Comparte prioridad con Seguimiento a propósito: ningún negocio tiene las
   // dos, así que el tercer acceso rápido es el embudo o la carta según quién
   // sea.
-  { href: "/carta", label: "Carta", Icono: IconoOportunidades, requiere: "tieneCarta", rapido: 2 },
+  { href: "/carta", label: "Carta", Icono: IconoCarta, requiere: "tieneCarta", rapido: 2 },
 
   // ── VENTAS: el ciclo del lead, de la primera charla al cierre ──
   // Sin `corto` (2026-10-09): "Pipeline" era un segundo nombre para la
   // misma sección, y "Seguimiento" entra en la barra de abajo.
-  { href: "/seguimiento", label: "Seguimiento", Icono: IconoSeguimiento, requiere: "tieneEmbudo", rapido: 2, grupo: "Ventas" },
+  { href: "/seguimiento", label: "Seguimiento", Icono: IconoTablero, requiere: "tieneEmbudo", rapido: 2, grupo: "Ventas" },
   { href: "/leads", label: "Leads", Icono: IconoBandeja, requiere: "calificaLeads", rapido: 3, grupo: "Ventas" },
   // Las reuniones que el bot agendó para ESTA persona, en todos sus negocios (2026-09-26).
-  { href: "/agenda", label: "Agenda", Icono: IconoSeguimiento, requiere: "calificaLeads", grupo: "Ventas" },
+  { href: "/agenda", label: "Agenda", Icono: IconoAgenda, requiere: "calificaLeads", grupo: "Ventas" },
   { href: "/oportunidades", label: "Oportunidades", Icono: IconoOportunidades, requiere: "tieneEmbudo", grupo: "Ventas" },
 
   // ── MARKETING: atraer gente nueva y hablarle a la que ya vino ──
   // Anuncios y Campañas ya viven en /marketing con pestañas (2026-08-24);
   // Publicar y Comentarios son la otra mitad del mismo trabajo (las redes
   // del negocio), así que el bloque junta a los tres.
-  { href: "/marketing", label: "Marketing", Icono: IconoRayo, requiereAlguna: ["tieneAnuncios", "tieneCampanias"], grupo: "Marketing" },
+  { href: "/marketing", label: "Marketing", Icono: IconoMegafono, requiereAlguna: ["tieneAnuncios", "tieneCampanias"], grupo: "Marketing" },
   // PUBLICAR SALIÓ DEL MENÚ (2026-08-27, Jonathan: "sacar del menú publicar,
   // porque ya no va"). Vive dentro de Marketing como pestaña, junto a
   // Anuncios, Campañas y Presencia — tenerlo en los dos lados hacía que el
@@ -70,7 +73,7 @@ export const SECCIONES: Seccion[] = [
   //
   // La RUTA /publicar sigue existiendo: un link guardado o el historial del
   // navegador no puede terminar en 404.
-  { href: "/comentarios", label: "Comentarios", Icono: IconoConversaciones, requiere: "calificaLeads", grupo: "Marketing" },
+  { href: "/comentarios", label: "Comentarios", Icono: IconoComentarios, requiere: "calificaLeads", grupo: "Marketing" },
 
   { href: "/flujos", label: "Flujos", Icono: IconoFlujos, requiere: "redactaRespuestas" },
   // "Probar bot" NO va en el menú (2026-08-17). Era andamiaje para ver cómo
@@ -105,12 +108,12 @@ export const SECCIONES: Seccion[] = [
   // así que justo el restaurante, que es quien invita mozos, caja y cocina,
   // no la veía en su menú. El rol sí filtra (un mozo no la ve), y el plan lo
   // exige el backend al invitar.
-  { href: "/equipo", label: "Equipo", Icono: IconoConversaciones, grupo: "Tu negocio" },
+  { href: "/equipo", label: "Equipo", Icono: IconoEquipo, grupo: "Tu negocio" },
   // Placas NFC de reseñas (2026-08-26): SIN `requiere` a propósito — un
   // restaurante quiere reseñas de Google igual que una contadora.
   // PLACAS SOLO SI TIENE UNA (2026-08-27, Jonathan: "cuando activen una placa
   // recién debe aparecer la opción; si no activan ninguna, que no aparezca").
-  { href: "/placas", label: "Placas", Icono: IconoRayo, grupo: "Tu negocio", soloConPlacas: true },
+  { href: "/placas", label: "Placas", Icono: IconoPlaca, grupo: "Tu negocio", soloConPlacas: true },
 
   // "Mi perfil" vive dentro de Configuración (pestaña — es de la persona,
   // no de un negocio; decisión 2026-07-22). Ajustes entra a la barra de móvil
@@ -120,7 +123,7 @@ export const SECCIONES: Seccion[] = [
   // que es una pregunta de plata y no de configuración. Y es la pantalla donde
   // el dueño SUBE de plan — esconderla es esconder el único lugar donde nos
   // paga más.
-  { href: "/mi-plan", label: "Mi plan", Icono: IconoReportes, grupo: "Tu negocio" },
+  { href: "/mi-plan", label: "Mi plan", Icono: IconoPlan, grupo: "Tu negocio" },
   { href: "/configuracion", label: "Configuración", corto: "Ajustes", Icono: IconoConfig, rapido: 4 },
 ];
 

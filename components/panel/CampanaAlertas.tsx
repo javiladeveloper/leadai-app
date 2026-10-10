@@ -4,11 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   obtenerAlertas, obtenerResumen, paginaLeadsFiltrada, paginaBandejaGlobalFiltrada, negociosGlobal,
-  type Alerta, type Lead,
+  type Alerta, type Lead, type Resumen,
 } from "@/lib/api";
 import { tieneVariosNegocios } from "@/lib/auth";
 import { useAbrirLead } from "@/components/LinkLead";
-import { esCalienteSinAtender, urlCalientesSinAtender, URL_MI_PLAN, TEXTO_MEJORAR_PLAN } from "@/lib/enlaces";
+import {
+  esCalienteSinAtender, urlCalientesSinAtender, URL_MI_PLAN, TEXTO_MEJORAR_PLAN,
+  reunionEnLaProximaHora, reunionUnible, urlAgenda,
+} from "@/lib/enlaces";
+import { diaLima, horaLima } from "@/lib/agenda";
+
+type Reunion = NonNullable<NonNullable<Resumen["reuniones"]>["proxima"]> & { tenantId: string | undefined };
 
 // La campana es GLOBAL en el panel unificado (decisión 2026-07-22): con 2+
 // negocios junta los calientes y los avisos de saldo de TODOS.
@@ -31,6 +37,11 @@ export function CampanaAlertas() {
   const [calientes, setCalientes] = useState(0);
   const [calientesLeads, setCalientesLeads] = useState<LeadCampana[] | null>(null);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
+  // LA REUNIÓN QUE VIENE (2026-10-09): /resumen ya trae la próxima; si es
+  // dentro de la hora, la campana la avisa con "Unirse" y "Ver cita". Con
+  // varios negocios, la más cercana de todos.
+  const [reunion, setReunion] = useState<Reunion | null>(null);
+  const [ahora, setAhora] = useState(() => Date.now());
   const [abierto, setAbierto] = useState(false);
   const [agita, setAgita] = useState(false);
   const previo = useRef<number>(-1);
@@ -39,14 +50,24 @@ export function CampanaAlertas() {
     let vivo = true;
     const cargar = () => {
       const varios = tieneVariosNegocios();
-      // Con varios negocios, la suma de los conteos de cada uno.
-      const traerConteo: Promise<number> = varios
+      // Los resúmenes (uno por negocio): de ahí salen el conteo y la reunión.
+      const traerResumenes: Promise<{ r: Resumen; tenantId?: string }[]> = varios
         ? negociosGlobal().then((ns) =>
-            Promise.all(ns.map((n) => obtenerResumen(n.tenantId).then((r) => r.calientesSinAtender).catch(() => 0)))
-              .then((xs) => xs.reduce((a, b) => a + b, 0)),
+            Promise.all(ns.map((n) => obtenerResumen(n.tenantId).then((r) => ({ r, tenantId: n.tenantId })).catch(() => null)))
+              .then((xs) => xs.filter((x): x is { r: Resumen; tenantId: string } => x !== null)),
           )
-        : obtenerResumen().then((r) => r.calientesSinAtender);
-      traerConteo.then((nuevo) => {
+        : obtenerResumen().then((r) => [{ r }]);
+      traerResumenes.then((resumenes) => {
+        if (!vivo) return;
+        setAhora(Date.now());
+        const proximas = resumenes
+          .map(({ r, tenantId }) => (r.reuniones?.proxima ? { ...r.reuniones.proxima, tenantId } : null))
+          .filter((x): x is Reunion => x !== null)
+          .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
+        setReunion(proximas[0] ?? null);
+        return resumenes.reduce((a, { r }) => a + r.calientesSinAtender, 0);
+      }).then((nuevo) => {
+        if (nuevo === undefined) return;
         if (!vivo) return;
         if (previo.current >= 0 && nuevo > previo.current) {
           sonarAviso();
@@ -91,7 +112,11 @@ export function CampanaAlertas() {
 
   // La alerta más grave que exista: "bloqueo" (sin saldo, bot pausado) manda.
   const bloqueo = alertas.find((a) => a.tipo === "bloqueo");
-  const totalAvisos = calientes + (bloqueo ? 1 : 0);
+  const umbral = !bloqueo ? alertas.find((a) => a.tipo === "umbral") : undefined;
+  const reunionCerca = reunion && reunionEnLaProximaHora(reunion, new Date(ahora)) ? reunion : null;
+  // Cada aviso con su link suma: calientes, el tope de clientes, la cuota por
+  // agotarse y la reunión que viene.
+  const totalAvisos = calientes + (bloqueo ? 1 : 0) + (umbral ? 1 : 0) + (reunionCerca ? 1 : 0);
   const hay = totalAvisos > 0;
 
   return (
@@ -146,16 +171,49 @@ export function CampanaAlertas() {
               </div>
             )}
 
-            {/* Aviso de cuota por agotarse (umbral), si no hay bloqueo */}
-            {!bloqueo && alertas.find((a) => a.tipo === "umbral") && (
-              <div className="border-b border-linea bg-tibio-suave px-4 py-3">
-                <p className="text-[0.88rem] font-semibold text-tibio">Se te están por acabar los clientes del mes</p>
-                <button
-                  onClick={() => { setAbierto(false); router.push(URL_MI_PLAN); }}
-                  className="mt-2 text-[0.8rem] font-semibold text-brasa-texto"
-                >
-                  {TEXTO_MEJORAR_PLAN} →
-                </button>
+            {/* Aviso de cuota por agotarse (umbral), si no hay bloqueo. Toda
+                la tarjeta lleva a Mi plan (2026-10-09): antes solo el textito. */}
+            {umbral && (
+              <button
+                type="button"
+                onClick={() => { setAbierto(false); router.push(URL_MI_PLAN); }}
+                className="block min-h-0 w-full border-b border-linea bg-tibio-suave px-4 py-3 text-left transition hover:bg-tibio-suave/70"
+              >
+                <span className="block text-[0.88rem] font-semibold text-tibio">Se te están por acabar los clientes del mes</span>
+                <span className="mt-1 block text-[0.8rem] font-semibold text-brasa-texto">{TEXTO_MEJORAR_PLAN} →</span>
+              </button>
+            )}
+
+            {/* La reunión de la próxima hora (2026-10-09). */}
+            {reunionCerca && (
+              <div className="border-b border-linea bg-brasa-suave/60 px-4 py-3">
+                <p className="text-[0.88rem] font-bold text-tinta">
+                  📅 Reunión {new Date(reunionCerca.inicio).getTime() <= ahora ? "en curso" : `a las ${horaLima(reunionCerca.inicio)}`}
+                  {reunionCerca.nombre ? ` con ${reunionCerca.nombre}` : ""}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {reunionCerca.meetLink && reunionUnible(reunionCerca, new Date(ahora)) && (
+                    <a
+                      href={reunionCerca.meetLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setAbierto(false)}
+                      className="rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
+                    >
+                      Unirse
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAbierto(false);
+                      router.push(urlAgenda({ fecha: diaLima(reunionCerca.inicio), cita: reunionCerca.id, vista: "dia" }));
+                    }}
+                    className="min-h-0 rounded-chip bg-carta px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
+                  >
+                    Ver cita
+                  </button>
+                </div>
               </div>
             )}
 
@@ -199,7 +257,7 @@ export function CampanaAlertas() {
             )}
 
             {/* Nada */}
-            {!hay && !alertas.find((a) => a.tipo === "umbral") && (
+            {!hay && (
               <p className="px-4 py-6 text-center text-[0.85rem] text-frio">No tienes avisos por ahora 👌</p>
             )}
           </div>

@@ -62,3 +62,32 @@ test('contacto: teléfono solo donde es un número, correo donde hay uno', () =>
   assert.equal(correoDe('Escribir a ana@correo.pe'), 'ana@correo.pe');
   assert.equal(correoDe('987654321'), null);
 });
+
+test('la búsqueda del header respeta el rubro: sin lista de leads, va a Conversaciones', async () => {
+  const { urlBusqueda } = await import('../lib/enlaces.ts');
+  assert.equal(urlBusqueda('  ana ', { tieneLeads: true }), '/leads?buscar=ana');
+  assert.equal(urlBusqueda('ana', { tieneLeads: false }), '/conversaciones?buscar=ana');
+});
+
+test('buscar encuentra por nombre sin tildes y por los dígitos del teléfono', async () => {
+  const { coincideBusqueda } = await import('../lib/enlaces.ts');
+  const l = { nombre: 'María Pérez', contactoExterno: '+51987654321' };
+  assert.equal(coincideBusqueda(l, 'maria'), true);
+  assert.equal(coincideBusqueda(l, 'PEREZ'), true);
+  assert.equal(coincideBusqueda(l, '987 654'), true);
+  assert.equal(coincideBusqueda(l, '12'), false);
+  assert.equal(coincideBusqueda(l, 'juan'), false);
+  assert.equal(coincideBusqueda({ nombre: null, contactoExterno: 'ig_123' }, 'ig_'), true);
+  assert.equal(coincideBusqueda(l, '   '), false);
+});
+
+test('la campana avisa la reunión de la próxima hora, no la de la tarde', async () => {
+  const { reunionEnLaProximaHora } = await import('../lib/enlaces.ts');
+  const ahora = new Date('2026-10-09T15:00:00Z');
+  const r = (ini, fin) => ({ inicio: ini, fin });
+  assert.equal(reunionEnLaProximaHora(r('2026-10-09T15:45:00Z', '2026-10-09T16:00:00Z'), ahora), true);
+  assert.equal(reunionEnLaProximaHora(r('2026-10-09T14:50:00Z', '2026-10-09T15:10:00Z'), ahora), true, 'en curso');
+  assert.equal(reunionEnLaProximaHora(r('2026-10-09T17:00:00Z', '2026-10-09T17:30:00Z'), ahora), false);
+  assert.equal(reunionEnLaProximaHora(r('2026-10-09T14:00:00Z', '2026-10-09T14:30:00Z'), ahora), false, 'ya pasó');
+  assert.equal(reunionEnLaProximaHora(null, ahora), false);
+});

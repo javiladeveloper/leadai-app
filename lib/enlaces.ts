@@ -169,3 +169,57 @@ export function correoDe(contacto: string | null | undefined): string | null {
 export function urlMapa(direccion: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
 }
+
+/**
+ * LA BÚSQUEDA DEL HEADER (2026-10-09).
+ *
+ * Mandaba SIEMPRE a /leads, una sección que un restaurante no tiene: buscar a
+ * un cliente terminaba en una pantalla vacía. Ahora el destino depende de lo
+ * que el negocio tiene: con lista de leads, ahí; si no, a Conversaciones, que
+ * todos tienen. Las dos leen `?buscar=`.
+ */
+export function urlBusqueda(q: string, opciones: { tieneLeads: boolean }): string {
+  const buscar = q.trim();
+  if (opciones.tieneLeads) return urlLeads({ buscar });
+  return `/conversaciones${query({ buscar })}`;
+}
+
+/** Sin tildes ni mayúsculas, para que "maría" encuentre a "María". */
+function plano(t: string): string {
+  return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+/**
+ * ¿Este lead es el que se busca? Por nombre (sin tildes) o por teléfono: con
+ * tres dígitos o más, se comparan solo los dígitos, así "987 654" encuentra
+ * "+51987654321".
+ */
+export function coincideBusqueda(
+  l: { nombre?: string | null; contactoExterno?: string | null },
+  q: string,
+): boolean {
+  const t = plano(q.trim());
+  if (!t) return false;
+  if (l.nombre && plano(l.nombre).includes(t)) return true;
+  const digitos = t.replace(/\D/g, "");
+  if (digitos.length >= 3 && (l.contactoExterno ?? "").replace(/\D/g, "").includes(digitos)) return true;
+  return !!l.contactoExterno && plano(l.contactoExterno).includes(t);
+}
+
+/**
+ * ¿La reunión es dentro de la próxima hora (o ya empezó y no terminó)? Es la
+ * que la campana avisa (2026-10-09): con más anticipación es ruido; con menos,
+ * llega tarde para prepararse.
+ */
+export function reunionEnLaProximaHora(
+  r: { inicio: string; fin: string } | null | undefined,
+  ahora: Date = new Date(),
+  minutos = 60,
+): boolean {
+  if (!r) return false;
+  const inicio = new Date(r.inicio).getTime();
+  const fin = new Date(r.fin).getTime();
+  const t = ahora.getTime();
+  if (Number.isNaN(inicio) || Number.isNaN(fin)) return false;
+  return inicio - t <= minutos * 60_000 && fin > t;
+}

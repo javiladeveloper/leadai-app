@@ -8,6 +8,7 @@ import { vaciarCache } from "@/lib/cache-datos";
 import { IconoChevron } from "@/components/Iconos";
 import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
 import { useCapacidades } from "@/lib/modo-negocio";
+import { BuscadorPanel } from "@/components/panel/BuscadorPanel";
 
 // Header del panel UNIFICADO (decisión 2026-07-22): ya NO hay selector de
 // empresa — el panel muestra siempre la operación completa y cada módulo
@@ -44,30 +45,17 @@ export function HeaderPanel() {
     router.replace("/");
   }
 
-  // Búsqueda global (diseño Stitch): navega a Leads con el término; la bandeja
-  // filtra por nombre/contacto/resumen.
-  function buscar(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const q = new FormData(e.currentTarget).get("q")?.toString().trim();
-    if (q) router.push(`/leads?buscar=${encodeURIComponent(q)}`);
-  }
-
   return (
-    <header className="flex items-center gap-3 bg-superficie-honda px-5 py-3">
-      {/* Buscador (oculto en pantallas muy chicas para no apretar el header) */}
-      <form onSubmit={buscar} className="hidden min-w-0 flex-1 sm:block sm:max-w-md">
-        <input
-          name="q"
-          type="search"
-          // Cada rubro le dice distinto a su gente: leads, clientes,
-          // pacientes, socios. El texto viene del backend con el rubro, así
-          // que un rubro nuevo no necesita un ternario más acá.
-          placeholder={`🔍 ${negocio?.vocabulario.buscar ?? "Buscar…"}`}
-          className="w-full rounded-chip bg-white/8 px-4 py-2 text-sm text-arena outline-none ring-1 ring-white/15 placeholder:text-arena/45 focus:ring-brasa/50"
-          aria-label={negocio?.vocabulario.buscar ?? "Buscar"}
-        />
-      </form>
-      <div className="ml-auto flex items-center gap-3">
+    <header className="flex items-center gap-3 bg-superficie-honda px-4 py-3 sm:px-5">
+      {/* Buscador: visible también en el celular, va a la sección que el
+          negocio tiene y sugiere mientras escribes (2026-10-09). Cada rubro
+          le dice distinto a su gente —leads, clientes, pacientes, socios— y
+          el texto viene del backend con el rubro. */}
+      <BuscadorPanel
+        placeholder={negocio?.vocabulario.buscar ?? "Buscar…"}
+        tieneLeads={negocio?.capacidades.calificaLeads ?? true}
+      />
+      <div className="ml-auto flex shrink-0 items-center gap-3">
         <CampanaAlertas />
         <button
           type="button"

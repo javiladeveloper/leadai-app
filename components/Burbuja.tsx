@@ -30,7 +30,7 @@ export function Burbuja({ m }: { m: Mensaje }) {
         {m.esVoz && (
           <span
             className={`mb-1 flex items-center gap-1.5 text-[0.72rem] font-semibold ${
-              mio ? "text-carta/80" : "text-frio"
+              mio ? "text-sobre-brasa/80" : "text-frio"
             }`}
           >
             <IconoMic className="h-3.5 w-3.5" /> Nota de voz · transcripta

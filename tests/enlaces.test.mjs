@@ -91,3 +91,18 @@ test('la campana avisa la reunión de la próxima hora, no la de la tarde', asyn
   assert.equal(reunionEnLaProximaHora(r('2026-10-09T14:00:00Z', '2026-10-09T14:30:00Z'), ahora), false, 'ya pasó');
   assert.equal(reunionEnLaProximaHora(null, ahora), false);
 });
+
+test('entrar desde la app: solo destinos que son rutas del panel', async () => {
+  const { destinoSeguro } = await import('../lib/enlaces.ts');
+  assert.equal(destinoSeguro('/conversaciones?lead=L1'), '/conversaciones?lead=L1');
+  assert.equal(destinoSeguro('/agenda'), '/agenda');
+  assert.equal(destinoSeguro(null), '/inicio');
+  assert.equal(destinoSeguro(''), '/inicio');
+  assert.equal(destinoSeguro('https://malo.com'), '/inicio');
+  assert.equal(destinoSeguro('//malo.com/x'), '/inicio');
+  assert.equal(destinoSeguro('/\\malo.com'), '/inicio');
+  assert.equal(destinoSeguro('javascript:alert(1)'), '/inicio');
+  assert.equal(destinoSeguro('/javascript:alert(1)'), '/inicio');
+  assert.equal(destinoSeguro('/con espacio'), '/inicio');
+  assert.equal(destinoSeguro('conversaciones'), '/inicio');
+});

@@ -186,7 +186,7 @@ export function urlBusqueda(q: string, opciones: { tieneLeads: boolean }): strin
 
 /** Sin tildes ni mayúsculas, para que "maría" encuentre a "María". */
 function plano(t: string): string {
-  return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
 /**
@@ -222,4 +222,29 @@ export function reunionEnLaProximaHora(
   const t = ahora.getTime();
   if (Number.isNaN(inicio) || Number.isNaN(fin)) return false;
   return inicio - t <= minutos * 60_000 && fin > t;
+}
+
+/**
+ * A DÓNDE SE PUEDE IR DESPUÉS DE ENTRAR CON EL ENLACE DE LA APP (2026-10-09).
+ *
+ * `/entrar?enlace=…&destino=…` lo arma el backend, pero el link viaja por
+ * fuera (WhatsApp, el navegador del teléfono) y cualquiera puede escribir uno
+ * con `destino=https://otro-sitio`: un "open redirect" que usa nuestro dominio
+ * para mandar a alguien a una página falsa recién logueado. Solo se acepta
+ * una RUTA del panel: empieza con "/", no con "//" (que el navegador lee como
+ * otro dominio), sin "\" (algunos navegadores la tratan como "/"), sin
+ * espacios ni controles y sin un esquema escondido ("/javascript:…"). Mismo
+ * criterio que `destinoSeguro` del backend (core/enlace-web.ts).
+ *
+ * Cualquier otra cosa → `/inicio`.
+ */
+export const DESTINO_POR_DEFECTO = "/inicio";
+export function destinoSeguro(destino: string | null | undefined): string {
+  if (!destino) return DESTINO_POR_DEFECTO;
+  if (destino.length > 300) return DESTINO_POR_DEFECTO;
+  if (!destino.startsWith("/") || destino.startsWith("//")) return DESTINO_POR_DEFECTO;
+  if (destino.includes("\\")) return DESTINO_POR_DEFECTO;
+  if (/[\s\x00-\x1f\x7f]/.test(destino)) return DESTINO_POR_DEFECTO;
+  if (/^\/[a-z][a-z0-9+.-]*:/i.test(destino)) return DESTINO_POR_DEFECTO;
+  return destino;
 }

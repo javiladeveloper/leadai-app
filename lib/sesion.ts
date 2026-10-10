@@ -1,7 +1,7 @@
 // Acciones de sesión: login con Google (real) y login demo (para la reunión).
 
 import { api } from "./api";
-import { guardarSesion, type Sesion } from "./auth";
+import { cerrarSesion, guardarSesion, type Sesion } from "./auth";
 import { VENDEDORA } from "./demo";
 
 // Manda el ID token de Google al backend y guarda la sesión resultante.
@@ -24,6 +24,27 @@ export async function entrarConEmail(email: string, password: string): Promise<S
     conAuth: false,
     conEmpresa: false,
   });
+  guardarSesion(sesion);
+  return sesion;
+}
+
+/**
+ * ENTRAR CON EL ENLACE DE LA APP (2026-10-09). La app móvil pide un enlace de
+ * un solo uso (dura 2 minutos) y abre `/entrar?enlace=<token>`; el backend lo
+ * canjea por EXACTAMENTE la misma sesión que el login con contraseña, así que
+ * se guarda con el mismo `guardarSesion`. Falla con ApiError 401 si venció o
+ * ya se usó.
+ */
+export async function entrarConEnlace(token: string): Promise<Sesion> {
+  const sesion = await api<Sesion>("/auth/enlace-web/canjear", {
+    method: "POST",
+    body: { token },
+    conAuth: false,
+    conEmpresa: false,
+  });
+  // Puede ser OTRA cuenta que la que estaba abierta en este navegador: se
+  // suelta la anterior (y su empresa activa) antes de guardar la nueva.
+  cerrarSesion();
   guardarSesion(sesion);
   return sesion;
 }

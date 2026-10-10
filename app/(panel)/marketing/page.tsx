@@ -76,6 +76,12 @@ export default function MarketingPanel() {
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
+    // EL PLAN EN PARALELO CON LOS NEGOCIOS (2026-10-09). El candado esperaba
+    // a que llegara la lista de negocios para recién preguntar el plan: dos
+    // viajes en fila antes de pintar nada. Se adelanta la consulta con la
+    // empresa activa —casi siempre es el negocio que termina enfocado— y la
+    // caché de `obtenerMiPlan` (lib/api) la reutiliza cuando se confirma.
+    void obtenerMiPlan(leerEmpresaActiva() ?? undefined);
   }, [router]);
 
   /**
@@ -178,8 +184,15 @@ export default function MarketingPanel() {
     // MISMA ESPERA QUE MI PLAN: un spinner y nada más. Un esqueleto de cajas
     // grises muestra una estructura que todavía no se sabe si es la correcta —
     // acá ni siquiera se sabe si van las pestañas o el candado del plan.
+    //
+    // ESQUELETO NEUTRO (2026-10-09): la franja del encabezado y un bloque, sin
+    // dibujar pestañas que todavía no se sabe si van — en vez del "Cargando…"
+    // en texto plano, que se leía como pantalla rota.
     return (
-      <p role="status" className="p-5 text-frio">Cargando Marketing…</p>
+      <div role="status" aria-label="Cargando Marketing" className="mx-auto max-w-[1440px] space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+        <div className="h-36 animate-pulse rounded-2xl bg-arena-2/70" />
+        <div className="h-64 animate-pulse rounded-tarjeta bg-arena-2/70" />
+      </div>
     );
   }
 
@@ -346,7 +359,15 @@ export default function MarketingPanel() {
         <PresenciaEditor key={tenantPlan} tenant={tenantPlan} />
       ) : mostrar === "publicar" ? null
       : mostrar === "anuncios" ? (
-        <SeccionAnuncios tenant={tenantPlan} nombreNegocio={nombreNegocio} />
+        // `?ad=` abre ese anuncio (desde Reportes → "Gestionar anuncio") y
+        // `?s=` recuerda la solapa de Anuncios (2026-10-09).
+        <SeccionAnuncios
+          tenant={tenantPlan}
+          nombreNegocio={nombreNegocio}
+          solapa={params.get("s") ?? undefined}
+          anuncio={params.get("ad") ?? undefined}
+          alCambiarSolapa={(s) => router.replace(`/marketing?t=anuncios&s=${s}`, { scroll: false })}
+        />
       ) : mostrar === "google" ? (
         <GoogleAdsPanel key={tenantPlan} tenant={tenantPlan} />
       ) : mostrar === "automatico" ? (

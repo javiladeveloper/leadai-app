@@ -53,12 +53,23 @@ const SOLAPAS = [
 
 type Solapa = (typeof SOLAPAS)[number]["id"];
 
-export function SeccionAnuncios(props: { tenant?: string; nombreNegocio?: string } = {}) {
+/**
+ * `solapa` y `anuncio` (2026-10-09): Marketing los lee de la URL (`?s=` y
+ * `?ad=`) y los pasa acá, así "Gestionar anuncio" desde Reportes abre "Tus
+ * anuncios" con ese anuncio desplegado. Se pasan por props y no se leen de la
+ * URL acá adentro: esta sección también se monta sola en los tests.
+ */
+export function SeccionAnuncios(props: { tenant?: string; nombreNegocio?: string; solapa?: string; anuncio?: string; alCambiarSolapa?: (s: string) => void } = {}) {
   return <ContenidoAnuncios key={props.tenant ?? "activa"} {...props} />;
 }
 
-function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreNegocio?: string }) {
-  const [solapa, setSolapa] = useState<Solapa>("resumen");
+const esSolapa = (v: string | undefined): v is Solapa => SOLAPAS.some((s) => s.id === v);
+
+function ContenidoAnuncios({
+  tenant, nombreNegocio, solapa: solapaInicial, anuncio, alCambiarSolapa,
+}: { tenant?: string; nombreNegocio?: string; solapa?: string; anuncio?: string; alCambiarSolapa?: (s: string) => void }) {
+  const [solapa, setSolapaEstado] = useState<Solapa>(anuncio ? "anuncios" : esSolapa(solapaInicial) ? solapaInicial : "resumen");
+  const setSolapa = (s: Solapa) => { setSolapaEstado(s); alCambiarSolapa?.(s); };
   const esMarketing = useSyncExternalStore(sinSuscripcion, () => rolEnEmpresaActiva() === "marketing", () => false);
   const [dias, setDias] = useState<7 | 30 | 90>(30);
   const [creadorVisitado, setCreadorVisitado] = useState(false);
@@ -180,7 +191,7 @@ function ContenidoAnuncios({ tenant, nombreNegocio }: { tenant?: string; nombreN
             >
               Ver borradores
             </button>
-            <MetricasAnuncios tenant={tenant} dias={dias} />
+            <MetricasAnuncios tenant={tenant} dias={dias} abrir={anuncio} />
             {/* El embudo va ACÁ y no en Resumen: responde "en qué paso se cae
                 la gente de este anuncio", que es una pregunta de análisis. */}
             <EmbudoAnuncios tenant={tenant} dias={dias} />

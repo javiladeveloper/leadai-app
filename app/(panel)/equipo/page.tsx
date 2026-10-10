@@ -2,16 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { haySesion, rolEnEmpresaActiva, leerEmpresaActiva, empresasVisibles } from "@/lib/auth";
 import { useCapacidades } from "@/lib/modo-negocio";
 import {
-  obtenerEquipo, invitarMiembro, cancelarInvitacion, quitarMiembro, obtenerMiPlan, exportarNegocio, cambiarRecibeLeads,
+  obtenerEquipo, invitarMiembro, cancelarInvitacion, quitarMiembro, miPlanCacheado, exportarNegocio, cambiarRecibeLeads,
   type MiembroEquipo, type InvitacionPendiente,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BloqueoPlan } from "@/components/panel/BloqueoPlan";
 import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 import { QuienAtiende } from "@/components/panel/QuienAtiende";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
+import { AccionesContacto } from "@/components/AccionesContacto";
+import { urlAgenda } from "@/lib/enlaces";
 
 // Roles que entran al reparto de leads (espejo de ROLES_QUE_VENDEN en leadia/src/core/reparto-vendedores.ts).
 const VENDEN: string[] = ["owner", "admin", "agente", "ventas"];
@@ -71,11 +75,15 @@ function EquipoPanel() {
   const [errorExportar, setErrorExportar] = useState("");
   const [avisoExportar, setAvisoExportar] = useState("");
   const [linkExportado, setLinkExportado] = useState("");
+  // "Quitar" pide confirmación (2026-10-09): era un toque y la persona
+  // perdía el acceso al instante, sin un "¿seguro?".
+  const [quitando, setQuitando] = useState<string | null>(null);
 
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
-    obtenerMiPlan().then((p) => setTieneEquipo(p?.features?.equipo ?? false));
+    // Por la caché compartida del plan (Marketing y Reportes preguntan lo mismo).
+    miPlanCacheado().then((p) => setTieneEquipo(p?.features?.equipo ?? false)).catch(() => setTieneEquipo(false));
   }, [router]);
 
   const cargar = useCallback(async () => {
@@ -280,11 +288,7 @@ function EquipoPanel() {
       {puedeExportar && <QuienAtiende />}
 
       {estado === "cargando" && <SkeletonLista filas={3} />}
-      {estado === "error" && (
-        <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar el equipo. Recarga.</p>
-        </div>
-      )}
+      {estado === "error" && <ErrorConReintento mensaje="No pudimos cargar el equipo." reintentar={cargar} />}
 
       {estado === "ok" && (
         <>
@@ -299,14 +303,27 @@ function EquipoPanel() {
             </p>
             <div className="space-y-2">
               {miembros.map((m) => (
-                <div key={m.usuarioId} className="flex items-center gap-3 rounded-tarjeta bg-carta p-3.5 ring-1 ring-linea">
+                <div key={m.usuarioId} className="flex flex-wrap items-center gap-3 rounded-tarjeta bg-carta p-3.5 ring-1 ring-linea">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brasa-suave text-sm font-bold text-brasa-hondo">
                     {(m.nombre ?? m.email).charAt(0).toUpperCase()}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-tinta">{m.nombre ?? m.email}</p>
                     <p className="truncate text-[0.78rem] text-frio">{m.email}</p>
+                    {/* LO QUE TIENE A SU CARGO, A UN TOQUE (2026-10-09): sus
+                        conversaciones asignadas y las reuniones que atiende. */}
+                    {VENDEN.includes(m.rol) && (
+                      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[0.76rem] font-semibold">
+                        <Link href={`/conversaciones?asignado=${encodeURIComponent(m.usuarioId)}`} className="text-brasa-texto hover:underline">
+                          Sus conversaciones
+                        </Link>
+                        <Link href={urlAgenda({ atiende: m.usuarioId, quien: m.nombre ?? m.email })} className="text-brasa-texto hover:underline">
+                          Su agenda
+                        </Link>
+                      </p>
+                    )}
                   </div>
+                  <AccionesContacto email={m.email} compacto />
                   <span className="shrink-0 rounded-chip bg-arena px-2.5 py-1 text-[0.72rem] font-bold text-tinta-2">
                     {ROL_LABEL[m.rol] ?? m.rol}
                   </span>
@@ -328,14 +345,30 @@ function EquipoPanel() {
                       {m.recibeLeads === false ? "No recibe leads" : "Recibe leads"}
                     </button>
                   )}
-                  {m.rol !== "owner" && (
+                  {m.rol !== "owner" && (quitando === m.usuarioId ? (
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        onClick={async () => { setQuitando(null); await quitarMiembro(m.usuarioId); cargar(); }}
+                        className="rounded-chip bg-calor px-2.5 py-1 text-[0.75rem] font-bold text-carta"
+                      >
+                        Sí, quitar
+                      </button>
+                      <button
+                        onClick={() => setQuitando(null)}
+                        className="rounded-chip bg-arena-2 px-2.5 py-1 text-[0.75rem] font-bold text-tinta-2"
+                      >
+                        No
+                      </button>
+                    </span>
+                  ) : (
                     <button
-                      onClick={async () => { await quitarMiembro(m.usuarioId); cargar(); }}
+                      onClick={() => setQuitando(m.usuarioId)}
+                      title="Pierde el acceso a este negocio"
                       className="shrink-0 text-[0.78rem] font-semibold text-frio hover:text-brasa-hondo"
                     >
                       Quitar
                     </button>
-                  )}
+                  ))}
                 </div>
               ))}
             </div>

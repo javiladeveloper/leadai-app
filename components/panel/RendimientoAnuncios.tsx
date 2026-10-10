@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useId, useRef, useState } from "react";
+import { urlLeadsDeAnuncio } from "@/lib/enlaces";
 import { rendimientoAds, type RendimientoAds, type Desglose, type FilaRanking } from "@/lib/api";
 import { ErrorMarketing, importeMarketing, periodoCoincide, type MetadatosMarketing, useLecturaMarketing } from "./marketing-lectura";
 
@@ -79,7 +81,7 @@ export function RendimientoAnuncios({ tenant, dias = 30 }: { tenant?: string; di
           </p>
           <div className="mt-3 space-y-2.5">
             {r.ranking.slice(0, 5).map((a, i) => (
-              <FilaAnuncio key={a.anuncioId} a={a} puesto={i + 1} moneda={r.moneda} />
+              <FilaAnuncio key={a.anuncioId} a={a} puesto={i + 1} moneda={r.moneda} tenant={tenant} />
             ))}
           </div>
         </div>
@@ -149,7 +151,7 @@ export function RendimientoAnuncios({ tenant, dias = 30 }: { tenant?: string; di
  * Ahora el dato que decide va PRIMERO y en grande: cuanta gente escribio. Lo
  * demas baja a una linea de contexto, que se mira solo si hace falta.
  */
-function FilaAnuncio({ a, puesto, moneda }: { a: FilaRanking; puesto: number; moneda?: string | null }) {
+function FilaAnuncio({ a, puesto, moneda, tenant }: { a: FilaRanking; puesto: number; moneda?: string | null; tenant?: string }) {
   const t = tendencia(a.tendencia);
   return (
     <div className="rounded-lg bg-arena/40 px-4 py-3">
@@ -171,9 +173,10 @@ function FilaAnuncio({ a, puesto, moneda }: { a: FilaRanking; puesto: number; mo
           <p className="mt-1.5 text-[0.88rem] text-tinta-2">
             {a.leads > 0 ? (
               <>
-                <strong className="text-tinta">
+                {/* El conteo lleva a ESAS personas (2026-10-09). */}
+                <Link href={urlLeadsDeAnuncio(a.anuncioId, tenant)} className="font-bold text-tinta underline-offset-2 hover:text-brasa-texto hover:underline">
                   {a.leads} {a.leads === 1 ? "persona te escribió" : "personas te escribieron"}
-                </strong>
+                </Link>
                 {a.costoPorLeadCentavos !== null && (
                   <span className="text-frio"> · {importeMarketing(a.costoPorLeadCentavos, moneda)} cada una</span>
                 )}

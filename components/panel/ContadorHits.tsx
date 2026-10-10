@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TEXTO_MEJORAR_PLAN, URL_MI_PLAN } from "@/lib/enlaces";
 import Link from "next/link";
 import { obtenerUso, type Uso } from "@/lib/api";
 
@@ -88,13 +89,14 @@ export function ContadorHits() {
       <p className="text-[0.72rem] text-arena/50">
         {dias === 0 ? "Se renueva hoy" : `Se renueva en ${dias} ${dias === 1 ? "día" : "días"}`}
       </p>
+      {/* Un solo texto y un solo destino para subir de plan (2026-10-09). */}
       <Link
-        href="/configuracion"
+        href={URL_MI_PLAN}
         className={`mt-2 inline-block rounded-chip px-3 py-1 text-[0.72rem] font-bold transition ${
-          bajo ? "bg-brasa text-carta" : "text-arena/60 underline hover:text-arena"
+          bajo ? "bg-brasa text-sobre-brasa" : "text-arena/60 underline hover:text-arena"
         }`}
       >
-        Comprar más
+        {TEXTO_MEJORAR_PLAN}
       </Link>
     </div>
   );

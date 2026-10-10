@@ -1,14 +1,20 @@
 "use client";
 import Link from "next/link";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
-import { haySesion, rolEnEmpresaActiva } from "@/lib/auth";
+import { Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { haySesion, rolEnEmpresaActiva, leerEmpresaActiva, tieneVariosNegocios } from "@/lib/auth";
 import {
   obtenerComisiones, actualizarComision, type Comision,
-  obtenerReporteNegocio, obtenerReporteGlobal, obtenerMiPlan,
-  type ReporteNegocio, type ReporteGlobal,
+  obtenerReporteNegocio, obtenerReporteGlobal, miPlanCacheado, origenDeLeads,
+  type ReporteNegocio, type ReporteGlobal, type FilaOrigenLeads,
 } from "@/lib/api";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
+import { LinkLead } from "@/components/LinkLead";
+import { ChipPlataforma } from "@/components/panel/OrigenLead";
+import {
+  ESTADO_ABIERTOS, TEXTO_MEJORAR_PLAN, URL_MI_PLAN, urlLeads, urlSeguimiento,
+} from "@/lib/enlaces";
 import { SkeletonReportes } from "@/components/Skeletons";
 import { SeccionPorNegocio } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, ReportesIlustracion } from "@/components/panel/HeroSeccion";
@@ -35,6 +41,22 @@ const mesCorto = (ym: string) => {
   return ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"][m - 1] ?? ym;
 };
 
+/**
+ * CADA ESCALÓN DEL EMBUDO LLEVA A SUS LEADS EN SEGUIMIENTO (2026-10-09). El
+ * embudo del reporte habla de "conversaron", "atendidos", "cerraron"; en
+ * Seguimiento esas son las columnas En seguimiento, Para atender y Ganados.
+ * "Escribieron" es todos: abre el tablero sin resaltar nada.
+ */
+const ETAPA_DEL_ESCALON: Record<string, string | undefined> = {
+  escribieron: undefined,
+  conversaron: "nutriendo",
+  atendidos: "escalado",
+  cerraron: "ganado",
+};
+
+/** Con varios negocios, la lista de leads abre en ESTE (Reportes es de uno). */
+const negocioDeReportes = () => (tieneVariosNegocios() ? leerEmpresaActiva() : null);
+
 function ReportesPanel() {
   const router = useRouter();
   const [listo, setListo] = useState(false);
@@ -45,10 +67,15 @@ function ReportesPanel() {
   const [global, setGlobal] = useState<ReporteGlobal | null>(null);
   const [avanzados, setAvanzados] = useState<boolean | null>(null);
 
+  // Los nombres de los anuncios para "De dónde vienen tus leads": el reporte
+  // de negocio trae la etiqueta cruda (`ad:1202559…`), ilegible.
+  const [origenes, setOrigenes] = useState<FilaOrigenLeads[]>([]);
+
   useEffect(() => {
     if (!haySesion()) { router.replace("/"); return; }
     setListo(true);
-    obtenerMiPlan().then((p) => setAvanzados(p?.features?.reportesAvanzados ?? false));
+    // El plan va por la caché compartida: Marketing y Equipo preguntan lo mismo.
+    miPlanCacheado().then((p) => setAvanzados(p?.features?.reportesAvanzados ?? false)).catch(() => setAvanzados(false));
   }, [router]);
 
   const cargar = useCallback(async () => {
@@ -63,8 +90,10 @@ function ReportesPanel() {
       setComisiones(items);
       setRep(r);
       setGlobal(g);
+      // Best-effort: sin nombres se muestra "Anuncio" en vez del id crudo.
+      origenDeLeads(90).then(setOrigenes).catch(() => setOrigenes([]));
     } catch (err) {
-      setError("No pudimos cargar los reportes. Recarga.");
+      setError("No pudimos cargar los reportes.");
       console.error(err);
     } finally {
       setCargando(false);
@@ -90,7 +119,7 @@ function ReportesPanel() {
       {cargando ? (
         <SkeletonReportes />
       ) : error ? (
-        <div className="rounded-tarjeta bg-brasa/10 px-4 py-3 text-center text-[0.9rem] font-semibold text-brasa-texto">{error}</div>
+        <ErrorConReintento mensaje={error} reintentar={cargar} />
       ) : (
         <div className="space-y-6">
           {/* Reportes avanzados bloqueados por plan: candado compacto (las
@@ -102,8 +131,8 @@ function ReportesPanel() {
               <p className="mt-1 text-[0.88rem] text-frio">
                 Tasa de cierre, evolución mensual y comisiones por negocio están desde el plan Emprende.
               </p>
-              <Link href="/configuracion" className="mt-4 inline-flex rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo">
-                Mejora tu plan
+              <Link href={URL_MI_PLAN} className="mt-4 inline-flex rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition hover:bg-brasa-hondo">
+                {TEXTO_MEJORAR_PLAN}
               </Link>
             </div>
           )}
@@ -121,16 +150,23 @@ function ReportesPanel() {
                 <p className="text-[0.8rem] text-sobre-brasa/75">Por cobrar</p>
                 <p className="mt-1 text-[2rem] font-bold leading-none">{soles(rep.comisiones.porCobrar)}</p>
               </div>
-              <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+              {/* Los KPIs de leads abren su lista (2026-10-09). */}
+              <Link
+                href={urlLeads({ estado: "ganado", negocio: negocioDeReportes() })}
+                className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea transition hover:ring-brasa/40"
+              >
                 <p className="text-[0.8rem] text-frio">Tasa de cierre</p>
                 <p className="mt-1 text-[2rem] font-bold leading-none text-tinta">{Math.round(rep.cierre.tasa * 100)}%</p>
-                <p className="mt-1 text-[0.72rem] text-frio">{rep.cierre.ganados} ganados · {rep.cierre.perdidos} perdidos</p>
-              </div>
-              <div className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea">
+                <p className="mt-1 text-[0.72rem] text-frio">{rep.cierre.ganados} ganados · {rep.cierre.perdidos} perdidos ›</p>
+              </Link>
+              <Link
+                href={urlLeads({ estado: ESTADO_ABIERTOS, negocio: negocioDeReportes() })}
+                className="entra rounded-tarjeta bg-carta p-5 ring-1 ring-linea transition hover:ring-brasa/40"
+              >
                 <p className="text-[0.8rem] text-frio">En juego</p>
                 <p className="mt-1 text-[2rem] font-bold leading-none text-tinta">{rep.cierre.enJuego}</p>
-                <p className="mt-1 text-[0.72rem] text-frio">leads sin cerrar</p>
-              </div>
+                <p className="mt-1 text-[0.72rem] text-frio">leads sin cerrar ›</p>
+              </Link>
             </div>
           )}
 
@@ -165,10 +201,10 @@ function ReportesPanel() {
                   const total = rep.embudo[0].quedan || 1;
                   const ancho = Math.max(2, Math.round((e.quedan / total) * 100));
                   return (
-                    <div key={e.etapa}>
+                    <Link key={e.etapa} href={urlSeguimiento(ETAPA_DEL_ESCALON[e.etapa])} className="block rounded-lg transition hover:bg-arena/40">
                       <div className="mb-1 flex items-baseline justify-between gap-2">
                         <span className="text-[0.9rem] font-medium text-tinta">{e.titulo}</span>
-                        <span className="text-[0.9rem] font-bold tabular-nums text-tinta">{e.quedan}</span>
+                        <span className="text-[0.9rem] font-bold tabular-nums text-tinta">{e.quedan} ›</span>
                       </div>
                       <div className="h-7 w-full overflow-hidden rounded-lg bg-arena-2">
                         <div
@@ -187,7 +223,7 @@ function ReportesPanel() {
                           se fueron {e.seCayeron} en este paso
                         </p>
                       )}
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -221,10 +257,14 @@ function ReportesPanel() {
                 <p className="mb-3 text-[0.85rem] font-bold uppercase tracking-wide text-frio">Leads por nivel</p>
                 <div className="space-y-2.5">
                   {["caliente", "tibio", "frio"].map((k) => (
-                    <div key={k} className="flex items-center justify-between">
+                    <Link
+                      key={k}
+                      href={urlLeads({ nivel: k, negocio: negocioDeReportes() })}
+                      className="flex items-center justify-between rounded-lg px-1 py-0.5 transition hover:bg-arena/50"
+                    >
                       <span className={`text-[0.92rem] font-medium ${NIVEL[k].color}`}>{NIVEL[k].label}</span>
-                      <span className="text-[1rem] font-bold text-tinta tabular-nums">{rep.leadsPorNivel[k] ?? 0}</span>
-                    </div>
+                      <span className="text-[1rem] font-bold text-tinta tabular-nums">{rep.leadsPorNivel[k] ?? 0} ›</span>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -239,13 +279,26 @@ function ReportesPanel() {
                 {Object.entries(rep.leadsPorOrigen)
                   .sort((a, b) => b[1] - a[1])
                   .map(([origen, n]) => {
+                    // EL NOMBRE DEL ANUNCIO, NO SU ID (2026-10-09): se cruza con
+                    // "de dónde te escriben"; sin cruce, "Anuncio" a secas.
                     const esAd = origen.startsWith("ad:");
-                    const label = esAd ? `📣 ${origen.slice(3)}` : origen === "comentario" ? "💬 Comentarios" : "💬 Mensaje directo";
+                    const fila = esAd ? origenes.find((f) => f.adId === origen.slice(3)) : undefined;
                     return (
-                      <div key={origen} className="flex items-center justify-between rounded-xl bg-arena/40 px-4 py-2.5">
-                        <span className="text-[0.9rem] font-medium text-tinta-2">{label}</span>
-                        <span className="text-[1rem] font-bold text-tinta tabular-nums">{n}</span>
-                      </div>
+                      <Link
+                        key={origen}
+                        href={urlLeads({ origen, negocio: negocioDeReportes() })}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-arena/40 px-4 py-2.5 transition hover:bg-arena"
+                      >
+                        <span className="flex min-w-0 items-center gap-1.5 text-[0.9rem] font-medium text-tinta-2">
+                          {esAd ? (
+                            <>
+                              {fila?.plataforma ? <ChipPlataforma plataforma={fila.plataforma} /> : <span aria-hidden>📣</span>}
+                              <span className="truncate">{fila?.etiqueta ?? "Anuncio"}</span>
+                            </>
+                          ) : origen === "comentario" ? "💬 Comentarios" : "💬 Mensaje directo"}
+                        </span>
+                        <span className="shrink-0 text-[1rem] font-bold text-tinta tabular-nums">{n} ›</span>
+                      </Link>
                     );
                   })}
               </div>
@@ -313,7 +366,12 @@ function ReportesPanel() {
                   <tbody>
                     {comisiones.map((c) => (
                       <tr key={c.id} className="border-b border-arena last:border-b-0">
-                        <td className="px-6 py-3.5 text-[0.95rem] font-semibold text-tinta">{c.lead?.nombre?.trim() || "Sin nombre"}</td>
+                        <td className="px-6 py-3.5 text-[0.95rem] font-semibold text-tinta">
+                          {/* El nombre abre la ficha del lead (2026-10-09). */}
+                          <LinkLead id={c.leadId} className="hover:text-brasa-texto hover:underline">
+                            {c.lead?.nombre?.trim() || "Sin nombre"}
+                          </LinkLead>
+                        </td>
                         <td className="px-6 py-3.5 text-right text-[0.95rem] font-bold text-tinta">{soles(c.monto)}</td>
                         <td className="px-6 py-3.5 text-center">
                           <span className={`inline-block rounded-chip px-3 py-1.5 text-[0.78rem] font-bold ${estadoColor[c.estado] || "bg-arena text-tinta-2"}`}>
@@ -356,10 +414,17 @@ const sinSuscripcion = () => () => {};
  */
 function Reportes() {
   const router = useRouter();
+  const params = useSearchParams();
   // El rol sale del almacenamiento local: en el servidor vale `null` y la
   // pantalla espera a montar, así el primer render coincide con el del server.
   const rol = useSyncExternalStore(sinSuscripcion, () => rolEnEmpresaActiva() ?? "", () => null);
-  const [pestana, setPestana] = useState<Pestana>("publicidad");
+  // LA PESTAÑA EN LA URL (2026-10-09): `?t=ventas` abre "Ventas y comisiones"
+  // (el gráfico de Inicio lleva ahí) y el link se puede compartir.
+  const [pestana, setPestanaEstado] = useState<Pestana>(() => (params.get("t") === "ventas" ? "ventas" : "publicidad"));
+  function setPestana(p: Pestana) {
+    setPestanaEstado(p);
+    router.replace(`/reportes?t=${p}`, { scroll: false });
+  }
 
   useEffect(() => {
     if (!haySesion()) router.replace("/");
@@ -410,9 +475,12 @@ function Reportes() {
 // negocio (fija la empresa activa y remonta el contenido — ver
 // SeccionPorNegocio).
 export default function ReportesPanelPorNegocio() {
+  // useSearchParams exige Suspense en el prerender de Next (App Router).
   return (
-    <SeccionPorNegocio>
-      <Reportes />
-    </SeccionPorNegocio>
+    <Suspense fallback={null}>
+      <SeccionPorNegocio>
+        <Reportes />
+      </SeccionPorNegocio>
+    </Suspense>
   );
 }

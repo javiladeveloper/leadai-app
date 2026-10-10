@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { urlLeadsDeAnuncio } from "@/lib/enlaces";
 import { metricasAds, type MetricasAds, type AnuncioMetricas, cambiarEstadoAnuncio, cambiarEstadoCampania } from "@/lib/api";
 import { ErrorMarketing, importeMarketing, periodoCoincide, type MetadatosMarketing, useLecturaMarketing } from "./marketing-lectura";
 
@@ -21,14 +23,23 @@ import { ErrorMarketing, importeMarketing, periodoCoincide, type MetadatosMarket
  *
  * Incluye lo creado en el Ads Manager, que es como lo hace la mayoría.
  */
-export function MetricasAnuncios({ tenant, dias = 30 }: { tenant?: string; dias?: number } = {}) {
-  return <MetricasContenido key={`${tenant ?? "activa"}:${dias}`} tenant={tenant} dias={dias} />;
+/**
+ * `abrir` (2026-10-09): el id de un anuncio para mostrar ya desplegado. Llega
+ * desde Reportes → Publicidad ("Gestionar anuncio") vía `?ad=` en Marketing.
+ */
+export function MetricasAnuncios({ tenant, dias = 30, abrir }: { tenant?: string; dias?: number; abrir?: string } = {}) {
+  return <MetricasContenido key={`${tenant ?? "activa"}:${dias}`} tenant={tenant} dias={dias} abrir={abrir} />;
 }
 
-function MetricasContenido({ tenant, dias }: { tenant?: string; dias: number }) {
+function MetricasContenido({ tenant, dias, abrir }: { tenant?: string; dias: number; abrir?: string }) {
   const cargar = useCallback(() => metricasAds(tenant, dias), [tenant, dias]);
   const { datos: m, cargando, error, reintentar } = useLecturaMarketing<(MetricasAds & MetadatosMarketing) | null>(`${tenant}:${dias}`, cargar);
-  const [abierto, setAbierto] = useState<string | null>(null);
+  const [abierto, setAbierto] = useState<string | null>(abrir ?? null);
+  // El anuncio pedido se trae a la vista apenas aparece en la lista.
+  useEffect(() => {
+    if (!abrir || !m) return;
+    document.getElementById(`anuncio-${abrir}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [abrir, m]);
   const [busqueda, setBusqueda] = useState("");
   const [campania, setCampania] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("");
@@ -43,7 +54,8 @@ function MetricasContenido({ tenant, dias }: { tenant?: string; dias: number }) 
    * cual de los que ya terminaron funciono. Mezclarlos obliga a leer estado por
    * estado.
    */
-  const [filtro, setFiltro] = useState<'corriendo' | 'todos'>('corriendo');
+  // Si se llegó a un anuncio puntual, puede estar detenido: se ven todos.
+  const [filtro, setFiltro] = useState<'corriendo' | 'todos'>(abrir ? 'todos' : 'corriendo');
 
   // Se rehace al prender o apagar: el estado que muestra la fila tiene que ser
   // el de Meta, no el que creemos haber dejado.
@@ -225,7 +237,7 @@ function Fila({ a, abierta, alTocar, alCambiar, tenant, moneda }: { a: AnuncioMe
   const dias = diasRestantes(a.fin);
 
   return (
-    <div className="rounded-lg bg-arena/40 ring-1 ring-linea">
+    <div id={`anuncio-${a.adId}`} className={`rounded-lg bg-arena/40 ring-1 ${abierta ? "ring-brasa/50" : "ring-linea"}`}>
       <button id={`${id}-boton`} aria-expanded={abierta} aria-controls={`${id}-detalle`} type="button" onClick={alTocar} className="flex w-full items-center gap-3 px-3 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-brasa">
         {/* LA MINIATURA IDENTIFICA EL ANUNCIO de un vistazo, que es lo que el
             nombre no hace. Sin imagen queda el espacio: alinea las filas. */}
@@ -260,6 +272,11 @@ function Fila({ a, abierta, alTocar, alCambiar, tenant, moneda }: { a: AnuncioMe
               accionable del detalle: el resto son numeros para mirar. Antes el
               panel decia "conviene pausarlo" y pausarlo era abrir Meta. */}
           <ControlEncendido key={`${tenant}:${a.adId}`} a={a} alCambiar={alCambiar} tenant={tenant} />
+          {/* DEL ANUNCIO A SUS LEADS (2026-10-09): quiénes escribieron por
+              este anuncio, en la lista de Leads ya filtrada. */}
+          <Link href={urlLeadsDeAnuncio(a.adId, tenant)} className="inline-flex text-[0.82rem] font-bold text-brasa-texto underline-offset-2 hover:underline">
+            Ver los leads que trajo este anuncio →
+          </Link>
           <p className="text-sm text-frio">Costo por conversación atribuida por Meta: {costoResultado(a) === null ? "No disponible" : importe(costoResultado(a)!)}</p>
 
           {a.texto && (

@@ -33,6 +33,7 @@ import {
 } from "@/lib/carta";
 import { CampoFoto, useFoto } from "@/components/panel/CampoFoto";
 import { SkeletonLista } from "@/components/Skeletons";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { MarcaCarta } from "@/components/panel/MarcaCarta";
 import { MenuDelDiaPanel } from "@/components/panel/MenuDelDiaPanel";
 import { Seccion } from "@/components/panel/Seccion";
@@ -149,11 +150,7 @@ export default function CartaPanel() {
       </nav>
 
       {estado === "cargando" && <SkeletonLista filas={4} />}
-      {estado === "error" && (
-        <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar la carta. Recarga.</p>
-        </div>
-      )}
+      {estado === "error" && <ErrorConReintento mensaje="No pudimos cargar la carta." reintentar={() => void cargar()} />}
 
       {/* LA RUTA DEL QUE EMPIEZA (2026-08-22, "toda esa parte debe ser
           intuitivo"). Cinco pestañas sin orden le piden al dueño nuevo que

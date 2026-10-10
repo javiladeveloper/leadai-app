@@ -8,6 +8,8 @@ import {
   type Oportunidad,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
+import { AccionesContacto } from "@/components/AccionesContacto";
 import { useNegociosGlobal } from "@/components/panel/GlobalNegocios";
 import { HeroSeccion, OportunidadesIlustracion } from "@/components/panel/HeroSeccion";
 
@@ -107,7 +109,7 @@ export default function OportunidadesPanel() {
           onClick={() => setSoloMias((v) => !v)}
           aria-pressed={soloMias}
           className={`shrink-0 rounded-chip px-4 py-2 text-[0.85rem] font-bold transition ${
-            soloMias ? "bg-brasa text-carta" : "bg-carta text-frio ring-1 ring-linea hover:ring-brasa/50"
+            soloMias ? "bg-brasa text-sobre-brasa" : "bg-carta text-frio ring-1 ring-linea hover:ring-brasa/50"
           }`}
         >
           {soloMias ? "★ Solo las mías" : "☆ Solo las mías"}
@@ -115,11 +117,7 @@ export default function OportunidadesPanel() {
       </div>
 
       {estado === "cargando" && <SkeletonLista filas={4} />}
-      {estado === "error" && (
-        <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar las oportunidades. Recarga.</p>
-        </div>
-      )}
+      {estado === "error" && <ErrorConReintento mensaje="No pudimos cargar las oportunidades." reintentar={cargar} />}
       {estado === "ok" && visibles.length === 0 && (
         <div className="rounded-tarjeta bg-carta p-8 text-center ring-1 ring-linea">
           <span aria-hidden className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-arena text-3xl">
@@ -172,9 +170,14 @@ export default function OportunidadesPanel() {
 
               {/* Al tomarla, se muestra el contacto del negocio */}
               {o.tomada && (
-                <div className="mt-3 rounded-lg bg-ok/8 px-3 py-2 text-[0.85rem]">
-                  <span className="font-semibold text-tinta">Contacto del negocio: </span>
-                  <span className="text-tinta-2">{o.contacto}</span>
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-ok/8 px-3 py-2 text-[0.85rem]">
+                  <span className="min-w-0 flex-1">
+                    <span className="font-semibold text-tinta">Contacto del negocio: </span>
+                    <span className="text-tinta-2">{o.contacto}</span>
+                  </span>
+                  {/* Llamar, WhatsApp o correo según lo que sea el contacto
+                      (2026-10-09): antes era texto para copiar a mano. */}
+                  <AccionesContacto contacto={o.contacto} compacto />
                 </div>
               )}
 
@@ -185,7 +188,7 @@ export default function OportunidadesPanel() {
                   className={`rounded-chip px-4 py-2 text-[0.85rem] font-bold transition disabled:opacity-50 ${
                     o.tomada
                       ? "bg-arena text-frio ring-1 ring-linea hover:bg-linea"
-                      : "bg-brasa text-carta hover:bg-brasa-hondo"
+                      : "bg-brasa text-sobre-brasa hover:bg-brasa-hondo"
                   }`}
                 >
                   {o.tomada ? "Dejar de trabajarla" : "Tomar esta oportunidad"}

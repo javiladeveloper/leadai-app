@@ -1129,10 +1129,10 @@ export async function obtenerCatalogo(): Promise<Catalogo | null> {
 // chips, y la activa puede ser otro negocio que quedó de otra sección.
 export async function obtenerMiPlan(tenant?: string): Promise<MiPlan | null> {
   try {
-    // Solo deduplica (maxEdad 0): los editores leen y después escriben, y
-    // tienen que leer lo último. Las lecturas de "¿tiene esta feature?" usan
-    // `miPlanCacheado`, que sí reutiliza.
-    return await pedir(claveNegocio("mi-plan", tenant), () => api<MiPlan>("/mi-plan", { tenant }));
+    // Junta las consultas simultáneas y reutiliza solo 5 s: los editores leen
+    // y después escriben, y tienen que leer lo último (cada guardado invalida).
+    // Las lecturas de "¿tiene esta feature?" usan `miPlanCacheado` (30 s).
+    return await pedir(claveNegocio("mi-plan", tenant), () => api<MiPlan>("/mi-plan", { tenant }), { maxEdadMs: 5_000 });
   } catch {
     return null;
   }

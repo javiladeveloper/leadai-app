@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useState } from "react";
+import { urlLeadsDeAnuncio } from "@/lib/enlaces";
 import { obtenerReporteAnuncios, type ReporteAnuncios as ReporteDTO } from "@/lib/api";
 import { ErrorMarketing, useLecturaMarketing } from "./marketing-lectura";
 
@@ -72,7 +74,15 @@ function ReporteContenido({ tenant, dias }: { tenant?: string; dias: number }) {
               </td>
               <td className="py-3 pr-3 text-right tabular-nums text-tinta-2">{gastoConocido ? importe(f.gastoCentavos, r.moneda) : "No medido"}</td>
               {ventasMedidas && <td className="py-3 pr-3 text-right tabular-nums text-tinta-2">{importe(f.ventasCentavos, "PEN")}</td>}
-              <td className="py-3 pr-3 text-right tabular-nums text-tinta-2">{ventasMedidas && resultado?.tipo === "pedidos" ? f.compradores : f.interesados ?? "No medidos"}</td>
+              <td className="py-3 pr-3 text-right tabular-nums text-tinta-2">
+                {ventasMedidas && resultado?.tipo === "pedidos" ? f.compradores
+                  : typeof f.interesados === "number" && f.interesados > 0 ? (
+                    // El conteo abre la lista de esos interesados (2026-10-09).
+                    <Link href={urlLeadsDeAnuncio(f.origen, tenant)} className="font-semibold text-brasa-texto underline-offset-2 hover:underline">
+                      {f.interesados}
+                    </Link>
+                  ) : f.interesados ?? "No medidos"}
+              </td>
               {ventasMedidas && <td className="py-3 text-right tabular-nums text-tinta-2">{retornoMedido ? `${f.roas!.toFixed(2)}x` : "No medido"}</td>}
             </tr>;
           })}</tbody>

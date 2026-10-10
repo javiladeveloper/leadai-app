@@ -6,6 +6,7 @@ import { haySesion } from "@/lib/auth";
 import { listarFlujos, crearFlujo, eliminarFlujo, actualizarFlujo, type Flujo, type CanalFlujo } from "@/lib/api";
 import { PLANTILLA_FLUJO } from "@/lib/flujos";
 import { SkeletonLista } from "@/components/Skeletons";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 
 export default function FlujosPanel() {
@@ -97,11 +98,7 @@ export default function FlujosPanel() {
       )}
 
       {estado === "cargando" && <SkeletonLista filas={3} />}
-      {estado === "error" && (
-        <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar los flujos. Recarga.</p>
-        </div>
-      )}
+      {estado === "error" && <ErrorConReintento mensaje="No pudimos cargar los flujos." reintentar={cargar} />}
       {estado === "ok" && flujos.length === 0 && (
         <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
           <p className="text-[1.05rem] font-bold text-tinta">Todavía no tienes flujos</p>

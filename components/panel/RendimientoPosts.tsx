@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { LinkLead } from "@/components/LinkLead";
 import {
   metricasPosts, refrescarMetricasPosts, detallePost,
   type MetricasPosts, type PostConResultados, type DetallePost, type RedPost,
@@ -361,9 +361,9 @@ function Detalle({ p, tenant }: { p: PostConResultados; tenant?: string }) {
                   </div>
                   <p className="mt-0.5 text-tinta-2">{c.texto}</p>
                   {c.leadId && puedeAbrir && (
-                    <Link href={`/conversacion/${c.leadId}`} className="mt-1 inline-block text-[0.76rem] font-semibold text-brasa-texto hover:underline">
+                    <LinkLead id={c.leadId} tenant={tenant} className="mt-1 inline-block text-[0.76rem] font-semibold text-brasa-texto hover:underline">
                       Ver la conversación →
-                    </Link>
+                    </LinkLead>
                   )}
                 </li>
               );
@@ -389,9 +389,7 @@ function Detalle({ p, tenant }: { p: PostConResultados; tenant?: string }) {
               const clase = "flex items-center gap-1.5 rounded-full bg-carta px-2.5 py-1 text-[0.78rem] ring-1 ring-linea";
               return (
                 <li key={l.id}>
-                  {puedeAbrir
-                    ? <Link href={`/conversacion/${l.id}`} className={`${clase} transition hover:bg-arena`}>{cuerpo}</Link>
-                    : <span className={clase}>{cuerpo}</span>}
+                  <LinkLead id={l.id} tenant={tenant} className={`${clase} transition hover:bg-arena`} claseSinPermiso={clase}>{cuerpo}</LinkLead>
                 </li>
               );
             })}

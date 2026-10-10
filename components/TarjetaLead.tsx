@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { puedeAbrirConversacion } from "@/lib/auth";
+import { LinkLead } from "./LinkLead";
 import type { Temperatura } from "@/lib/tipos";
 import { haceTexto } from "@/lib/leads";
 import { ChipTemp } from "./ChipTemp";
@@ -13,6 +13,11 @@ import type { Lead } from "@/lib/api";
 // esta última con campos opcionales cubiertos vía adaptador en cada pantalla.
 export interface TarjetaLeadProps {
   id: string;
+  /**
+   * El negocio del lead (2026-10-09). Con varios negocios, abrir la ficha
+   * fija ese negocio; sin esto la ficha lo buscaba en la empresa activa.
+   */
+  tenant?: string;
   nombre: string;
   canal?: string;
   empresa?: string;
@@ -120,10 +125,11 @@ export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
     );
   }
 
+  // A la ficha única del lead (Conversaciones), con su negocio.
   return (
-    <Link href={`/conversacion/${lead.id}`} className={clases}>
+    <LinkLead id={lead.id} tenant={lead.tenant} className={clases}>
       {cuerpo}
-    </Link>
+    </LinkLead>
   );
 }
 

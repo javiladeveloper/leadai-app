@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useState } from "react";
+import { LinkLead } from "@/components/LinkLead";
 import { origenDeLeads, type FilaOrigenLeads } from "@/lib/api";
 import { ErrorMarketing, importeMarketing, useLecturaMarketing } from "./marketing-lectura";
 import { ChipPlataforma } from "./OrigenLead";
-import { puedeAbrirConversacion } from "@/lib/auth";
 
 /**
  * QUÉ PUBLICIDAD TE TRAE CLIENTES (2026-09-17, pedido de Jonathan: "tampoco
@@ -53,7 +52,7 @@ export function OrigenDeLeads({ tenant, dias = 30 }: { tenant?: string; dias?: n
 
       <div className="mt-5 space-y-2">
         {filas.map((f) => (
-          <Fila key={f.adId ?? f.etiqueta} f={f} maximo={maximo} dias={dias} />
+          <Fila key={f.adId ?? f.etiqueta} f={f} maximo={maximo} dias={dias} tenant={tenant} />
         ))}
       </div>
 
@@ -70,7 +69,7 @@ export function OrigenDeLeads({ tenant, dias = 30 }: { tenant?: string; dias?: n
  * anuncios que traen lo mismo: veinte curiosos no valen lo que tres personas
  * que preguntaron el precio.
  */
-function Fila({ f, maximo, dias }: { f: FilaOrigenLeads & { moneda?: string | null }; maximo: number; dias: number }) {
+function Fila({ f, maximo, dias, tenant }: { f: FilaOrigenLeads & { moneda?: string | null }; maximo: number; dias: number; tenant?: string }) {
   const [abierta, setAbierta] = useState(false);
   const ancho = Math.max(0, Math.min(100, Math.round((f.leads / Math.max(maximo, 1)) * 100)));
   const icono = f.tipo === "anuncio" ? "📣" : f.tipo === "link" ? "🔗" : f.tipo === "manual" ? "✍️" : "💬";
@@ -132,13 +131,13 @@ function Fila({ f, maximo, dias }: { f: FilaOrigenLeads & { moneda?: string | nu
         </div>
       </button>
 
-      {abierta && <DetalleFila f={f} />}
+      {abierta && <DetalleFila f={f} tenant={tenant} />}
     </div>
   );
 }
 
 /** Al tocar la fila: cómo le fue a ese origen y quiénes llegaron por él. */
-function DetalleFila({ f }: { f: FilaOrigenLeads }) {
+function DetalleFila({ f, tenant }: { f: FilaOrigenLeads; tenant?: string }) {
   const datos = [
     f.respondieron !== undefined && `${f.respondieron} de ${f.leads} respondieron`,
     f.demos !== undefined && `${f.demos} ${f.demos === 1 ? "demo" : "demos"}`,
@@ -147,7 +146,6 @@ function DetalleFila({ f }: { f: FilaOrigenLeads }) {
     f.clics !== undefined && `${f.clics.toLocaleString("es-PE")} clics`,
     (f.conversacionesMeta ?? 0) > 0 && `Meta contó ${f.conversacionesMeta} conversaciones`,
   ].filter(Boolean);
-  const abrir = puedeAbrirConversacion();
   return (
     <div className="mt-3 space-y-2 border-t border-linea pt-3">
       {datos.length > 0 && <p className="text-[0.76rem] text-tinta-2">{datos.join(" · ")}</p>}
@@ -168,9 +166,11 @@ function DetalleFila({ f }: { f: FilaOrigenLeads }) {
             const clase = "flex items-center justify-between gap-2 rounded-md bg-carta px-3 py-1.5 text-[0.8rem]";
             return (
               <li key={l.id}>
-                {abrir
-                  ? <Link href={`/conversacion/${l.id}`} className={`${clase} transition hover:ring-1 hover:ring-brasa/50`}>{cuerpo}</Link>
-                  : <div className={clase}>{cuerpo}</div>}
+                {/* Con su negocio (2026-10-09): Marketing mira el negocio de los
+                    chips, que puede no ser la empresa activa. */}
+                <LinkLead id={l.id} tenant={tenant} className={`${clase} transition hover:ring-1 hover:ring-brasa/50`} claseSinPermiso={clase}>
+                  {cuerpo}
+                </LinkLead>
               </li>
             );
           })}

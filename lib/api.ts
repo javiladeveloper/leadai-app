@@ -4,6 +4,7 @@
 
 import { leerSesion, leerEmpresaActiva, guardarSesion, guardarEmpresaActiva, EMPRESA_GLOBAL, type EmpresaResumen, empresasSinRestaurantes, leerEmpresaPredeterminada, guardarEmpresaPredeterminada } from "./auth";
 import { cuerpoParaFetch } from "./cuerpo";
+import { invalidar, pedir } from "./cache-datos";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -33,6 +34,16 @@ interface Opciones {
   tenant?: string;
   // manda/acepta cookies del backend (solo la activación de placas lo usa).
   conCookies?: boolean;
+}
+
+/**
+ * LA CLAVE DE CACHÉ LLEVA EL NEGOCIO (2026-10-09): el mismo `/mi-plan` de dos
+ * negocios son dos datos distintos, y servir el de uno en el otro es peor que
+ * no tener caché.
+ */
+export function claveNegocio(base: string, tenant?: string | null): string {
+  const t = tenant || (typeof window !== "undefined" ? leerEmpresaActiva() : null) || "-";
+  return `${base}@${t}`;
 }
 
 // Llamada genérica al backend. Arma headers de auth y empresa, parsea el error
@@ -174,6 +185,8 @@ export async function conectarWhatsAppEmbedded(args: {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       return { ok: false, error: data.error ?? `Error ${res.status}` };
     }
+    // Recién conectado: "¿tiene canal?" tiene que dejar de ofrecer conectar.
+    invalidar("canales@");
     return { ok: true };
   } catch {
     return { ok: false, error: 'No se pudo conectar con el servidor' };
@@ -316,9 +329,9 @@ export async function obtenerSugerenciasPlaybook(
   }
 }
 
-export async function obtenerPerfil(): Promise<PerfilNegocio | null> {
+export async function obtenerPerfil(tenant?: string): Promise<PerfilNegocio | null> {
   try {
-    const r = await api<{ perfil: PerfilNegocio } | PerfilNegocio>("/perfil");
+    const r = await api<{ perfil: PerfilNegocio } | PerfilNegocio>("/perfil", { tenant });
     // el backend devuelve { rubro, perfil, version } o similar — normalizamos
     return (r as { perfil?: PerfilNegocio }).perfil ?? (r as PerfilNegocio) ?? null;
   } catch (e) {
@@ -371,7 +384,9 @@ export function etapaVisibleDe(
 // global). Nunca lanza: sin permiso o error responde las default.
 export async function obtenerEtapas(tenant?: string): Promise<EtapaEmbudo[]> {
   try {
-    const r = await api<{ etapasEmbudo?: EtapaEmbudo[] }>("/mi-plan", { tenant });
+    // Sale del MISMO /mi-plan que el candado de cada sección: Conversaciones
+    // lo pedía dos veces por carga (etapas de la bandeja y de la ficha).
+    const r = (await miPlanCacheado(tenant)) as MiPlan & { etapasEmbudo?: EtapaEmbudo[] };
     return r?.etapasEmbudo?.length ? r.etapasEmbudo : ETAPAS_DEFAULT;
   } catch {
     return ETAPAS_DEFAULT;
@@ -380,6 +395,7 @@ export async function obtenerEtapas(tenant?: string): Promise<EtapaEmbudo[]> {
 export async function guardarEtapas(etapas: EtapaEmbudo[]): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/mi-plan", { method: "PATCH", body: { etapasEmbudo: etapas } });
+    invalidar("mi-plan@");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
@@ -459,9 +475,12 @@ export async function reiniciarLead(
 export async function actualizarLead(
   id: string,
   cambios: { nombre?: string | null; nota?: string | null; etiquetas?: string[] },
+  // El negocio del lead (2026-10-09): con varios negocios, la ficha edita un
+  // lead que no es de la empresa activa, y sin esto el PATCH daba 404.
+  tenant?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await api(`/leads/${id}`, { method: "PATCH", body: cambios });
+    await api(`/leads/${id}`, { method: "PATCH", body: cambios, tenant });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
@@ -488,6 +507,20 @@ export interface LeadDetalle extends Lead {
   /** Cuándo escribió el cliente por última vez: abre o cierra la ventana de 24 h. */
   ultimoEntranteEn?: string | null;
   adsClickId?: string | null;
+  /**
+   * LA PRÓXIMA REUNIÓN AGENDADA CON ESTE LEAD (2026-10-09). La ficha la
+   * muestra con "Unirse" y "Ver en agenda". Opcional: un backend anterior no
+   * la manda, y entonces la ficha simplemente no pinta la tarjeta.
+   */
+  proximaCita?: ProximaCita | null;
+}
+
+export interface ProximaCita {
+  id: string;
+  inicio: string;
+  fin: string;
+  meetLink: string | null;
+  atiende: string | null;
 }
 
 export interface Comision {
@@ -517,6 +550,16 @@ export interface Resumen {
   leadsActivos: number;
   calientesSinAtender: number;
   ventasCerradas: number;
+  /**
+   * LAS REUNIONES DE HOY (2026-10-09). Opcional: hasta que el backend lo
+   * mande, Inicio las arma con `listarAgenda` del día.
+   */
+  reuniones?: {
+    hoy: number;
+    proxima: null | { id: string; inicio: string; fin: string; meetLink: string | null; leadId: string; nombre: string | null };
+  };
+  /** Leads que esperan a una persona (escalados). Opcional, como `reuniones`. */
+  paraAtender?: number;
 }
 
 /**
@@ -592,6 +635,70 @@ export async function listarLeads(
     cursor = r.siguienteCursor;
   }
   return acumulado;
+}
+
+export interface FiltrosListaLeads {
+  estado?: string;
+  nivel?: string;
+  /** El backend puede no filtrarlo todavía: la pantalla vuelve a filtrar en el cliente. */
+  origen?: string;
+}
+
+/**
+ * UNA PÁGINA DE LEADS CON FILTROS (2026-10-09). `listarLeads` baja hasta 20
+ * páginas EN SERIE antes de devolver nada; Leads y Seguimiento esperaban todo
+ * eso para pintar la primera tarjeta, y otra vez en cada chip de filtro. Con
+ * esto pintan la primera página al instante y suman el resto detrás (mismo
+ * patrón que Conversaciones, ver `cargarProgresivo`).
+ */
+export async function paginaLeadsFiltrada(
+  filtros: FiltrosListaLeads,
+  cursor: string | null,
+  limite = 100,
+  tenant?: string,
+): Promise<{ items: Lead[]; siguienteCursor: string | null }> {
+  const qs = new URLSearchParams({ limit: String(limite) });
+  if (filtros.estado) qs.set("estado", filtros.estado);
+  if (filtros.nivel) qs.set("nivel", filtros.nivel);
+  if (filtros.origen) qs.set("origen", filtros.origen);
+  if (cursor) qs.set("cursor", cursor);
+  return api(`/leads?${qs.toString()}`, { tenant });
+}
+
+/** Lo mismo para la vista de todos los negocios juntos. */
+export async function paginaBandejaGlobalFiltrada(
+  filtros: FiltrosListaLeads & { tenantId?: string },
+  cursor: string | null,
+  limite = 100,
+): Promise<{ negocios: NegocioBandeja[]; items: LeadGlobal[]; siguienteCursor: string | null }> {
+  const qs = new URLSearchParams({ limit: String(limite) });
+  if (filtros.estado) qs.set("estado", filtros.estado);
+  if (filtros.nivel) qs.set("nivel", filtros.nivel);
+  if (filtros.origen) qs.set("origen", filtros.origen);
+  if (filtros.tenantId) qs.set("tenantId", filtros.tenantId);
+  if (cursor) qs.set("cursor", cursor);
+  return api(`/bandeja-global?${qs.toString()}`, { conEmpresa: false });
+}
+
+/**
+ * Baja una lista paginada SIN esperar al final: entrega la primera página en
+ * cuanto llega (`primera: true`) y después cada página siguiente. `seguir()`
+ * en `false` la corta (la pantalla cambió de filtro o se desmontó). Tope de 20
+ * páginas, como siempre.
+ */
+export async function cargarProgresivo<T, R extends { items: T[]; siguienteCursor: string | null }>(
+  pedirPagina: (cursor: string | null) => Promise<R>,
+  alPaso: (items: T[], info: { primera: boolean; ultima: boolean; respuesta: R }) => void,
+  seguir: () => boolean = () => true,
+): Promise<void> {
+  let r = await pedirPagina(null);
+  if (!seguir()) return;
+  alPaso(r.items, { primera: true, ultima: !r.siguienteCursor, respuesta: r });
+  for (let pagina = 1; pagina < 20 && r.siguienteCursor; pagina++) {
+    r = await pedirPagina(r.siguienteCursor);
+    if (!seguir()) return;
+    alPaso(r.items, { primera: false, ultima: !r.siguienteCursor || pagina === 19, respuesta: r });
+  }
 }
 
 // Crea un lead a mano (contacto conocido en la calle / referido). Canal
@@ -775,8 +882,10 @@ export async function obtenerComisiones(): Promise<{
   );
 }
 
-export async function obtenerResumen(): Promise<Resumen> {
-  return api<Resumen>("/resumen");
+export async function obtenerResumen(tenant?: string): Promise<Resumen> {
+  // Sin maxEdad: solo se juntan las consultas simultáneas (Inicio y la campana
+  // lo piden a la vez al entrar). Cada lectura sigue siendo fresca.
+  return pedir(claveNegocio("resumen", tenant), () => api<Resumen>("/resumen", { tenant }));
 }
 
 // ── Reportes de ventas ──────────────────────────────────────
@@ -1020,10 +1129,22 @@ export async function obtenerCatalogo(): Promise<Catalogo | null> {
 // chips, y la activa puede ser otro negocio que quedó de otra sección.
 export async function obtenerMiPlan(tenant?: string): Promise<MiPlan | null> {
   try {
-    return await api<MiPlan>("/mi-plan", { tenant });
+    // Solo deduplica (maxEdad 0): los editores leen y después escriben, y
+    // tienen que leer lo último. Las lecturas de "¿tiene esta feature?" usan
+    // `miPlanCacheado`, que sí reutiliza.
+    return await pedir(claveNegocio("mi-plan", tenant), () => api<MiPlan>("/mi-plan", { tenant }));
   } catch {
     return null;
   }
+}
+
+/**
+ * EL PLAN PARA DECIDIR QUÉ SE MUESTRA (2026-10-09): candados de Marketing,
+ * Reportes y Equipo, y las etapas del embudo. Se reutiliza 30 s y cualquier
+ * guardado lo invalida. Lanza si falla (cada quien decide su respaldo).
+ */
+export function miPlanCacheado(tenant?: string): Promise<MiPlan> {
+  return pedir(claveNegocio("mi-plan", tenant), () => api<MiPlan>("/mi-plan", { tenant }), { maxEdadMs: 30_000 });
 }
 
 /** Comentarios necesita distinguir error de carga de ausencia de configuración. */
@@ -1050,6 +1171,7 @@ export async function guardarMiPlan(cfg: {
 }, tenant?: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await api("/mi-plan", { method: "PATCH", body: cfg, tenant });
+    invalidar("mi-plan@");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
@@ -1701,8 +1823,8 @@ export async function soltarOportunidad(id: string, tenant?: string): Promise<{ 
 
 // Respuestas de un toque: las frases que la vendedora más usó (backend las
 // aprende de su uso). Para reenviar sin escribir. [] si falla.
-export async function obtenerFrasesRapidas(): Promise<{ id: string; texto: string }[]> {
-  try { return await api<{ id: string; texto: string }[]>("/frases-rapidas"); }
+export async function obtenerFrasesRapidas(tenant?: string): Promise<{ id: string; texto: string }[]> {
+  try { return await api<{ id: string; texto: string }[]>("/frases-rapidas", { tenant }); }
   catch { return []; }
 }
 
@@ -1759,6 +1881,7 @@ export async function elegirCuenta(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     await api(`/canales/${tipo}/elegir`, { method: "POST", body: { cuentaExterna } });
+    invalidar("canales@");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo conectar" };
@@ -1767,6 +1890,24 @@ export async function elegirCuenta(
 
 export async function listarCanales(tenant?: string): Promise<Canal[]> {
   try { return await api<Canal[]>("/canales", { tenant }); } catch { return []; }
+}
+
+/**
+ * ¿ESTE NEGOCIO TIENE ALGÚN CANAL ACTIVO? (2026-10-09). Lo preguntaban Inicio,
+ * Leads, Conversaciones y Seguimiento, cada uno por su lado y en cada visita,
+ * solo para decidir si mostrar "Conectar WhatsApp". Se reutiliza 60 s.
+ *
+ * Si la consulta FALLA se responde `true`: ofrecerle conectar a quien ya
+ * conectó es acusarlo de no haberlo hecho (`listarCanales` se traga el error
+ * y devuelve `[]`, o sea "no tienes canal", justo al revés).
+ */
+export async function tieneCanalActivo(tenant?: string): Promise<boolean> {
+  try {
+    const cs = await pedir(claveNegocio("canales", tenant), () => api<Canal[]>("/canales", { tenant }), { maxEdadMs: 60_000 });
+    return cs.some((c) => c.activo);
+  } catch {
+    return true;
+  }
 }
 
 export function listarCanalesComentarios(tenant?: string): Promise<Canal[]> {
@@ -1786,14 +1927,14 @@ export async function actualizarCanal(
   id: string,
   cambios: { activo?: boolean; nombre?: string; compartirCon?: string[]; sucursalId?: string | null },
 ): Promise<{ ok: boolean }> {
-  try { await api(`/canales/${id}`, { method: "PATCH", body: cambios }); return { ok: true }; }
+  try { await api(`/canales/${id}`, { method: "PATCH", body: cambios }); invalidar("canales@"); return { ok: true }; }
   catch { return { ok: false }; }
 }
 
 // Desconectar (eliminar) un canal. Las conversaciones y leads NO se borran:
 // solo se quita la conexión con la red.
 export async function eliminarCanal(id: string): Promise<{ ok: boolean }> {
-  try { await api(`/canales/${id}`, { method: "DELETE" }); return { ok: true }; }
+  try { await api(`/canales/${id}`, { method: "DELETE" }); invalidar("canales@"); return { ok: true }; }
   catch { return { ok: false }; }
 }
 
@@ -1816,6 +1957,7 @@ export async function eliminarCanal(id: string): Promise<{ ok: boolean }> {
 export async function liberarCanal(id: string): Promise<{ ok: boolean; numeroLiberado: boolean; detalle: string }> {
   try {
     const r = await api<{ numeroLiberado?: boolean; detalle?: string }>(`/canales/${id}/liberar`, { method: "POST" });
+    invalidar("canales@");
     return { ok: true, numeroLiberado: r?.numeroLiberado === true, detalle: typeof r?.detalle === "string" ? r.detalle : "" };
   } catch (e) {
     return { ok: false, numeroLiberado: false, detalle: e instanceof Error ? e.message : "No se pudo desconectar." };
@@ -3116,8 +3258,13 @@ export async function estadoPagoCampanias(tenant?: string): Promise<EstadoPagoCa
   try { return await api<EstadoPagoCampanias>("/campanias/estado-pago", { tenant }); } catch { return null; }
 }
 
+/**
+ * LANZA SI FALLA (2026-10-09). Antes devolvía `[]` ante cualquier error, y la
+ * pantalla decía "Todavía no lanzaste campañas" a quien sí tenía: el error se
+ * leía como que sus envíos habían desaparecido.
+ */
 export async function listarCampanias(tenant?: string): Promise<CampaniaHSM[]> {
-  try { return (await api<{ items: CampaniaHSM[] }>("/campanias", { tenant })).items; } catch { return []; }
+  return (await api<{ items: CampaniaHSM[] }>("/campanias", { tenant })).items;
 }
 
 export async function crearCampaniaHSM(input: {
@@ -3235,6 +3382,8 @@ export interface CitaAgenda {
   id: string; tenantId: string; negocio: string; leadId: string; cliente: string | null;
   inicio: string; fin: string; meetLink: string | null; telefono: string | null; correo: string | null;
   resumen: string | null; estado: string; atiende: string | null;
+  /** Id de quien atiende (2026-10-09). Opcional: hasta que el backend lo mande, se filtra por nombre. */
+  atiendeId?: string | null;
   /** Cómo le fue a la llamada (2026-10-01); null = sin anotar. */
   resultado?: ResultadoCita | null; notaResultado?: string | null; resultadoEn?: string | null;
 }

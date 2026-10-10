@@ -7,6 +7,9 @@ import {
   type ReporteMarketing as Reporte,
 } from "@/lib/api";
 import { puedeAbrirConversacion } from "@/lib/auth";
+import { LinkLead } from "@/components/LinkLead";
+import { AccionesContacto } from "@/components/AccionesContacto";
+import { urlGestionarAnuncio } from "@/lib/enlaces";
 import { ErrorMarketing, useLecturaMarketing } from "./marketing-lectura";
 import { ChipPlataforma } from "./OrigenLead";
 import {
@@ -370,6 +373,17 @@ function DetalleAnuncio({ a, leads }: { a: AnuncioReporte; leads: LeadReporte[] 
         {a.conversacionesMeta > 0 && ` · Meta contó ${a.conversacionesMeta} conversaciones; aquí llegaron ${a.leads}`}
         {` · Id ${a.adId}`}
       </p>
+      {/* DEL REPORTE AL ANUNCIO (2026-10-09): ver que un anuncio no rinde y
+          tener que ir a buscarlo a Marketing era el paso que nadie daba.
+          Solo Meta: Google y TikTok se gestionan en su propia plataforma. */}
+      {(!a.plataforma || a.plataforma === "meta") && (
+        <Link
+          href={urlGestionarAnuncio(a.adId)}
+          className="inline-flex rounded-chip bg-carta px-3 py-1.5 text-[0.78rem] font-bold text-brasa-texto ring-1 ring-linea transition hover:bg-arena"
+        >
+          Gestionar anuncio →
+        </Link>
+      )}
       {a.cansancio?.motivo && (
         <p className="text-[0.8rem] text-calor-hondo">Cansancio: {a.cansancio.motivo}</p>
       )}
@@ -413,9 +427,7 @@ function MiniLead({ l }: { l: LeadReporte }) {
   const clase = "block rounded-lg bg-carta px-3 py-2 ring-1 ring-linea";
   return (
     <li>
-      {puedeAbrirConversacion()
-        ? <Link href={`/conversacion/${l.id}`} className={`${clase} transition hover:ring-brasa/50`}>{cuerpo}</Link>
-        : <div className={clase}>{cuerpo}</div>}
+      <LinkLead id={l.id} className={`${clase} transition hover:ring-brasa/50`} claseSinPermiso={clase}>{cuerpo}</LinkLead>
     </li>
   );
 }
@@ -566,11 +578,15 @@ function TablaLeads({ leads, dias, tenant }: { leads: LeadReporte[]; dias: numbe
                 return (
                   <tr key={l.id} className="border-b border-linea/60 align-top last:border-0">
                     <th scope="row" className="px-5 py-3 text-left font-normal">
-                      {puedeAbrirConversacion()
-                        ? <Link href={`/conversacion/${l.id}`} className="font-semibold text-tinta hover:text-brasa-texto">{l.nombre?.trim() || "Sin nombre"}</Link>
-                        : <span className="font-semibold text-tinta">{l.nombre?.trim() || "Sin nombre"}</span>}
+                      <LinkLead id={l.id} tenant={tenant} className="font-semibold text-tinta hover:text-brasa-texto" claseSinPermiso="font-semibold text-tinta">
+                        {l.nombre?.trim() || "Sin nombre"}
+                      </LinkLead>
                       <span className="mt-0.5 block text-[0.72rem] text-frio">{fechaHora(l.creadoEn)}</span>
                       {verTelefono && l.telefono && <span className="block text-[0.72rem] tabular-nums text-frio">{l.telefono}</span>}
+                      {/* Llamar o escribirle sin copiar el número (2026-10-09). */}
+                      {verTelefono && l.telefono && (
+                        <span className="mt-1 block"><AccionesContacto telefono={l.telefono} compacto /></span>
+                      )}
                       {(l.especialidad || l.ciudad) && (
                         <span className="block text-[0.72rem] text-frio">{[l.especialidad, l.ciudad].filter(Boolean).join(" · ")}</span>
                       )}

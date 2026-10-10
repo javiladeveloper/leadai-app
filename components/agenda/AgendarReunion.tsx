@@ -28,6 +28,7 @@ export function AgendarReunion({
   colores,
   onCerrar,
   onAgendada,
+  lead,
 }: {
   dia: string;
   /** "HH:MM" o "" si se abrió sin espacio elegido. */
@@ -39,13 +40,19 @@ export function AgendarReunion({
   colores: Map<string, number>;
   onCerrar: () => void;
   onAgendada: (cita: CitaAgenda) => void;
+  /**
+   * EL CLIENTE YA ELEGIDO (2026-10-09): desde la ficha del lead se agenda con
+   * ESA persona; buscarla otra vez en la lista sería pedir lo que ya se sabe.
+   * Se puede cambiar igual con "Cambiar".
+   */
+  lead?: LeadParaAgendar;
 }) {
   const [dia, setDia] = useState(diaInicial);
   const [hora, setHora] = useState(horaInicial);
   const [texto, setTexto] = useState("");
   const [leads, setLeads] = useState<LeadParaAgendar[] | null>(null);
   const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
-  const [elegido, setElegido] = useState<LeadParaAgendar | null>(null);
+  const [elegido, setElegido] = useState<LeadParaAgendar | null>(lead ?? null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const idTitulo = useId();

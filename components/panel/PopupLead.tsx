@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   obtenerLead,
   accionLead,
@@ -9,7 +8,9 @@ import {
   type LeadDetalle,
 } from "@/lib/api";
 import { BadgeCanal } from "@/components/BadgeCanal";
-import { guardarEmpresaActiva } from "@/lib/auth";
+import { AccionesContacto } from "@/components/AccionesContacto";
+import { useAbrirLead } from "@/components/LinkLead";
+import { puedeAbrirConversacion } from "@/lib/auth";
 
 const NIVEL_ETIQUETA: Record<Lead["nivelInteres"], { texto: string; clase: string }> = {
   caliente: { texto: "🔴 Caliente", clase: "bg-calor-suave text-calor-hondo" },
@@ -30,7 +31,7 @@ interface Props {
 // Vista rápida de un lead desde el pipeline: resumen + conversación completa +
 // responder, sin salir del tablero. Carga los mensajes al abrir.
 export default function PopupLead({ lead, onCerrar, onCambio, tenant }: Props) {
-  const router = useRouter();
+  const abrirLead = useAbrirLead();
   const [detalle, setDetalle] = useState<LeadDetalle | null>(null);
   const [cargando, setCargando] = useState(true);
   const [texto, setTexto] = useState("");
@@ -100,9 +101,11 @@ export default function PopupLead({ lead, onCerrar, onCambio, tenant }: Props) {
               {nivel.texto}
             </span>
           </div>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <BadgeCanal canal={lead.canalOrigen} tamano="chico" />
             <span className="text-[0.78rem] text-frio">{lead.contactoExterno}</span>
+            {/* Llamar o abrir su WhatsApp sin salir del tablero (2026-10-09). */}
+            <span className="ml-auto"><AccionesContacto canal={lead.canalOrigen} contacto={lead.contactoExterno} compacto /></span>
           </div>
           {lead.resumenIA && (
             <p className="mt-3 rounded-chip bg-arena/60 px-3 py-2 text-[0.84rem] text-tinta-2">
@@ -125,7 +128,7 @@ export default function PopupLead({ lead, onCerrar, onCambio, tenant }: Props) {
               <div
                 className={`max-w-[80%] rounded-tarjeta px-3 py-2 text-[0.85rem] ${
                   m.direccion === "saliente"
-                    ? "bg-brasa text-carta"
+                    ? "bg-brasa text-sobre-brasa"
                     : "bg-arena text-tinta"
                 }`}
               >
@@ -162,17 +165,15 @@ export default function PopupLead({ lead, onCerrar, onCambio, tenant }: Props) {
           {error && <p className="mt-2 text-[0.8rem] text-alerta-hondo">{error}</p>}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              onClick={() => {
-                // "Clavado": entrar a la conversación completa adopta la
-                // empresa del lead (sale del modo global si estaba activo).
-                if (tenant) guardarEmpresaActiva(tenant);
-                router.push(`/conversacion/${lead.id}`);
-              }}
-              className="flex-1 rounded-chip bg-carta px-4 py-2 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
-            >
-              Abrir conversación
-            </button>
+            {/* A la ficha única del lead, con su negocio (2026-10-09). */}
+            {puedeAbrirConversacion() && (
+              <button
+                onClick={() => abrirLead(lead.id, tenant)}
+                className="flex-1 rounded-chip bg-carta px-4 py-2 text-sm font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-arena"
+              >
+                Abrir conversación
+              </button>
+            )}
             {activo && (
               <>
                 <button

@@ -7,12 +7,14 @@ import { actualizarLead } from "@/lib/api";
 // nombre (leads entran como "+51 9xx…") y dejar una nota que el cliente no ve.
 // `onGuardado` refresca el lead en la pantalla padre tras guardar.
 export function NotaLead({
-  leadId, nombre, nota, onGuardado,
+  leadId, nombre, nota, onGuardado, tenant,
 }: {
   leadId: string;
   nombre: string | null;
   nota: string | null;
   onGuardado?: () => void;
+  /** El negocio del lead (2026-10-09): con varios, puede no ser la empresa activa. */
+  tenant?: string;
 }) {
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [nombreBorrador, setNombreBorrador] = useState(nombre ?? "");
@@ -24,13 +26,13 @@ export function NotaLead({
     const limpio = nombreBorrador.trim();
     setEditandoNombre(false);
     if (limpio === (nombre ?? "")) return;
-    await actualizarLead(leadId, { nombre: limpio || null });
+    await actualizarLead(leadId, { nombre: limpio || null }, tenant);
     onGuardado?.();
   }
 
   async function guardarNota() {
     setGuardandoNota(true);
-    const r = await actualizarLead(leadId, { nota: notaBorrador.trim() || null });
+    const r = await actualizarLead(leadId, { nota: notaBorrador.trim() || null }, tenant);
     setGuardandoNota(false);
     if (r.ok) {
       setOk(true);

@@ -12,6 +12,7 @@ import { horaLima, tipoDeCita } from "@/lib/agenda";
 import { colorDe } from "./colores";
 import { MarcaNota, ResultadoLlamada } from "./ResultadoLlamada";
 import { AgendarOtra } from "./AgendarOtra";
+import { AccionesContacto } from "@/components/AccionesContacto";
 
 const chip =
   "inline-flex min-h-10! items-center rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-linea focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa";
@@ -32,10 +33,13 @@ export function TarjetaCita({
   onActualizada,
   onAgendada,
   resultadoAbierto = false,
+  onAtiende,
 }: {
   cita: CitaAgenda;
   colores: Map<string, number>;
   onConversacion: (c: CitaAgenda) => void;
+  /** Tocar "atiende X" filtra la agenda por esa persona (2026-10-09). */
+  onAtiende?: (c: CitaAgenda) => void;
   /** La cita después de anotar cómo le fue a la llamada. */
   onActualizada: (c: CitaAgenda) => void;
   /** Se agendó otra llamada desde esta: la agenda se vuelve a pedir. */
@@ -44,7 +48,6 @@ export function TarjetaCita({
 }) {
   const cancelada = c.estado === "cancelada";
   const color = colorDe(colores, c.tenantId);
-  const telefono = c.telefono?.replace(/\D/g, "") ?? "";
   return (
     <article className={`rounded-tarjeta bg-carta p-4 ring-1 ring-linea ${cancelada ? "opacity-60" : ""}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -55,7 +58,19 @@ export function TarjetaCita({
         <span className="inline-flex items-center gap-1.5 text-[0.75rem] text-frio">
           <span className={`h-2 w-2 shrink-0 rounded-full ${color.punto}`} aria-hidden />
           {c.negocio}
-          {c.atiende ? ` · atiende ${c.atiende}` : ""}
+          {c.atiende && (onAtiende ? (
+            <>
+              {" · "}
+              <button
+                type="button"
+                onClick={() => onAtiende(c)}
+                title={`Ver solo las reuniones que atiende ${c.atiende}`}
+                className="min-h-0! font-semibold text-brasa-texto underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-brasa"
+              >
+                atiende {c.atiende}
+              </button>
+            </>
+          ) : ` · atiende ${c.atiende}`)}
           {cancelada && <span className="font-semibold text-alerta"> · cancelada</span>}
         </span>
       </div>
@@ -71,16 +86,9 @@ export function TarjetaCita({
             {/meet\.google\.com/.test(c.meetLink) ? "Entrar a Meet" : "Entrar a la videollamada"}
           </a>
         )}
-        {telefono && (
-          <a href={`https://wa.me/${telefono}`} target="_blank" rel="noreferrer" className={chip} aria-label={`WhatsApp +${telefono}`}>
-            WhatsApp +{telefono}
-          </a>
-        )}
-        {c.correo && (
-          <a href={`mailto:${c.correo}`} className={`${chip} max-w-full break-all`}>
-            {c.correo}
-          </a>
-        )}
+        {/* LLAMAR, WHATSAPP Y CORREO (2026-10-09): faltaba "Llamar", que es
+            justo lo que se hace cuando el cliente no entra a la videollamada. */}
+        <AccionesContacto telefono={c.telefono} email={c.correo} />
         <button type="button" onClick={() => onConversacion(c)} className={chip}>
           Ver conversación
         </button>
@@ -100,6 +108,7 @@ export function DetalleCitas({
   onActualizada,
   onAgendada,
   accion,
+  onAtiende,
 }: {
   titulo: string;
   citas: CitaAgenda[];
@@ -110,6 +119,7 @@ export function DetalleCitas({
   onAgendada: () => void;
   /** Un botón extra bajo el título (ej. "Ver el día"). */
   accion?: React.ReactNode;
+  onAtiende?: (c: CitaAgenda) => void;
 }) {
   const idTitulo = useId();
   const panel = useRef<HTMLDivElement>(null);
@@ -190,6 +200,7 @@ export function DetalleCitas({
               onConversacion={onConversacion}
               onActualizada={onActualizada}
               onAgendada={onAgendada}
+              onAtiende={onAtiende}
               // Una sola reunión abierta: si ya pasó, el formulario listo.
               resultadoAbierto={citas.length === 1}
             />

@@ -9,6 +9,8 @@ import { redesDeComentarios, textoRedes, fusionarComentarios, describirEnvio } f
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { AjustesComentarios } from "@/components/panel/AjustesComentarios";
+import { LinkLead } from "@/components/LinkLead";
+import { URL_CONECTAR_CANALES } from "@/lib/enlaces";
 
 type Estado = "cargando" | "ok" | "error";
 
@@ -375,7 +377,7 @@ export default function ComentariosPanel() {
               Cuando conectes tus redes, los comentarios nuevos aparecerán aquí.
             </p>
             <Link
-              href="/configuracion"
+              href={URL_CONECTAR_CANALES}
               className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 text-sm font-semibold text-sobre-brasa transition active:scale-[0.99]"
             >
               Conectar mis redes
@@ -508,13 +510,17 @@ function ComentarioCaptado({
       )}
 
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+        {/* Con el negocio del comentario (2026-10-09): con varios negocios,
+            la ficha lo buscaba en la empresa activa y no lo encontraba. */}
         {c.leadId && (
-          <Link
-            href={`/conversacion/${c.leadId}`}
+          <LinkLead
+            id={c.leadId}
+            tenant={tenant}
             className="text-[0.82rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
+            claseSinPermiso="hidden"
           >
             Ver conversación →
-          </Link>
+          </LinkLead>
         )}
         {!esSimulacion && !abierto && (puedePublica || puedePrivada) && (
           <button

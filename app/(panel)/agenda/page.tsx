@@ -13,16 +13,24 @@
 // tiempo... anexar un lead y listo"): tocar un espacio libre en Semana/Día, el
 // botón "Agendar reunión" o "Agendar en este día" (detalle del día en Mes)
 // abre `AgendarReunion`. La cita nueva entra a la lista sin volver a pedirla.
+//
+// LA AGENDA EN LA URL (2026-10-09, tanda "todo conectado"): `?fecha=AAAA-MM-DD`
+// (u `hoy`), `?vista=dia|semana|mes|lista`, `?cita=<id>` abre su detalle y
+// `?atiende=<usuarioId>&quien=<nombre>` muestra solo lo de esa persona. Así
+// la ficha del lead ("Ver en agenda"), Inicio ("Reuniones de hoy") y Equipo
+// llevan directo a lo que hay que mirar, y el link se puede compartir.
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { listarAgenda, type CitaAgenda } from "@/lib/api";
 import {
   agruparPorDia, coloresDeNegocios, diaLima, esVista, horaLima, hoyLima, moverPeriodo, nombreDelDia, rangoDeVista,
   tituloDePeriodo, type VistaAgenda,
 } from "@/lib/agenda";
-import { empresasVisibles, guardarEmpresaActiva } from "@/lib/auth";
+import { empresasVisibles } from "@/lib/auth";
+import { useAbrirLead } from "@/components/LinkLead";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BarraAgenda } from "@/components/agenda/BarraAgenda";
 import { VistaMes } from "@/components/agenda/VistaMes";
@@ -52,13 +60,44 @@ const VACIO: Record<VistaAgenda, string> = {
 
 type Detalle = { tipo: "dia"; dia: string } | { tipo: "cita"; id: string } | null;
 
+// `useSearchParams` exige Suspense en el prerender de Next (App Router).
 export default function AgendaPanel() {
+  return (
+    <Suspense fallback={null}>
+      <AgendaInner />
+    </Suspense>
+  );
+}
+
+const ES_DIA = /^\d{4}-\d{2}-\d{2}$/;
+
+function AgendaInner() {
   const router = useRouter();
-  const [vista, setVista] = useState<VistaAgenda>(vistaGuardada);
+  const params = useSearchParams();
+  const abrirLead = useAbrirLead();
+  const [vista, setVista] = useState<VistaAgenda>(() => {
+    const v = params.get("vista");
+    return esVista(v) ? v : vistaGuardada();
+  });
   const [ahora, setAhora] = useState(() => new Date());
-  const [fecha, setFecha] = useState(() => hoyLima());
+  const [fecha, setFecha] = useState(() => {
+    const f = params.get("fecha");
+    return f && ES_DIA.test(f) ? f : hoyLima();
+  });
   const [negocio, setNegocio] = useState("todos");
-  const [detalle, setDetalle] = useState<Detalle>(null);
+  const [detalle, setDetalle] = useState<Detalle>(() => {
+    const c = params.get("cita");
+    return c ? { tipo: "cita", id: c } : null;
+  });
+  // QUIÉN ATIENDE (2026-10-09): desde Equipo ("Ver su agenda") o tocando
+  // "atiende X" en una cita. Las citas traen el NOMBRE de quien atiende y,
+  // cuando el backend lo mande, su id: se filtra por el id si está, si no por
+  // el nombre.
+  const [atiende, setAtiende] = useState<{ id: string | null; nombre: string } | null>(() => {
+    const id = params.get("atiende");
+    const nombre = params.get("quien");
+    return id || nombre ? { id, nombre: nombre ?? "" } : null;
+  });
   // Los datos llevan la clave del rango que pidieron: si llega tarde la
   // respuesta de un periodo que ya no se mira, no se pinta.
   const [datos, setDatos] = useState<{ clave: string; citas: CitaAgenda[] } | null>(null);
@@ -119,13 +158,36 @@ export default function AgendaPanel() {
   }, [empresas, datos]);
   const colores = useMemo(() => coloresDeNegocios([...negocios.keys()]), [negocios]);
 
-  const visibles = (citas ?? []).filter((c) => negocio === "todos" || c.tenantId === negocio);
+  const visibles = (citas ?? []).filter((c) =>
+    (negocio === "todos" || c.tenantId === negocio) &&
+    (!atiende || (c.atiendeId && atiende.id ? c.atiendeId === atiende.id : !!atiende.nombre && c.atiende === atiende.nombre)),
+  );
+
+  // La URL acompaña lo que se mira (sin llenar el historial): se puede
+  // compartir y un F5 deja la agenda donde estaba.
+  const primeraUrl = useRef(true);
+  useEffect(() => {
+    if (primeraUrl.current) { primeraUrl.current = false; return; }
+    const qs = new URLSearchParams();
+    qs.set("fecha", fecha);
+    qs.set("vista", vista);
+    if (detalle?.tipo === "cita") qs.set("cita", detalle.id);
+    if (atiende?.id) qs.set("atiende", atiende.id);
+    if (atiende?.nombre) qs.set("quien", atiende.nombre);
+    router.replace(`/agenda?${qs.toString()}`, { scroll: false });
+  }, [fecha, vista, detalle, atiende, router]);
+
+  function filtrarPorAtiende(c: CitaAgenda) {
+    if (!c.atiende) return;
+    setAtiende({ id: c.atiendeId ?? null, nombre: c.atiende });
+    setDetalle(null);
+  }
   const citasPorDia = new Map(agruparPorDia(visibles).map((d) => [d.dia, d.citas]));
   const enLeyenda = Array.from(new Map(visibles.map((c) => [c.tenantId, c.negocio])).entries());
 
+  // A la ficha única del lead, con el negocio de la cita.
   function abrirConversacion(c: CitaAgenda) {
-    guardarEmpresaActiva(c.tenantId);
-    router.push(`/conversacion/${c.leadId}`);
+    abrirLead(c.leadId, c.tenantId);
   }
 
   /** Otra llamada recién agendada: se vuelve a pedir el periodo (lo que se ve se queda). */
@@ -246,18 +308,23 @@ export default function AgendaPanel() {
         </ul>
       )}
 
-      {error && (
-        <div className="rounded-tarjeta bg-carta p-5 text-center ring-1 ring-linea" role="alert">
-          <p className="font-semibold text-tinta">No pudimos cargar tu agenda.</p>
-          <button
-            type="button"
-            onClick={() => setIntento((n) => n + 1)}
-            className="mt-3 rounded-tarjeta bg-brasa px-5 py-2.5 text-[0.9rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
-          >
-            Reintentar
-          </button>
+      {atiende && (
+        <div className="flex flex-wrap items-center gap-2" role="status">
+          <span className="inline-flex items-center gap-2 rounded-chip bg-brasa-suave px-3 py-1.5 text-[0.82rem] font-semibold text-brasa-texto">
+            Solo las que atiende {atiende.nombre || "esa persona"}
+            <button
+              type="button"
+              onClick={() => setAtiende(null)}
+              aria-label="Ver las reuniones de todos"
+              className="min-h-0! text-[1rem] leading-none"
+            >
+              ×
+            </button>
+          </span>
         </div>
       )}
+
+      {error && <ErrorConReintento mensaje="No pudimos cargar tu agenda." reintentar={() => setIntento((n) => n + 1)} />}
 
       {cargando && <SkeletonAgenda vista={vista} />}
 
@@ -317,6 +384,7 @@ export default function AgendaPanel() {
           onConversacion={abrirConversacion}
           onActualizada={actualizarCita}
           onAgendada={recargar}
+          onAtiende={filtrarPorAtiende}
           accion={
             <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
               <button
@@ -348,6 +416,7 @@ export default function AgendaPanel() {
           onConversacion={abrirConversacion}
           onActualizada={actualizarCita}
           onAgendada={recargar}
+          onAtiende={filtrarPorAtiende}
         />
       )}
       {nueva && (

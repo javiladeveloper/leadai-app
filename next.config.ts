@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
     return [
       { source: "/anuncios", destination: "/marketing?t=anuncios", permanent: false },
       { source: "/campanias", destination: "/marketing?t=campanias", permanent: false },
+      // UNA SOLA FICHA DEL LEAD (2026-10-09): vive en Conversaciones. Los
+      // avisos de WhatsApp del backend mandan links a /conversacion/{id}, y
+      // tienen que seguir abriendo el chat. La página vieja también redirige
+      // (por si se llega navegando dentro de la app, sin pasar por acá).
+      { source: "/conversacion/:id", destination: "/conversaciones?lead=:id", permanent: false },
     ];
   },
 };

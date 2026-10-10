@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { haySesion, leerSesion, esSuperAdmin, empresasVisibles } from "@/lib/auth";
 import { refrescarSesion } from "@/lib/api";
 import { volverTrasLoginCalendario } from "@/lib/agenda";
+import { registrarRuta } from "@/lib/historial";
 import { Sidebar } from "@/components/panel/Sidebar";
 import { HeaderPanel } from "@/components/panel/HeaderPanel";
 import { NavInferior } from "@/components/NavInferior";
@@ -78,6 +79,10 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
     }
     setListo(true);
   }, [router]);
+
+  // De dónde vienes (2026-10-09): "Volver" en la ficha del lead vuelve a la
+  // sección anterior del panel, no siempre a Leads (ver lib/historial.ts).
+  useEffect(() => { registrarRuta(ruta); }, [ruta]);
 
   if (!listo) return null;
 

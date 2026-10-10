@@ -24,7 +24,7 @@ export function QuienAtiende() {
     return (
       <section className="rounded-tarjeta bg-carta p-4 ring-1 ring-linea">
         <p className="mb-1 text-[0.85rem] font-bold uppercase tracking-wide text-frio">Quién atiende las reuniones</p>
-        <p className="text-[0.82rem] text-brasa-hondo">No pudimos cargar quién atiende las reuniones. Recarga la página.</p>
+        <p className="text-[0.82rem] text-alerta-hondo">No pudimos cargar quién atiende las reuniones. Recarga la página.</p>
       </section>
     );
   }
@@ -71,12 +71,12 @@ export function QuienAtiende() {
         </select>
       )}
       {actual && !actual.conCalendario && (
-        <p className="mt-2 text-[0.82rem] text-brasa-hondo">
+        <p className="mt-2 text-[0.82rem] text-tibio">
           Esta persona aún no conectó su Google Calendar (Configuración → Mi calendario): mientras tanto el bot anota la hora y te avisa.
         </p>
       )}
       {aviso && (
-        <p className={`mt-2 text-[0.82rem] font-semibold ${aviso.tipo === "ok" ? "text-ok" : "text-brasa-hondo"}`}>{aviso.texto}</p>
+        <p className={`mt-2 text-[0.82rem] font-semibold ${aviso.tipo === "ok" ? "text-ok" : "text-alerta-hondo"}`}>{aviso.texto}</p>
       )}
     </section>
   );

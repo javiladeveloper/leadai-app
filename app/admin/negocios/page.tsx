@@ -132,7 +132,7 @@ export default function AdminNegocios() {
               onClick={() => setFiltro(p.id)}
               aria-pressed={filtro === p.id}
               className={`rounded-chip px-3 py-1.5 text-[0.8rem] font-bold transition ${
-                filtro === p.id ? "bg-tinta text-carta" : "bg-arena text-tinta-2 hover:bg-linea"
+                filtro === p.id ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 hover:bg-linea"
               }`}
             >
               {p.etiqueta} · {conteos[p.id] ?? 0}
@@ -143,7 +143,7 @@ export default function AdminNegocios() {
             onClick={() => setFiltro("todos")}
             aria-pressed={filtro === "todos"}
             className={`rounded-chip px-3 py-1.5 text-[0.8rem] font-bold transition ${
-              filtro === "todos" ? "bg-tinta text-carta" : "bg-arena text-tinta-2 hover:bg-linea"
+              filtro === "todos" ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 hover:bg-linea"
             }`}
           >
             Todos · {negocios.length}

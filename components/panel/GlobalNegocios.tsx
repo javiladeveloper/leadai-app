@@ -122,7 +122,7 @@ export function BarraNegociosGlobal({
           <button
             onClick={() => onElegir("")}
             className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
-              enfocado === "" ? "bg-brasa text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+              enfocado === "" ? "bg-brasa text-sobre-brasa" : "bg-carta text-tinta-2 ring-1 ring-linea"
             }`}
           >
             {todosLabel}
@@ -137,7 +137,7 @@ export function BarraNegociosGlobal({
               title={pista ? `${n.nombre}: ${pista}` : undefined}
               className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
                 enfocado === n.tenantId
-                  ? "bg-brasa text-carta"
+                  ? "bg-brasa text-sobre-brasa"
                   : pista
                     ? "cursor-not-allowed bg-carta/60 text-frio/60 ring-1 ring-linea"
                     : "bg-carta text-tinta-2 ring-1 ring-linea"

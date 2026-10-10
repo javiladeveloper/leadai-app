@@ -74,7 +74,7 @@ export function RitmoSeguimiento() {
             >
               <div className="flex items-center justify-between">
                 <span className="text-[0.92rem] font-bold text-tinta">{o.titulo}</span>
-                {activo && <span className="text-[0.72rem] font-bold text-brasa-hondo">✓ Activo</span>}
+                {activo && <span className="text-[0.72rem] font-bold text-brasa-texto">✓ Activo</span>}
                 {guardando === o.id && <span className="text-[0.72rem] text-frio">Guardando…</span>}
               </div>
               <span className="mt-1.5 font-mono text-[0.76rem] text-tinta-2">{o.tiempos}</span>
@@ -83,7 +83,7 @@ export function RitmoSeguimiento() {
           );
         })}
       </div>
-      {error && <p className="mt-2 text-[0.8rem] text-brasa-hondo">{error}</p>}
+      {error && <p className="mt-2 text-[0.8rem] text-brasa-texto">{error}</p>}
     </Seccion>
   );
 }

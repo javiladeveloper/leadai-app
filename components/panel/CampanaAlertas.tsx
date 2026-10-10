@@ -127,7 +127,7 @@ export function CampanaAlertas() {
         <>
           {/* Fondo para cerrar al tocar afuera */}
           <div className="fixed inset-0 z-30" onClick={() => setAbierto(false)} />
-          <div className="absolute right-0 top-11 z-40 w-72 overflow-hidden rounded-tarjeta bg-carta shadow-[0_8px_24px_rgba(51,40,31,0.18)] ring-1 ring-linea">
+          <div className="absolute right-0 top-11 z-40 w-72 overflow-hidden rounded-tarjeta bg-carta shadow-[var(--sombra-flotante)] ring-1 ring-linea">
             <p className="border-b border-linea px-4 py-2.5 text-[0.78rem] font-bold uppercase tracking-wide text-frio">Avisos</p>
 
             {/* Aviso crítico de saldo */}
@@ -152,7 +152,7 @@ export function CampanaAlertas() {
                 <p className="text-[0.88rem] font-semibold text-tibio">Se te están por acabar los clientes del mes</p>
                 <button
                   onClick={() => { setAbierto(false); router.push(URL_MI_PLAN); }}
-                  className="mt-2 text-[0.8rem] font-semibold text-brasa-hondo"
+                  className="mt-2 text-[0.8rem] font-semibold text-brasa-texto"
                 >
                   {TEXTO_MEJORAR_PLAN} →
                 </button>
@@ -190,7 +190,7 @@ export function CampanaAlertas() {
                 {calientes > 5 && (
                   <button
                     onClick={() => { setAbierto(false); router.push(urlCalientesSinAtender()); }}
-                    className="w-full px-4 py-2 text-left text-[0.8rem] font-semibold text-brasa-hondo transition hover:bg-arena/50"
+                    className="w-full px-4 py-2 text-left text-[0.8rem] font-semibold text-brasa-texto transition hover:bg-arena/50"
                   >
                     Ver los {calientes} →
                   </button>

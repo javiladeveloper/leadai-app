@@ -355,7 +355,7 @@ export default function ComentariosPanel() {
             <p className="text-[1.02rem] font-bold text-tinta">Ningún comentario con estos filtros</p>
             <button
               onClick={() => setFiltros(SIN_FILTROS)}
-              className="mt-3 text-[0.88rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
+              className="mt-3 text-[0.88rem] font-semibold text-brasa-texto hover:text-tinta"
             >
               Quitar filtros
             </button>
@@ -501,7 +501,7 @@ function ComentarioCaptado({
 
       {c.respondido && c.respuestaTexto && (
         <div className="mt-2 rounded-chip bg-brasa-suave/40 px-3 py-2 text-[0.84rem] text-tinta-2">
-          <span className="font-semibold text-brasa-hondo">{esSimulacion ? "La IA respondería: " : "Respondido: "}</span>
+          <span className="font-semibold text-brasa-texto">{esSimulacion ? "La IA respondería: " : "Respondido: "}</span>
           “{c.respuestaTexto}”
           {c.dmAbierto && (
             <span className="ml-1 text-frio">{esSimulacion ? "· y abriría un DM 📩" : "· y se le escribió por privado 📩"}</span>
@@ -516,7 +516,7 @@ function ComentarioCaptado({
           <LinkLead
             id={c.leadId}
             tenant={tenant}
-            className="text-[0.82rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
+            className="text-[0.82rem] font-semibold text-brasa-texto hover:text-tinta"
             claseSinPermiso="hidden"
           >
             Ver conversación →
@@ -525,7 +525,7 @@ function ComentarioCaptado({
         {!esSimulacion && !abierto && (puedePublica || puedePrivada) && (
           <button
             onClick={() => { setAbierto(true); setAviso(null); }}
-            className="text-[0.82rem] font-semibold text-brasa-texto hover:text-brasa-hondo"
+            className="text-[0.82rem] font-semibold text-brasa-texto hover:text-tinta"
           >
             {puedePublica ? "Responder" : "Escribir por privado"}
           </button>
@@ -567,7 +567,7 @@ function ComentarioCaptado({
       )}
 
       {aviso && (
-        <p role="status" className={`mt-2 text-[0.82rem] font-semibold ${aviso.tipo === "ok" ? "text-brasa-hondo" : "text-calor-hondo"}`}>
+        <p role="status" className={`mt-2 text-[0.82rem] font-semibold ${aviso.tipo === "ok" ? "text-brasa-texto" : "text-calor-hondo"}`}>
           {aviso.tipo === "ok" ? "✓ " : ""}{aviso.texto}
         </p>
       )}
@@ -595,7 +595,7 @@ function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => v
       onClick={onClick}
       aria-pressed={activo}
       className={`shrink-0 rounded-full px-3 py-1.5 text-[0.8rem] font-semibold transition ${
-        activo ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea hover:bg-arena/60"
+        activo ? "bg-brasa text-sobre-brasa" : "bg-carta text-tinta-2 ring-1 ring-linea hover:bg-arena/60"
       }`}
     >
       {children}

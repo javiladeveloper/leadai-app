@@ -91,7 +91,7 @@ export function ReportesRestaurante() {
             onClick={() => setPreset(p.id)}
             className={`rounded-full px-4 py-1.5 text-[0.86rem] font-semibold transition ${
               preset === p.id
-                ? "bg-tinta text-carta"
+                ? "bg-brasa text-sobre-brasa"
                 : "bg-carta text-tinta-2 ring-1 ring-linea hover:ring-brasa/40"
             }`}
           >

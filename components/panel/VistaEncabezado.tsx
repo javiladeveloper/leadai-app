@@ -25,7 +25,7 @@ export function VistaEncabezado({ tipo, url, etiqueta }: { tipo: string | null |
 
   if (tipo === "DOCUMENT") {
     return (
-      <a href={url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[0.8rem] font-semibold text-brasa underline-offset-2 hover:underline">
+      <a href={url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[0.8rem] font-semibold text-brasa-texto underline-offset-2 hover:underline">
         Ver el documento del encabezado
       </a>
     );

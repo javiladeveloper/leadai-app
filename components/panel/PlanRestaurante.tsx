@@ -518,7 +518,7 @@ export function PlanRestaurante() {
           la pantalla queda muda justo cuando más importa. */}
       {checkout.estado === "procesando" && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-tinta/40 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-tarjeta bg-carta px-8 py-7 shadow-[0_8px_24px_rgba(51,40,31,0.2)]">
+          <div className="flex flex-col items-center gap-3 rounded-tarjeta bg-carta px-8 py-7 shadow-[var(--sombra-flotante)]">
             <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-linea border-t-brasa" />
             <p className="text-sm font-semibold text-tinta">Activando tu plan…</p>
             <p className="text-[0.78rem] text-frio">No cierres esta ventana</p>

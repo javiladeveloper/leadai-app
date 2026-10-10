@@ -49,7 +49,7 @@ export function AdminSidebar() {
               key={href}
               href={href}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                activo ? "bg-brasa text-carta" : "text-arena/80 hover:bg-white/5 hover:text-arena"
+                activo ? "bg-brasa text-sobre-brasa" : "text-arena/80 hover:bg-white/5 hover:text-arena"
               }`}
               aria-current={activo ? "page" : undefined}
             >

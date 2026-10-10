@@ -220,7 +220,7 @@ function EquipoPanel() {
         {ROL_AYUDA[rol] && (
           <p className="mt-2 text-[0.82rem] text-frio">{ROL_AYUDA[rol]}</p>
         )}
-        {error && <p className="mt-2 text-[0.82rem] text-brasa-hondo">{error}</p>}
+        {error && <p className="mt-2 text-[0.82rem] text-brasa-texto">{error}</p>}
         {aviso && <p className="mt-2 text-[0.82rem] font-semibold text-ok">{aviso}</p>}
       </form>
 
@@ -256,7 +256,7 @@ function EquipoPanel() {
               {exportando ? "Exportando…" : "Exportar negocio"}
             </button>
           </div>
-          {errorExportar && <p className="mt-2 text-[0.82rem] text-brasa-hondo">{errorExportar}</p>}
+          {errorExportar && <p className="mt-2 text-[0.82rem] text-alerta-hondo">{errorExportar}</p>}
           {avisoExportar && <p className="mt-2 text-[0.82rem] font-semibold text-ok">{avisoExportar}</p>}
           {linkExportado && (
             <div className="mt-2 flex items-center gap-2">
@@ -274,7 +274,7 @@ function EquipoPanel() {
                     setTimeout(() => setLinkCopiado(""), 2000);
                   } catch { /* ignore */ }
                 }}
-                className="shrink-0 rounded-chip bg-brasa-suave px-2.5 py-1.5 text-[0.75rem] font-bold text-brasa-hondo"
+                className="shrink-0 rounded-chip bg-brasa-suave px-2.5 py-1.5 text-[0.75rem] font-bold text-brasa-texto"
               >
                 {linkCopiado === linkExportado ? "¡Copiado!" : "Copiar enlace"}
               </button>
@@ -304,7 +304,7 @@ function EquipoPanel() {
             <div className="space-y-2">
               {miembros.map((m) => (
                 <div key={m.usuarioId} className="flex flex-wrap items-center gap-3 rounded-tarjeta bg-carta p-3.5 ring-1 ring-linea">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brasa-suave text-sm font-bold text-brasa-hondo">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brasa-suave text-sm font-bold text-brasa-texto">
                     {(m.nombre ?? m.email).charAt(0).toUpperCase()}
                   </span>
                   <div className="min-w-0 flex-1">
@@ -339,7 +339,7 @@ function EquipoPanel() {
                       }}
                       title={m.recibeLeads === false ? "No recibe leads del reparto" : "Recibe leads del reparto"}
                       className={`shrink-0 rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ring-1 transition-colors ${
-                        m.recibeLeads === false ? "bg-carta text-frio ring-linea" : "bg-brasa-suave text-brasa-hondo ring-transparent"
+                        m.recibeLeads === false ? "bg-carta text-frio ring-linea" : "bg-brasa-suave text-brasa-texto ring-transparent"
                       }`}
                     >
                       {m.recibeLeads === false ? "No recibe leads" : "Recibe leads"}
@@ -364,7 +364,7 @@ function EquipoPanel() {
                     <button
                       onClick={() => setQuitando(m.usuarioId)}
                       title="Pierde el acceso a este negocio"
-                      className="shrink-0 text-[0.78rem] font-semibold text-frio hover:text-brasa-hondo"
+                      className="shrink-0 text-[0.78rem] font-semibold text-frio hover:text-brasa-texto"
                     >
                       Quitar
                     </button>
@@ -388,7 +388,7 @@ function EquipoPanel() {
                       </div>
                       <button
                         onClick={async () => { await cancelarInvitacion(inv.id); cargar(); }}
-                        className="shrink-0 text-[0.78rem] font-semibold text-frio hover:text-brasa-hondo"
+                        className="shrink-0 text-[0.78rem] font-semibold text-frio hover:text-brasa-texto"
                       >
                         Cancelar
                       </button>
@@ -401,7 +401,7 @@ function EquipoPanel() {
                       />
                       <button
                         onClick={() => copiarLink(inv.token)}
-                        className="shrink-0 rounded-chip bg-brasa-suave px-2.5 py-1.5 text-[0.75rem] font-bold text-brasa-hondo"
+                        className="shrink-0 rounded-chip bg-brasa-suave px-2.5 py-1.5 text-[0.75rem] font-bold text-brasa-texto"
                       >
                         {linkCopiado === inv.token ? "¡Copiado!" : "Copiar enlace"}
                       </button>

@@ -117,7 +117,7 @@ function ContenidoAnuncios({
           <h2 className="text-[1.55rem] font-bold tracking-[-0.02em] text-tinta">Anuncios</h2>
           <p className="mt-1 max-w-[65ch] text-[0.85rem] text-tinta-2">Consulta qué resultados están medidos y prepara el siguiente anuncio para este negocio.</p>
         </div>
-        {solapa !== "crear" && <button type="button" onClick={() => { setCreadorVisitado(true); setSolapa("crear"); }} className="rounded-xl bg-orbita px-5 text-[0.8rem] font-bold text-sobre-orbita transition hover:bg-orbita-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa-texto">Crear anuncio</button>}
+        {solapa !== "crear" && <button type="button" onClick={() => { setCreadorVisitado(true); setSolapa("crear"); }} className="rounded-xl bg-brasa px-5 text-[0.8rem] font-bold text-sobre-brasa transition hover:bg-brasa-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa-texto">Crear anuncio</button>}
       </div>
       <div className="mt-4 flex gap-5 overflow-x-auto border-b border-linea" aria-label="Vistas de anuncios">
         {SOLAPAS.map((s) => (

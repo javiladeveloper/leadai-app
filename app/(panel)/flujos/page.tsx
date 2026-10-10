@@ -132,7 +132,7 @@ export default function FlujosPanel() {
               <button onClick={() => alternarActivo(f)} className="text-sm font-semibold text-tinta-2 hover:text-tinta">
                 {f.activo ? "Apagar" : "Activar"}
               </button>
-              <button onClick={() => borrar(f)} className="text-sm font-semibold text-frio hover:text-brasa-hondo">
+              <button onClick={() => borrar(f)} className="text-sm font-semibold text-frio hover:text-brasa-texto">
                 Eliminar
               </button>
             </div>

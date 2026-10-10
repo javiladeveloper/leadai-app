@@ -199,7 +199,7 @@ export default function Login() {
       {/* Acceso */}
       <div className="flex w-full flex-col items-center gap-3">
         {error && (
-          <p className="rounded-tarjeta bg-brasa-suave px-4 py-3 text-[0.95rem] text-brasa-hondo">
+          <p className="rounded-tarjeta bg-alerta-suave px-4 py-3 text-[0.95rem] text-alerta-hondo">
             {error}
           </p>
         )}

@@ -98,7 +98,7 @@ export default function OportunidadesPanel() {
               key={r.id}
               onClick={() => setRubro(r.id)}
               className={`shrink-0 rounded-chip px-4 py-2 text-[0.88rem] font-bold transition ${
-                rubro === r.id ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+                rubro === r.id ? "bg-brasa text-sobre-brasa" : "bg-carta text-tinta-2 ring-1 ring-linea"
               }`}
             >
               {r.label}

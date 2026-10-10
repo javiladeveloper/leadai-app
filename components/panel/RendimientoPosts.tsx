@@ -144,7 +144,7 @@ export function RendimientoPosts({ tenant }: { tenant?: string } = {}) {
               type="button"
               onClick={() => setFiltro(f)}
               className={`rounded-chip px-2.5 py-1 text-[0.78rem] font-semibold transition ${
-                filtro === f ? "bg-tinta text-carta" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-carta"
+                filtro === f ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-carta"
               }`}
             >
               {f === "todas" ? "Todas" : RED[f]}

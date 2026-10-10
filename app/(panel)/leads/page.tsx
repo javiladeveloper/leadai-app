@@ -368,7 +368,7 @@ function LeadsPanelInner() {
               onClick={() => elegirNivel(f.id)}
               className={`shrink-0 rounded-chip px-4 py-2 text-[0.88rem] font-bold transition ${
                 filtroNivel === f.id
-                  ? "bg-tinta text-carta"
+                  ? "bg-brasa text-sobre-brasa"
                   : "bg-carta text-tinta-2 ring-1 ring-linea hover:ring-brasa/40"
               }`}
             >
@@ -386,7 +386,7 @@ function LeadsPanelInner() {
               onClick={() => elegirEstado(f.id)}
               className={`shrink-0 rounded-chip px-3.5 py-1.5 text-[0.82rem] font-semibold transition ${
                 filtroEstado === f.id
-                  ? "bg-tinta text-carta"
+                  ? "bg-brasa text-sobre-brasa"
                   : "bg-carta text-frio ring-1 ring-linea hover:ring-brasa/40"
               }`}
             >
@@ -401,7 +401,7 @@ function LeadsPanelInner() {
             <span className="w-24 shrink-0 text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
               Origen
             </span>
-            <span className="inline-flex items-center gap-2 rounded-chip bg-tinta px-3.5 py-1.5 text-[0.82rem] font-semibold text-carta">
+            <span className="inline-flex items-center gap-2 rounded-chip bg-brasa px-3.5 py-1.5 text-[0.82rem] font-semibold text-sobre-brasa">
               {nombreDeOrigen(filtroOrigen, leads)}
               <button
                 type="button"
@@ -480,7 +480,7 @@ function LeadsPanelInner() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-tarjeta bg-carta p-5 shadow-[0_8px_24px_rgba(15,23,42,0.2)] ring-1 ring-linea"
+            className="w-full max-w-sm rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-flotante)] ring-1 ring-linea"
           >
             <h3 className="text-[1.1rem] font-bold text-tinta">Nuevo lead</h3>
             <p className="mt-0.5 text-[0.82rem] text-frio">

@@ -26,7 +26,7 @@ const soles = solesFmt;
 
 const estadoColor: Record<string, string> = {
   pagada: "bg-ok/15 text-ok",
-  pendiente: "bg-brasa/15 text-brasa",
+  pendiente: "bg-brasa/15 text-brasa-texto",
   por_cobrar: "bg-tibio-suave text-tinta-2",
 };
 const estadoLabel: Record<string, string> = {

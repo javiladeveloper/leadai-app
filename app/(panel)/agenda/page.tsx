@@ -333,7 +333,7 @@ function AgendaInner() {
           <p className="font-semibold text-tinta">{VACIO[vista]}</p>
           <p className="mt-1 text-[0.86rem] text-frio">
             Cuando el bot agende una, aparece aquí. Para que agende en tu Google Calendar, conéctalo en{" "}
-            <Link href="/configuracion?tab=calendario" className="font-semibold text-brasa-hondo underline">
+            <Link href="/configuracion?tab=calendario" className="font-semibold text-brasa-texto underline">
               Configuración → Mi calendario
             </Link>
             .

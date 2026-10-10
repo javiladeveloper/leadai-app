@@ -288,7 +288,7 @@ function TarjetaComprar({
             onClick={() => elegirPreset(n)}
             className={`rounded-chip px-4 py-2 text-[0.85rem] font-semibold transition ${
               clientes === n
-                ? "bg-brasa text-carta"
+                ? "bg-brasa text-sobre-brasa"
                 : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-arena-2"
             }`}
           >
@@ -310,7 +310,7 @@ function TarjetaComprar({
           onChange={(e) => onCambiarInput(e.target.value)}
           className="w-full rounded-xl border border-linea bg-carta px-4 py-2.5 text-[0.95rem] text-tinta outline-none focus-visible:border-brasa"
         />
-        <p className={`mt-1 text-[0.78rem] ${bajoMinimo ? "text-brasa" : "text-frio"}`}>
+        <p className={`mt-1 text-[0.78rem] ${bajoMinimo ? "text-brasa-texto" : "text-frio"}`}>
           {bajoMinimo ? "El mínimo por compra es" : "Mínimo"} {minClientes.toLocaleString("es-PE")} clientes.
         </p>
       </div>

@@ -729,7 +729,7 @@ export default function PublicarPanel(
                 <button
                   key={pl.titulo}
                   onClick={() => usarPlantilla(pl)}
-                  className="rounded-chip bg-arena/70 px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 transition hover:bg-brasa-suave hover:text-brasa-hondo"
+                  className="rounded-chip bg-arena/70 px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 transition hover:bg-brasa-suave hover:text-brasa-texto"
                 >
                   {pl.titulo}
                 </button>
@@ -946,7 +946,7 @@ export default function PublicarPanel(
                   title={fueraDelReintento ? "Esta red no falló: no se enviará de nuevo en este reintento." : sinConectar ? `Conecta ${r.label} en Configuración → Canales` : undefined}
                   className={`rounded-chip px-4 py-2 text-[0.85rem] font-semibold transition ${
                     activo
-                      ? "bg-brasa text-carta"
+                      ? "bg-brasa text-sobre-brasa"
                       : sinConectar || fueraDelReintento
                         ? "cursor-not-allowed bg-arena/40 text-frio/70"
                         : "bg-arena/70 text-tinta-2 hover:bg-arena"
@@ -971,7 +971,7 @@ export default function PublicarPanel(
                 aria-checked={formato === f.id}
                 onClick={() => setFormato(f.id)}
                 className={`rounded-chip px-4 py-2 text-[0.85rem] font-semibold transition ${
-                  formato === f.id ? "bg-brasa text-carta" : "bg-arena/70 text-tinta-2 hover:bg-arena"
+                  formato === f.id ? "bg-brasa text-sobre-brasa" : "bg-arena/70 text-tinta-2 hover:bg-arena"
                 }`}
               >
                 {formato === f.id ? "✓ " : ""}{f.label}

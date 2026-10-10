@@ -94,7 +94,7 @@ function CambiarPlan({
           onClick={() => elegir(p)}
           className={`rounded-chip px-2.5 py-1 text-[0.78rem] font-bold transition disabled:opacity-50 ${
             p === planActual
-              ? "bg-tinta text-carta"
+              ? "bg-brasa text-sobre-brasa"
               : "bg-carta text-tinta ring-1 ring-linea hover:ring-tinta-2"
           }`}
         >
@@ -115,7 +115,7 @@ function CambiarPlan({
           ))}
         </span>
       )}
-      {error && <span className="text-[0.78rem] font-semibold text-brasa-hondo">{error}</span>}
+      {error && <span className="text-[0.78rem] font-semibold text-alerta-hondo">{error}</span>}
     </span>
   );
 }

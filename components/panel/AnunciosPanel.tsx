@@ -722,7 +722,7 @@ function CreadorAnuncios({ embebido = false, tenant, nombreNegocio, solicitudHis
                 )}
                 <p><b className="text-tinta">Público:</b> {zona} · {edadMin}–{edadMax} años</p>
                 <p><b className="text-tinta">Dónde aparece:</b> {canales.find((c) => c.id === canal)?.nombre ?? "Donde mejor funcione"}</p>
-                <p className="text-brasa-hondo"><b>Vas a gastar hasta S/{total} en {dias} días</b> (S/{(Number(total) / Number(dias) || 0).toFixed(2)}/día).</p>
+                <p className="text-brasa-texto"><b>Vas a gastar hasta S/{total} en {dias} días</b> (S/{(Number(total) / Number(dias) || 0).toFixed(2)}/día).</p>
               </div>
               {/* EL CHECK, APAGADO POR DEFECTO. Encenderlo empieza a gastar
                   de su tarjeta, así que tiene que ser un acto deliberado — no

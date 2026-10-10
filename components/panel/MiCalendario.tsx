@@ -180,7 +180,7 @@ export function MiCalendario() {
     <p
       role="status"
       className={`rounded-tarjeta bg-carta px-4 py-3 text-[0.88rem] font-semibold ring-1 ring-linea ${
-        aviso.tipo === "ok" ? "text-ok" : "text-brasa-hondo"
+        aviso.tipo === "ok" ? "text-ok" : "text-alerta-hondo"
       }`}
     >
       {aviso.texto}
@@ -227,7 +227,7 @@ export function MiCalendario() {
             <span className="min-w-0 text-[0.92rem] text-tinta">
               {estado.estado === "caida" ? (
                 <>
-                  <span className="font-semibold text-brasa-hondo">Se cortó el permiso de </span>
+                  <span className="font-semibold text-alerta-hondo">Se cortó el permiso de </span>
                   <b>{estado.correo}</b>. El bot no puede agendar hasta que lo reconectes.
                 </>
               ) : (
@@ -297,7 +297,7 @@ export function MiCalendario() {
               </label>
             </div>
             {!horarioValido && (
-              <p className="text-[0.82rem] text-brasa-hondo">
+              <p className="text-[0.82rem] text-alerta-hondo">
                 {ventana.dias.length === 0 ? "Elige al menos un día." : "La hora de inicio debe ser antes que la de fin."}
               </p>
             )}

@@ -212,7 +212,7 @@ export function MiPerfilVendedorPanel() {
               return (
                 <button key={r.id} type="button" onClick={() => toggleRubro(r.id)}
                   className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
-                    activo ? "bg-brasa text-carta" : "bg-arena text-tinta-2 ring-1 ring-linea"
+                    activo ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea"
                   }`}>
                   {r.emoji} {r.label}
                 </button>
@@ -289,7 +289,7 @@ export function MiPerfilVendedorPanel() {
                 placeholder="Hasta (ej. 2023 o Actual)" className={inputCls} />
             </div>
             <button type="button" onClick={() => quitarExperiencia(i)}
-              className="mt-2 text-[0.78rem] font-semibold text-frio hover:text-brasa-hondo">
+              className="mt-2 text-[0.78rem] font-semibold text-frio hover:text-brasa-texto">
               Quitar
             </button>
           </div>

@@ -252,7 +252,7 @@ function EnlaceCarta({ url }: { url: string }) {
         </p>
         {/* El link en menta sobre el oscuro: 7.1:1, y es el dato que el dueño
             viene a buscar aquí. */}
-        <p className="truncate text-[0.9rem] font-medium text-brasa">{url}</p>
+        <p className="truncate text-[0.9rem] font-medium text-brasa-texto">{url}</p>
       </div>
       <button
         onClick={copiar}

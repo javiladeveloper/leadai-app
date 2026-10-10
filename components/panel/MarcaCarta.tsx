@@ -472,7 +472,7 @@ export function MarcaCarta() {
                         .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32),
                     )
                   }
-                  className="mt-1.5 text-[0.8rem] font-semibold text-brasa hover:underline"
+                  className="mt-1.5 text-[0.8rem] font-semibold text-brasa-texto hover:underline"
                 >
                   Usar «{sitio}/c/{negocio.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32)}» ✨
                 </button>
@@ -642,7 +642,7 @@ export function MarcaCarta() {
             abajo a la izquierda no se leía como el cierre del formulario —el
             ojo lo buscaba donde termina el contenido—. */}
         <div className="flex flex-wrap items-center justify-end gap-3 border-t border-arena/15 pt-4">
-          {ok && <span className="confirma mr-auto text-[0.85rem] font-semibold text-brasa">Guardado ✓</span>}
+          {ok && <span className="confirma mr-auto text-[0.85rem] font-semibold text-brasa-texto">Guardado ✓</span>}
           {error && <span className="fila-entra mr-auto text-[0.85rem] font-semibold text-orbita">{error}</span>}
           <button
             type="button"

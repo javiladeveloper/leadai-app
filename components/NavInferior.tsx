@@ -56,7 +56,7 @@ export function NavInferior() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute inset-x-0 bottom-0 max-h-[75vh] overflow-y-auto rounded-t-3xl bg-carta p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(51,40,31,0.15)]"
+            className="absolute inset-x-0 bottom-0 max-h-[75vh] overflow-y-auto rounded-t-3xl bg-carta p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.15)]"
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-linea" />
             <p className="mb-2 px-1 text-[0.78rem] font-bold uppercase tracking-wide text-frio">

@@ -135,7 +135,7 @@ export function PanelPropiedades({
         <button
           type="button"
           onClick={() => onEliminar(nodo.id)}
-          className="mt-4 w-full rounded-lg border border-brasa/40 px-3 py-2 text-sm font-semibold text-brasa-hondo transition hover:bg-brasa-suave"
+          className="mt-4 w-full rounded-lg border border-brasa/40 px-3 py-2 text-sm font-semibold text-brasa-texto transition hover:bg-brasa-suave"
         >
           🗑 Eliminar este paso
         </button>
@@ -168,10 +168,10 @@ function OpcionesEditor({
         <div key={o.id} className="flex gap-2">
           <input value={o.etiqueta} onChange={(e) => set(i, e.target.value)}
             className="flex-1 rounded-lg border border-linea bg-arena/30 px-2 py-1.5 text-sm text-tinta outline-none focus:border-brasa" />
-          <button onClick={() => quitar(i)} className="text-frio hover:text-brasa-hondo">✕</button>
+          <button onClick={() => quitar(i)} className="text-frio hover:text-brasa-texto">✕</button>
         </div>
       ))}
-      <button onClick={agregar} className="text-[0.8rem] font-semibold text-brasa-hondo">+ Agregar opción</button>
+      <button onClick={agregar} className="text-[0.8rem] font-semibold text-brasa-texto">+ Agregar opción</button>
     </div>
   );
 }

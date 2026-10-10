@@ -146,7 +146,7 @@ function ProbarBotPanel() {
                         type="button"
                         disabled={!esUltimo || enviando}
                         onClick={() => enviar(b.etiqueta)}
-                        className="rounded-full border border-brasa/40 bg-carta px-4 py-1.5 text-[0.88rem] font-semibold text-brasa-hondo transition hover:bg-brasa-suave disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-carta"
+                        className="rounded-full border border-brasa/40 bg-carta px-4 py-1.5 text-[0.88rem] font-semibold text-brasa-texto transition hover:bg-brasa-suave disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-carta"
                       >
                         {b.etiqueta}
                       </button>

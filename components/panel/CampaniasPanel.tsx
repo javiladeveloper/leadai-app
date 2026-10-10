@@ -469,7 +469,7 @@ function ContenidoCampanias(
         {!creando && pestania === "campanias" && (
           <button
             onClick={() => setCreando(true)}
-            className={`rounded-xl bg-orbita px-5 py-2.5 text-sm font-bold text-sobre-orbita transition hover:bg-orbita-hondo ${embebido ? "ml-auto" : ""}`}
+            className={`rounded-xl bg-brasa px-5 py-2.5 text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo ${embebido ? "ml-auto" : ""}`}
           >
             + Nueva campaña
           </button>
@@ -578,7 +578,7 @@ function ContenidoCampanias(
                 <button
                   type="button"
                   onClick={() => { setPestania("plantillas"); setCreandoPlantilla(true); }}
-                  className="mt-2 font-semibold text-brasa underline underline-offset-2 hover:text-brasa-hondo"
+                  className="mt-2 font-semibold text-brasa-texto underline underline-offset-2 hover:text-tinta"
                 >
                   Crear plantilla
                 </button>
@@ -718,7 +718,7 @@ function ContenidoCampanias(
             <button
               onClick={crearCampaniaSubmit}
               disabled={enviandoForm || !nombre.trim() || !plantillaSel || contactosValidos === 0 || (plantillaElegida?.encabezadoTipo === "IMAGE" && !encabezadoUrl)}
-              className="rounded-xl bg-orbita px-5 py-2 text-sm font-bold text-sobre-orbita transition hover:bg-orbita-hondo disabled:opacity-50"
+              className="rounded-xl bg-brasa px-5 py-2 text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-50"
             >
               {enviandoForm ? "Creando…" : "Lanzar campaña"}
             </button>
@@ -740,7 +740,7 @@ function ContenidoCampanias(
               <button
                 type="button"
                 onClick={() => setCreando(true)}
-                className="mt-4 rounded-xl bg-orbita px-5 py-2.5 text-sm font-bold text-sobre-orbita transition hover:bg-orbita-hondo"
+                className="mt-4 rounded-xl bg-brasa px-5 py-2.5 text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
               >
                 Crear mi primera campaña
               </button>
@@ -825,7 +825,7 @@ function ContenidoCampanias(
                       key={id}
                       onClick={() => setPCategoria(id)}
                       className={`rounded-chip px-3.5 py-2 text-[0.82rem] font-semibold transition ${
-                        pCategoria === id ? "bg-tinta text-carta" : "bg-arena text-tinta-2 hover:bg-linea"
+                        pCategoria === id ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 hover:bg-linea"
                       }`}
                     >
                       {label}

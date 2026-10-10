@@ -151,6 +151,15 @@ button, [role="button"] {
   touch-action: manipulation;
 }
 
+/* EL CHIP ACTIVO ES UNO SOLO (2026-10-09): `bg-brasa text-sobre-brasa`, el
+   mismo par que la sección activa del menú. Había dos convenciones —menta en
+   unos filtros, verde hondo (`bg-tinta text-carta`) en otros— y el mismo
+   gesto ("este filtro está puesto") se pintaba distinto según la pantalla.
+   El inactivo: `bg-carta text-tinta-2 ring-1 ring-linea`.
+   Menta como TEXTO sobre claro siempre es `text-brasa-texto` (5.3:1);
+   `text-brasa` y `text-brasa-hondo` no llegan a 4.5:1 y quedan para fondos
+   y para el sidebar oscuro. Los errores van en `alerta`, nunca en menta. */
+
 /* Etiqueta técnica en mayúsculas (estados, secciones). */
 /* El eyebrow es el naranja de marca (2026-08-17). Estaba en gris, y como es
    lo primero de cada pantalla, el panel entero se leía verde-sobre-blanco sin

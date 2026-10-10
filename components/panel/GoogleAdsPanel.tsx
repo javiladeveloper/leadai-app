@@ -203,7 +203,7 @@ function MetricasGoogle({ tenant, estado, onDesconectar }: { tenant?: string; es
               key={d}
               onClick={() => setDias(d)}
               aria-pressed={dias === d}
-              className={`rounded-chip px-3 py-1.5 text-[0.8rem] font-bold ring-1 transition ${dias === d ? "bg-superficie-honda text-carta ring-superficie-honda" : "bg-carta text-tinta-2 ring-linea hover:bg-arena"}`}
+              className={`rounded-chip px-3 py-1.5 text-[0.8rem] font-bold ring-1 transition ${dias === d ? "bg-brasa text-sobre-brasa ring-brasa" : "bg-carta text-tinta-2 ring-linea hover:bg-arena"}`}
             >
               {d} días
             </button>

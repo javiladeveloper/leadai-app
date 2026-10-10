@@ -330,7 +330,7 @@ export function PlaybookEditor({ parte = "guion" }: { parte?: ParteDelPlaybook }
                 type="button"
                 onClick={() => setPerfil({ ...perfil, tono: t })}
                 className={`rounded-chip px-3 py-1.5 text-[0.82rem] font-semibold transition ${
-                  activo ? "bg-brasa text-carta" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-linea"
+                  activo ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 ring-1 ring-linea hover:bg-linea"
                 }`}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -821,7 +821,7 @@ function ListaCatalogo({
       titulo="Qué vendes"
       bajada="Productos o servicios que ofrece el negocio — el bot responde con esto"
       extra={
-        <span className={`shrink-0 text-xs font-semibold ${lleno ? "text-brasa-hondo" : "text-frio"}`}>
+        <span className={`shrink-0 text-xs font-semibold ${lleno ? "text-brasa-texto" : "text-frio"}`}>
           {catalogo.length}/{MAX}
         </span>
       }
@@ -916,7 +916,7 @@ function ListaCatalogo({
         + Agregar producto o servicio
       </button>
       {lleno && (
-        <p className="mt-1.5 text-xs text-brasa-hondo">
+        <p className="mt-1.5 text-xs text-brasa-texto">
           Llegaste al máximo de {MAX} productos. Es para que la IA no se sobrecargue y responda mejor.
         </p>
       )}

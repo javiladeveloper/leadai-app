@@ -11,11 +11,14 @@ import { anotarResultadoCita, type CitaAgenda, type ResultadoCita } from "@/lib/
 // `clase`: la etiqueta suave del detalle. `marca`: el circulito sólido que
 // distingue en el calendario la reunión que ya tiene nota (mismos colores
 // que la app: verde interesado, naranja volver a llamar, ámbar no contestó).
+// Con los TOKENS del sistema (2026-10-09): eran emerald/orange/amber/slate de
+// Tailwind, cuatro colores que no existen en la marca. Cada uno va con su
+// tinta (`sobre-brasa`, `sobre-orbita`) o con blanco donde el fondo es hondo.
 export const RESULTADOS: { valor: ResultadoCita; etiqueta: string; clase: string; marca: string }[] = [
-  { valor: "interesado", etiqueta: "Interesado", clase: "bg-brasa-suave text-brasa-texto", marca: "bg-emerald-600 text-white" },
-  { valor: "otra_fecha", etiqueta: "Quiere otra fecha", clase: "bg-calor-suave text-calor-hondo", marca: "bg-orange-500 text-white" },
-  { valor: "no_contesto", etiqueta: "No contestó", clase: "bg-tibio-suave text-tinta", marca: "bg-amber-500 text-white" },
-  { valor: "no_interesado", etiqueta: "No le interesa", clase: "bg-arena-2 text-frio", marca: "bg-slate-400 text-white" },
+  { valor: "interesado", etiqueta: "Interesado", clase: "bg-brasa-suave text-brasa-texto", marca: "bg-brasa text-sobre-brasa" },
+  { valor: "otra_fecha", etiqueta: "Quiere otra fecha", clase: "bg-calor-suave text-calor-hondo", marca: "bg-orbita text-sobre-orbita" },
+  { valor: "no_contesto", etiqueta: "No contestó", clase: "bg-tibio-suave text-tinta", marca: "bg-tibio text-carta" },
+  { valor: "no_interesado", etiqueta: "No le interesa", clase: "bg-arena-2 text-frio", marca: "bg-frio text-carta" },
 ];
 
 /** Solo nota, sin resultado marcado. */
@@ -159,7 +162,7 @@ export function ResultadoLlamada({
               // Tocar el elegido lo quita: se puede dejar solo la nota.
               onClick={() => setResultado(activo ? null : r.valor)}
               className={`inline-flex min-h-10! items-center rounded-chip px-3 py-1.5 text-[0.8rem] font-semibold ring-1 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa ${
-                activo ? "bg-tinta text-carta ring-tinta" : "bg-carta text-tinta-2 ring-linea hover:bg-linea"
+                activo ? "bg-brasa text-sobre-brasa ring-brasa" : "bg-carta text-tinta-2 ring-linea hover:bg-linea"
               }`}
             >
               {r.etiqueta}

@@ -354,7 +354,7 @@ export function NuevoPedidoLocal({
         // Alto FIJO, no `max-h`: con tres platos el diálogo se encogía y la
         // comanda quedaba flotando en un panel casi vacío. Una ventana que
         // cambia de tamaño según la sección se siente rota.
-        className="surge flex h-[80vh] max-h-[46rem] w-full max-w-3xl flex-col rounded-tarjeta bg-carta shadow-[0_8px_24px_rgba(51,40,31,0.2)] ring-1 ring-linea"
+        className="surge flex h-[80vh] max-h-[46rem] w-full max-w-3xl flex-col rounded-tarjeta bg-carta shadow-[var(--sombra-flotante)] ring-1 ring-linea"
       >
         {/* Encabezado */}
         <div className="shrink-0 border-b border-linea p-5 pb-4">

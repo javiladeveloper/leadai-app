@@ -49,7 +49,7 @@ export function ConfigComision() {
                 key={t}
                 onClick={() => setTipo(t)}
                 className={`rounded-chip px-3.5 py-2 text-[0.84rem] font-semibold transition ${
-                  tipo === t ? "bg-brasa text-carta" : "bg-arena/70 text-tinta-2 hover:bg-arena"
+                  tipo === t ? "bg-brasa text-sobre-brasa" : "bg-arena/70 text-tinta-2 hover:bg-arena"
                 }`}
               >
                 {t === "porcentaje" ? "% del monto" : "Monto fijo"}

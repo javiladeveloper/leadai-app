@@ -524,7 +524,7 @@ function TablaLeads({ leads, dias, tenant }: { leads: LeadReporte[]; dias: numbe
 
   const chip = (activo: boolean) =>
     `rounded-chip px-3 py-1.5 text-[0.78rem] font-semibold transition focus-visible:outline-2 focus-visible:outline-brasa ${
-      activo ? "bg-tinta text-carta" : "bg-arena text-tinta-2 hover:bg-arena-2"
+      activo ? "bg-brasa text-sobre-brasa" : "bg-arena text-tinta-2 hover:bg-arena-2"
     }`;
 
   return (

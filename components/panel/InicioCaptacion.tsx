@@ -267,7 +267,7 @@ export function InicioCaptacion() {
                   <Link
                     key={a.href}
                     href={a.href}
-                    className="entra flex flex-col items-center gap-2.5 rounded-tarjeta bg-carta px-3 py-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(51,40,31,0.10)] hover:ring-brasa/40 active:scale-[0.98]"
+                    className="entra flex flex-col items-center gap-2.5 rounded-tarjeta bg-carta px-3 py-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(15,23,42,0.10)] hover:ring-brasa/40 active:scale-[0.98]"
                   >
                     <span className="grid h-11 w-11 place-items-center rounded-xl bg-arena text-tinta">
                       <a.Icono className="h-5 w-5" />

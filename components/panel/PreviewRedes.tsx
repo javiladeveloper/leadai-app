@@ -92,7 +92,7 @@ export function PreviewRedes({
                 onClick={() => setVer(r)}
                 className={`rounded-chip px-2.5 py-1 text-[0.75rem] font-bold transition ${
                   activa === r
-                    ? "bg-tinta text-carta"
+                    ? "bg-brasa text-sobre-brasa"
                     : "bg-arena text-frio ring-1 ring-linea hover:bg-linea"
                 }`}
               >
@@ -177,7 +177,7 @@ function PreviewHistoria({
             <div className="h-full w-1/3 rounded-full bg-white" />
           </div>
           <div className="mt-2 flex items-center gap-1.5">
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-brasa text-[0.7rem] font-bold text-carta">{inicial}</span>
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-brasa text-[0.7rem] font-bold text-sobre-brasa">{inicial}</span>
             <span className="text-[0.74rem] font-semibold text-white">{negocio || "Tu negocio"}</span>
             <span className="text-[0.7rem] text-white/70">· ahora</span>
           </div>

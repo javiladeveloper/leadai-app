@@ -885,7 +885,7 @@ function ConversacionesInner() {
           <button
             onClick={() => elegirEtapa("")}
             className={`rounded-chip px-2.5 py-1 text-[0.75rem] font-bold transition ${
-              filtroEtapa === "" ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+              filtroEtapa === "" ? "bg-brasa text-sobre-brasa" : "bg-carta text-tinta-2 ring-1 ring-linea"
             }`}
           >
             Todos {porNegocio.length}
@@ -895,7 +895,7 @@ function ConversacionesInner() {
               key={e.id}
               onClick={() => elegirEtapa(filtroEtapa === e.id ? "" : e.id)}
               className={`flex items-center gap-1.5 rounded-chip px-2.5 py-1 text-[0.75rem] font-bold transition ${
-                filtroEtapa === e.id ? "bg-tinta text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+                filtroEtapa === e.id ? "bg-brasa text-sobre-brasa" : "bg-carta text-tinta-2 ring-1 ring-linea"
               }`}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${PUNTO[e.color]}`} />
@@ -1606,7 +1606,7 @@ function ConversacionesInner() {
               key={id || "todos"}
               onClick={() => { if (filtroAsignado) quitarAsignado(); elegirBuzon(id); }}
               className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[0.85rem] font-semibold transition ${
-                filtroBuzon === id && !filtroAsignado ? "bg-brasa/10 text-brasa" : "text-tinta-2 hover:bg-arena"
+                filtroBuzon === id && !filtroAsignado ? "bg-brasa/10 text-brasa-texto" : "text-tinta-2 hover:bg-arena"
               }`}
             >
               <span>{label}</span>
@@ -1628,7 +1628,7 @@ function ConversacionesInner() {
               key={e.id}
               onClick={() => elegirEtapa(filtroEtapa === e.id ? "" : e.id)}
               className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[0.85rem] font-semibold transition ${
-                filtroEtapa === e.id ? "bg-brasa/10 text-brasa" : "text-tinta-2 hover:bg-arena"
+                filtroEtapa === e.id ? "bg-brasa/10 text-brasa-texto" : "text-tinta-2 hover:bg-arena"
               }`}
             >
               <span className="flex items-center gap-2">

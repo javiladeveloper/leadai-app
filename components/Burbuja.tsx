@@ -14,7 +14,7 @@ export function Burbuja({ m }: { m: Mensaje }) {
   const media = mediaDelTexto(m.texto);
 
   const clase = mio
-    ? "bg-brasa text-carta rounded-br-md"
+    ? "bg-brasa text-sobre-brasa rounded-br-md"
     : bot
       ? "bg-brasa-suave text-tinta rounded-bl-md"
       : "bg-carta text-tinta ring-1 ring-linea rounded-bl-md";
@@ -22,7 +22,7 @@ export function Burbuja({ m }: { m: Mensaje }) {
   return (
     <div className={`flex flex-col ${mio ? "items-end" : "items-start"}`}>
       {bot && (
-        <span className="mb-1 ml-1 flex items-center gap-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-brasa-hondo">
+        <span className="mb-1 ml-1 flex items-center gap-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-brasa-texto">
           <span className="h-1.5 w-1.5 rounded-full bg-brasa" /> Respondió la IA
         </span>
       )}

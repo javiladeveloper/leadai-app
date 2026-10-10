@@ -146,7 +146,7 @@ export function AjustesVendedora({ tenant }: { tenant?: string }) {
             {guardando ? "Guardando…" : "Guardar"}
           </button>
           {ok && <span className="text-[0.82rem] font-semibold text-ok">✓ Guardado</span>}
-          {error && <span className="text-[0.82rem] font-semibold text-brasa-hondo">{error}</span>}
+          {error && <span className="text-[0.82rem] font-semibold text-alerta-hondo">{error}</span>}
         </div>
       </div>
     </Seccion>

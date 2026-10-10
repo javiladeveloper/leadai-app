@@ -113,7 +113,7 @@ export function LienzoFlujo({ flujoId }: { flujoId: string }) {
         <input value={nombre} onChange={(e) => setNombre(e.target.value)}
           className="flex-1 rounded-lg border border-linea bg-arena/40 px-3 py-1.5 text-sm font-semibold text-tinta outline-none focus:border-brasa" />
         {aviso && !errorGuardar && <span className="text-sm font-medium text-ok">{aviso}</span>}
-        {errorGuardar && <span className="text-sm text-brasa-hondo">{errorGuardar}</span>}
+        {errorGuardar && <span className="text-sm text-alerta-hondo">{errorGuardar}</span>}
         <button onClick={guardar} disabled={estado === "guardando"}
           className="rounded-tarjeta bg-brasa px-4 py-2 text-sm font-semibold text-sobre-brasa hover:bg-brasa-hondo disabled:opacity-60">
           {estado === "guardando" ? "Guardando…" : "Guardar"}

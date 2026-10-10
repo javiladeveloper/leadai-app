@@ -679,12 +679,12 @@ function EnMeta({ filas, alBorrar, tenant }: { filas: PublicoEnMeta[]; alBorrar:
               <span className="flex min-w-0 items-center gap-2">
                 <span className="truncate text-[0.88rem] font-semibold text-tinta">{f.nombre}</span>
                 {f.tipo === "LOOKALIKE" && (
-                  <span className="rounded-chip bg-brasa/12 px-1.5 py-0.5 text-[0.7rem] font-bold text-brasa">
+                  <span className="rounded-chip bg-brasa/12 px-1.5 py-0.5 text-[0.7rem] font-bold text-brasa-texto">
                     similares
                   </span>
                 )}
                 {f.tipo === "WEBSITE" && (
-                  <span className="rounded-chip bg-brasa/12 px-1.5 py-0.5 text-[0.7rem] font-bold text-brasa">
+                  <span className="rounded-chip bg-brasa/12 px-1.5 py-0.5 text-[0.7rem] font-bold text-brasa-texto">
                     visitaron tu web
                   </span>
                 )}
@@ -766,7 +766,7 @@ function Historial({ filas }: { filas: PublicoSubido[] }) {
               <span className="block truncate text-[0.86rem] font-semibold text-tinta">
                 {f.nombre}
                 {f.tipo === "similar" && (
-                  <span className="ml-2 rounded-chip bg-brasa/12 px-1.5 py-0.5 text-[0.7rem] font-bold text-brasa">
+                  <span className="ml-2 rounded-chip bg-brasa/12 px-1.5 py-0.5 text-[0.7rem] font-bold text-brasa-texto">
                     similares
                   </span>
                 )}

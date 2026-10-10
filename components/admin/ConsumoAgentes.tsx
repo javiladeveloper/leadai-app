@@ -8,7 +8,7 @@ import {
 } from '@/lib/consumo-agentes';
 
 const campo = 'mt-1 w-full rounded-xl border border-linea bg-carta px-3 py-2 text-sm text-tinta disabled:opacity-50';
-const boton = 'rounded-xl bg-brasa px-4 py-2 text-sm font-semibold text-carta disabled:opacity-50';
+const boton = 'rounded-xl bg-brasa px-4 py-2 text-sm font-semibold text-sobre-brasa disabled:opacity-50';
 const ORIGENES = { bot_real: 'Bot real', prueba: 'Pruebas', panel: 'Panel', desconocido: 'Sin atribución' } as const;
 const ESTADOS = { sin_presupuesto: 'Sin presupuesto', sin_datos: 'Sin datos', incompleto: 'Medición incompleta', normal: 'Dentro del presupuesto', advertencia: 'Umbral del 80% alcanzado', excedido: 'Presupuesto alcanzado o superado' };
 
@@ -119,7 +119,7 @@ function DetalleConsumo({ negocio, mes, onGuardando }: { negocio: NegocioConsumo
       {error ? <p role="alert" className="rounded-xl bg-arena p-3 text-sm text-tinta">{error}</p> : null}
       {mensaje ? <p role="status" className="text-sm text-tinta">{mensaje}</p> : null}
       {!informe && !error ? <p role="status">Consultando consumo…</p> : null}
-      <button type="button" className="text-sm font-semibold text-brasa disabled:opacity-50" disabled={guardando} onClick={() => {
+      <button type="button" className="text-sm font-semibold text-brasa-texto disabled:opacity-50" disabled={guardando} onClick={() => {
         setInforme(null); setError(''); setMensaje(''); setRequiereRecarga(false); setRecarga(i => i + 1);
       }}>Recargar informe (descarta edición)</button>
       {informe && resumen ? <>

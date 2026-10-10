@@ -246,7 +246,7 @@ export default function MarketingPanel() {
             Anuncios para atraer personas, campañas para volver a conversar y comentarios para detectar oportunidades.
           </p>
         </div>
-        <Link href="/comentarios" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-orbita px-5 text-sm font-bold text-sobre-orbita transition hover:bg-orbita-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-carta lg:mt-0">
+        <Link href="/comentarios" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-brasa px-5 text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-carta lg:mt-0">
           Ver comentarios <span aria-hidden className="ml-2">↗</span>
         </Link>
       </header>

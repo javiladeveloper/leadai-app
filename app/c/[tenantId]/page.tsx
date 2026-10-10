@@ -2135,7 +2135,7 @@ function BarraCarrito({
             onClick={() => onModalidad(valor)}
             className={`rounded-tarjeta border py-2.5 text-[0.9rem] font-semibold transition ${
               modalidad === valor
-                ? "border-brasa bg-brasa/10 text-brasa"
+                ? "border-brasa bg-brasa/10 text-brasa-texto"
                 : "border-linea text-tinta-2"
             }`}
           >

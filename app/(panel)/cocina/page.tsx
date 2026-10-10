@@ -8,6 +8,9 @@ import {
   COLUMNAS, type PedidoCocina, type ValidacionPago, type MetodoCobro,
 } from "@/lib/cocina";
 import { soles } from "@/lib/precio";
+import { LinkLead } from "@/components/LinkLead";
+import { AccionesContacto } from "@/components/AccionesContacto";
+import { urlMapa } from "@/lib/enlaces";
 import { NuevoPedidoLocal } from "@/components/panel/NuevoPedidoLocal";
 import { sonarCampana, prepararCampana } from "@/lib/campana";
 
@@ -612,8 +615,17 @@ function TarjetaPedido({
               — cambiaba una línea útil por una inútil. El pin cabe al lado del
               precio, así que no cuesta ni una línea. */}
           <div className="max-h-0 overflow-hidden opacity-0 transition-all group-hover:max-h-40 group-hover:opacity-100 group-focus-within:max-h-40 group-focus-within:opacity-100">
+            {/* La dirección abre Google Maps (2026-10-09): es lo que hace el
+                que reparte con ella. */}
             {pedido.direccion && (
-              <p className="mt-1.5 line-clamp-2 text-[0.78rem] text-frio">📍 {pedido.direccion}</p>
+              <a
+                href={urlMapa(pedido.direccion)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 line-clamp-2 block text-[0.78rem] text-frio underline-offset-2 hover:text-brasa-texto hover:underline"
+              >
+                📍 {pedido.direccion}
+              </a>
             )}
             {/* La REFERENCIA del cliente (2026-08-20): "casa del fondo",
                 "portón verde". Se muestra aparte y no pegada a la dirección
@@ -621,6 +633,18 @@ function TarjetaPedido({
                 ahí, no parte del domicilio. */}
             {pedido.referencia && (
               <p className="mt-0.5 line-clamp-2 text-[0.78rem] text-tinta-2">💬 {pedido.referencia}</p>
+            )}
+            {/* ABRIR CHAT Y LLAMAR (2026-10-09): el backend ya manda de quién
+                es el pedido; antes había que ir a buscarlo a Conversaciones. */}
+            {(pedido.leadId || pedido.telefono) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {pedido.leadId && (
+                  <LinkLead id={pedido.leadId} className="rounded-chip bg-arena px-2.5 py-1 text-[0.75rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-arena-2" claseSinPermiso="hidden">
+                    Abrir chat
+                  </LinkLead>
+                )}
+                {pedido.telefono && <AccionesContacto telefono={pedido.telefono} compacto />}
+              </div>
             )}
           </div>
         </>

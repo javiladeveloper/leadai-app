@@ -17,6 +17,7 @@ import { useAbrirLead } from "@/components/LinkLead";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
 import { useDatos } from "@/lib/useDatos";
+import { guardarCache, leerCache } from "@/lib/cache-datos";
 import { URL_CONECTAR_CANALES } from "@/lib/enlaces";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BadgeCanal } from "@/components/BadgeCanal";
@@ -149,19 +150,41 @@ function SeguimientoInner() {
   const cargaRef = useRef(0);
   const cargar = useCallback(async () => {
     const gen = ++cargaRef.current;
-    setEstado((e) => (e === "ok" ? "ok" : "cargando"));
-    setCompletando(true);
     const global = esModoGlobal();
+    // AL VOLVER, EL TABLERO DE LA ÚLTIMA VEZ (2026-10-09): se pinta al
+    // instante y se reemplaza cuando termina de llegar el nuevo.
+    const clave = `seguimiento@${global ? "global" : leerEmpresaActiva() || "-"}`;
+    const guardado = leerCache<{ leads: LeadPipeline[]; negocios: NegocioBandeja[] }>(clave);
+    if (guardado) {
+      setLeads(guardado.leads);
+      setNegocios(guardado.negocios);
+      setEstado("ok");
+    } else {
+      setEstado((e) => (e === "ok" ? "ok" : "cargando"));
+    }
+    setCompletando(true);
+    let acumulado: LeadPipeline[] = [];
+    let negociosVistos: NegocioBandeja[] = [];
     try {
       await cargarProgresivo<LeadPipeline, { items: LeadPipeline[]; siguienteCursor: string | null; negocios?: NegocioBandeja[] }>(
         (cursor) => (global ? paginaBandejaGlobalFiltrada({}, cursor) : paginaLeadsFiltrada({}, cursor)),
-        (items, { primera, respuesta }) => {
-          if (respuesta.negocios) setNegocios(respuesta.negocios);
-          setLeads((prev) => (primera ? items : agregarPaginaVieja(prev, items)));
-          if (primera) setEstado("ok");
+        (items, { primera, ultima, respuesta }) => {
+          if (respuesta.negocios) { negociosVistos = respuesta.negocios; setNegocios(respuesta.negocios); }
+          acumulado = primera ? items : agregarPaginaVieja(acumulado, items);
+          // Con el tablero guardado en pantalla se espera al final: no se
+          // achica la lista para volver a agrandarla.
+          if (!guardado || ultima) {
+            setLeads(acumulado);
+            setEstado("ok");
+          }
         },
         () => gen === cargaRef.current,
       );
+      if (gen === cargaRef.current) {
+        setLeads(acumulado);
+        setEstado("ok");
+        guardarCache(clave, { leads: acumulado, negocios: negociosVistos });
+      }
     } catch {
       if (gen === cargaRef.current) setEstado((e) => (e === "ok" ? "ok" : "error"));
     } finally {

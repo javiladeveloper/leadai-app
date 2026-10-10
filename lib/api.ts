@@ -660,7 +660,9 @@ export async function paginaLeadsFiltrada(
   const qs = new URLSearchParams({ limit: String(limite) });
   if (filtros.estado) qs.set("estado", filtros.estado);
   if (filtros.nivel) qs.set("nivel", filtros.nivel);
-  if (filtros.origen) qs.set("origen", filtros.origen);
+  // "directo" es SIN etiqueta: el backend compara exacto contra
+  // `origenEtiqueta` y no lo encontraría. Ese se filtra solo en el cliente.
+  if (filtros.origen && filtros.origen !== "directo") qs.set("origen", filtros.origen);
   if (cursor) qs.set("cursor", cursor);
   return api(`/leads?${qs.toString()}`, { tenant });
 }
@@ -674,7 +676,7 @@ export async function paginaBandejaGlobalFiltrada(
   const qs = new URLSearchParams({ limit: String(limite) });
   if (filtros.estado) qs.set("estado", filtros.estado);
   if (filtros.nivel) qs.set("nivel", filtros.nivel);
-  if (filtros.origen) qs.set("origen", filtros.origen);
+  if (filtros.origen && filtros.origen !== "directo") qs.set("origen", filtros.origen);
   if (filtros.tenantId) qs.set("tenantId", filtros.tenantId);
   if (cursor) qs.set("cursor", cursor);
   return api(`/bandeja-global?${qs.toString()}`, { conEmpresa: false });

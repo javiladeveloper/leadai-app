@@ -59,6 +59,13 @@ export interface PedidoCocina {
   /** pendiente | por_confirmar | validado | rechazado */
   pago?: string | null;
   pagoMetodo?: string | null;
+  /**
+   * DE QUIÉN ES EL PEDIDO (2026-10-09, backend v2026.10.09c): el lead y su
+   * teléfono, para "Abrir chat" y "Llamar" desde la tarjeta. Opcionales: un
+   * pedido tomado en el local no tiene conversación.
+   */
+  leadId?: string | null;
+  telefono?: string | null;
 }
 
 /** La validación que decidió el estado actual del pedido, si hay alguna. */

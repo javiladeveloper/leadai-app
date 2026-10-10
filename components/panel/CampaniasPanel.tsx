@@ -17,6 +17,7 @@ import {
   type EstadoPagoCampanias,
 } from "@/lib/api";
 import { SkeletonLista } from "@/components/Skeletons";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { VistaEncabezado } from "@/components/panel/VistaEncabezado";
 import { BarraNegociosGlobal, useSeccionGlobal } from "@/components/panel/GlobalNegocios";
 import { CabeceraFormulario } from "@/components/panel/HeroSeccion";
@@ -292,20 +293,26 @@ function ContenidoCampanias(
     setListo(true);
   }, [router]);
 
+  /**
+   * UN ERROR ES UN ERROR, NO "TODAVÍA NO LANZASTE CAMPAÑAS" (2026-10-09).
+   * `listarCampanias` se tragaba cualquier fallo y devolvía `[]`: a quien sí
+   * tenía campañas se le decía que no tenía ninguna. Ahora la lista muestra el
+   * error con "Reintentar", y lo demás (plantillas, cupo) carga igual.
+   */
   const cargar = useCallback(async () => {
     setEstado("cargando");
     const [c, p, q, ep] = await Promise.all([
-      listarCampanias(g.tenantLista),
-      listarPlantillasHSM(g.tenantLista),
-      cupoCampanias(g.tenantLista),
-      estadoPagoCampanias(g.tenantLista),
+      listarCampanias(g.tenantLista).catch(() => null),
+      listarPlantillasHSM(g.tenantLista).catch(() => ({ ok: false, plantillas: [], error: "No pudimos cargar tus plantillas." })),
+      cupoCampanias(g.tenantLista).catch(() => null),
+      estadoPagoCampanias(g.tenantLista).catch(() => null),
     ]);
-    setCampanias(c);
+    if (c) setCampanias(c);
     setPlantillas(p.plantillas);
     setErrorPlantillas(p.ok ? "" : (p.error ?? ""));
     setCupo(q);
     setPago(ep);
-    setEstado("ok");
+    setEstado(c ? "ok" : "error");
   }, [g.tenantLista]);
 
   useEffect(() => { if (listo && g.listaLista) cargar(); }, [listo, g.listaLista, cargar]);
@@ -723,10 +730,20 @@ function ContenidoCampanias(
       {pestania === "campanias" && !creando && (
         <div>
           {estado === "cargando" && <SkeletonLista filas={3} />}
+          {estado === "error" && <ErrorConReintento mensaje="No pudimos cargar tus campañas." reintentar={() => void cargar()} />}
           {estado === "ok" && campanias.length === 0 && (
             <div className="rounded-tarjeta bg-carta p-6 text-center ring-1 ring-linea">
               <p className="text-[1.02rem] font-bold text-tinta">Todavía no lanzaste campañas</p>
               <p className="mt-1 text-[0.88rem] text-frio">Crea una plantilla, espera la aprobación de Meta y lanza tu primer envío masivo.</p>
+              {/* La acción DENTRO del vacío (2026-10-09): el botón de arriba
+                  queda lejos de donde se lee "todavía no". */}
+              <button
+                type="button"
+                onClick={() => setCreando(true)}
+                className="mt-4 rounded-xl bg-orbita px-5 py-2.5 text-sm font-bold text-sobre-orbita transition hover:bg-orbita-hondo"
+              >
+                Crear mi primera campaña
+              </button>
             </div>
           )}
           {estado === "ok" && campanias.length > 0 && (

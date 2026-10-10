@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { haySesion, leerEmpresaActiva, guardarEmpresaActiva, filtroInicialDeBandeja } from "@/lib/auth";
+import { haySesion, filtroInicialDeBandeja } from "@/lib/auth";
 import {
-  listarBandejaGlobal,
+  paginaBandejaGlobalFiltrada,
+  cargarProgresivo,
   obtenerReporteGlobal,
   type LeadGlobal,
   type NegocioBandeja,
@@ -15,9 +16,13 @@ import {
 import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { IconoRayo } from "@/components/Iconos";
 import { SkeletonLista } from "@/components/Skeletons";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
+import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
+import { ESTADO_ABIERTOS, cumpleEstado, cumpleOrigen, esCalienteSinAtender } from "@/lib/enlaces";
 
 type Estado = "cargando" | "ok" | "error";
 type FiltroNivel = "todos" | NivelInteres;
+type FiltroEstado = "todos" | EstadoLead | typeof ESTADO_ABIERTOS;
 
 const soles = (n: number) => `S/${n.toLocaleString("es-PE")}`;
 
@@ -28,8 +33,10 @@ const FILTROS_NIVEL: { id: FiltroNivel; label: string }[] = [
   { id: "frio", label: "Fríos" },
 ];
 
-const FILTROS_ESTADO: { id: "todos" | EstadoLead; label: string }[] = [
+const FILTROS_ESTADO: { id: FiltroEstado; label: string }[] = [
   { id: "todos", label: "Todos" },
+  // "Sin cerrar" = ni ganado ni perdido: la regla de "calientes sin atender".
+  { id: ESTADO_ABIERTOS, label: "Sin cerrar" },
   { id: "nuevo", label: "Nuevos" },
   { id: "nutriendo", label: "En seguimiento" },
   { id: "escalado", label: "Para atender" },
@@ -47,6 +54,9 @@ function minutosDesde(iso: string): number {
 function aTarjeta(lead: LeadGlobal, conEtiqueta: boolean): TarjetaLeadProps {
   return {
     id: lead.id,
+    // La ficha abre con el negocio del lead (antes se fijaba con un
+    // onClickCapture alrededor de la tarjeta).
+    tenant: lead.tenantId,
     nombre: lead.nombre ?? lead.contactoExterno,
     canal: lead.canalOrigen,
     empresa: conEtiqueta ? lead.negocioNombre : undefined,
@@ -73,15 +83,28 @@ function GlobalPanelInner() {
   const [reporte, setReporte] = useState<ReporteGlobal | null>(null);
   const [filtroNegocio, setFiltroNegocio] = useState<string>("todos");
   // Arranca en el predeterminado del dueño si fijó uno (2026-09-22). Una vez.
+  // Si el link trae `?negocio=` (Reportes de un negocio, p. ej.), manda ese.
   const [filtroInicializado, setFiltroInicializado] = useState(false);
   useEffect(() => {
     if (filtroInicializado || negocios.length === 0) return;
     setFiltroInicializado(true);
-    setFiltroNegocio(filtroInicialDeBandeja(negocios, "todos"));
-  }, [negocios, filtroInicializado]);
-  const [filtroNivel, setFiltroNivel] = useState<FiltroNivel>("todos");
-  const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoLead>("todos");
+    const delLink = searchParams.get("negocio");
+    setFiltroNegocio(delLink && negocios.some((n) => n.tenantId === delLink) ? delLink : filtroInicialDeBandeja(negocios, "todos"));
+  }, [negocios, filtroInicializado, searchParams]);
+  // LOS FILTROS DEL LINK (2026-10-09): /leads redirige acá con varios
+  // negocios, y "ver los calientes" de la campana o Inicio tiene que abrir
+  // los calientes también acá.
+  const [filtroNivel, setFiltroNivel] = useState<FiltroNivel>(() => {
+    const v = searchParams.get("nivel");
+    return FILTROS_NIVEL.some((f) => f.id === v) ? (v as FiltroNivel) : "todos";
+  });
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>(() => {
+    const v = searchParams.get("estado");
+    return FILTROS_ESTADO.some((f) => f.id === v) ? (v as FiltroEstado) : "todos";
+  });
+  const [filtroOrigen, setFiltroOrigen] = useState(() => searchParams.get("origen") ?? "");
   const [busqueda, setBusqueda] = useState("");
+  const [completando, setCompletando] = useState(false);
 
   useEffect(() => {
     if (!haySesion()) {
@@ -97,49 +120,73 @@ function GlobalPanelInner() {
     if (q) setBusqueda(q);
   }, [searchParams]);
 
+  // LA PRIMERA PÁGINA AL INSTANTE (2026-10-09): antes se esperaban hasta 20
+  // páginas en serie antes de pintar una tarjeta, y otra vez en cada chip.
+  const cargaRef = useRef(0);
   const cargar = useCallback(async () => {
+    const gen = ++cargaRef.current;
     setEstado("cargando");
+    setCompletando(true);
+    void obtenerReporteGlobal().then((rep) => { if (gen === cargaRef.current) setReporte(rep); });
+    const filtros = {
+      nivel: filtroNivel === "todos" ? undefined : filtroNivel,
+      estado: filtroEstado === "todos" || filtroEstado === ESTADO_ABIERTOS ? undefined : filtroEstado,
+      origen: filtroOrigen || undefined,
+      tenantId: filtroNegocio === "todos" ? undefined : filtroNegocio,
+    };
     try {
-      const [bandeja, rep] = await Promise.all([
-        listarBandejaGlobal({
-          nivel: filtroNivel === "todos" ? undefined : filtroNivel,
-          estado: filtroEstado === "todos" ? undefined : filtroEstado,
-          tenantId: filtroNegocio === "todos" ? undefined : filtroNegocio,
-        }),
-        obtenerReporteGlobal(),
-      ]);
-      setLeads(bandeja.leads);
-      setNegocios(bandeja.negocios);
-      setReporte(rep);
-      setEstado("ok");
+      await cargarProgresivo<LeadGlobal, { negocios: NegocioBandeja[]; items: LeadGlobal[]; siguienteCursor: string | null }>(
+        (cursor) => paginaBandejaGlobalFiltrada(filtros, cursor),
+        (items, { primera, respuesta }) => {
+          setNegocios(respuesta.negocios);
+          setLeads((prev) => (primera ? items : agregarPaginaVieja(prev, items)));
+          if (primera) setEstado("ok");
+        },
+        () => gen === cargaRef.current,
+      );
     } catch (e) {
       void e;
-      setEstado("error");
+      if (gen === cargaRef.current) setEstado((prev) => (prev === "ok" ? "ok" : "error"));
+    } finally {
+      if (gen === cargaRef.current) setCompletando(false);
     }
-  }, [filtroNivel, filtroEstado, filtroNegocio]);
+  }, [filtroNivel, filtroEstado, filtroOrigen, filtroNegocio]);
 
   useEffect(() => {
     if (!listo) return;
     cargar();
   }, [listo, cargar]);
 
-  const calientes = useMemo(
-    () => leads.filter((l) => l.nivelInteres === "caliente" && l.estado === "nuevo").length,
-    [leads],
+  // La regla del backend (caliente y ni ganado ni perdido), la misma de
+  // Inicio y la campana (2026-10-09).
+  const calientes = useMemo(() => leads.filter(esCalienteSinAtender).length, [leads]);
+
+  // Lo que el backend puede no filtrar ("Sin cerrar", el origen) se filtra acá.
+  const filtrados = useMemo(
+    () => leads.filter((l) => cumpleEstado(l, filtroEstado) && cumpleOrigen(l, filtroOrigen)),
+    [leads, filtroEstado, filtroOrigen],
   );
+  const hayFiltros = filtroNivel !== "todos" || filtroEstado !== "todos" || !!filtroOrigen || !!busqueda.trim();
+  function quitarFiltros() {
+    setFiltroNivel("todos");
+    setFiltroEstado("todos");
+    setFiltroOrigen("");
+    setBusqueda("");
+    router.replace("/global", { scroll: false });
+  }
 
   // Búsqueda en cliente: por nombre, contacto o resumen de la IA (mismo
   // criterio que la vieja pantalla de Leads).
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return leads;
-    return leads.filter(
+    if (!q) return filtrados;
+    return filtrados.filter(
       (l) =>
         (l.nombre ?? "").toLowerCase().includes(q) ||
         l.contactoExterno.toLowerCase().includes(q) ||
         (l.resumenIA ?? "").toLowerCase().includes(q),
     );
-  }, [leads, busqueda]);
+  }, [filtrados, busqueda]);
 
   if (!listo) return null;
 
@@ -181,9 +228,9 @@ function GlobalPanelInner() {
       )}
 
       {/* Card destacada: calientes sin atender (entre TODOS los negocios) */}
-      {estado === "ok" && calientes > 0 && (
+      {estado === "ok" && calientes > 0 && !(filtroNivel === "caliente" && filtroEstado === ESTADO_ABIERTOS) && (
         <button
-          onClick={() => setFiltroNivel("caliente")}
+          onClick={() => { setFiltroNivel("caliente"); setFiltroEstado(ESTADO_ABIERTOS); }}
           className="flex w-full items-center gap-3 rounded-tarjeta bg-calor px-5 py-4 text-left text-carta shadow-[0_8px_24px_rgba(179,92,0,0.3)] transition active:scale-[0.99]"
         >
           <IconoRayo className="h-7 w-7 shrink-0" />
@@ -202,7 +249,7 @@ function GlobalPanelInner() {
           <button
             onClick={() => setFiltroNegocio("todos")}
             className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
-              filtroNegocio === "todos" ? "bg-brasa text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+              filtroNegocio === "todos" ? "bg-brasa text-sobre-brasa" : "bg-carta text-tinta-2 ring-1 ring-linea"
             }`}
           >
             Todos mis negocios
@@ -212,7 +259,7 @@ function GlobalPanelInner() {
               key={n.tenantId}
               onClick={() => setFiltroNegocio(n.tenantId)}
               className={`shrink-0 rounded-chip px-4 py-2 text-[0.9rem] font-bold transition ${
-                filtroNegocio === n.tenantId ? "bg-brasa text-carta" : "bg-carta text-tinta-2 ring-1 ring-linea"
+                filtroNegocio === n.tenantId ? "bg-brasa text-sobre-brasa" : "bg-carta text-tinta-2 ring-1 ring-linea"
               }`}
             >
               {n.nombre}
@@ -249,15 +296,37 @@ function GlobalPanelInner() {
         ))}
       </div>
 
-      {estado === "cargando" && <SkeletonLista filas={6} />}
-
-      {estado === "error" && (
-        <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar la vista global. Recarga.</p>
+      {filtroOrigen && (
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-2 rounded-chip bg-tinta px-3.5 py-1.5 text-[0.82rem] font-semibold text-carta">
+            Origen: {leads.find((l) => cumpleOrigen(l, filtroOrigen) && l.origen?.etiqueta)?.origen?.etiqueta ?? (filtroOrigen === "directo" ? "Mensaje directo" : filtroOrigen === "comentario" ? "Comentarios" : "un anuncio")}
+            <button type="button" onClick={() => setFiltroOrigen("")} aria-label="Quitar el filtro de origen" className="text-[1rem] leading-none text-carta/80 hover:text-carta">
+              ×
+            </button>
+          </span>
         </div>
       )}
 
-      {estado === "ok" && leads.length === 0 && (
+      {completando && estado === "ok" && <p className="text-[0.78rem] text-frio" role="status">Cargando más leads…</p>}
+
+      {estado === "cargando" && <SkeletonLista filas={6} />}
+
+      {estado === "error" && <ErrorConReintento mensaje="No pudimos cargar tus leads." reintentar={cargar} />}
+
+      {estado === "ok" && !completando && hayFiltros && visibles.length === 0 && (
+        <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+          <p className="font-bold text-tinta">Ningún lead con estos filtros</p>
+          <button
+            type="button"
+            onClick={quitarFiltros}
+            className="mt-3 inline-flex items-center justify-center rounded-tarjeta bg-carta px-5 py-2.5 text-[0.9rem] font-semibold text-brasa-texto ring-1 ring-linea transition hover:bg-arena"
+          >
+            Quitar filtros
+          </button>
+        </div>
+      )}
+
+      {estado === "ok" && !completando && !hayFiltros && leads.length === 0 && (
         <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="text-[1.05rem] font-bold text-tinta">
             Aún no hay leads en tus negocios de captación
@@ -268,26 +337,11 @@ function GlobalPanelInner() {
         </div>
       )}
 
-      {estado === "ok" && leads.length > 0 && visibles.length === 0 && (
-        <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <p className="font-semibold text-tinta">Nada coincide con “{busqueda}”.</p>
-        </div>
-      )}
-
       {estado === "ok" && visibles.length > 0 && (
         <div className="grid gap-3 lg:grid-cols-2">
           {visibles.map((l) => (
-            // onClickCapture corre antes de la navegación del Link interno de
-            // TarjetaLead (/conversacion/[id]): deja como empresa activa la
-            // del lead para que la conversación y sus acciones funcionen.
-            <div
-              key={l.id}
-              onClickCapture={() => {
-                if (l.tenantId !== leerEmpresaActiva()) guardarEmpresaActiva(l.tenantId);
-              }}
-            >
-              <TarjetaLead lead={aTarjeta(l, negocios.length > 1)} />
-            </div>
+            // TarjetaLead abre la ficha con el negocio del lead (LinkLead).
+            <TarjetaLead key={l.id} lead={aTarjeta(l, negocios.length > 1)} />
           ))}
         </div>
       )}

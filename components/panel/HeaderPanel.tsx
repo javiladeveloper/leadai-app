@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { leerSesion, leerEmpresaActiva, guardarEmpresaActiva, guardarSesion, cerrarSesion, empresaInicial } from "@/lib/auth";
 import { misEmpresas } from "@/lib/api";
+import { vaciarCache } from "@/lib/cache-datos";
 import { IconoChevron } from "@/components/Iconos";
 import { CampanaAlertas } from "@/components/panel/CampanaAlertas";
 import { useCapacidades } from "@/lib/modo-negocio";
@@ -38,6 +39,8 @@ export function HeaderPanel() {
 
   function salir() {
     cerrarSesion();
+    // Lo que el panel recordaba en memoria es de ESTA cuenta (2026-10-09).
+    vaciarCache();
     router.replace("/");
   }
 

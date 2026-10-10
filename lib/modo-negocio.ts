@@ -19,6 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { invalidar, pedir } from "./cache-datos";
 import { leerEmpresaActiva } from "./auth";
 
 /** Lo que el negocio puede hacer. Espejo de `CapacidadesRubro` del backend. */
@@ -158,6 +159,17 @@ function sinRestaurantes(estado: EstadoNegocio): EstadoNegocio {
   };
 }
 
+/**
+ * UNA SOLA CONSULTA POR NEGOCIO (2026-10-09). El menú, la barra de abajo y la
+ * pantalla montan cada uno su `useCapacidades()`, y cada uno salía a preguntar:
+ * tres o cuatro `/capacidades` idénticos por carga. Ahora se juntan las que
+ * están en vuelo y la respuesta vale 60 s (cambiar el rubro en Configuración
+ * llama a `olvidarModoPedidos`, que la invalida).
+ */
+function pedirCapacidades(tenant: string): Promise<EstadoNegocio> {
+  return pedir(`capacidades@${tenant}`, () => api<EstadoNegocio>("/capacidades", { tenant }), { maxEdadMs: 60_000 });
+}
+
 function guardar(tenant: string, estado: EstadoNegocio): void {
   const limpio = sinRestaurantes(estado);
   cache.set(tenant, limpio);
@@ -182,7 +194,7 @@ function guardar(tenant: string, estado: EstadoNegocio): void {
 export function precalentarCapacidades(): void {
   const tenant = typeof window !== "undefined" ? leerEmpresaActiva() : null;
   if (!tenant || cache.has(tenant) || leerGuardado(tenant)) return;
-  api<EstadoNegocio>("/capacidades")
+  pedirCapacidades(tenant)
     .then((r) => guardar(tenant, r))
     .catch(() => undefined);
 }
@@ -224,7 +236,7 @@ export function useCapacidades(): EstadoNegocio | null {
     if (guardado) setEstado(guardado);
 
     let vivo = true;
-    api<EstadoNegocio>("/capacidades")
+    pedirCapacidades(tenant)
       .then((r) => {
         // `guardar` limpia lo de restaurante (ver `sinRestaurantes`); se
         // pinta lo MISMO que se cachea, no la respuesta cruda.
@@ -280,6 +292,7 @@ export function useModoPedidos(): boolean | null {
 
 /** Se llama al cambiar de negocio o al cambiar el modo en Configuración. */
 export function olvidarModoPedidos(tenant?: string): void {
+  invalidar(tenant ? `capacidades@${tenant}` : "capacidades@");
   if (tenant) {
     cache.delete(tenant);
     if (typeof window !== "undefined") localStorage.removeItem(`${CLAVE}.${tenant}`);

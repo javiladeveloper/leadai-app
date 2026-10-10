@@ -1,16 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { haySesion, esModoGlobal, guardarEmpresaActiva, filtroInicialDeBandeja } from "@/lib/auth";
+import { haySesion, esModoGlobal, filtroInicialDeBandeja, leerEmpresaActiva } from "@/lib/auth";
 import {
-  listarLeads,
-  listarBandejaGlobal,
+  paginaLeadsFiltrada,
+  paginaBandejaGlobalFiltrada,
+  cargarProgresivo,
+  tieneCanalActivo,
   accionLead,
   type Lead,
   type EstadoLead,
 } from "@/lib/api";
+import { useAbrirLead } from "@/components/LinkLead";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
+import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
+import { useDatos } from "@/lib/useDatos";
+import { URL_CONECTAR_CANALES } from "@/lib/enlaces";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BadgeCanal } from "@/components/BadgeCanal";
 import { OrigenLead } from "@/components/panel/OrigenLead";
@@ -52,11 +59,29 @@ const PAGINA_ETAPA = 12;
 
 // Seguimiento: tablero por etapas de venta. Cada columna es un estado del lead;
 // las tarjetas se pueden marcar como ganado o descartar sin salir de la vista.
+//
+// `?etapa=<estado>` (2026-10-09): Reportes ("dónde se te caen las ventas")
+// lleva acá con el escalón que tocaste; esa columna se resalta y se trae a la
+// vista.
 export default function SeguimientoPanel() {
+  return (
+    <Suspense fallback={null}>
+      <SeguimientoInner />
+    </Suspense>
+  );
+}
+
+function SeguimientoInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const abrirLead = useAbrirLead();
   const [listo, setListo] = useState(false);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [leads, setLeads] = useState<LeadPipeline[]>([]);
+  // Mientras llegan las páginas que siguen a la primera (ver `cargar`).
+  const [completando, setCompletando] = useState(false);
+  const [etapaDestacada, setEtapaDestacada] = useState<string | null>(() => params.get("etapa"));
+  const columnaDestacada = useRef<HTMLElement | null>(null);
   // Modo global: chips por negocio para bajar el ruido visual — "" = todos
   // (vista general, default). El filtro es en cliente: ya tenemos todos los
   // leads con su tenantId, así que cambiar de chip es instantáneo.
@@ -98,12 +123,10 @@ export default function SeguimientoPanel() {
         clearTimeout(clickTimer.current);
         clickTimer.current = null;
       }
-      // "Clavado" desde el modo global: la conversación completa adopta la
-      // empresa del lead (sale del modo global).
-      if (lead.tenantId) guardarEmpresaActiva(lead.tenantId);
-      router.push(`/conversacion/${lead.id}`);
+      // A la ficha única, con el negocio del lead.
+      abrirLead(lead.id, lead.tenantId);
     },
-    [router],
+    [abrirLead],
   );
 
   useEffect(() => {
@@ -114,24 +137,52 @@ export default function SeguimientoPanel() {
     setListo(true);
   }, [router]);
 
+  /**
+   * LA PRIMERA PÁGINA AL INSTANTE (2026-10-09). Antes se bajaban hasta 20
+   * páginas EN SERIE antes de pintar una sola tarjeta; con miles de leads el
+   * tablero tardaba varios segundos en blanco. Ahora se pinta lo primero y el
+   * resto se suma detrás (mismo patrón que Conversaciones).
+   *
+   * Modo global: el pipeline cruza TODOS los negocios de captación (cada
+   * tarjeta dice de cuál viene). Modo empresa: solo la activa, como siempre.
+   */
+  const cargaRef = useRef(0);
   const cargar = useCallback(async () => {
-    setEstado("cargando");
+    const gen = ++cargaRef.current;
+    setEstado((e) => (e === "ok" ? "ok" : "cargando"));
+    setCompletando(true);
+    const global = esModoGlobal();
     try {
-      // Modo global: el pipeline cruza TODOS los negocios de captación (cada
-      // tarjeta dice de cuál viene). Modo empresa: solo la activa, como
-      // siempre.
-      if (esModoGlobal()) {
-        const r = await listarBandejaGlobal();
-        setLeads(r.leads);
-        setNegocios(r.negocios);
-      } else {
-        setLeads(await listarLeads());
-      }
-      setEstado("ok");
+      await cargarProgresivo<LeadPipeline, { items: LeadPipeline[]; siguienteCursor: string | null; negocios?: NegocioBandeja[] }>(
+        (cursor) => (global ? paginaBandejaGlobalFiltrada({}, cursor) : paginaLeadsFiltrada({}, cursor)),
+        (items, { primera, respuesta }) => {
+          if (respuesta.negocios) setNegocios(respuesta.negocios);
+          setLeads((prev) => (primera ? items : agregarPaginaVieja(prev, items)));
+          if (primera) setEstado("ok");
+        },
+        () => gen === cargaRef.current,
+      );
     } catch {
-      setEstado("error");
+      if (gen === cargaRef.current) setEstado((e) => (e === "ok" ? "ok" : "error"));
+    } finally {
+      if (gen === cargaRef.current) setCompletando(false);
     }
   }, []);
+
+  // ¿Hay canal? El vacío ofrecía "Conectar WhatsApp" SIEMPRE, aunque ya
+  // estuviera conectado (2026-10-09): ahora solo si de verdad falta.
+  const { datos: tieneCanal } = useDatos(
+    listo ? `tiene-canal@${leerEmpresaActiva() || "-"}` : null,
+    () => tieneCanalActivo(),
+    { maxEdadMs: 60_000 },
+  );
+
+  // La columna pedida por la URL se trae a la vista una vez que hay datos.
+  useEffect(() => {
+    if (estado === "ok" && etapaDestacada) {
+      columnaDestacada.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    }
+  }, [estado, etapaDestacada]);
 
   useEffect(() => {
     if (!listo) return;
@@ -213,6 +264,9 @@ export default function SeguimientoPanel() {
           <h1 className="mt-1 text-[1.8rem] font-bold text-tinta">Seguimiento</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {completando && estado === "ok" && (
+            <span className="text-[0.78rem] text-frio" role="status">Cargando más leads…</span>
+          )}
           <label className="relative block w-full sm:w-72">
             <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-frio">
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -249,9 +303,21 @@ export default function SeguimientoPanel() {
 
       {estado === "cargando" && <SkeletonLista filas={5} />}
 
-      {estado === "error" && (
-        <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar tu pipeline. Recarga.</p>
+      {estado === "error" && <ErrorConReintento mensaje="No pudimos cargar tu pipeline." reintentar={cargar} />}
+
+      {etapaDestacada && estado === "ok" && (
+        <div className="flex flex-wrap items-center gap-2" role="status">
+          <span className="inline-flex items-center gap-2 rounded-chip bg-brasa-suave px-3 py-1.5 text-[0.82rem] font-semibold text-brasa-texto">
+            Mirando: {ETAPAS.find((e) => e.estado === etapaDestacada)?.titulo ?? etapaDestacada}
+            <button
+              type="button"
+              onClick={() => { setEtapaDestacada(null); router.replace("/seguimiento", { scroll: false }); }}
+              aria-label="Dejar de resaltar la etapa"
+              className="text-[1rem] leading-none"
+            >
+              ×
+            </button>
+          </span>
         </div>
       )}
 
@@ -263,12 +329,15 @@ export default function SeguimientoPanel() {
           <p className="mt-1 text-[0.9rem] text-frio">
             Cuando lleguen leads por WhatsApp, van a ir apareciendo aquí por etapa.
           </p>
-          <Link
-            href="/configuracion"
-            className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition active:scale-[0.99]"
-          >
-            Conectar WhatsApp
-          </Link>
+          {/* Solo si NO hay canal (2026-10-09): antes se ofrecía siempre. */}
+          {tieneCanal === false && (
+            <Link
+              href={URL_CONECTAR_CANALES}
+              className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition active:scale-[0.99]"
+            >
+              Conectar WhatsApp
+            </Link>
+          )}
         </div>
       )}
 
@@ -280,8 +349,13 @@ export default function SeguimientoPanel() {
             const visible = visiblePorEtapa[et.estado] ?? PAGINA_ETAPA;
             const mostrados = items.slice(0, visible);
             const restantes = items.length - mostrados.length;
+            const destacada = etapaDestacada === et.estado;
             return (
-              <section key={et.estado} className="flex min-w-0 flex-col">
+              <section
+                key={et.estado}
+                ref={destacada ? columnaDestacada : undefined}
+                className={`flex min-w-0 flex-col ${destacada ? "rounded-tarjeta bg-brasa-suave/40 p-2 ring-2 ring-brasa" : ""}`}
+              >
                 {/* Encabezado de columna */}
                 <div className="flex items-center gap-2 px-1 pb-3">
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${et.acento}`} />

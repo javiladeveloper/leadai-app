@@ -1,23 +1,34 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import Link from "next/link";
-import { haySesion, leerSesion } from "@/lib/auth";
+import { leerSesion, leerEmpresaActiva, rolEnEmpresaActiva } from "@/lib/auth";
 import {
-  obtenerResumen, obtenerUso, leadsRecientes, obtenerReporteNegocio, listarCanales,
+  obtenerResumen, obtenerUso, leadsRecientes, obtenerReporteNegocio, tieneCanalActivo, listarAgenda,
   type Resumen, type Uso, type Lead, type ReporteNegocio,
 } from "@/lib/api";
 import { IconoRayo, IconoConversaciones, IconoBandeja, IconoSeguimiento, IconoReportes } from "@/components/Iconos";
 import { SkeletonMetricas } from "@/components/Skeletons";
-
-type Estado = "cargando" | "ok" | "error";
+import { ErrorConReintento } from "@/components/ErrorConReintento";
+import { LinkLead } from "@/components/LinkLead";
+import { SECCIONES } from "@/components/panel/Sidebar";
+import { useCapacidades } from "@/lib/modo-negocio";
+import { seccionesDe } from "@/lib/secciones";
+import { useDatos } from "@/lib/useDatos";
+import { horaLima, inicioDelDiaLima } from "@/lib/agenda";
+import {
+  ESTADO_ABIERTOS, URL_CONECTAR_CANALES, reunionUnible, urlAgenda, urlCalientesSinAtender, urlLeads,
+} from "@/lib/enlaces";
 
 // Accesos rápidos — tarjetas compactas con ícono arriba (diseño Stitch).
+// AGENDA ENTRA (2026-10-09) y la lista se filtra igual que el menú: un
+// negocio sin embudo no ve "Pipeline", y un puesto que no ve una sección
+// tampoco la ve acá (antes se ofrecían puertas que el menú no tenía).
 const ACCESOS = [
   { href: "/conversaciones", titulo: "Conversaciones", Icono: IconoConversaciones },
   { href: "/seguimiento", titulo: "Pipeline", Icono: IconoSeguimiento },
   { href: "/leads", titulo: "Leads", Icono: IconoBandeja },
+  { href: "/agenda", titulo: "Agenda", Icono: IconoSeguimiento },
   { href: "/reportes", titulo: "Reportes", Icono: IconoReportes },
 ];
 
@@ -37,6 +48,18 @@ function haceTexto(iso: string): string {
   return `hace ${Math.floor(h / 24)} d`;
 }
 
+interface DatosInicio {
+  resumen: Resumen | null;
+  uso: Uso | null;
+  recientes: Lead[];
+  rep: ReporteNegocio | null;
+}
+
+interface ReunionesHoy {
+  hoy: number;
+  proxima: { id: string; inicio: string; fin: string; meetLink: string | null; leadId: string; nombre: string | null; tenantId?: string } | null;
+}
+
 // Inicio del panel — rediseño "Warm Human CRM" (Stitch): saludo + alerta de
 // calientes + métricas + accesos rápidos + progreso del mes + actividad reciente.
 /**
@@ -49,84 +72,92 @@ function haceTexto(iso: string): string {
  * ES UNA PANTALLA ENTERA, no un `if` dentro de otra: no comparte con el inicio
  * de restaurante ni las métricas, ni las llamadas, ni los accesos rápidos. Ver
  * `page.tsx` para por qué eso es un Strategy y no un ternario.
+ *
+ * TODO LLEVA A ALGÚN LADO (2026-10-09): cada número abre la lista de esos
+ * leads, la alerta de calientes abre ESOS calientes (con la misma regla que
+ * el backend usa para contarlos) y las reuniones de hoy están a un toque.
  */
 export function InicioCaptacion() {
-  const router = useRouter();
-  const [listo, setListo] = useState(false);
-  const [estado, setEstado] = useState<Estado>("cargando");
-  const [resumen, setResumen] = useState<Resumen | null>(null);
-  const [uso, setUso] = useState<Uso | null>(null);
-  const [recientes, setRecientes] = useState<Lead[]>([]);
-  const [rep, setRep] = useState<ReporteNegocio | null>(null);
+  const tenant = leerEmpresaActiva() || "-";
+  const negocio = useCapacidades();
+  const caps = negocio?.capacidades ?? null;
+
+  /**
+   * NINGUNA LLAMADA TUMBA LA PANTALLA (2026-09-18, reporte de Jonathan: su
+   * marketero entro por primera vez y vio "No pudimos cargar tus datos").
+   *
+   * `obtenerResumen()` era la unica sin `.catch`, asi que un 403 -un rol sin
+   * permiso para esa ruta- dejaba Inicio en ERROR, no degradado. Ahora todo
+   * es best-effort y la pantalla se arma con lo que si pudo traer. El error
+   * queda para cuando NADA cargo, que es el unico caso donde reintentar sirve.
+   *
+   * LO DE LA ÚLTIMA VEZ AL INSTANTE (2026-10-09): al volver a Inicio se pinta
+   * lo que ya se sabía y se actualiza por detrás (lib/useDatos).
+   */
+  const { datos, error, cargando, recargar } = useDatos<DatosInicio>(`inicio@${tenant}`, async () => {
+    const [resumen, uso, recientes, rep] = await Promise.all([
+      obtenerResumen().catch(() => null),
+      obtenerUso().catch(() => null),
+      leadsRecientes(3).catch(() => [] as Lead[]),
+      obtenerReporteNegocio().catch(() => null), // best-effort (gated por plan)
+    ]);
+    if (resumen === null && uso === null && recientes.length === 0 && rep === null) {
+      throw new Error("Inicio sin datos");
+    }
+    return { resumen, uso, recientes, rep };
+  });
+
   // ¿HAY WHATSAPP CONECTADO? (2026-09-06, captura de Jonathan en J&V: el
   // canal estaba conectado y el vacío igual gritaba "Conecta WhatsApp").
-  // Mismo criterio que Conversaciones: si la consulta falla se asume que SÍ
-  // — ofrecerle conectar a quien ya conectó es acusarlo de no haberlo hecho.
-  const [tieneCanal, setTieneCanal] = useState<boolean | null>(null);
-  useEffect(() => {
-    let vivo = true;
-    listarCanales()
-      .then((cs) => { if (vivo) setTieneCanal(cs.some((c) => c.activo)); })
-      .catch(() => { if (vivo) setTieneCanal(true); });
-    return () => { vivo = false; };
-  }, []);
+  // Si la consulta falla se asume que SÍ (ver `tieneCanalActivo`).
+  const { datos: tieneCanal } = useDatos(`tiene-canal@${tenant}`, () => tieneCanalActivo(), { maxEdadMs: 60_000 });
 
-  useEffect(() => {
-    if (!haySesion()) {
-      router.replace("/");
-      return;
-    }
-    setListo(true);
-  }, [router]);
+  /**
+   * LAS REUNIONES DE HOY (2026-10-09). Si el backend ya manda
+   * `resumen.reuniones`, se usa eso; si no, se arma con la agenda del día
+   * (la de la persona, en todos sus negocios: son SUS reuniones).
+   */
+  const muestraAgenda = !!caps?.calificaLeads;
+  const reunionesDelResumen = datos?.resumen?.reuniones ?? null;
+  const { datos: reunionesAgenda } = useDatos<ReunionesHoy>(
+    muestraAgenda && datos && !reunionesDelResumen ? `reuniones-hoy@${new Date().toDateString()}` : null,
+    async () => {
+      const desde = inicioDelDiaLima();
+      const hasta = new Date(desde.getTime() + 86_400_000);
+      const citas = (await listarAgenda(desde, hasta)).filter((c) => c.estado !== "cancelada");
+      const ahora = Date.now();
+      const proxima = citas
+        .filter((c) => new Date(c.fin).getTime() >= ahora)
+        .sort((a, b) => a.inicio.localeCompare(b.inicio))[0];
+      return {
+        hoy: citas.length,
+        proxima: proxima
+          ? { id: proxima.id, inicio: proxima.inicio, fin: proxima.fin, meetLink: proxima.meetLink, leadId: proxima.leadId, nombre: proxima.cliente, tenantId: proxima.tenantId }
+          : null,
+      };
+    },
+    { maxEdadMs: 60_000 },
+  );
+  const reuniones: ReunionesHoy | null = reunionesDelResumen ?? reunionesAgenda ?? null;
 
-  const cargar = useCallback(async () => {
-    setEstado("cargando");
-    try {
-      /**
-       * NINGUNA LLAMADA TUMBA LA PANTALLA (2026-09-18, reporte de Jonathan: su
-       * marketero entro por primera vez y vio "No pudimos cargar tus datos").
-       *
-       * `obtenerResumen()` era la unica sin `.catch`, asi que un 403 -un rol
-       * sin permiso para esa ruta- dejaba Inicio en ERROR, no degradado: ni el
-       * saludo, ni los leads recientes, nada. Era la primera impresion del
-       * producto para un puesto nuevo.
-       *
-       * Ahora el resumen tambien es best-effort y la pantalla se arma con lo
-       * que si pudo traer. El estado 'error' queda para cuando NADA cargo, que
-       * es el unico caso donde "recarga" es un consejo util.
-       */
-      const [r, u, l, rn] = await Promise.all([
-        obtenerResumen().catch(() => null),
-        obtenerUso().catch(() => null),
-        leadsRecientes(3).catch(() => []),
-        obtenerReporteNegocio().catch(() => null), // best-effort (gated por plan)
-      ]);
-      if (r === null && u === null && l.length === 0 && rn === null) {
-        setEstado('error');
-        return;
-      }
-      setResumen(r);
-      setUso(u);
-      setRecientes(l);
-      setRep(rn);
-      setEstado("ok");
-    } catch {
-      setEstado("error");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!listo) return;
-    cargar();
-  }, [listo, cargar]);
-
-  if (!listo) return null;
+  const accesos = useMemo(() => {
+    if (!negocio) return ACCESOS;
+    const visibles = new Set(
+      seccionesDe(SECCIONES, negocio.capacidades, rolEnEmpresaActiva(), { tienePlacas: negocio.tienePlacas }).map((s) => s.href),
+    );
+    return ACCESOS.filter((a) => visibles.has(a.href));
+  }, [negocio]);
 
   const sesion = leerSesion();
   const nombre = sesion?.usuario.nombre?.split(" ")[0] ?? "";
+  const resumen = datos?.resumen ?? null;
+  const uso = datos?.uso ?? null;
+  const recientes = datos?.recientes ?? [];
+  const rep = datos?.rep ?? null;
+  const ok = !!datos;
 
   const vacio =
-    estado === "ok" &&
+    ok &&
     !!resumen &&
     resumen.leadsActivos === 0 &&
     resumen.ventasCerradas === 0 &&
@@ -134,6 +165,15 @@ export function InicioCaptacion() {
 
   const clientes = uso?.clientes ?? null;
   const pctClientes = clientes && clientes.limite > 0 ? Math.min(100, Math.round((clientes.usados / clientes.limite) * 100)) : 0;
+
+  // Las tarjetas de métricas son LINKS a la lista de esos leads.
+  const KPIS = resumen
+    ? [
+        { titulo: "Leads activos", valor: resumen.leadsActivos, clase: "text-tinta", href: urlLeads({ estado: ESTADO_ABIERTOS }) },
+        { titulo: "Calientes 🔥", valor: resumen.calientesSinAtender, clase: "text-calor", href: urlCalientesSinAtender() },
+        { titulo: "Ventas cerradas ✓", valor: resumen.ventasCerradas, clase: "text-ok", href: urlLeads({ estado: "ganado" }) },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -144,15 +184,13 @@ export function InicioCaptacion() {
         <p className="mt-0.5 text-[0.95rem] text-frio">Así va tu negocio hoy.</p>
       </header>
 
-      {estado === "cargando" && <SkeletonMetricas />}
+      {cargando && !datos && <SkeletonMetricas />}
 
-      {estado === "error" && (
-        <div className="rounded-tarjeta bg-carta p-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-          <p className="font-semibold text-tinta">No pudimos cargar tus datos. Recarga.</p>
-        </div>
+      {!!error && !datos && (
+        <ErrorConReintento mensaje="No pudimos cargar tus datos." reintentar={() => void recargar()} />
       )}
 
-      {estado === "ok" && vacio && (
+      {ok && vacio && (
         <div className="rounded-tarjeta bg-carta p-6 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
           <p className="text-[1.05rem] font-bold text-tinta">
             {tieneCanal === false
@@ -166,7 +204,7 @@ export function InicioCaptacion() {
           )}
           {tieneCanal === false && (
             <Link
-              href="/configuracion"
+              href={URL_CONECTAR_CANALES}
               className="mt-4 inline-flex items-center justify-center rounded-tarjeta bg-brasa px-5 py-2.5 font-semibold text-sobre-brasa transition active:scale-[0.99]"
             >
               Conectar WhatsApp
@@ -175,12 +213,13 @@ export function InicioCaptacion() {
         </div>
       )}
 
-      {estado === "ok" && resumen && !vacio && (
+      {ok && resumen && !vacio && (
         <>
-          {/* Alerta: calientes sin atender (ícono en círculo + chevron, estilo Stitch) */}
+          {/* Alerta: calientes sin atender (ícono en círculo + chevron, estilo
+              Stitch). Abre ESOS calientes, no la lista entera. */}
           {resumen.calientesSinAtender > 0 && (
             <Link
-              href="/leads"
+              href={urlCalientesSinAtender()}
               className="sube flex items-center gap-4 rounded-tarjeta bg-calor px-5 py-4 text-carta shadow-[0_8px_24px_rgba(179,92,0,0.3)] transition hover:shadow-[0_10px_28px_rgba(179,92,0,0.38)] active:scale-[0.99]"
             >
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-carta/20">
@@ -197,44 +236,48 @@ export function InicioCaptacion() {
             </Link>
           )}
 
-          {/* Métricas: etiqueta arriba, número grande abajo (estilo Stitch) */}
-          {/* Las tarjetas ENTRAN escalonadas (2026-08-22). Inicio era la
-              única pantalla del panel sin una sola animación: todo aparecía
-              de golpe, y después de venir de Carta o Cocina se sentía como
-              otra aplicación. `entra` ya reparte el delay por posición. */}
+          {/* Métricas: etiqueta arriba, número grande abajo (estilo Stitch).
+              Las tarjetas ENTRAN escalonadas (2026-08-22) y cada una abre su
+              lista (2026-10-09): un número que no se puede tocar obliga a ir
+              a buscar a mano quiénes son. */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-              <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">Leads activos</p>
-              <p className="mt-2 text-[2.3rem] font-bold leading-none text-tinta">{resumen.leadsActivos}</p>
-            </div>
-            <div className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-              <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">Calientes 🔥</p>
-              <p className="mt-2 text-[2.3rem] font-bold leading-none text-calor">{resumen.calientesSinAtender}</p>
-            </div>
-            <div className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-              <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">Ventas cerradas ✓</p>
-              <p className="mt-2 text-[2.3rem] font-bold leading-none text-ok">{resumen.ventasCerradas}</p>
-            </div>
+            {KPIS.map((k) => (
+              <Link
+                key={k.titulo}
+                href={k.href}
+                className="entra rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:-translate-y-0.5 hover:ring-brasa/40 active:scale-[0.99]"
+              >
+                <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">{k.titulo}</p>
+                <p className={`mt-2 text-[2.3rem] font-bold leading-none ${k.clase}`}>{k.valor}</p>
+                <p className="mt-2 text-[0.74rem] font-semibold text-brasa-texto">Ver la lista ›</p>
+              </Link>
+            ))}
           </div>
 
+          {/* REUNIONES DE HOY (2026-10-09): la próxima a la vista, con
+              "Unirse" cuando está por empezar. */}
+          {muestraAgenda && reuniones && <BloqueReuniones r={reuniones} />}
+
           {/* Accesos rápidos: tarjetas compactas con ícono arriba (estilo Stitch) */}
-          <div>
-            <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Accesos rápidos</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {ACCESOS.map((a) => (
-                <Link
-                  key={a.href}
-                  href={a.href}
-                  className="entra flex flex-col items-center gap-2.5 rounded-tarjeta bg-carta px-3 py-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(51,40,31,0.10)] hover:ring-brasa/40 active:scale-[0.98]"
-                >
-                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-arena text-tinta">
-                    <a.Icono className="h-5 w-5" />
-                  </span>
-                  <span className="text-[0.85rem] font-bold text-tinta">{a.titulo}</span>
-                </Link>
-              ))}
+          {accesos.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-[1.05rem] font-bold text-tinta">Accesos rápidos</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                {accesos.map((a) => (
+                  <Link
+                    key={a.href}
+                    href={a.href}
+                    className="entra flex flex-col items-center gap-2.5 rounded-tarjeta bg-carta px-3 py-5 text-center shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(51,40,31,0.10)] hover:ring-brasa/40 active:scale-[0.98]"
+                  >
+                    <span className="grid h-11 w-11 place-items-center rounded-xl bg-arena text-tinta">
+                      <a.Icono className="h-5 w-5" />
+                    </span>
+                    <span className="text-[0.85rem] font-bold text-tinta">{a.titulo}</span>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Progreso del mes + actividad reciente (estilo Stitch) */}
           <div className="grid gap-4 sm:grid-cols-2">
@@ -262,19 +305,24 @@ export function InicioCaptacion() {
                   {recientes.map((l) => {
                     const inicial = (l.nombre ?? l.contactoExterno).trim().charAt(0).toUpperCase();
                     return (
-                      <Link key={l.id} href={`/conversacion/${l.id}`} className="flex items-center gap-3 rounded-xl px-1 py-1 transition hover:bg-arena/50">
+                      <LinkLead
+                        key={l.id}
+                        id={l.id}
+                        className="flex items-center gap-3 rounded-xl px-1 py-1 transition hover:bg-arena/50"
+                        claseSinPermiso="flex items-center gap-3 rounded-xl px-1 py-1"
+                      >
                         {/* Avatar con inicial, teñido por el nivel (diseño Stitch) */}
                         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-[0.85rem] font-bold text-carta ${NIVEL_PUNTO[l.nivelInteres] ?? "bg-frio"}`}>
                           {inicial}
                         </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[0.88rem] font-semibold leading-tight text-tinta">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[0.88rem] font-semibold leading-tight text-tinta">
                             {l.nombre ?? l.contactoExterno}
-                          </p>
-                          <p className="text-[0.72rem] text-frio">{haceTexto(l.actualizadoEn)}</p>
-                        </div>
+                          </span>
+                          <span className="block text-[0.72rem] text-frio">{haceTexto(l.actualizadoEn)}</span>
+                        </span>
                         <span className="shrink-0 text-lg leading-none text-frio">›</span>
-                      </Link>
+                      </LinkLead>
                     );
                   })}
                 </div>
@@ -284,10 +332,14 @@ export function InicioCaptacion() {
 
           {/* Línea de ventas + ayuda (fila final del diseño Stitch) */}
           <div className="grid gap-4 sm:grid-cols-2">
-            {/* Mini gráfico de ventas (datos reales de reportes); si no hay
-                ventas aún, invita a configurar los flujos (como el mock). */}
+            {/* Mini gráfico de ventas (datos reales de reportes). Sin ventas
+                todavía, el recuadro EXPLICA y nada más: llevaba a /flujos,
+                que no tiene nada que ver con ventas (2026-10-09). */}
             {rep && rep.evolucion.some((e) => e.ventas > 0) ? (
-              <div className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+              <Link
+                href="/reportes?t=ventas"
+                className="rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea transition hover:ring-brasa/40"
+              >
                 <p className="mb-3 text-[0.85rem] font-bold text-tinta">Tus ventas, últimos 6 meses</p>
                 <div className="flex h-24 items-end gap-2">
                   {rep.evolucion.map((e) => {
@@ -301,39 +353,89 @@ export function InicioCaptacion() {
                     );
                   })}
                 </div>
-              </div>
+              </Link>
             ) : (
-              <Link
-                href="/flujos"
-                className="grid place-items-center rounded-tarjeta border-2 border-dashed border-linea bg-carta/50 p-6 text-center transition hover:border-brasa/40"
-              >
+              <div className="grid place-items-center rounded-tarjeta border-2 border-dashed border-linea bg-carta/50 p-6 text-center">
                 <div>
                   <p className="text-[0.9rem] font-bold text-tinta-2">📈 Línea de tiempo de ventas</p>
                   <p className="mt-1 text-[0.8rem] text-frio">
                     Cuando cierres tus primeras ventas, aquí vas a ver cómo evolucionan mes a mes.
                   </p>
                 </div>
-              </Link>
+              </div>
             )}
 
-            {/* Tarjeta de ayuda (slate navy, como el mock) */}
-            <div className="flex flex-col justify-between rounded-tarjeta bg-superficie-honda p-5 text-arena shadow-[var(--sombra-tarjeta)]">
-              <div>
-                <p className="text-[1rem] font-bold leading-snug">¿Todavía no conectaste tus redes?</p>
-                <p className="mt-1 text-[0.84rem] text-arena/70">
-                  Prueba tu bot y deja todo listo — cuando conectes, arrancas al toque.
-                </p>
+            {/* Tarjeta de ayuda (slate navy, como el mock). SOLO si NO hay
+                canal (2026-10-09): a quien ya conectó le preguntaba si
+                todavía no había conectado. */}
+            {tieneCanal === false && (
+              <div className="flex flex-col justify-between rounded-tarjeta bg-superficie-honda p-5 text-arena shadow-[var(--sombra-tarjeta)]">
+                <div>
+                  <p className="text-[1rem] font-bold leading-snug">¿Todavía no conectaste tus redes?</p>
+                  <p className="mt-1 text-[0.84rem] text-arena/70">
+                    Conecta tu WhatsApp y deja todo listo — o prueba tu bot mientras tanto.
+                  </p>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    href={URL_CONECTAR_CANALES}
+                    className="inline-flex w-fit items-center rounded-chip bg-brasa px-4 py-2 text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
+                  >
+                    Conectar mis redes
+                  </Link>
+                  <Link
+                    href="/probar-bot"
+                    className="inline-flex w-fit items-center rounded-chip px-4 py-2 text-sm font-bold text-arena ring-1 ring-arena/30 transition hover:bg-arena/10"
+                  >
+                    Probar mi bot
+                  </Link>
+                </div>
               </div>
-              <Link
-                href="/probar-bot"
-                className="mt-4 inline-flex w-fit items-center rounded-chip bg-brasa px-4 py-2 text-sm font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
-              >
-                Probar mi bot
-              </Link>
-            </div>
+            )}
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** "Reuniones de hoy": cuántas, la próxima y "Unirse" si está por empezar. */
+function BloqueReuniones({ r }: { r: ReunionesHoy }) {
+  const p = r.proxima;
+  const unible = !!p?.meetLink && reunionUnible(p);
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-tarjeta bg-carta p-5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+      <div className="min-w-0 flex-1">
+        <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">Reuniones de hoy</p>
+        {r.hoy === 0 ? (
+          <p className="mt-1 text-[0.95rem] font-semibold text-tinta">No tienes reuniones hoy.</p>
+        ) : p ? (
+          <p className="mt-1 text-[0.95rem] text-tinta">
+            <b>{r.hoy}</b> {r.hoy === 1 ? "reunión" : "reuniones"} · la próxima a las <b>{horaLima(p.inicio)}</b>
+            {p.nombre ? <> con <LinkLead id={p.leadId} tenant={p.tenantId} className="font-semibold text-brasa-texto hover:underline" claseSinPermiso="font-semibold">{p.nombre}</LinkLead></> : null}
+          </p>
+        ) : (
+          <p className="mt-1 text-[0.95rem] text-tinta">
+            <b>{r.hoy}</b> {r.hoy === 1 ? "reunión" : "reuniones"} hoy · ya no quedan más.
+          </p>
+        )}
+      </div>
+      {unible && (
+        <a
+          href={p!.meetLink!}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 rounded-chip bg-brasa px-4 py-2 text-[0.85rem] font-bold text-sobre-brasa transition hover:bg-brasa-hondo"
+        >
+          Unirse
+        </a>
+      )}
+      <Link
+        href={urlAgenda({ fecha: "hoy", vista: "dia" })}
+        className="shrink-0 rounded-chip bg-arena px-4 py-2 text-[0.85rem] font-bold text-tinta-2 ring-1 ring-linea transition hover:bg-arena-2"
+      >
+        Ver la agenda de hoy
+      </Link>
     </div>
   );
 }

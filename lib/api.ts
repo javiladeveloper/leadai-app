@@ -504,6 +504,12 @@ export interface LeadDetalle extends Lead {
    * la manda, y entonces la ficha simplemente no pinta la tarjeta.
    */
   proximaCita?: ProximaCita | null;
+  /**
+   * EL PRÓXIMO PASO CON ESTE LEAD (CRM fase 1, 2026-10-13): la tarea
+   * pendiente más próxima. `undefined` = un backend anterior que todavía no
+   * la manda, y entonces la ficha no pinta la tarjeta; `null` = no hay.
+   */
+  proximaTarea?: TareaDto | null;
 }
 
 export interface ProximaCita {
@@ -3567,4 +3573,214 @@ export async function desconectarGoogleAds(tenant?: string): Promise<boolean> {
 
 export async function metricasGoogleAds(dias: number, tenant?: string): Promise<MetricasGoogleAds> {
   return api<MetricasGoogleAds>(`/google-ads/metricas?dias=${dias}`, { tenant });
+}
+
+/* ── CRM FASE 1 (2026-10-13): "Hoy", historial del lead y próximo paso ──────
+   Contratos en el diseño "CRM LeadAI — Fases 1 a 3" (sección 1.3). El backend
+   los publica junto con esta web; mientras no existan, cada lectura devuelve
+   `null` ante un 404 (la ruta no está) o un 403 (un puesto sin permiso, como
+   marketing) y la pantalla simplemente no pinta esa sección. */
+
+export type TipoTarea = "llamar" | "escribir" | "mandar_info" | "reagendar" | "otro";
+export type EstadoTarea = "pendiente" | "hecha" | "cancelada";
+
+export interface TareaDto {
+  id: string;
+  leadId: string;
+  tenantId: string;
+  tipo: TipoTarea;
+  titulo: string | null;
+  venceEn: string;
+  /** false = "ese día" (sin hora); true = a esa hora exacta. */
+  conHora: boolean;
+  asignadoA: string | null;
+  asignadoNombre: string | null;
+  estado: EstadoTarea;
+  vencida: boolean;
+  hechaEn: string | null;
+  creadoEn: string;
+}
+
+/**
+ * Un renglón del historial del lead. `tipo` es el de `ActividadLead`
+ * (apunte, llamada, whatsapp, etapa, asignado, ganado, pago, pago_quitado,
+ * reunion_agendada, reunion_resultado, etiquetas, registro, nota_fijada,
+ * tarea_creada, tarea_hecha) o uno de los que el servidor junta de otras
+ * tablas: `reunion`, `campania`, `comentario`.
+ */
+export interface ItemHistorial {
+  /** 'act_<id>' | 'cita_<id>' | 'camp_<id>' | 'com_<id>' */
+  id: string;
+  tipo: string;
+  fecha: string;
+  texto: string | null;
+  autor: { id: string; nombre: string | null } | null;
+  /**
+   * reunion: {citaId, inicio, fin, estado, resultado, notaResultado, meetLink}
+   * campania: {campaniaId, nombre, estado} · comentario: {red, texto, permalink?}
+   */
+  datos: Record<string, unknown> | null;
+}
+
+export interface ReunionHoy {
+  citaId: string; leadId: string; tenantId: string; negocio: string;
+  nombre: string | null; telefono: string | null;
+  inicio: string; fin: string; meetLink: string | null;
+  estado: string; resultado: string | null;
+}
+
+export type TareaHoy = TareaDto & {
+  lead: { id: string; nombre: string | null; telefono: string | null; tenantId: string; negocio: string };
+};
+
+export interface SinRespuestaHoy {
+  leadId: string; tenantId: string; negocio: string;
+  nombre: string | null; telefono: string | null; nivelInteres: NivelInteres;
+  ultimoEntranteEn: string; esperandoMin: number; ultimoMensaje: string;
+}
+
+/** Fase 3. Se llama `OportunidadDia` para no chocar con las de la bolsa (`Oportunidad`). */
+export interface OportunidadDia {
+  id: string;
+  tipo: "no_show" | "caliente_callado" | "ventana_24h" | "promesa"
+    | "precio_sin_respuesta" | "reunion_sin_resultado" | "registrado";
+  leadId: string; tenantId: string; negocio: string;
+  nombre: string | null; telefono: string | null;
+  titulo: string; detalle: string;
+  prioridad: number;
+  accion: "whatsapp" | "llamar" | "agendar" | "resultado";
+  citaId?: string;
+  venceEn?: string;
+}
+
+export interface Hoy {
+  reuniones: ReunionHoy[];
+  /** Pendientes que vencen hasta el fin de hoy (Lima): atrasadas + de hoy. */
+  tareas: TareaHoy[];
+  /** El último mensaje es del cliente, hace 10 min a 7 días. Más antiguo primero. */
+  sinRespuesta: SinRespuestaHoy[];
+  oportunidades: OportunidadDia[];
+  generadoEn: string;
+}
+
+/** ¿La ruta todavía no existe (404) o este puesto no la puede ver (403)? */
+function noDisponible(e: unknown): boolean {
+  return e instanceof ApiError && (e.status === 404 || e.status === 403);
+}
+
+/**
+ * La clave de caché de "Hoy". Inicio, la vista global y la campana piden lo
+ * mismo: con la misma clave sale UNA petición y las tres pintan lo mismo.
+ */
+export function claveHoy(tenantId?: string | null): string {
+  return `hoy@${tenantId || "todos"}`;
+}
+
+/**
+ * GET /hoy: reuniones, próximos pasos y quién espera respuesta. Sin
+ * `tenantId`, de TODOS los negocios de la persona (como /bandeja-global).
+ * `null` = el backend todavía no lo tiene o este puesto no lo ve.
+ */
+export async function obtenerHoy(tenantId?: string | null): Promise<Hoy | null> {
+  const qs = tenantId ? `?${new URLSearchParams({ tenantId })}` : "";
+  try {
+    const r = await api<Hoy>(`/hoy${qs}`, { conEmpresa: false });
+    return {
+      reuniones: r.reuniones ?? [],
+      tareas: r.tareas ?? [],
+      sinRespuesta: r.sinRespuesta ?? [],
+      oportunidades: r.oportunidades ?? [],
+      generadoEn: r.generadoEn,
+    };
+  } catch (e) {
+    if (noDisponible(e)) return null;
+    throw e;
+  }
+}
+
+/** Una página del historial, de lo más nuevo a lo más viejo. `null` = sin historial en este backend. */
+export async function historialLead(
+  leadId: string,
+  opciones: { antesDe?: string; limit?: number } = {},
+  tenant?: string,
+): Promise<{ items: ItemHistorial[]; hayMas: boolean } | null> {
+  const qs = new URLSearchParams();
+  if (opciones.antesDe) qs.set("antesDe", opciones.antesDe);
+  if (opciones.limit) qs.set("limit", String(Math.min(100, Math.max(1, opciones.limit))));
+  const s = qs.toString();
+  try {
+    const r = await api<{ items: ItemHistorial[]; hayMas: boolean }>(
+      `/leads/${encodeURIComponent(leadId)}/historial${s ? `?${s}` : ""}`, { tenant },
+    );
+    return { items: r.items ?? [], hayMas: !!r.hayMas };
+  } catch (e) {
+    if (noDisponible(e)) return null;
+    throw e;
+  }
+}
+
+/** Un apunte nuevo en el historial (nunca pisa a otro). Falla con ApiError. */
+export async function agregarApunte(leadId: string, texto: string, tenant?: string): Promise<ItemHistorial> {
+  const r = await api<{ item: ItemHistorial }>(`/leads/${encodeURIComponent(leadId)}/apuntes`, {
+    method: "POST", body: { texto: texto.trim().slice(0, 2000) }, tenant,
+  });
+  return r.item;
+}
+
+/** Deja constancia de que se le llamó o se le escribió (el servidor no duplica en 2 min). */
+export async function registrarContacto(
+  leadId: string, tipo: "llamada" | "whatsapp", tenant?: string,
+): Promise<ItemHistorial> {
+  const r = await api<{ item: ItemHistorial }>(`/leads/${encodeURIComponent(leadId)}/contactos`, {
+    method: "POST", body: { tipo }, tenant,
+  });
+  return r.item;
+}
+
+/** Las tareas del lead: pendientes primero (por fecha) y las últimas 10 cerradas. */
+export async function tareasLead(leadId: string, tenant?: string): Promise<TareaDto[] | null> {
+  try {
+    return (await api<{ tareas: TareaDto[] }>(`/leads/${encodeURIComponent(leadId)}/tareas`, { tenant })).tareas ?? [];
+  } catch (e) {
+    if (noDisponible(e)) return null;
+    throw e;
+  }
+}
+
+export interface NuevaTarea {
+  tipo: TipoTarea;
+  titulo?: string | null;
+  venceEn: string;
+  conHora?: boolean;
+  /** 'yo' (por defecto en el servidor), un usuarioId, o null = sin asignar. */
+  asignadoA?: "yo" | string | null;
+}
+
+/** Crea el próximo paso de un lead. Falla con ApiError. */
+export async function crearTarea(leadId: string, tarea: NuevaTarea, tenant?: string): Promise<TareaDto> {
+  const r = await api<{ tarea: TareaDto }>(`/leads/${encodeURIComponent(leadId)}/tareas`, {
+    method: "POST", body: tarea, tenant,
+  });
+  // "Hoy" y la campana cambian: lo guardado ya no es lo de ahora.
+  invalidar("hoy@");
+  return r.tarea;
+}
+
+export interface CambiosTarea {
+  estado?: EstadoTarea;
+  venceEn?: string;
+  conHora?: boolean;
+  titulo?: string | null;
+  asignadoA?: "yo" | string | null;
+}
+
+/**
+ * Marca hecha, cancela, pospone o corrige una tarea. Con varios negocios,
+ * `tenant` es el de la tarea (no la empresa activa). Falla con ApiError.
+ */
+export async function actualizarTarea(id: string, cambios: CambiosTarea, tenant?: string): Promise<TareaDto> {
+  const r = await api<{ tarea: TareaDto }>(`/tareas/${encodeURIComponent(id)}`, {
+    method: "PATCH", body: cambios, tenant,
+  });
+  return r.tarea;
 }

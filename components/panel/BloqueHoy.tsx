@@ -11,7 +11,7 @@ import { diaLima, horaLima } from "@/lib/agenda";
 import { reunionUnible, telefonoDe, urlAgenda } from "@/lib/enlaces";
 import {
   ATAJOS_POSPONER, agruparHoy, conTareaMovida, cuandoTarea, esperandoTexto, nombreDia, pospuesta,
-  sinTarea, tareaAtrasada, tipoTareaDe, type Atajo,
+  sinTarea, tareaAtrasada, tipoTareaDe, tituloTarea, type Atajo,
 } from "@/lib/crm";
 
 /**
@@ -64,7 +64,7 @@ export function BloqueHoy({
 
   function mostrarAviso(texto: string, esError = false) {
     setAviso({ texto, error: esError });
-    window.setTimeout(() => setAviso((a) => (a?.texto === texto ? null : a)), 3500);
+    setTimeout(() => setAviso((a) => (a?.texto === texto ? null : a)), 3500);
   }
 
   /**
@@ -79,7 +79,7 @@ export function BloqueHoy({
     guardarCache(clave, sinTarea(antes, t.id));
     try {
       await actualizarTarea(t.id, { estado: "hecha" }, t.tenantId);
-      mostrarAviso(`Listo ✓ ${tipoTareaDe(t.tipo).etiqueta} a ${t.lead.nombre ?? "este cliente"}`);
+      mostrarAviso(`Listo ✓ ${tituloTarea(t, t.lead.nombre)}`);
     } catch {
       guardarCache(clave, antes);
       mostrarAviso("No se pudo marcar como hecho. Intenta de nuevo.", true);

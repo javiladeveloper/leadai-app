@@ -319,7 +319,7 @@ export function InicioCaptacion() {
                           <span className="block truncate text-[0.88rem] font-semibold leading-tight text-tinta">
                             {l.nombre ?? l.contactoExterno}
                           </span>
-                          <span className="block text-[0.72rem] text-frio">{haceTexto(l.actualizadoEn)}</span>
+                          <span className="block text-[0.72rem] text-frio">{haceTexto(l.ultimoMensajeEn ?? l.creadoEn)}</span>
                         </span>
                         <span className="shrink-0 text-lg leading-none text-frio">›</span>
                       </LinkLead>

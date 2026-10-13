@@ -65,7 +65,9 @@ function aTarjeta(lead: LeadGlobal, conEtiqueta: boolean): TarjetaLeadProps {
     temperatura: lead.nivelInteres,
     urgente: lead.nivelInteres === "caliente" && lead.estado === "nuevo",
     resumenIA: lead.resumenIA ?? "Todavía no hay resumen de la IA para este lead.",
-    haceMinutos: minutosDesde(lead.actualizadoEn),
+    // Desde el último MENSAJE, no desde la última edición (`actualizadoEn` se
+    // mueve al cambiarle la etapa o la nota y el lead "acababa de escribir").
+    haceMinutos: minutosDesde(lead.ultimoMensajeEn ?? lead.creadoEn),
   };
 }
 

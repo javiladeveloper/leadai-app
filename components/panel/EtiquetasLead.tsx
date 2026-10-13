@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { ApiError, actualizarLead, etiquetaIA, type EtiquetasDelLead } from "@/lib/api";
 import { etiquetasDe } from "@/lib/crm-filtros";
 import { useEtiquetasDisponibles } from "@/lib/useFiltrosCrm";
-import { ChipEtiqueta } from "@/components/panel/ChipEtiqueta";
+import { ChipEtiqueta, vinoDeLaLista } from "@/components/panel/ChipEtiqueta";
 
 /** Las del vendedor: hasta 10, de hasta 20 letras (las mismas reglas del servidor). */
 const MAX_ETIQUETAS = 10;
@@ -104,7 +104,7 @@ export function EtiquetasLead({
               disabled={ocupada === "manuales"}
               onChange={(e) => {
                 const v = e.target.value;
-                if (sugeridas.some((s) => s.nombre === v)) agregar(v);
+                if (vinoDeLaLista(e) && sugeridas.some((s) => s.nombre.slice(0, LARGO_ETIQUETA) === v)) agregar(v);
                 else setNueva(v.slice(0, LARGO_ETIQUETA));
               }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); agregar(nueva); } }}

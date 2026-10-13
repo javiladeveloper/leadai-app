@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import type { EtiquetaUso, MiembroEquipo } from "@/lib/api";
 import { OPCIONES_FECHA, OPCIONES_ORDEN, alternarEtiqueta, type FiltrosCrm } from "@/lib/crm-filtros";
+import { vinoDeLaLista } from "@/components/panel/ChipEtiqueta";
 
 /**
  * LOS FILTROS DEL CRM, EN UN SOLO LUGAR (fase 2, 2026-10-13): etiqueta (con
@@ -70,7 +71,7 @@ export function BarraFiltrosCrm({
             onChange={(e) => {
               const v = e.target.value;
               // Elegida de la lista: se aplica sin esperar el Enter.
-              if (etiquetas.some((x) => x.nombre === v)) agregar(v);
+              if (vinoDeLaLista(e) && etiquetas.some((x) => x.nombre === v)) agregar(v);
               else setTexto(v.slice(0, 40));
             }}
             onKeyDown={(e) => {

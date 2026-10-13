@@ -61,6 +61,16 @@ export function ChipEtiqueta({
   return <span title={titulo} className={clases}>{contenido}</span>;
 }
 
+/**
+ * ¿El texto del campo llegó ELIGIENDO una opción del autocompletar (no
+ * tecleando)? Así se aplica la etiqueta al elegirla sin esperar el Enter,
+ * pero escribir "VIP" camino a "VIP Lima" no la agrega a medio escribir.
+ */
+export function vinoDeLaLista(e: React.ChangeEvent<HTMLInputElement>): boolean {
+  const tipo = (e.nativeEvent as InputEvent).inputType;
+  return !tipo || tipo === "insertReplacementText";
+}
+
 /** Varias etiquetas en fila: hasta `max` a la vista y "+N" con el resto. */
 export function ListaEtiquetas({
   etiquetas, hrefDe, onElegir, activas = [], max = 4, chico = false,

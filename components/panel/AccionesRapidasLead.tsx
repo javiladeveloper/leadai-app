@@ -14,6 +14,7 @@ import { telefonoDe } from "@/lib/enlaces";
 import { useDatos } from "@/lib/useDatos";
 import { AgendarReunion } from "@/components/agenda/AgendarReunion";
 import { ProximoPaso } from "@/components/panel/ProximoPaso";
+import { vinoDeLaLista } from "@/components/panel/ChipEtiqueta";
 
 type LeadFila = Lead & { tenantId?: string; negocioNombre?: string };
 type Vista = "menu" | "etapa" | "asignar" | "etiqueta";
@@ -53,6 +54,7 @@ export function AccionesRapidasLead({
   const miUsuarioId = leerSesion()?.usuario?.id ?? null;
   const idLista = useId();
   const boton = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
 
   const [vista, setVista] = useState<Vista | null>(null);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
@@ -101,7 +103,8 @@ export function AccionesRapidasLead({
   useEffect(() => {
     if (!vista) return;
     const alTeclado = (e: KeyboardEvent) => { if (e.key === "Escape") cerrar(); };
-    const alScroll = () => cerrar();
+    // El scroll DENTRO del menú (lista larga de etapas o del equipo) no lo cierra.
+    const alScroll = (e: Event) => { if (!panel.current?.contains(e.target as Node)) cerrar(); };
     window.addEventListener("keydown", alTeclado);
     window.addEventListener("scroll", alScroll, true);
     return () => {
@@ -166,6 +169,7 @@ export function AccionesRapidasLead({
     <>
       <div className="fixed inset-0 z-40" onClick={cerrar} aria-hidden />
       <div
+        ref={panel}
         role="menu"
         aria-label={`Acciones para ${lead.nombre ?? lead.contactoExterno}`}
         style={{ top: pos.top, bottom: pos.bottom, right: pos.right }}
@@ -269,7 +273,7 @@ export function AccionesRapidasLead({
                   disabled={ocupado}
                   onChange={(e) => {
                     const v = e.target.value;
-                    if ((etiquetasUso ?? []).some((x) => x.nombre === v)) agregarEtiqueta(v);
+                    if (vinoDeLaLista(e) && (etiquetasUso ?? []).some((x) => x.nombre.slice(0, LARGO_ETIQUETA) === v)) agregarEtiqueta(v);
                     else setEtiquetaNueva(v.slice(0, LARGO_ETIQUETA));
                   }}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); agregarEtiqueta(etiquetaNueva); } }}

@@ -122,9 +122,13 @@ export function urlAgenda(f: FiltrosAgenda = {}): string {
   return `/agenda${query({ fecha: f.fecha, cita: f.cita, vista: f.vista, atiende: f.atiende, quien: f.quien })}`;
 }
 
-/** Seguimiento con una etapa (estado del motor) destacada. */
-export function urlSeguimiento(etapa?: string): string {
-  return `/seguimiento${query({ etapa })}`;
+/**
+ * Seguimiento con una etapa (estado del motor) destacada. Con varios
+ * negocios, `negocio` abre el tablero en ESE (2026-10-13): Reportes es de un
+ * negocio y el tablero arrancaba en "Todos", con números que no cuadraban.
+ */
+export function urlSeguimiento(etapa?: string, negocio?: string | null): string {
+  return `/seguimiento${query({ etapa, negocio: negocio ?? undefined })}`;
 }
 
 /** ¿Una reunión está por empezar (menos de 15 min) o en curso? Ahí se ofrece "Unirse". */

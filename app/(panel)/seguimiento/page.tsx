@@ -93,13 +93,15 @@ function SeguimientoInner() {
   const [negocios, setNegocios] = useState<NegocioBandeja[]>([]);
   const [filtroNegocio, setFiltroNegocio] = useState("");
   // Arranca en el predeterminado del dueño si fijó uno (2026-09-22); si no,
-  // en "Todos mis negocios" como siempre. Una sola vez.
+  // en "Todos mis negocios" como siempre. Una sola vez. Si el link trae
+  // `?negocio=` (Reportes de un negocio, 2026-10-13), manda ese.
   const filtroInicializado = useRef(false);
   useEffect(() => {
     if (filtroInicializado.current || negocios.length === 0) return;
     filtroInicializado.current = true;
-    setFiltroNegocio(filtroInicialDeBandeja(negocios, ""));
-  }, [negocios]);
+    const delLink = params.get("negocio");
+    setFiltroNegocio(delLink && negocios.some((n) => n.tenantId === delLink) ? delLink : filtroInicialDeBandeja(negocios, ""));
+  }, [negocios, params]);
   // Buscador del tablero: por nombre, contacto o resumen de la IA (cliente).
   const [busqueda, setBusqueda] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);

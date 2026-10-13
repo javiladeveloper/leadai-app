@@ -308,6 +308,8 @@ export function InicioCaptacion() {
                       <LinkLead
                         key={l.id}
                         id={l.id}
+                        // El negocio de Inicio viaja en el link (2026-10-13).
+                        tenant={tenant !== "-" ? tenant : null}
                         className="flex items-center gap-3 rounded-xl px-1 py-1 transition hover:bg-arena/50"
                         claseSinPermiso="flex items-center gap-3 rounded-xl px-1 py-1"
                       >

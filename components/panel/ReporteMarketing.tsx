@@ -6,7 +6,7 @@ import {
   descargarReporteMarketingExcel, reporteMarketing, type AnuncioReporte, type GrupoReporte, type LeadReporte,
   type ReporteMarketing as Reporte,
 } from "@/lib/api";
-import { puedeAbrirConversacion } from "@/lib/auth";
+import { leerEmpresaActiva, puedeAbrirConversacion } from "@/lib/auth";
 import { LinkLead } from "@/components/LinkLead";
 import { AccionesContacto } from "@/components/AccionesContacto";
 import { urlGestionarAnuncio } from "@/lib/enlaces";
@@ -120,13 +120,16 @@ export function ReporteMarketing({ tenant }: { tenant?: string } = {}) {
           <div className="h-64 animate-pulse rounded-tarjeta bg-arena-2/70" />
         </div>
       ) : (
-        <Contenido r={r} recargar={reintentar} tenant={tenant} />
+        // Los links a la ficha llevan SIEMPRE el negocio del reporte
+        // (2026-10-13): sin él, con varios negocios, abrían el lead en el
+        // negocio activo de OTRA pestaña y decía "No encontramos esta conversación".
+        <Contenido r={r} recargar={reintentar} tenant={tenant} negocio={tenant || leerEmpresaActiva() || undefined} />
       )}
     </div>
   );
 }
 
-function Contenido({ r, recargar, tenant }: { r: Reporte; recargar: () => void; tenant?: string }) {
+function Contenido({ r, recargar, tenant, negocio }: { r: Reporte; recargar: () => void; tenant?: string; negocio?: string }) {
   const t = r.totales;
   const porId = useMemo(() => new Map(r.leads.map((l) => [l.id, l])), [r.leads]);
   const ciudades = r.porCiudad.filter((c) => c.clave !== "Sin dato");
@@ -178,7 +181,7 @@ function Contenido({ r, recargar, tenant }: { r: Reporte; recargar: () => void; 
 
       {r.atencion && <TarjetaAtencion a={r.atencion} />}
 
-      <TablaAnuncios anuncios={r.anuncios} porId={porId} />
+      <TablaAnuncios anuncios={r.anuncios} porId={porId} negocio={negocio} />
 
       <FrenosYTemas objeciones={r.objeciones ?? []} temas={r.temas ?? []} total={t.leads} />
 
@@ -193,7 +196,7 @@ function Contenido({ r, recargar, tenant }: { r: Reporte; recargar: () => void; 
 
       <MetasYAvisos metas={r.metas ?? {}} semanal={r.reporteSemanalActivo ?? false} recargar={recargar} tenant={tenant} />
 
-      <TablaLeads leads={r.leads} dias={r.periodo.dias} tenant={tenant} />
+      <TablaLeads leads={r.leads} dias={r.periodo.dias} tenant={tenant} negocio={negocio} />
 
       <p className="text-[0.76rem] leading-relaxed text-frio">
         El costo por lead es el gasto del anuncio en el período repartido entre los leads que trajo en ese mismo
@@ -261,7 +264,7 @@ function EscaleraCosto({ r }: { r: Reporte }) {
 }
 
 /** Anuncios con campaña, conjunto y fechas; al tocarlos, sus leads. */
-function TablaAnuncios({ anuncios, porId }: { anuncios: AnuncioReporte[]; porId: Map<string, LeadReporte> }) {
+function TablaAnuncios({ anuncios, porId, negocio }: { anuncios: AnuncioReporte[]; porId: Map<string, LeadReporte>; negocio?: string }) {
   const [abierto, setAbierto] = useState<string | null>(null);
   if (anuncios.length === 0) {
     return (
@@ -348,7 +351,7 @@ function TablaAnuncios({ anuncios, porId }: { anuncios: AnuncioReporte[]; porId:
                   {abre && (
                     <tr className="border-b border-linea/60 bg-arena/25">
                       <td colSpan={9} className="px-5 py-3">
-                        <DetalleAnuncio a={a} leads={a.leadIds.map((id) => porId.get(id)).filter((l): l is LeadReporte => !!l)} />
+                        <DetalleAnuncio a={a} negocio={negocio} leads={a.leadIds.map((id) => porId.get(id)).filter((l): l is LeadReporte => !!l)} />
                       </td>
                     </tr>
                   )}
@@ -362,7 +365,7 @@ function TablaAnuncios({ anuncios, porId }: { anuncios: AnuncioReporte[]; porId:
   );
 }
 
-function DetalleAnuncio({ a, leads }: { a: AnuncioReporte; leads: LeadReporte[] }) {
+function DetalleAnuncio({ a, leads, negocio }: { a: AnuncioReporte; leads: LeadReporte[]; negocio?: string }) {
   const ctr = a.impresiones > 0 ? ((a.clics / a.impresiones) * 100).toFixed(2) : null;
   return (
     <div className="space-y-3">
@@ -399,14 +402,14 @@ function DetalleAnuncio({ a, leads }: { a: AnuncioReporte; leads: LeadReporte[] 
         <p className="text-[0.84rem] text-frio">Este anuncio gastó pero no trajo leads en el período.</p>
       ) : (
         <ul className="grid gap-2 md:grid-cols-2">
-          {leads.map((l) => <MiniLead key={l.id} l={l} />)}
+          {leads.map((l) => <MiniLead key={l.id} l={l} negocio={negocio} />)}
         </ul>
       )}
     </div>
   );
 }
 
-function MiniLead({ l }: { l: LeadReporte }) {
+function MiniLead({ l, negocio }: { l: LeadReporte; negocio?: string }) {
   const n = NIVEL[l.nivel] ?? NIVEL.frio;
   const cuerpo = (
     <>
@@ -426,7 +429,7 @@ function MiniLead({ l }: { l: LeadReporte }) {
   const clase = "block rounded-lg bg-carta px-3 py-2 ring-1 ring-linea";
   return (
     <li>
-      <LinkLead id={l.id} className={`${clase} transition hover:ring-brasa/50`} claseSinPermiso={clase}>{cuerpo}</LinkLead>
+      <LinkLead id={l.id} tenant={negocio} className={`${clase} transition hover:ring-brasa/50`} claseSinPermiso={clase}>{cuerpo}</LinkLead>
     </li>
   );
 }
@@ -497,7 +500,7 @@ type FiltroOrigen = "todos" | "anuncios" | "directo";
 type FiltroCalidad = "todos" | "interesados" | "demo" | "pagaron" | "sin_respuesta";
 
 /** Cada lead, uno por fila: el caso concreto detrás de cada número. */
-function TablaLeads({ leads, dias, tenant }: { leads: LeadReporte[]; dias: number; tenant?: string }) {
+function TablaLeads({ leads, dias, tenant, negocio }: { leads: LeadReporte[]; dias: number; tenant?: string; negocio?: string }) {
   const [origen, setOrigen] = useState<FiltroOrigen>("todos");
   const [calidad, setCalidad] = useState<FiltroCalidad>("todos");
   const [q, setQ] = useState("");
@@ -577,7 +580,7 @@ function TablaLeads({ leads, dias, tenant }: { leads: LeadReporte[]; dias: numbe
                 return (
                   <tr key={l.id} className="border-b border-linea/60 align-top last:border-0">
                     <th scope="row" className="px-5 py-3 text-left font-normal">
-                      <LinkLead id={l.id} tenant={tenant} className="font-semibold text-tinta hover:text-brasa-texto" claseSinPermiso="font-semibold text-tinta">
+                      <LinkLead id={l.id} tenant={negocio} className="font-semibold text-tinta hover:text-brasa-texto" claseSinPermiso="font-semibold text-tinta">
                         {l.nombre?.trim() || "Sin nombre"}
                       </LinkLead>
                       <span className="mt-0.5 block text-[0.72rem] text-frio">{fechaHora(l.creadoEn)}</span>

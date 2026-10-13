@@ -520,8 +520,10 @@ export interface Comision {
   monto: number;
   leadId: string;
   creadoEn: string;
-  // El backend incluye el lead (nombre para mostrar en Reportes).
-  lead?: { id: string; nombre: string | null; canalOrigen?: string };
+  // El backend incluye el lead (nombre para mostrar en Reportes). El
+  // contacto, para cuando no hay nombre (el backend aún no lo manda: sin él,
+  // queda "Sin nombre").
+  lead?: { id: string; nombre: string | null; canalOrigen?: string; contactoExterno?: string | null };
 }
 
 // Marca una comisión como cobrada (o cambia su estado). Backend: PATCH /comisiones/:id.

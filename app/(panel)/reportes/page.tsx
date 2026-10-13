@@ -203,7 +203,7 @@ function ReportesPanel() {
                   const total = rep.embudo[0].quedan || 1;
                   const ancho = Math.max(2, Math.round((e.quedan / total) * 100));
                   return (
-                    <Link key={e.etapa} href={urlSeguimiento(ETAPA_DEL_ESCALON[e.etapa])} className="block rounded-lg transition hover:bg-arena/40">
+                    <Link key={e.etapa} href={urlSeguimiento(ETAPA_DEL_ESCALON[e.etapa], negocioDeReportes())} className="block rounded-lg transition hover:bg-arena/40">
                       <div className="mb-1 flex items-baseline justify-between gap-2">
                         <span className="text-[0.9rem] font-medium text-tinta">{e.titulo}</span>
                         <span className="text-[0.9rem] font-bold tabular-nums text-tinta">{e.quedan} ›</span>
@@ -369,9 +369,11 @@ function ReportesPanel() {
                     {comisiones.map((c) => (
                       <tr key={c.id} className="border-b border-arena last:border-b-0">
                         <td className="px-6 py-3.5 text-[0.95rem] font-semibold text-tinta">
-                          {/* El nombre abre la ficha del lead (2026-10-09). */}
-                          <LinkLead id={c.leadId} className="hover:text-brasa-texto hover:underline">
-                            {c.lead?.nombre?.trim() || "Sin nombre"}
+                          {/* El nombre abre la ficha del lead (2026-10-09), en
+                              el negocio de estas comisiones (2026-10-13). Sin
+                              nombre, el teléfono: "Sin nombre" no dice quién es. */}
+                          <LinkLead id={c.leadId} tenant={leerEmpresaActiva()} className="hover:text-brasa-texto hover:underline">
+                            {c.lead?.nombre?.trim() || c.lead?.contactoExterno || "Sin nombre"}
                           </LinkLead>
                         </td>
                         <td className="px-6 py-3.5 text-right text-[0.95rem] font-bold text-tinta">{soles(c.monto)}</td>

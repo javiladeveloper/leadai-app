@@ -320,6 +320,19 @@ function ContenidoCampanias(
 
   useEffect(() => { if (listo && g.listaLista) cargar(); }, [listo, g.listaLista, cargar]);
 
+  /**
+   * LA CAMPAÑA QUE SE VINO A VER (2026-10-13): el historial de un lead
+   * enlaza a "la campaña que le llegó" con `?campania=<id>`. Se marca y se
+   * lleva a la vista; si es de otro negocio, simplemente no se marca nada.
+   */
+  const [destacada] = useState(() =>
+    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("campania"),
+  );
+  useEffect(() => {
+    if (estado !== "ok" || !destacada) return;
+    document.getElementById(`campania-${destacada}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [estado, destacada]);
+
   async function cambiarEstadoCampania(id: string, reanudar: boolean) {
     if (cambiandoCampania) return;
     setCambiandoCampania(id);
@@ -755,7 +768,11 @@ function ContenidoCampanias(
                 const et = ESTADO_CAMPANIA[c.estado] ?? ESTADO_CAMPANIA.enviando;
                 const progreso = c.totalDestinatarios > 0 ? Math.round(((c.enviados + c.fallidos) / c.totalDestinatarios) * 100) : 0;
                 return (
-                  <article key={c.id} className="rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
+                  <article
+                    key={c.id}
+                    id={`campania-${c.id}`}
+                    className={`rounded-tarjeta bg-carta p-4 shadow-[var(--sombra-tarjeta)] ${c.id === destacada ? "ring-2 ring-brasa" : "ring-1 ring-linea"}`}
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-bold text-tinta">📨 {c.nombre}</p>
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-bold ${et.clase}`}>{et.texto}</span>

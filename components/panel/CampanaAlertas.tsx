@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  obtenerAlertas, obtenerResumen, paginaLeadsFiltrada, paginaBandejaGlobalFiltrada, negociosGlobal,
-  type Alerta, type Lead, type Resumen,
+  obtenerAlertas, obtenerResumen, paginaLeadsFiltrada, paginaBandejaGlobalFiltrada, negociosGlobal, obtenerHoy, claveHoy,
+  type Alerta, type Lead, type Resumen, type TareaHoy,
 } from "@/lib/api";
-import { tieneVariosNegocios } from "@/lib/auth";
+import { EMPRESA_GLOBAL, leerEmpresaActiva, tieneVariosNegocios } from "@/lib/auth";
+import { pedir } from "@/lib/cache-datos";
+import { cuandoTarea, tareasAtrasadas, tituloTarea } from "@/lib/crm";
 import { useAbrirLead } from "@/components/LinkLead";
 import {
   esCalienteSinAtender, urlCalientesSinAtender, URL_MI_PLAN, TEXTO_MEJORAR_PLAN,
@@ -25,6 +27,8 @@ type LeadCampana = Lead & { tenantId?: string };
 //  2) avisos de saldo del backend (/alertas): cuota por agotarse o, lo más
 //     crítico, "sin saldo → el bot se pausó". Ese aviso es lo más importante:
 //     si no, Guisella no se entera de que su bot dejó de responder.
+// Suma (2026-10-13) los pasos atrasados del CRM (de /hoy): cada uno abre la
+// ficha de su lead.
 // Se refresca sola cada 30s. Al tocarla abre un panel con los avisos.
 export function CampanaAlertas() {
   const router = useRouter();
@@ -41,6 +45,13 @@ export function CampanaAlertas() {
   // dentro de la hora, la campana la avisa con "Unirse" y "Ver cita". Con
   // varios negocios, la más cercana de todos.
   const [reunion, setReunion] = useState<Reunion | null>(null);
+  /**
+   * LOS PASOS ATRASADOS (CRM fase 1, 2026-10-13): lo que la vendedora
+   * prometió hacer y ya se pasó. Salen de `/hoy` —la misma clave de caché
+   * que Inicio—, a lo sumo una vez cada 2 minutos aunque la campana mire
+   * cada 30 s. Sin `/hoy` en el backend la lista queda vacía.
+   */
+  const [atrasadas, setAtrasadas] = useState<TareaHoy[]>([]);
   const [ahora, setAhora] = useState(() => Date.now());
   const [abierto, setAbierto] = useState(false);
   const [agita, setAgita] = useState(false);
@@ -88,6 +99,12 @@ export function CampanaAlertas() {
       traerAlertas.then((a) => {
         if (vivo) setAlertas(a);
       });
+      // Con varios negocios, los de todos; con uno, el del negocio activo.
+      const activa = leerEmpresaActiva();
+      const tenantHoy = varios || !activa || activa === EMPRESA_GLOBAL ? undefined : activa;
+      pedir(claveHoy(tenantHoy), () => obtenerHoy(tenantHoy), { maxEdadMs: 120_000 })
+        .then((h) => { if (vivo) setAtrasadas(tareasAtrasadas(h)); })
+        .catch(() => undefined);
     };
     cargar();
     const id = setInterval(cargar, 30_000);
@@ -116,7 +133,7 @@ export function CampanaAlertas() {
   const reunionCerca = reunion && reunionEnLaProximaHora(reunion, new Date(ahora)) ? reunion : null;
   // Cada aviso con su link suma: calientes, el tope de clientes, la cuota por
   // agotarse y la reunión que viene.
-  const totalAvisos = calientes + (bloqueo ? 1 : 0) + (umbral ? 1 : 0) + (reunionCerca ? 1 : 0);
+  const totalAvisos = calientes + atrasadas.length + (bloqueo ? 1 : 0) + (umbral ? 1 : 0) + (reunionCerca ? 1 : 0);
   const hay = totalAvisos > 0;
 
   return (
@@ -214,6 +231,42 @@ export function CampanaAlertas() {
                     Ver cita
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Pasos atrasados (2026-10-13): cada uno abre la ficha de su
+                lead, en su negocio. Cinco a la vista; el resto, en Inicio. */}
+            {atrasadas.length > 0 && (
+              <div className="border-b border-linea pb-1">
+                <p className="px-4 pt-3 pb-1 text-[0.78rem] font-bold text-alerta">
+                  ⏰ {atrasadas.length} {atrasadas.length === 1 ? "paso atrasado" : "pasos atrasados"}
+                </p>
+                {atrasadas.slice(0, 5).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setAbierto(false);
+                      abrirLead(t.leadId, t.tenantId);
+                    }}
+                    className="flex min-h-0 w-full flex-col gap-0.5 px-4 py-2 text-left transition hover:bg-arena/50"
+                  >
+                    <span className="text-[0.88rem] font-semibold text-tinta">{tituloTarea(t, t.lead.nombre)}</span>
+                    <span className="text-[0.76rem] text-frio">
+                      {cuandoTarea(t, new Date(ahora))}
+                      {tieneVariosNegocios() && t.lead.negocio ? ` · ${t.lead.negocio}` : ""}
+                    </span>
+                  </button>
+                ))}
+                {atrasadas.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => { setAbierto(false); router.push("/inicio"); }}
+                    className="w-full px-4 py-2 text-left text-[0.8rem] font-semibold text-brasa-texto transition hover:bg-arena/50"
+                  >
+                    Ver los {atrasadas.length} en Inicio →
+                  </button>
+                )}
               </div>
             )}
 

@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { haySesion, esModoGlobal, filtroInicialDeBandeja, leerEmpresaActiva, puedeAbrirConversacion } from "@/lib/auth";
+import { haySesion, esModoGlobal, filtroInicialDeBandeja, leerEmpresaActiva, leerSesion, puedeAbrirConversacion } from "@/lib/auth";
 import {
   paginaLeadsFiltrada,
   paginaBandejaGlobalFiltrada,
@@ -11,16 +11,23 @@ import {
   tieneCanalActivo,
   accionLead,
   obtenerEtapas,
+  obtenerEquipo,
   type Lead,
 } from "@/lib/api";
-import { ETAPAS_DEFAULT, MOTORES_CERRADOS, PUNTO_ETAPA, etapaVisibleDe, type EtapaEmbudo } from "@/lib/etapas";
+import { ETAPAS_DEFAULT, MOTORES_CERRADOS, PUNTO_ETAPA, type EtapaEmbudo } from "@/lib/etapas";
+import {
+  accionParaEtapa, agruparPorColumna, coincideBusquedaAmplia, diasSinContacto, esperandoDeFila, etiquetasDe,
+  textoProximaReunion, textoProximoPaso, textoSinContacto,
+} from "@/lib/crm-filtros";
+import { ListaEtiquetas } from "@/components/panel/ChipEtiqueta";
+import { urlLeads } from "@/lib/enlaces";
 import { CierreLead } from "@/components/panel/CierreLead";
 import { useAbrirLead } from "@/components/LinkLead";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
 import { useDatos } from "@/lib/useDatos";
 import { guardarCache, leerCache } from "@/lib/cache-datos";
-import { URL_CONECTAR_CANALES, coincideBusqueda } from "@/lib/enlaces";
+import { URL_CONECTAR_CANALES } from "@/lib/enlaces";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BadgeCanal } from "@/components/BadgeCanal";
 import { OrigenLead } from "@/components/panel/OrigenLead";
@@ -227,28 +234,40 @@ function SeguimientoInner() {
     cargar();
   }, [listo, cargar]);
 
-  // Agrupa los leads por etapa y, dentro de cada una, ordena por temperatura:
-  // los calientes arriba (lo más urgente), luego tibios, luego fríos.
-  const porEtapa = useMemo(() => {
-    const ORDEN_NIVEL: Record<Lead["nivelInteres"], number> = { caliente: 0, tibio: 1, frio: 2 };
-    const mapa = new Map<string, LeadTablero[]>();
-    for (const et of etapas) mapa.set(et.id, []);
-    const q = busqueda.trim().toLowerCase();
+  // Agrupa los leads por etapa (lib/crm-filtros.ts, la MISMA regla que
+  // Conversaciones) y, dentro de cada una, los calientes arriba y, entre
+  // iguales, el que espera respuesta hace más. Cada columna trae su total y
+  // cuántos esperan.
+  const columnas = useMemo(() => {
     const visibles = leads
       .filter((l) => !filtroNegocio || l.tenantId === filtroNegocio)
-      .filter(
-        (l) =>
-          !q ||
-          // Nombre y teléfono normalizados: "987 654" encuentra "51987654321".
-          coincideBusqueda(l, busqueda) ||
-          (l.resumenIA ?? "").toLowerCase().includes(q),
-      );
-    for (const l of visibles) mapa.get(etapaVisibleDe(l, etapas).id)?.push(l);
-    for (const lista of mapa.values()) {
-      lista.sort((a, b) => ORDEN_NIVEL[a.nivelInteres] - ORDEN_NIVEL[b.nivelInteres]);
-    }
-    return mapa;
+      // Nombre, teléfono ("987 654" encuentra "51987654321"), etiquetas, nota,
+      // clínica, correo y lo que entendió la IA, sin tildes.
+      .filter((l) => !busqueda.trim() || coincideBusquedaAmplia(l, busqueda));
+    return new Map(agruparPorColumna(visibles, etapas).map((c) => [c.etapa.id, c]));
   }, [leads, filtroNegocio, busqueda, etapas]);
+
+  // QUIÉN TIENE CADA LEAD (CRM fase 2): los equipos de los negocios que se
+  // miran, una sola vez (caché compartida). Sin equipo, la tarjeta no lo dice.
+  const miUsuarioId = leerSesion()?.usuario?.id ?? null;
+  const tenantsEquipo = esModoGlobal()
+    ? (filtroNegocio ? [filtroNegocio] : negocios.map((n) => n.tenantId)).slice(0, 8)
+    : [leerEmpresaActiva() || "-"];
+  const { datos: nombresEquipo } = useDatos(
+    listo && tenantsEquipo.length ? `equipos@${tenantsEquipo.join(",")}` : null,
+    async () => {
+      const equipos = await Promise.all(tenantsEquipo.map((t) => obtenerEquipo(esModoGlobal() ? t : undefined)));
+      const mapa: Record<string, string> = {};
+      for (const e of equipos) for (const m of e.miembros) mapa[m.usuarioId] = m.nombre ?? m.email;
+      return mapa;
+    },
+    { maxEdadMs: 5 * 60_000 },
+  );
+  function nombreDe(usuarioId: string | null | undefined): string | null {
+    if (!usuarioId) return null;
+    if (usuarioId === miUsuarioId) return "Tú";
+    return nombresEquipo?.[usuarioId] ?? null;
+  }
 
   // CierreLead (tarjeta o popup) ya hizo la acción: acá solo se mueve la
   // tarjeta. La etapa propia se suelta: manda el estado nuevo.
@@ -271,14 +290,7 @@ function SeguimientoInner() {
     setLeads((prev) => prev.map((l) => (l.id === lead.id
       ? { ...l, estado: et.motor, etapaEmbudo: etapasPropias ? et.id : null }
       : l)));
-    const accion = etapasPropias
-      ? { tipo: "mover_etapa" as const, etapaId: et.id }
-      : et.motor === "ganado"
-        ? { tipo: "marcar_ganado" as const }
-        : et.motor === "perdido"
-          ? { tipo: "descartar" as const }
-          : { tipo: "mover_etapa" as const, etapa: et.motor as "nuevo" | "nutriendo" | "escalado" };
-    const r = await accionLead(lead.id, accion, lead.tenantId);
+    const r = await accionLead(lead.id, accionParaEtapa(et, etapasPropias), lead.tenantId);
     setOcupado(null);
     if (!r.ok) cargar();
   }
@@ -386,7 +398,8 @@ function SeguimientoInner() {
         // escritorio van en fila con scroll horizontal, cada una de ancho fijo.
         <div className="grid gap-4 md:grid-cols-2 xl:flex xl:overflow-x-auto xl:pb-2">
           {etapas.map((et) => {
-            const items = porEtapa.get(et.id) ?? [];
+            const columna = columnas.get(et.id);
+            const items = columna?.leads ?? [];
             const cerrable = !MOTORES_CERRADOS.has(et.motor);
             const visible = visiblePorEtapa[et.id] ?? PAGINA_ETAPA;
             const mostrados = items.slice(0, visible);
@@ -403,10 +416,16 @@ function SeguimientoInner() {
                 <div className="flex items-center gap-2 px-1 pb-3">
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${PUNTO_ETAPA[et.color]}`} />
                   <h2 className="truncate text-[0.95rem] font-bold text-tinta">{et.nombre}</h2>
-                  <span className="ml-auto rounded-full bg-arena px-2 py-0.5 text-xs font-bold tabular-nums text-tinta-2">
+                  <span className="ml-auto rounded-full bg-arena px-2 py-0.5 text-xs font-bold tabular-nums text-tinta-2" title={`${items.length} en total`}>
                     {items.length}
                   </span>
                 </div>
+                {/* Cuántos de la columna escribieron y esperan respuesta (CRM fase 2). */}
+                {(columna?.esperando ?? 0) > 0 && (
+                  <p className="-mt-2 px-1 pb-2 text-[0.72rem] font-semibold text-calor">
+                    {columna!.esperando} {columna!.esperando === 1 ? "espera" : "esperan"} respuesta
+                  </p>
+                )}
 
                 {/* Columna con altura máxima y scroll interno: nunca crece
                     infinito por más leads que tenga la etapa. */}
@@ -449,6 +468,23 @@ function SeguimientoInner() {
                           <p className="mt-1.5 line-clamp-2 text-[0.82rem] text-tinta-2">
                             {lead.resumenIA}
                           </p>
+                        )}
+
+                        {/* EL ESTADO DE LA VENTA DE UN VISTAZO (CRM fase 2):
+                            si espera respuesta o cuántos días lleva sin
+                            contacto, la próxima reunión o paso y quién lo
+                            tiene. */}
+                        <TarjetaSeguimientoInfo lead={lead} asignado={nombreDe(lead.asignadoA)} />
+
+                        {etiquetasDe(lead).length > 0 && (
+                          <div className="mt-2">
+                            <ListaEtiquetas
+                              etiquetas={etiquetasDe(lead)}
+                              hrefDe={(nombre) => urlLeads({ etiqueta: nombre, negocio: lead.tenantId ?? (filtroNegocio || null) })}
+                              max={3}
+                              chico
+                            />
+                          </div>
                         )}
 
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -553,6 +589,31 @@ function SeguimientoInner() {
           onCambio={(nuevo) => alCerrar(leadAbierto, nuevo)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Las líneas del CRM en una tarjeta del embudo: "Te escribió hace 2 h ·
+ * esperando" (o "5 días sin contacto"), la próxima reunión o el próximo paso
+ * y a quién está asignado. Lo que el backend todavía no manda no aparece.
+ */
+function TarjetaSeguimientoInfo({ lead, asignado }: { lead: Lead; asignado: string | null }) {
+  const ahora = new Date();
+  const esperando = esperandoDeFila(lead, ahora);
+  const dias = diasSinContacto(lead, ahora);
+  const reunion = textoProximaReunion(lead.proximaCitaEn, ahora);
+  const paso = textoProximoPaso(lead.proximaTareaEn, ahora);
+  return (
+    <div className="mt-2 flex flex-col gap-0.5 text-[0.74rem]">
+      {esperando ? (
+        <span className={`font-semibold ${esperando.urgente ? "text-calor" : "text-brasa-texto"}`}>{esperando.texto}</span>
+      ) : (
+        <span className={dias >= 7 ? "font-semibold text-alerta" : "text-frio"}>{textoSinContacto(dias)}</span>
+      )}
+      {reunion && <span className="font-semibold text-tinta-2">📅 {reunion}</span>}
+      {paso && <span className={paso.atrasado ? "font-semibold text-alerta" : "text-frio"}>🗓️ {paso.texto}</span>}
+      {asignado && <span className="text-frio">👤 {asignado}</span>}
     </div>
   );
 }

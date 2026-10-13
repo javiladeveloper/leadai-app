@@ -13,6 +13,7 @@ import { colorDe } from "./colores";
 import { MarcaNota, ResultadoLlamada } from "./ResultadoLlamada";
 import { AgendarOtra } from "./AgendarOtra";
 import { AccionesContacto } from "@/components/AccionesContacto";
+import { LinkLead } from "@/components/LinkLead";
 
 const chip =
   "inline-flex min-h-10! items-center rounded-chip bg-arena px-3 py-1.5 text-[0.8rem] font-semibold text-tinta-2 ring-1 ring-linea transition hover:bg-linea focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa";
@@ -53,7 +54,16 @@ export function TarjetaCita({
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className={`min-w-0 break-words font-semibold text-tinta ${cancelada ? "line-through" : ""}`}>
           <MarcaNota cita={c} className="mr-1.5" />
-          <IconoTipo cita={c} /> {horaLima(c.inicio)}–{horaLima(c.fin)} · {c.cliente || "Cliente"}
+          <IconoTipo cita={c} /> {horaLima(c.inicio)}–{horaLima(c.fin)} ·{" "}
+          {/* El nombre abre su ficha, en SU negocio (2026-10-13). */}
+          <LinkLead
+            id={c.leadId}
+            tenant={c.tenantId}
+            titulo="Abrir su ficha"
+            className="underline-offset-2 hover:text-brasa-texto hover:underline focus-visible:outline-2 focus-visible:outline-brasa"
+          >
+            {c.cliente || "Cliente"}
+          </LinkLead>
         </p>
         <span className="inline-flex items-center gap-1.5 text-[0.75rem] text-frio">
           <span className={`h-2 w-2 shrink-0 rounded-full ${color.punto}`} aria-hidden />

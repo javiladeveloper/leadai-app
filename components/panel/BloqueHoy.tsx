@@ -79,7 +79,6 @@ export function BloqueHoy({
     guardarCache(clave, sinTarea(antes, t.id));
     try {
       await actualizarTarea(t.id, { estado: "hecha" }, t.tenantId);
-      invalidar(`historial:${t.leadId}@`);
       mostrarAviso(`Listo ✓ ${tipoTareaDe(t.tipo).etiqueta} a ${t.lead.nombre ?? "este cliente"}`);
     } catch {
       guardarCache(clave, antes);
@@ -98,7 +97,6 @@ export function BloqueHoy({
     guardarCache(clave, conTareaMovida(antes, { id: t.id, ...nueva }));
     try {
       await actualizarTarea(t.id, nueva, t.tenantId);
-      invalidar(`historial:${t.leadId}@`);
       mostrarAviso(`Lo pasamos para ${nombreDia(diaLima(nueva.venceEn))}.`);
     } catch {
       guardarCache(clave, antes);

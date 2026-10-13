@@ -4,6 +4,8 @@ import { OrigenLead } from "@/components/panel/OrigenLead";
 import { VentaLead } from "@/components/panel/VentaLead";
 import { CierreLead } from "@/components/panel/CierreLead";
 import { NotaLead } from "@/components/panel/NotaLead";
+import { ProximoPaso } from "@/components/panel/ProximoPaso";
+import { HistorialLead } from "@/components/panel/HistorialLead";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -1337,6 +1339,20 @@ function ConversacionesInner() {
         </div>
       </div>
 
+      {/* PRÓXIMO PASO (CRM fase 1, 2026-10-13): qué toca con este cliente y
+          cuándo. Llega con el lead (`proximaTarea`); un backend que todavía
+          no lo manda (`undefined`) no pinta la tarjeta. */}
+      {leadAbierto.proximaTarea !== undefined && (
+        <ProximoPaso
+          key={leadAbierto.id}
+          leadId={leadAbierto.id}
+          tenant={tenantSel}
+          nombre={leadAbierto.nombre}
+          tarea={leadAbierto.proximaTarea}
+          onCambio={() => { if (seleccionadoId) void cargarLead(seleccionadoId, tenantSel); }}
+        />
+      )}
+
       {/* LA REUNIÓN DESDE EL LEAD (2026-10-09): la próxima, con "Unirse" y
           "Ver en agenda", y agendar una sin ir a la Agenda a buscarlo. */}
       <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
@@ -1489,6 +1505,17 @@ function ConversacionesInner() {
         nota={leadAbierto.nota}
         tenant={tenantSel}
         onGuardado={() => { if (seleccionadoId) void cargarLead(seleccionadoId, tenantSel); }}
+      />
+
+      {/* HISTORIAL + AGREGAR APUNTE (CRM fase 1, 2026-10-13): todo lo que
+          pasó con este cliente, con fecha y autor. Se oculta solo si el
+          backend todavía no tiene la ruta. */}
+      <HistorialLead
+        key={`historial-${leadAbierto.id}`}
+        leadId={leadAbierto.id}
+        tenant={tenantSel}
+        etapas={etapasFicha}
+        personas={miembros}
       />
 
       {/* LO QUE OFRECE EL NEGOCIO (estaba solo en la ficha vieja): para

@@ -472,6 +472,8 @@ export async function actualizarLead(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     await api(`/leads/${id}`, { method: "PATCH", body: cambios, tenant });
+    // La nota fijada y las etiquetas quedan en el historial (CRM, 2026-10-13).
+    invalidar(prefijoHistorial(id));
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
@@ -846,6 +848,9 @@ export async function enviarMediaLead(
   }
 }
 
+/** Las acciones que el servidor anota en el historial del lead (CRM, 2026-10-13). */
+const ACCIONES_CON_HISTORIAL = new Set(["mover_etapa", "asignar", "marcar_ganado", "descartar"]);
+
 export async function accionLead(
   id: string,
   accion: {
@@ -875,6 +880,7 @@ export async function accionLead(
       `/leads/${id}/acciones`,
       { method: "POST", body: accion, tenant },
     );
+    if (ACCIONES_CON_HISTORIAL.has(accion.tipo)) invalidar(prefijoHistorial(id));
     return { ok: true, borrador: r?.borrador, texto: r?.texto };
   } catch (e) {
     return {
@@ -3124,13 +3130,17 @@ export function crearPublicoConLeads(leadIds: string[], nombre: string, conSimil
 // `tenant` (2026-10-09): "Pagó" ahora está en el popup de Seguimiento, que
 // muestra leads de cualquier negocio; sin el negocio del lead, el PUT iba a la
 // empresa activa y respondía 404.
-export function marcarVentaLead(leadId: string, centavos: number | null, fecha?: string, tenant?: string) {
-  return api<{ ventaEn: string; ventaCentavos: number | null }>(`/leads/${encodeURIComponent(leadId)}/venta`, {
+export async function marcarVentaLead(leadId: string, centavos: number | null, fecha?: string, tenant?: string) {
+  const r = await api<{ ventaEn: string; ventaCentavos: number | null }>(`/leads/${encodeURIComponent(leadId)}/venta`, {
     method: "PUT", body: { centavos, ...(fecha ? { fecha } : {}) }, tenant,
   });
+  invalidar(prefijoHistorial(leadId));
+  return r;
 }
-export function quitarVentaLead(leadId: string, tenant?: string) {
-  return api<{ ok: true }>(`/leads/${encodeURIComponent(leadId)}/venta`, { method: "DELETE", tenant });
+export async function quitarVentaLead(leadId: string, tenant?: string) {
+  const r = await api<{ ok: true }>(`/leads/${encodeURIComponent(leadId)}/venta`, { method: "DELETE", tenant });
+  invalidar(prefijoHistorial(leadId));
+  return r;
 }
 
 export async function descargarReporteMarketingExcel(dias = 30, tenant?: string): Promise<boolean> {
@@ -3475,9 +3485,11 @@ export async function anotarResultadoCita(
   id: string,
   cambio: { resultado: ResultadoCita | null; nota: string | null },
 ): Promise<CitaAgenda> {
-  return (await api<{ cita: CitaAgenda }>(`/agenda/${encodeURIComponent(id)}/resultado`, {
+  const cita = (await api<{ cita: CitaAgenda }>(`/agenda/${encodeURIComponent(id)}/resultado`, {
     method: "PATCH", body: cambio, conEmpresa: false,
   })).cita;
+  if (cita?.leadId) invalidar(prefijoHistorial(cita.leadId));
+  return cita;
 }
 /**
  * Agenda a mano en MI Google Calendar (p. ej. al reagendar). 409 = choca o
@@ -3486,7 +3498,9 @@ export async function anotarResultadoCita(
 export async function agendarCita(c: {
   tenantId: string; leadId: string; inicio: string; invitarCliente: boolean; desdeCitaId?: string;
 }): Promise<CitaAgenda> {
-  return (await api<{ cita: CitaAgenda }>("/agenda/citas", { method: "POST", body: c, conEmpresa: false })).cita;
+  const cita = (await api<{ cita: CitaAgenda }>("/agenda/citas", { method: "POST", body: c, conEmpresa: false })).cita;
+  invalidar(prefijoHistorial(c.leadId));
+  return cita;
 }
 /** Un lead para anexar a una reunión nueva desde la Agenda (2026-10-08). */
 export interface LeadParaAgendar {
@@ -3698,6 +3712,18 @@ export async function obtenerHoy(tenantId?: string | null): Promise<Hoy | null> 
   }
 }
 
+/**
+ * La clave de caché del historial de un lead. Las escrituras que el servidor
+ * anota en el historial (etapa, nota fijada, pago, reunión…) invalidan por
+ * `prefijoHistorial`, sin saber en qué negocio se abrió la ficha.
+ */
+export function prefijoHistorial(leadId: string): string {
+  return `historial:${leadId}@`;
+}
+export function claveHistorial(leadId: string, tenant?: string | null): string {
+  return `${prefijoHistorial(leadId)}${tenant || "-"}`;
+}
+
 /** Una página del historial, de lo más nuevo a lo más viejo. `null` = sin historial en este backend. */
 export async function historialLead(
   leadId: string,
@@ -3761,8 +3787,9 @@ export async function crearTarea(leadId: string, tarea: NuevaTarea, tenant?: str
   const r = await api<{ tarea: TareaDto }>(`/leads/${encodeURIComponent(leadId)}/tareas`, {
     method: "POST", body: tarea, tenant,
   });
-  // "Hoy" y la campana cambian: lo guardado ya no es lo de ahora.
+  // "Hoy", la campana y el historial cambian: lo guardado ya no es lo de ahora.
   invalidar("hoy@");
+  invalidar(prefijoHistorial(leadId));
   return r.tarea;
 }
 
@@ -3782,5 +3809,8 @@ export async function actualizarTarea(id: string, cambios: CambiosTarea, tenant?
   const r = await api<{ tarea: TareaDto }>(`/tareas/${encodeURIComponent(id)}`, {
     method: "PATCH", body: cambios, tenant,
   });
+  // "Hoy" NO se invalida acá: quien lo pinta ya lo actualizó en la caché (se
+  // ve al instante) y pedirlo de nuevo sería una vuelta al servidor de más.
+  if (r.tarea?.leadId) invalidar(prefijoHistorial(r.tarea.leadId));
   return r.tarea;
 }

@@ -3,9 +3,14 @@
 import { useState } from "react";
 import { actualizarLead } from "@/lib/api";
 
-// Nombre editable + nota privada de un lead. La vendedora puede corregir el
+// Nombre editable + NOTA FIJADA de un lead. La vendedora puede corregir el
 // nombre (leads entran como "+51 9xx…") y dejar una nota que el cliente no ve.
 // `onGuardado` refresca el lead en la pantalla padre tras guardar.
+//
+// "NOTA FIJADA" (CRM fase 1, 2026-10-13): es la misma columna `Lead.nota` de
+// siempre, pero ahora es SOLO lo permanente ("quiere el plan de 3
+// doctores"). Lo que pasa día a día ("llamé, decide el lunes") va como
+// apunte al historial, con fecha y autor, y nunca pisa a otro.
 export function NotaLead({
   leadId, nombre, nota, onGuardado, tenant,
 }: {
@@ -45,7 +50,7 @@ export function NotaLead({
 
   return (
     <div className="rounded-tarjeta bg-carta p-3.5 ring-1 ring-linea">
-      <p className="mb-2 text-[0.78rem] font-bold uppercase tracking-wide text-frio">Nota y nombre</p>
+      <p className="mb-2 text-[0.78rem] font-bold uppercase tracking-wide text-frio">Nombre y nota fijada</p>
 
       {/* Nombre editable */}
       <div className="mb-3">
@@ -71,13 +76,14 @@ export function NotaLead({
         )}
       </div>
 
-      {/* Nota privada */}
-      <span className="mb-1 block text-[0.78rem] text-frio">Nota privada (el cliente no la ve)</span>
+      {/* Nota fijada */}
+      <span className="block text-[0.78rem] font-semibold text-tinta-2">📌 Nota fijada</span>
+      <span className="mb-1 block text-[0.74rem] text-frio">Lo que siempre hay que saber de este cliente. Él no la ve.</span>
       <textarea
         value={notaBorrador}
         onChange={(e) => setNotaBorrador(e.target.value)}
         rows={3}
-        placeholder="Ej: llamó el martes, pidió descuento. Volver a contactar el lunes."
+        placeholder="Ej: quiere el plan de 3 doctores; decide con su socia."
         className="w-full rounded-lg border border-linea bg-arena/30 px-3 py-2 text-sm text-tinta outline-none focus:border-brasa"
       />
       {notaCambiada && (
@@ -86,7 +92,7 @@ export function NotaLead({
           disabled={guardandoNota}
           className="mt-2 rounded-chip bg-brasa px-3 py-1.5 text-[0.8rem] font-semibold text-sobre-brasa transition hover:bg-brasa-hondo disabled:opacity-60"
         >
-          {guardandoNota ? "Guardando…" : "Guardar nota"}
+          {guardandoNota ? "Guardando…" : "Guardar nota fijada"}
         </button>
       )}
       {ok && <span className="ml-2 text-[0.8rem] font-semibold text-ok">Guardado ✓</span>}

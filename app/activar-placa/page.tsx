@@ -33,6 +33,7 @@ const WHATSAPP = "51986110558";
 const NOMBRE_MARCA: Record<string, string> = {
   sania: "Sania",
   fitcore: "FitCore",
+  wappido: "Wappido",
 };
 
 export default function ActivarPlaca() {
@@ -54,7 +55,7 @@ export default function ActivarPlaca() {
   const [activando, setActivando] = useState(false);
   const [error, setError] = useState("");
   const [reviewUrl, setReviewUrl] = useState("");
-  // La MARCA de la placa (leadai/sania/fitcore) decide qué producto invita la
+  // La MARCA de la placa (leadai/sania/fitcore/wappido) decide qué producto invita la
   // pantalla de éxito — publicidad en el momento de máxima atención.
   const [marca, setMarca] = useState<string | null>(null);
 
@@ -130,7 +131,11 @@ export default function ActivarPlaca() {
       ? { titulo: "¿Tu clínica todavía agenda a mano?", texto: "Sania agenda las citas, les confirma a tus pacientes y organiza tu día.", url: "https://www.saniape.com/?utm_source=placa&utm_medium=activacion", cta: "Conoce Sania" }
       : marca === "fitcore"
         ? { titulo: "¿Manejas un gimnasio?", texto: "FitCore controla socios, pagos y accesos en una sola pantalla.", url: "https://www.fitcorecenter.com/?utm_source=placa&utm_medium=activacion", cta: "Conoce FitCore" }
-        : { titulo: "¿Sabías que tu cuenta puede más?", texto: "LeadAI puede responder el WhatsApp de tu negocio con IA — ya tienes cuenta, solo actívalo.", url: "https://leadai-pe.com/?utm_source=placa&utm_medium=activacion", cta: "Descubre LeadAI" };
+        // Las placas de restaurantes se imprimen con la marca Wappido (2026-10-12):
+        // sin esta rama, la muestra de fábrica caía en la invitación genérica de LeadAI.
+        : marca === "wappido"
+          ? { titulo: "¿Tu restaurante recibe pedidos por WhatsApp?", texto: "Wappido toma los pedidos por ti, los manda a cocina y te avisa cuando hay que despachar.", url: "https://wappido.com/?utm_source=placa&utm_medium=activacion", cta: "Conoce Wappido" }
+          : { titulo: "¿Sabías que tu cuenta puede más?", texto: "LeadAI puede responder el WhatsApp de tu negocio con IA — ya tienes cuenta, solo actívalo.", url: "https://leadai-pe.com/?utm_source=placa&utm_medium=activacion", cta: "Descubre LeadAI" };
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-5 px-5 py-8">

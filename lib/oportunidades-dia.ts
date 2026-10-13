@@ -13,6 +13,11 @@ import { telefonoDe, urlAgenda, urlLead } from "./enlaces";
 
 export type TipoOportunidad = OportunidadDia["tipo"];
 
+/** AAAA-MM-DD en Lima (UTC-5, sin horario de verano): el día en que la Agenda abre la cita. */
+function diaEnLima(iso: string): string {
+  return new Date(new Date(iso).getTime() - 5 * 3_600_000).toISOString().slice(0, 10);
+}
+
 /** Los tipos que el servidor conoce: el único `motivo` que acepta para sugerir un mensaje. */
 export const TIPOS_OPORTUNIDAD: TipoOportunidad[] = [
   "no_show", "caliente_callado", "ventana_24h", "promesa", "precio_sin_respuesta", "reunion_sin_resultado", "registrado",
@@ -55,7 +60,7 @@ export type AccionOportunidad =
  *  · agendar   → el modal de agendar;
  *  · resultado → la Agenda en esa cita (sin cita, la ficha).
  */
-export function accionDeOportunidad(o: Pick<OportunidadDia, "tipo" | "accion" | "leadId" | "tenantId" | "telefono" | "citaId">): AccionOportunidad {
+export function accionDeOportunidad(o: Pick<OportunidadDia, "tipo" | "accion" | "leadId" | "tenantId" | "telefono" | "citaId" | "citaInicio">): AccionOportunidad {
   const ficha = urlLead(o.leadId, { tenant: o.tenantId });
   switch (o.accion) {
     case "whatsapp":
@@ -72,7 +77,7 @@ export function accionDeOportunidad(o: Pick<OportunidadDia, "tipo" | "accion" | 
       return { tipo: "agendar", texto: "Agendar" };
     case "resultado":
       return o.citaId
-        ? { tipo: "resultado", texto: "Anotar cómo le fue", href: urlAgenda({ cita: o.citaId }) }
+        ? { tipo: "resultado", texto: "Anotar cómo le fue", href: urlAgenda({ cita: o.citaId, ...(o.citaInicio ? { fecha: diaEnLima(o.citaInicio), vista: "dia" as const } : {}) }) }
         : { tipo: "ficha", texto: "Abrir ficha", href: ficha };
     default:
       return { tipo: "ficha", texto: "Abrir ficha", href: ficha };

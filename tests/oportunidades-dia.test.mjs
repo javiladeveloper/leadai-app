@@ -34,6 +34,10 @@ test('agendar abre el modal; resultado lleva a la Agenda en esa cita', () => {
   igual(o.accionDeOportunidad(op({ accion: 'resultado', tipo: 'reunion_sin_resultado', citaId: 'C9' })), {
     tipo: 'resultado', texto: 'Anotar cómo le fue', href: '/agenda?cita=C9',
   });
+  // Con la fecha de la cita, la Agenda la abre en SU día (una de la semana
+  // pasada no está en el rango por defecto). 02:00 UTC = día anterior en Lima.
+  const conFecha = o.accionDeOportunidad(op({ accion: 'resultado', citaId: 'C9', citaInicio: '2026-10-08T02:00:00.000Z' }));
+  assert.equal(conFecha.href, '/agenda?fecha=2026-10-07&cita=C9&vista=dia');
   // Sin cita no hay a dónde ir en la agenda: la ficha.
   assert.equal(o.accionDeOportunidad(op({ accion: 'resultado' })).tipo, 'ficha');
   // Una acción desconocida tampoco rompe.

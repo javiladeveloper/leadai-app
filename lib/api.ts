@@ -3718,6 +3718,8 @@ export interface OportunidadDia {
   prioridad: number;
   accion: "whatsapp" | "llamar" | "agendar" | "resultado";
   citaId?: string;
+  /** Cuándo empezó esa cita (ISO): la Agenda la abre en su día. */
+  citaInicio?: string;
   venceEn?: string;
 }
 

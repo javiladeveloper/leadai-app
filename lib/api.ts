@@ -439,6 +439,28 @@ export interface Lead {
    * se factura. El backend lo manda con la fila completa.
    */
   esPrueba?: boolean;
+
+  // ── CRM FASE 2 (2026-10-13): lo que la lista trae para pintar la fila sin
+  // abrir el chat. Todo opcional: un backend anterior no lo manda y la fila
+  // simplemente no muestra esa línea. ──
+  /** Cuándo escribió el cliente por última vez. */
+  ultimoEntranteEn?: string | null;
+  /** El último mensaje (hasta 120 letras) y de quién fue. */
+  ultimoMensaje?: string | null;
+  ultimoDireccion?: "entrante" | "saliente" | null;
+  /** La próxima reunión confirmada y el próximo paso pendiente (ISO). */
+  proximaCitaEn?: string | null;
+  proximaTareaEn?: string | null;
+  /** Datos de contacto que se editan en la ficha. */
+  correo?: string | null;
+  empresa?: string | null;
+  ciudad?: string | null;
+  profesionales?: number | null;
+
+  // ── CRM FASE 3: lo que la IA entendió del cliente ──
+  /** Etiquetas que puso la IA (se muestran con 🤖; se fijan o se descartan). */
+  etiquetasIA?: string[];
+  datosIA?: Record<string, unknown> | null;
 }
 
 /**
@@ -462,10 +484,19 @@ export async function reiniciarLead(
   }
 }
 
-// Edita datos manuales del lead: nombre y/o nota privada. Backend: PATCH /leads/:id.
+/** Los datos de contacto que se editan en la ficha (CRM fase 2). `null` o "" borra. */
+export interface DatosContactoLead {
+  correo?: string | null;
+  empresa?: string | null;
+  ciudad?: string | null;
+  profesionales?: number | null;
+}
+
+// Edita datos manuales del lead: nombre, nota fijada, etiquetas y datos de
+// contacto. Backend: PATCH /leads/:id (400 con el motivo en español).
 export async function actualizarLead(
   id: string,
-  cambios: { nombre?: string | null; nota?: string | null; etiquetas?: string[] },
+  cambios: { nombre?: string | null; nota?: string | null; etiquetas?: string[] } & DatosContactoLead,
   // El negocio del lead (2026-10-09): con varios negocios, la ficha edita un
   // lead que no es de la empresa activa, y sin esto el PATCH daba 404.
   tenant?: string,
@@ -474,6 +505,8 @@ export async function actualizarLead(
     await api(`/leads/${id}`, { method: "PATCH", body: cambios, tenant });
     // La nota fijada y las etiquetas quedan en el historial (CRM, 2026-10-13).
     invalidar(prefijoHistorial(id));
+    // Una etiqueta nueva tiene que aparecer al autocompletar y en los filtros.
+    if (cambios.etiquetas) invalidar("etiquetas@");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
@@ -643,6 +676,18 @@ export interface FiltrosListaLeads {
   nivel?: string;
   /** El backend puede no filtrarlo todavía: la pantalla vuelve a filtrar en el cliente. */
   origen?: string;
+  /**
+   * LOS FILTROS DEL CRM (fase 2, 2026-10-13), ya armados como pares
+   * `[clave, valor]` (ver `paresServidor` en lib/crm-filtros.ts): `q`,
+   * `etiqueta` (repetible), `asignadoA`, `sinRespuesta`, `dias`,
+   * `inactivoDias`, `orden`. Un backend que no los conoce los ignora y la
+   * pantalla vuelve a filtrar en el cliente.
+   */
+  crm?: Array<[string, string]>;
+}
+
+function sumarPares(qs: URLSearchParams, pares?: Array<[string, string]>): void {
+  for (const [k, v] of pares ?? []) qs.append(k, v);
 }
 
 /**
@@ -664,6 +709,7 @@ export async function paginaLeadsFiltrada(
   // "directo" es SIN etiqueta: el backend compara exacto contra
   // `origenEtiqueta` y no lo encontraría. Ese se filtra solo en el cliente.
   if (filtros.origen && filtros.origen !== "directo") qs.set("origen", filtros.origen);
+  sumarPares(qs, filtros.crm);
   if (cursor) qs.set("cursor", cursor);
   return api(`/leads?${qs.toString()}`, { tenant });
 }
@@ -689,6 +735,8 @@ export async function paginaBandejaGlobalFiltrada(
   if (filtros.nivel) qs.set("nivel", filtros.nivel);
   if (filtros.origen && filtros.origen !== "directo") qs.set("origen", filtros.origen);
   if (filtros.tenantId) qs.set("tenantId", filtros.tenantId);
+  // `q` ya va arriba (con su recorte): los pares del CRM no lo repiten.
+  sumarPares(qs, filtros.crm?.filter(([k]) => !(k === "q" && qs.has("q"))));
   if (cursor) qs.set("cursor", cursor);
   return api(`/bandeja-global?${qs.toString()}`, { conEmpresa: false });
 }
@@ -872,6 +920,12 @@ export async function accionLead(
     asignarA?: string | null;
     // Tono del compositor (sugerir_respuesta / corregir_texto).
     tono?: "formal" | "cercano" | "directo" | "alegre";
+    /**
+     * sugerir_respuesta desde una OPORTUNIDAD del día (CRM fase 3): el
+     * objetivo del mensaje ("reagendar la reunión que se perdió"…). Un
+     * backend anterior lo ignora y sugiere como siempre.
+     */
+    motivo?: OportunidadDia["tipo"];
   },
   tenant?: string,
 ): Promise<{ ok: boolean; error?: string; borrador?: string; texto?: string }> {
@@ -3813,4 +3867,62 @@ export async function actualizarTarea(id: string, cambios: CambiosTarea, tenant?
   // ve al instante) y pedirlo de nuevo sería una vuelta al servidor de más.
   if (r.tarea?.leadId) invalidar(prefijoHistorial(r.tarea.leadId));
   return r.tarea;
+}
+
+/* ── CRM FASES 2 Y 3 (2026-10-13): etiquetas, etiquetas de la IA y
+   oportunidades del día. Mismo criterio que la fase 1: una lectura que el
+   backend todavía no tiene (404) o que este puesto no ve (403) devuelve
+   `null` y la pantalla no pinta esa parte. */
+
+export interface EtiquetaUso {
+  nombre: string;
+  /** Cuántos leads la tienen. */
+  cuenta: number;
+}
+
+export function claveEtiquetas(tenantId?: string | null): string {
+  return `etiquetas@${tenantId || "todos"}`;
+}
+
+/**
+ * GET /etiquetas: las que ya se usan (manuales y de la IA), las más usadas
+ * primero. Sin `tenantId`, las de todos los negocios de la persona.
+ */
+export async function listarEtiquetas(tenantId?: string | null): Promise<EtiquetaUso[] | null> {
+  const qs = tenantId ? `?${new URLSearchParams({ tenantId })}` : "";
+  try {
+    const r = await api<{ etiquetas: EtiquetaUso[] }>(`/etiquetas${qs}`, { conEmpresa: false });
+    return (r.etiquetas ?? []).filter((e) => typeof e?.nombre === "string" && e.nombre.trim());
+  } catch (e) {
+    if (noDisponible(e)) return null;
+    throw e;
+  }
+}
+
+export interface EtiquetasDelLead {
+  etiquetas: string[];
+  etiquetasIA: string[];
+  datosIA: Record<string, unknown> | null;
+}
+
+/**
+ * FIJAR o DESCARTAR una etiqueta que puso la IA. Fijar la pasa a las del
+ * vendedor (400 si ya tiene 10); descartar la saca y la IA no la vuelve a
+ * poner. Falla con ApiError (el `message` es el del backend).
+ */
+export async function etiquetaIA(
+  leadId: string, accion: "fijar" | "descartar", etiqueta: string, tenant?: string,
+): Promise<EtiquetasDelLead> {
+  const r = await api<Partial<EtiquetasDelLead>>(
+    `/leads/${encodeURIComponent(leadId)}/etiquetas-ia/${accion}`,
+    { method: "POST", body: { etiqueta }, tenant },
+  );
+  invalidar(prefijoHistorial(leadId));
+  invalidar("etiquetas@");
+  return { etiquetas: r.etiquetas ?? [], etiquetasIA: r.etiquetasIA ?? [], datosIA: r.datosIA ?? null };
+}
+
+/** Descarta una oportunidad del día (por 7 días, solo para esta persona). Falla con ApiError. */
+export async function descartarOportunidad(id: string): Promise<void> {
+  await api("/oportunidades-dia/descartar", { method: "POST", body: { id }, conEmpresa: false });
 }

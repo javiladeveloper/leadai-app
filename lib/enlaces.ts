@@ -35,8 +35,19 @@ function query(params: Record<string, string | number | null | undefined>): stri
  * activa: con varios negocios, el link tiene que abrir el chat correcto
  * aunque se abra en otra pestaña (donde la empresa activa puede ser otra).
  */
-export function urlLead(id: string, opciones: { tenant?: string | null } = {}): string {
-  return `/conversaciones${query({ lead: id, negocio: opciones.tenant ?? undefined })}`;
+export function urlLead(
+  id: string,
+  opciones: {
+    tenant?: string | null;
+    /**
+     * Abrir el chat con un MENSAJE SUGERIDO ya escrito en el compositor (CRM
+     * fase 3): el tipo de la oportunidad del día ("no_show", "promesa"…) que
+     * le dice a la IA para qué es el mensaje.
+     */
+    sugerir?: string | null;
+  } = {},
+): string {
+  return `/conversaciones${query({ lead: id, negocio: opciones.tenant ?? undefined, sugerir: opciones.sugerir ?? undefined })}`;
 }
 
 /**
@@ -53,10 +64,12 @@ export interface FiltrosLeads {
   buscar?: string;
   /** Con varios negocios: en cuál mirar (la vista global lo usa de filtro inicial). */
   negocio?: string | null;
+  /** Los que tienen esta etiqueta (CRM fase 2): un chip de etiqueta lleva acá. */
+  etiqueta?: string;
 }
 
 export function urlLeads(f: FiltrosLeads = {}): string {
-  return `/leads${query({ nivel: f.nivel, estado: f.estado, origen: f.origen, buscar: f.buscar, negocio: f.negocio ?? undefined })}`;
+  return `/leads${query({ nivel: f.nivel, estado: f.estado, origen: f.origen, buscar: f.buscar, negocio: f.negocio ?? undefined, etiqueta: f.etiqueta })}`;
 }
 
 /**

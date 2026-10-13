@@ -81,6 +81,15 @@ test('buscar encuentra por nombre sin tildes y por los dígitos del teléfono', 
   assert.equal(coincideBusqueda(l, '   '), false);
 });
 
+test('al servidor un teléfono viaja solo con dígitos; un nombre, tal cual', async () => {
+  const { terminoParaServidor } = await import('../lib/enlaces.ts');
+  assert.equal(terminoParaServidor('987 654'), '987654');
+  assert.equal(terminoParaServidor(' +51 987-654-321 '), '51987654321');
+  assert.equal(terminoParaServidor('María'), 'María');
+  assert.equal(terminoParaServidor('Tienda 24'), 'Tienda 24');
+  assert.equal(terminoParaServidor('12'), '12');
+});
+
 test('la campana avisa la reunión de la próxima hora, no la de la tarde', async () => {
   const { reunionEnLaProximaHora } = await import('../lib/enlaces.ts');
   const ahora = new Date('2026-10-09T15:00:00Z');

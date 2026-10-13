@@ -651,11 +651,21 @@ export async function paginaLeadsFiltrada(
 
 /** Lo mismo para la vista de todos los negocios juntos. */
 export async function paginaBandejaGlobalFiltrada(
-  filtros: FiltrosListaLeads & { tenantId?: string },
+  filtros: FiltrosListaLeads & {
+    tenantId?: string;
+    /**
+     * Búsqueda EN EL SERVIDOR por nombre o contacto (2026-10-13). El backend
+     * compara con ILIKE, sin normalizar dígitos: un teléfono conviene
+     * mandarlo solo con sus dígitos (ver `terminoParaServidor`).
+     */
+    q?: string;
+  },
   cursor: string | null,
   limite = 100,
 ): Promise<{ negocios: NegocioBandeja[]; items: LeadGlobal[]; siguienteCursor: string | null }> {
-  const qs = new URLSearchParams({ limit: String(limite) });
+  // El backend admite hasta 100 por página: con más responde 400.
+  const qs = new URLSearchParams({ limit: String(Math.min(100, Math.max(1, limite))) });
+  if (filtros.q?.trim()) qs.set("q", filtros.q.trim().slice(0, 80));
   if (filtros.estado) qs.set("estado", filtros.estado);
   if (filtros.nivel) qs.set("nivel", filtros.nivel);
   if (filtros.origen && filtros.origen !== "directo") qs.set("origen", filtros.origen);

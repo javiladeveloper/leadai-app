@@ -207,6 +207,20 @@ export function coincideBusqueda(
 }
 
 /**
+ * EL TÉRMINO QUE SE LE MANDA AL BACKEND (2026-10-13). `/bandeja-global?q=`
+ * compara con ILIKE contra el contacto guardado ("51987654321"): "987 654" no
+ * lo encuentra. Si lo escrito parece un teléfono (solo dígitos, espacios, +,
+ * guiones o paréntesis, con tres dígitos o más) se mandan solo los dígitos;
+ * si no, el texto tal cual (un nombre).
+ */
+export function terminoParaServidor(q: string): string {
+  const t = q.trim();
+  const digitos = t.replace(/\D/g, "");
+  if (digitos.length >= 3 && /^[\d\s+\-().]+$/.test(t)) return digitos;
+  return t;
+}
+
+/**
  * ¿La reunión es dentro de la próxima hora (o ya empezó y no terminó)? Es la
  * que la campana avisa (2026-10-09): con más anticipación es ruido; con menos,
  * llega tarde para prepararse.

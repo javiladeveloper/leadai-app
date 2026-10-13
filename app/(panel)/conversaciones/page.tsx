@@ -234,6 +234,13 @@ function ConversacionesInner() {
     return esBuzon(b) ? b : "";
   });
   const [filtroEtapa, setFiltroEtapa] = useState(() => params.get("etapa") ?? "");
+  // POR ESTADO DEL MOTOR (2026-10-13): "Para atender" de Inicio manda
+  // `?estado=escalado`, que junta todas las etapas de ese estado (ver
+  // `urlParaAtender`). Se quita con su chip o con "Quitar filtros".
+  const [filtroEstado, setFiltroEstado] = useState(() => {
+    const e = params.get("estado");
+    return e && ETAPAS_DEFAULT.some((x) => x.motor === e) ? e : "";
+  });
   // CONVERSACIONES DE UNA PERSONA DEL EQUIPO (2026-10-09): desde Equipo, "Ver
   // sus conversaciones" abre la bandeja filtrada por quién la tiene asignada.
   const [filtroAsignado, setFiltroAsignado] = useState(() => params.get("asignado") ?? "");
@@ -612,6 +619,10 @@ function ConversacionesInner() {
     setFiltroAsignado("");
     escribirUrl({ asignado: null }, "replace");
   }
+  function quitarEstado() {
+    setFiltroEstado("");
+    escribirUrl({ estado: null }, "replace");
+  }
 
   /**
    * "Volver" del chat en el celular. Si se abrió desde la lista de acá, atrás
@@ -820,6 +831,7 @@ function ConversacionesInner() {
     porBuzon.filter((l) => etapaVisibleDe(l, etapasBandeja).id === id).length;
   const q = busqueda.trim().toLowerCase();
   const leadsVisibles = porBuzon
+    .filter((l) => (filtroEstado ? l.estado === filtroEstado : true))
     .filter((l) => (filtroEtapa ? etapaVisibleDe(l, etapasBandeja).id === filtroEtapa : true))
     // Sin tildes y con el teléfono normalizado: "987 654" encuentra "51987654321".
     .filter((l) => (q ? coincideBusqueda(l, q) : true));
@@ -829,13 +841,14 @@ function ConversacionesInner() {
         return m ? (m.nombre ?? m.email) : "esa persona";
       })()
     : "";
-  const hayFiltros = !!(filtroEtapa || filtroBuzon || filtroAsignado || q);
+  const hayFiltros = !!(filtroEtapa || filtroEstado || filtroBuzon || filtroAsignado || q);
   function quitarFiltros() {
     setBusqueda("");
     setFiltroEtapa("");
+    setFiltroEstado("");
     setFiltroBuzon("");
     setFiltroAsignado("");
-    escribirUrl({ etapa: null, buzon: null, asignado: null }, "replace");
+    escribirUrl({ etapa: null, estado: null, buzon: null, asignado: null }, "replace");
   }
 
   // Estado vacío de la lista: con "Conectar WhatsApp" SOLO si no hay canal.
@@ -874,6 +887,18 @@ function ConversacionesInner() {
       </button>
     </div>
   );
+
+  const chipEstado = filtroEstado ? (
+    <div className="flex items-center justify-between gap-2 rounded-chip bg-brasa-suave px-3 py-1.5 text-[0.78rem] font-semibold text-brasa-texto">
+      <span className="truncate">
+        Solo: {ETAPAS_DEFAULT.find((e) => e.motor === filtroEstado)?.nombre ?? filtroEstado}
+        {filtroEstado === "escalado" ? " (todas sus etapas)" : ""}
+      </span>
+      <button type="button" onClick={quitarEstado} aria-label="Quitar filtro de estado" className="shrink-0 text-[1rem] leading-none">
+        ×
+      </button>
+    </div>
+  ) : null;
 
   const chipAsignado = filtroAsignado ? (
     <div className="flex items-center justify-between gap-2 rounded-chip bg-brasa-suave px-3 py-1.5 text-[0.78rem] font-semibold text-brasa-texto">
@@ -927,6 +952,7 @@ function ConversacionesInner() {
         onElegir={setFiltroNegocio}
         todosLabel="Todos"
       />
+      {chipEstado}
       {chipAsignado}
       {estadoLista === "cargando" && <SkeletonLista filas={5} />}
       {estadoLista === "error" && (
@@ -1656,6 +1682,7 @@ function ConversacionesInner() {
               <span className="text-[0.78rem] tabular-nums">{n}</span>
             </button>
           ))}
+          {chipEstado && <div className="mt-1">{chipEstado}</div>}
           {chipAsignado && <div className="mt-1">{chipAsignado}</div>}
           {/* El EMBUDO es de quien mueve contactos por etapas: "En
               seguimiento", "Escalados", "Ganados" y "Perdidos" son etapas de

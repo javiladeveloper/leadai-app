@@ -102,6 +102,17 @@ export function urlLeadsDeAnuncio(adId: string, negocio?: string | null): string
   return urlLeads({ origen: adId.startsWith("ad:") ? adId : `ad:${adId}`, negocio });
 }
 
+/**
+ * "PARA ATENDER" = LOS ESCALADOS (2026-10-13). `resumen.paraAtender` del
+ * backend cuenta los leads con estado `escalado`, en TODAS las etapas que
+ * mapean a ese estado ("Para atender", "Agendó demo", "Demo hecha"…). Por eso
+ * se filtra por ESTADO (`?estado=`) y no por la etapa `escalado`: si no, el
+ * número de Inicio no cuadraría con la lista al tocarlo.
+ */
+export function urlParaAtender(negocio?: string | null): string {
+  return `/conversaciones${query({ estado: "escalado", negocio: negocio ?? undefined })}`;
+}
+
 /** Gestionar un anuncio: Marketing → Anuncios con ese anuncio abierto. */
 export function urlGestionarAnuncio(adId: string): string {
   return `/marketing${query({ t: "anuncios", ad: adId.replace(/^ad:/, "") })}`;

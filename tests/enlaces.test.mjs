@@ -81,6 +81,15 @@ test('buscar encuentra por nombre sin tildes y por los dígitos del teléfono', 
   assert.equal(coincideBusqueda(l, '   '), false);
 });
 
+test('"para atender" filtra Conversaciones por ESTADO (todas sus etapas) y lleva el negocio', async () => {
+  const { urlParaAtender, urlSeguimiento } = await import('../lib/enlaces.ts');
+  assert.equal(urlParaAtender(), '/conversaciones?estado=escalado');
+  assert.equal(urlParaAtender('T1'), '/conversaciones?estado=escalado&negocio=T1');
+  assert.equal(urlSeguimiento('escalado'), '/seguimiento?etapa=escalado');
+  assert.equal(urlSeguimiento('escalado', 'T1'), '/seguimiento?etapa=escalado&negocio=T1');
+  assert.equal(urlSeguimiento(undefined, null), '/seguimiento');
+});
+
 test('al servidor un teléfono viaja solo con dígitos; un nombre, tal cual', async () => {
   const { terminoParaServidor } = await import('../lib/enlaces.ts');
   assert.equal(terminoParaServidor('987 654'), '987654');

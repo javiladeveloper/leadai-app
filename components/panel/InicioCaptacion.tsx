@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { leerSesion, leerEmpresaActiva, rolEnEmpresaActiva } from "@/lib/auth";
+import { leerSesion, leerEmpresaActiva, puedeAbrirConversacion, rolEnEmpresaActiva } from "@/lib/auth";
 import {
   obtenerResumen, obtenerUso, leadsRecientes, obtenerReporteNegocio, tieneCanalActivo, listarAgenda,
   type Resumen, type Uso, type Lead, type ReporteNegocio,
@@ -17,7 +17,7 @@ import { seccionesDe } from "@/lib/secciones";
 import { useDatos } from "@/lib/useDatos";
 import { horaLima, inicioDelDiaLima } from "@/lib/agenda";
 import {
-  ESTADO_ABIERTOS, URL_CONECTAR_CANALES, reunionUnible, urlAgenda, urlCalientesSinAtender, urlLeads,
+  ESTADO_ABIERTOS, URL_CONECTAR_CANALES, reunionUnible, urlAgenda, urlCalientesSinAtender, urlLeads, urlParaAtender,
 } from "@/lib/enlaces";
 
 // Accesos rápidos — tarjetas compactas con ícono arriba (diseño Stitch).
@@ -167,9 +167,25 @@ export function InicioCaptacion() {
   const pctClientes = clientes && clientes.limite > 0 ? Math.min(100, Math.round((clientes.usados / clientes.limite) * 100)) : 0;
 
   // Las tarjetas de métricas son LINKS a la lista de esos leads.
+  //
+  // "PARA ATENDER" (2026-10-13): el backend ya mandaba `paraAtender` (leads
+  // escalados que esperan a una persona) y ninguna pantalla lo mostraba. Va
+  // a Conversaciones filtrada por ese estado, que es donde se les contesta.
+  // Solo para quien puede abrir conversaciones (marketing no) y cuando el
+  // backend lo manda.
+  const verParaAtender = !!resumen && resumen.paraAtender !== undefined && puedeAbrirConversacion();
   const KPIS = resumen
     ? [
         { titulo: "Leads activos", valor: resumen.leadsActivos, clase: "text-tinta", href: urlLeads({ estado: ESTADO_ABIERTOS }) },
+        ...(verParaAtender
+          ? [{
+              titulo: "Para atender 🙋",
+              valor: resumen.paraAtender ?? 0,
+              clase: "text-brasa-texto",
+              href: urlParaAtender(tenant !== "-" ? tenant : null),
+              pie: "Contestarles ›",
+            }]
+          : []),
         { titulo: "Calientes 🔥", valor: resumen.calientesSinAtender, clase: "text-calor", href: urlCalientesSinAtender() },
         { titulo: "Ventas cerradas ✓", valor: resumen.ventasCerradas, clase: "text-ok", href: urlLeads({ estado: "ganado" }) },
       ]
@@ -240,7 +256,7 @@ export function InicioCaptacion() {
               Las tarjetas ENTRAN escalonadas (2026-08-22) y cada una abre su
               lista (2026-10-09): un número que no se puede tocar obliga a ir
               a buscar a mano quiénes son. */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className={`grid gap-4 ${KPIS.length === 4 ? "grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
             {KPIS.map((k) => (
               <Link
                 key={k.titulo}
@@ -249,7 +265,7 @@ export function InicioCaptacion() {
               >
                 <p className="text-[0.72rem] font-bold uppercase tracking-wider text-frio">{k.titulo}</p>
                 <p className={`mt-2 text-[2.3rem] font-bold leading-none ${k.clase}`}>{k.valor}</p>
-                <p className="mt-2 text-[0.74rem] font-semibold text-brasa-texto">Ver la lista ›</p>
+                <p className="mt-2 text-[0.74rem] font-semibold text-brasa-texto">{"pie" in k && k.pie ? k.pie : "Ver la lista ›"}</p>
               </Link>
             ))}
           </div>

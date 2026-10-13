@@ -17,6 +17,7 @@ import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
 import { IconoRayo } from "@/components/Iconos";
 import { SkeletonLista } from "@/components/Skeletons";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
+import { BloqueHoy } from "@/components/panel/BloqueHoy";
 import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
 import { soles as solesFmt } from "@/lib/dinero";
 import { ESTADO_ABIERTOS, coincideBusqueda, cumpleEstado, cumpleOrigen, esCalienteSinAtender } from "@/lib/enlaces";
@@ -200,6 +201,11 @@ function GlobalPanelInner() {
           Tus leads y ventas, todos juntos. Filtra por negocio cuando quieras enfocarte.
         </p>
       </header>
+
+      {/* "HOY" DE TODOS LOS NEGOCIOS (CRM fase 1, 2026-10-13): con varios
+          negocios este es el Inicio, así que lo que toca hacer va acá arriba,
+          cada renglón con el chip de su negocio. */}
+      <BloqueHoy conNegocio />
 
       <input
         type="search"

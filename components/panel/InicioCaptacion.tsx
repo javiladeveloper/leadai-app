@@ -2,16 +2,17 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { leerSesion, leerEmpresaActiva, puedeAbrirConversacion, rolEnEmpresaActiva } from "@/lib/auth";
+import { leerSesion, leerEmpresaActiva, puedeAbrirConversacion, rolEnEmpresaActiva, EMPRESA_GLOBAL } from "@/lib/auth";
 import {
-  obtenerResumen, obtenerUso, leadsRecientes, obtenerReporteNegocio, tieneCanalActivo, listarAgenda,
-  type Resumen, type Uso, type Lead, type ReporteNegocio,
+  obtenerResumen, obtenerUso, leadsRecientes, obtenerReporteNegocio, tieneCanalActivo, listarAgenda, obtenerHoy, claveHoy,
+  type Resumen, type Uso, type Lead, type ReporteNegocio, type Hoy,
 } from "@/lib/api";
 import { IconoRayo, IconoConversaciones, IconoBandeja, IconoTablero, IconoAgenda, IconoReportes } from "@/components/Iconos";
 import { SkeletonMetricas } from "@/components/Skeletons";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { LinkLead } from "@/components/LinkLead";
 import { SECCIONES } from "@/components/panel/Sidebar";
+import { BloqueHoy } from "@/components/panel/BloqueHoy";
 import { useCapacidades } from "@/lib/modo-negocio";
 import { seccionesDe } from "@/lib/secciones";
 import { useDatos } from "@/lib/useDatos";
@@ -113,11 +114,22 @@ export function InicioCaptacion() {
   const { datos: tieneCanal } = useDatos(`tiene-canal@${tenant}`, () => tieneCanalActivo(), { maxEdadMs: 60_000 });
 
   /**
+   * "HOY" (CRM fase 1, 2026-10-13): reuniones, próximos pasos y quién espera
+   * respuesta, arriba de todo. Es la misma clave que usa `BloqueHoy` (sale
+   * UNA petición); acá solo se mira si existe, para no repetir las reuniones.
+   */
+  const tenantHoy = tenant !== "-" && tenant !== EMPRESA_GLOBAL ? tenant : undefined;
+  const { datos: hoy } = useDatos<Hoy | null>(claveHoy(tenantHoy), () => obtenerHoy(tenantHoy), { maxEdadMs: 30_000 });
+
+  /**
    * LAS REUNIONES DE HOY (2026-10-09). Si el backend ya manda
    * `resumen.reuniones`, se usa eso; si no, se arma con la agenda del día
    * (la de la persona, en todos sus negocios: son SUS reuniones).
+   *
+   * CON "HOY" (2026-10-13) este bloque sobra: las reuniones ya están ahí,
+   * una por una. Queda solo para un backend que todavía no tiene `/hoy`.
    */
-  const muestraAgenda = !!caps?.calificaLeads;
+  const muestraAgenda = !!caps?.calificaLeads && hoy === null;
   const reunionesDelResumen = datos?.resumen?.reuniones ?? null;
   const { datos: reunionesAgenda } = useDatos<ReunionesHoy>(
     muestraAgenda && datos && !reunionesDelResumen ? `reuniones-hoy@${new Date().toDateString()}` : null,
@@ -199,6 +211,9 @@ export function InicioCaptacion() {
         </h1>
         <p className="mt-0.5 text-[0.95rem] text-frio">Así va tu negocio hoy.</p>
       </header>
+
+      {/* LO QUE TOCA HACER HOY, ARRIBA DE TODO (CRM fase 1, 2026-10-13). */}
+      <BloqueHoy tenantId={tenantHoy} ocultarSiVacio={vacio} />
 
       {cargando && !datos && <SkeletonMetricas />}
 

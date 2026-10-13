@@ -434,19 +434,28 @@ export interface Lead {
    */
   ultimoMensajeEn?: string | null;
   actualizadoEn: string;
+  /**
+   * Lead de PRUEBA (simuladores del panel, demos): no cuenta en reportes ni
+   * se factura. El backend lo manda con la fila completa.
+   */
+  esPrueba?: boolean;
 }
 
 /**
  * Reinicia la conversación de un lead (2026-08-20): borra los mensajes,
  * cancela los pedidos vivos y lo deja como si escribiera por primera vez.
  * Para PROBAR el bot con el propio número. Backend: POST /leads/:id/reiniciar.
+ *
+ * Viaja SIEMPRE con `confirmar: true` (2026-10-13): la web solo lo llama
+ * después de que la persona confirmó en pantalla, y el backend puede pasar a
+ * exigirlo para leads reales (borrar el historial de un cliente no se deshace).
  */
 export async function reiniciarLead(
   id: string,
   tenant?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await api(`/leads/${id}/reiniciar`, { method: "POST", tenant });
+    await api(`/leads/${id}/reiniciar`, { method: "POST", tenant, body: { confirmar: true } });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No se pudo reiniciar" };

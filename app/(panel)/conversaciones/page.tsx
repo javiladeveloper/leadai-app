@@ -142,6 +142,12 @@ function aBurbuja(m: MensajeApi): MensajeUI {
 type Buzon = "" | "mios" | "sin";
 const esBuzon = (v: string | null): v is Buzon => v === "" || v === "mios" || v === "sin";
 
+/** La palabra que hay que escribir para reiniciar el chat de un cliente REAL. */
+const PALABRA_BORRAR = "BORRAR";
+function confirmaBorrar(texto: string): boolean {
+  return texto.trim().toUpperCase() === PALABRA_BORRAR;
+}
+
 /**
  * Busca un lead en los OTROS negocios de la persona (2026-10-09).
  *
@@ -273,6 +279,8 @@ function ConversacionesInner() {
   const [sugiriendo, setSugiriendo] = useState(false);
   const [togglingBot, setTogglingBot] = useState(false);
   const [reiniciarConfirm, setReiniciarConfirm] = useState(false);
+  // Lo que escribió para confirmar el reinicio de un lead REAL ("BORRAR").
+  const [textoReinicio, setTextoReinicio] = useState("");
   const [copiado, setCopiado] = useState(false);
   // Celular: la ficha abre como hoja sobre el chat.
   const [fichaAbierta, setFichaAbierta] = useState(false);
@@ -537,6 +545,7 @@ function ConversacionesInner() {
     // El cierre (CierreLead) se remonta solo con `key={lead.id}`.
     setAccionError(null);
     setReiniciarConfirm(false);
+    setTextoReinicio("");
     setAgendada(null);
     cargarLead(seleccionadoId, tenantSel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -716,11 +725,14 @@ function ConversacionesInner() {
   // conversación y cancela los pedidos vivos; las ventas cerradas quedan.
   async function reiniciarChat() {
     if (!lead || enviando) return;
+    // Un lead REAL solo con la palabra escrita (ver el bloque de la ficha).
+    if (!lead.esPrueba && !confirmaBorrar(textoReinicio)) return;
     setEnviando(true);
     setAccionError(null);
     const r = await reiniciarLead(lead.id, tenantSel);
     if (r.ok) {
       setReiniciarConfirm(false);
+      setTextoReinicio("");
       await Promise.all([cargarLead(lead.id, tenantSel), cargarReciente()]);
     } else {
       setAccionError(r.error ?? "No se pudo reiniciar el chat.");
@@ -1498,23 +1510,50 @@ function ConversacionesInner() {
           bot con el propio número como si fuera la primera vez. Borra
           la conversación y cancela los pedidos vivos; las ventas
           cerradas quedan (reportes). Doble toque para confirmar,
-          igual que "descartar": es destructivo. */}
+          igual que "descartar": es destructivo.
+
+          UN CLIENTE REAL PIDE ESCRIBIR "BORRAR" (2026-10-13): el botón
+          salía en TODOS los leads y dos toques borraban el historial de
+          un cliente de verdad, sin vuelta atrás. En un lead de prueba
+          sigue siendo el doble toque de siempre. */}
       {reiniciarConfirm ? (
         <div className="rounded-tarjeta bg-carta p-3.5 ring-1 ring-alerta/40">
-          <p className="mb-2 text-[0.82rem] text-tinta-2">
-            Se borra esta conversación y se cancelan sus pedidos sin pagar.
-            El cliente vuelve a empezar de cero. ¿Seguro?
-          </p>
+          {leadAbierto.esPrueba ? (
+            <p className="mb-2 text-[0.82rem] text-tinta-2">
+              Se borra esta conversación y se cancelan sus pedidos sin pagar.
+              El cliente vuelve a empezar de cero. ¿Seguro?
+            </p>
+          ) : (
+            <>
+              <p className="mb-2 text-[0.82rem] text-tinta-2">
+                <strong className="text-alerta">Este es un cliente real.</strong>{" "}
+                Se borra TODA su conversación (no se puede recuperar) y se
+                cancelan sus pedidos sin pagar. Solo sirve para probar el bot
+                con tu propio número.
+              </p>
+              <label className="mb-2 block text-[0.78rem] font-semibold text-tinta-2">
+                Escribe {PALABRA_BORRAR} para confirmar
+                <input
+                  value={textoReinicio}
+                  onChange={(e) => setTextoReinicio(e.target.value)}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  className="mt-1 w-full rounded-xl bg-carta px-3 py-2 text-[0.85rem] text-tinta outline-none ring-1 ring-linea focus:ring-alerta"
+                />
+              </label>
+            </>
+          )}
           <div className="flex gap-2">
             <button
               onClick={reiniciarChat}
-              disabled={enviando}
+              disabled={enviando || (!leadAbierto.esPrueba && !confirmaBorrar(textoReinicio))}
               className="flex-1 rounded-chip bg-calor py-2 text-[0.82rem] font-bold text-carta active:scale-[0.99] disabled:opacity-60"
             >
-              Sí, reiniciar
+              {leadAbierto.esPrueba ? "Sí, reiniciar" : "Borrar y reiniciar"}
             </button>
             <button
-              onClick={() => setReiniciarConfirm(false)}
+              onClick={() => { setReiniciarConfirm(false); setTextoReinicio(""); }}
               className="flex-1 rounded-chip bg-arena-2 py-2 text-[0.82rem] font-bold text-tinta-2 active:scale-[0.99]"
             >
               No

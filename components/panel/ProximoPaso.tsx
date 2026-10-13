@@ -49,20 +49,24 @@ function borradorDe(t: TareaDto): Borrador {
  * se cambia acá se ve al instante; `onCambio` vuelve a pedir el lead.
  */
 export function ProximoPaso({
-  leadId, tenant, nombre, tarea, onCambio,
+  leadId, tenant, nombre, tarea, onCambio, abrirFormulario = false,
 }: {
   leadId: string;
   tenant?: string;
   nombre: string | null;
   tarea: TareaDto | null;
   onCambio?: () => void;
+  /** Arranca con el formulario de un paso nuevo abierto (acción rápida de una lista, CRM fase 2). */
+  abrirFormulario?: boolean;
 }) {
   // Lo que se acaba de guardar, hasta que el padre traiga el lead de nuevo
   // (un `tarea` distinto descarta esto y manda el servidor).
   const [local, setLocal] = useState<{ base: TareaDto | null; valor: TareaDto | null } | null>(null);
   const actual = local && local.base === tarea ? local.valor : tarea;
 
-  const [form, setForm] = useState<{ editando: TareaDto | null; b: Borrador } | null>(null);
+  const [form, setForm] = useState<{ editando: TareaDto | null; b: Borrador } | null>(
+    () => (abrirFormulario && !tarea ? { editando: null, b: borradorNuevo() } : null),
+  );
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);

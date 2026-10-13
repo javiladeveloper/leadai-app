@@ -35,6 +35,17 @@ export interface TarjetaLeadProps {
   origen?: Lead["origen"];
   /** Cuándo entró, en texto ("5 oct"). */
   entro?: string;
+  /**
+   * CRM FASE 2 (2026-10-13): lo que se lee sin abrir el chat (si espera
+   * respuesta, la próxima reunión, a quién está asignado…). Va DENTRO del link.
+   */
+  extra?: React.ReactNode;
+  /**
+   * Lo que se toca sin abrir la ficha (chips de etiqueta, acciones rápidas).
+   * Va FUERA del link: un botón dentro de un <a> no es HTML válido y el toque
+   * abriría la ficha.
+   */
+  pie?: React.ReactNode;
 }
 
 // Avatar con inicial, teñido por temperatura (lenguaje visual del Inicio).
@@ -96,6 +107,8 @@ export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
       {/* Resumen de la IA — el corazón de la tarjeta */}
       <p className="mt-2.5 text-[0.95rem] leading-snug text-tinta-2">{lead.resumenIA}</p>
 
+      {lead.extra}
+
       {lead.origen && <LineaOrigen origen={lead.origen} entro={lead.entro} />}
 
       {(lead.ultimoMensaje || lead.haceMinutos !== undefined) && (
@@ -127,10 +140,22 @@ export function TarjetaLead({ lead }: { lead: TarjetaLeadProps }) {
   }
 
   // A la ficha única del lead (Conversaciones), con su negocio.
+  if (!lead.pie) {
+    return (
+      <LinkLead id={lead.id} tenant={lead.tenant} className={clases}>
+        {cuerpo}
+      </LinkLead>
+    );
+  }
+  // Con pie (CRM fase 2): la tarjeta es el marco; el link es el cuerpo y lo
+  // que se toca sin abrir la ficha va debajo, fuera del link.
   return (
-    <LinkLead id={lead.id} tenant={lead.tenant} className={clases}>
-      {cuerpo}
-    </LinkLead>
+    <div className={clases.replace("transition active:scale-[0.99]", "")}>
+      <LinkLead id={lead.id} tenant={lead.tenant} className="block rounded-lg transition active:scale-[0.99]">
+        {cuerpo}
+      </LinkLead>
+      <div className="mt-3 border-t border-linea pt-2.5">{lead.pie}</div>
+    </div>
   );
 }
 

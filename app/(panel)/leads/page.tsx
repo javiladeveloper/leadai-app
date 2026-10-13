@@ -3,9 +3,9 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { haySesion, esModoGlobal, leerEmpresaActiva } from "@/lib/auth";
+import { haySesion, esModoGlobal, leerEmpresaActiva, leerSesion } from "@/lib/auth";
 import {
-  paginaLeadsFiltrada, cargarProgresivo, crearLeadManual, tieneCanalActivo,
+  paginaLeadsFiltrada, cargarProgresivo, crearLeadManual, tieneCanalActivo, obtenerEtapas, obtenerEquipo,
   type Lead, type NivelInteres, type EstadoLead,
 } from "@/lib/api";
 import { TarjetaLead, type TarjetaLeadProps } from "@/components/TarjetaLead";
@@ -13,11 +13,21 @@ import { IconoRayo } from "@/components/Iconos";
 import { SkeletonLista } from "@/components/Skeletons";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { HeroSeccion, LeadsIlustracion } from "@/components/panel/HeroSeccion";
+import { BarraFiltrosCrm } from "@/components/panel/BarraFiltrosCrm";
+import { InfoFilaLead } from "@/components/panel/InfoFilaLead";
+import { ListaEtiquetas } from "@/components/panel/ChipEtiqueta";
+import { AccionesRapidasLead } from "@/components/panel/AccionesRapidasLead";
 import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
 import { guardarCache, leerCache } from "@/lib/cache-datos";
 import { useDatos } from "@/lib/useDatos";
+import { useBusquedaCrm, useEtiquetasDisponibles, useFiltrosCrm } from "@/lib/useFiltrosCrm";
 import {
-  ESTADO_ABIERTOS, URL_CONECTAR_CANALES, coincideBusqueda, cumpleEstado, cumpleOrigen, esCalienteSinAtender,
+  alternarEtiqueta, claveFiltrosCrm, cumpleFiltrosCrm, etiquetasDe, hayFiltrosCrm, listaConCamposCrm,
+  ordenarLista, origenesDeLista, paresServidor,
+} from "@/lib/crm-filtros";
+import { ETAPAS_DEFAULT, PUNTO_ETAPA, etapaVisibleDe } from "@/lib/etapas";
+import {
+  ESTADO_ABIERTOS, URL_CONECTAR_CANALES, cumpleEstado, esCalienteSinAtender,
 } from "@/lib/enlaces";
 
 type Estado = "cargando" | "ok" | "error";
@@ -57,8 +67,9 @@ function minutosDesde(iso: string): number {
 
 // Adapta el Lead real del backend (lib/api) al shape mínimo que TarjetaLead
 // necesita para renderizarse (ver components/TarjetaLead.tsx).
-function aTarjeta(lead: Lead): TarjetaLeadProps {
+function aTarjeta(lead: Lead, crm: Pick<TarjetaLeadProps, "extra" | "pie"> = {}): TarjetaLeadProps {
   return {
+    ...crm,
     id: lead.id,
     nombre: lead.nombre ?? lead.contactoExterno,
     canal: lead.canalOrigen,
@@ -73,14 +84,6 @@ function aTarjeta(lead: Lead): TarjetaLeadProps {
   };
 }
 
-/** El nombre legible de un filtro de origen (`ad:<id>` → el nombre del anuncio). */
-function nombreDeOrigen(origen: string, leads: Lead[]): string {
-  if (origen === "directo") return "Mensaje directo";
-  if (origen === "comentario") return "Comentarios";
-  const conNombre = leads.find((l) => cumpleOrigen(l, origen) && l.origen?.etiqueta);
-  if (conNombre?.origen) return conNombre.origen.etiqueta;
-  return origen.startsWith("ad:") ? "un anuncio" : origen;
-}
 
 // Leads del panel de escritorio: misma lógica de filtros que la bandeja móvil
 // (app/bandeja), pero en grilla ancha para aprovechar el espacio de escritorio.
@@ -91,6 +94,12 @@ function nombreDeOrigen(origen: string, leads: Lead[]): string {
 // y `?buscar=`. Inicio, la campana y Reportes mandan acá con la lista ya
 // filtrada ("7 calientes sin atender" abre ESOS siete), y el link se puede
 // compartir o guardar.
+//
+// CRM FASE 2 (2026-10-13): además etiqueta, asignado, "sin respuesta", fecha
+// y orden (`useFiltrosCrm`), la etapa DEL NEGOCIO (`?etapa=`) y la búsqueda
+// EN EL SERVIDOR (`?q=`): ya no se busca solo en lo bajado. Cada tarjeta dice
+// si el cliente espera respuesta, su próxima reunión o paso y a quién está
+// asignado, con sus etiquetas tocables y las acciones rápidas.
 function LeadsPanelInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -107,9 +116,12 @@ function LeadsPanelInner() {
     const v = searchParams.get("estado");
     return esEstado(v) ? v : "todos";
   });
-  const [filtroOrigen, setFiltroOrigen] = useState<string>(() => searchParams.get("origen") ?? "");
-  // Búsqueda (del buscador global del header vía ?buscar=, o del input local)
-  const [busqueda, setBusqueda] = useState(() => searchParams.get("buscar") ?? "");
+  // La etapa DEL NEGOCIO ("Agendó demo", "Demo hecha"…), por id.
+  const [filtroEtapa, setFiltroEtapa] = useState(() => searchParams.get("etapa") ?? "");
+  // Etiqueta, asignado, sin respuesta, origen, fecha, orden y búsqueda: en la URL.
+  const { filtros, cambiar: cambiarCrm } = useFiltrosCrm("/leads");
+  const [busqueda, setBusqueda] = useBusquedaCrm(filtros.q, (q) => cambiarCrm({ q }));
+  const miUsuarioId = leerSesion()?.usuario?.id ?? null;
   // Alta manual de lead (?nuevo=1 desde el sidebar, o botón local)
   const [nuevoAbierto, setNuevoAbierto] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
@@ -138,30 +150,41 @@ function LeadsPanelInner() {
   // conectado y el vacío igual gritaba "Conecta WhatsApp"). Si falla la
   // consulta se asume que SÍ — ofrecerle conectar a quien ya conectó es
   // acusarlo de no haberlo hecho. Caché compartida con las demás secciones.
+  const empresa = leerEmpresaActiva() || "-";
   const { datos: tieneCanal } = useDatos(
-    listo ? `tiene-canal@${leerEmpresaActiva() || "-"}` : null,
+    listo ? `tiene-canal@${empresa}` : null,
     () => tieneCanalActivo(),
     { maxEdadMs: 60_000 },
   );
+  // Las etapas y el equipo del negocio: para el filtro de etapa, el de
+  // asignado y el nombre de quién lo tiene en cada tarjeta.
+  const { datos: etapasNegocio } = useDatos(listo ? `etapas-rapidas@${empresa}` : null, () => obtenerEtapas(), { maxEdadMs: 60_000 });
+  const etapas = etapasNegocio ?? ETAPAS_DEFAULT;
+  const { datos: equipo } = useDatos(listo ? `equipo@${empresa}` : null, () => obtenerEquipo(), { maxEdadMs: 60_000 });
+  const miembros = useMemo(() => equipo?.miembros ?? [], [equipo]);
+  const nombreDe = useCallback((usuarioId: string | null | undefined): string | null => {
+    if (!usuarioId) return null;
+    if (usuarioId === miUsuarioId) return "Tú";
+    const m = miembros.find((x) => x.usuarioId === usuarioId);
+    return m ? (m.nombre ?? m.email) : null;
+  }, [miembros, miUsuarioId]);
 
-  // Reactivo a la URL: el buscador del header hace push a /leads?buscar=… y el
-  // sidebar a /leads?nuevo=1; si ya estamos en /leads, Next no remonta la
-  // página, así que hay que escuchar los cambios de searchParams (no leer la
-  // URL una sola vez al montar). Lo mismo con los filtros que trae un link.
+  // Reactivo a la URL: el sidebar hace push a /leads?nuevo=1 y los links
+  // traen filtros; si ya estamos en /leads, Next no remonta la página, así
+  // que hay que escuchar los cambios de searchParams (no leer la URL una sola
+  // vez al montar). La búsqueda y los filtros del CRM ya siguen a la URL solos.
   useEffect(() => {
-    const q = searchParams.get("buscar");
-    if (q) setBusqueda(q);
     if (searchParams.get("nuevo") === "1") setNuevoAbierto(true);
     const n = searchParams.get("nivel");
     if (esNivel(n)) setFiltroNivel(n);
     const e = searchParams.get("estado");
     if (esEstado(e)) setFiltroEstado(e);
-    const o = searchParams.get("origen");
-    if (o) setFiltroOrigen(o);
+    const et = searchParams.get("etapa");
+    if (et !== null) setFiltroEtapa(et);
   }, [searchParams]);
 
   /** Los filtros elegidos a mano también quedan en la URL (sin llenar el historial). */
-  function escribirFiltros(cambios: { nivel?: FiltroNivel; estado?: FiltroEstado; origen?: string }) {
+  function escribirFiltros(cambios: { nivel?: FiltroNivel; estado?: FiltroEstado; etapa?: string }) {
     const qs = new URLSearchParams(window.location.search);
     qs.delete("nuevo");
     const poner = (k: string, v: string | undefined, vacio: string) => {
@@ -171,32 +194,51 @@ function LeadsPanelInner() {
     };
     poner("nivel", cambios.nivel, "todos");
     poner("estado", cambios.estado, "todos");
-    poner("origen", cambios.origen, "");
+    poner("etapa", cambios.etapa, "");
     const s = qs.toString();
     router.replace(`/leads${s ? `?${s}` : ""}`, { scroll: false });
   }
   function elegirNivel(n: FiltroNivel) { setFiltroNivel(n); escribirFiltros({ nivel: n }); }
-  function elegirEstado(e: FiltroEstado) { setFiltroEstado(e); escribirFiltros({ estado: e }); }
+  /** "Todos" y "Sin cerrar" son estados; las etapas del negocio, ids: una cosa u otra. */
+  function elegirEstado(e: FiltroEstado) { setFiltroEstado(e); setFiltroEtapa(""); escribirFiltros({ estado: e, etapa: "" }); }
+  function elegirEtapa(id: string) {
+    const nueva = filtroEtapa === id ? "" : id;
+    setFiltroEtapa(nueva);
+    setFiltroEstado("todos");
+    escribirFiltros({ etapa: nueva, estado: "todos" });
+  }
   function quitarFiltros() {
     setFiltroNivel("todos");
     setFiltroEstado("todos");
-    setFiltroOrigen("");
+    setFiltroEtapa("");
     setBusqueda("");
     router.replace("/leads", { scroll: false });
   }
+  /** Tocar una etiqueta filtra la lista por ella (y tocarla de nuevo la quita). */
+  function filtrarEtiqueta(nombre: string) {
+    cambiarCrm({ etiquetas: alternarEtiqueta(filtros, nombre).etiquetas });
+  }
+
+  // La etapa elegida le dice al servidor su ESTADO (trae menos), y la pantalla
+  // se queda con los de esa etapa exacta (`etapaVisibleDe`).
+  const etapaElegida = filtroEtapa ? etapas.find((e) => e.id === filtroEtapa) ?? null : null;
 
   /**
    * LA PRIMERA PÁGINA AL INSTANTE (2026-10-09). `listarLeads` bajaba hasta 20
    * páginas EN SERIE antes de pintar nada, y otra vez en cada chip. Ahora se
-   * pinta la primera y el resto se suma detrás. El backend filtra nivel y
-   * estado; "Sin cerrar" y el origen se vuelven a filtrar acá (el backend
-   * todavía puede no conocerlos).
+   * pinta la primera y el resto se suma detrás. El backend filtra nivel,
+   * estado y los filtros del CRM; "Sin cerrar", la etapa y el origen se
+   * vuelven a filtrar acá (el backend todavía puede no conocerlos).
    *
    * Y AL VOLVER, LO DE LA ÚLTIMA VEZ: se guarda la lista por filtro en la
    * caché en memoria, y al volver a esta sección se pinta al instante
    * mientras se actualiza por detrás.
    */
-  const claveLista = `leads@${leerEmpresaActiva() || "-"}|${filtroNivel}|${filtroEstado}|${filtroOrigen}`;
+  const estadoServidor = etapaElegida
+    ? etapaElegida.motor
+    : filtroEstado === "todos" || filtroEstado === ESTADO_ABIERTOS ? undefined : filtroEstado;
+  const filtrosCrmClave = claveFiltrosCrm(filtros);
+  const claveLista = `leads@${empresa}|${filtroNivel}|${estadoServidor ?? filtroEstado}|${filtrosCrmClave}`;
   const cargaRef = useRef(0);
   const cargar = useCallback(async () => {
     const gen = ++cargaRef.current;
@@ -208,15 +250,16 @@ function LeadsPanelInner() {
       setEstado("cargando");
     }
     setCompletando(true);
-    const filtros = {
+    const pedido = {
       nivel: filtroNivel === "todos" ? undefined : filtroNivel,
-      estado: filtroEstado === "todos" || filtroEstado === ESTADO_ABIERTOS ? undefined : filtroEstado,
-      origen: filtroOrigen || undefined,
+      estado: estadoServidor,
+      origen: filtros.origen || undefined,
+      crm: paresServidor(filtros),
     };
     let acumulado: Lead[] = [];
     try {
       await cargarProgresivo<Lead, { items: Lead[]; siguienteCursor: string | null }>(
-        (cursor) => paginaLeadsFiltrada(filtros, cursor),
+        (cursor) => paginaLeadsFiltrada(pedido, cursor),
         (items, { primera, ultima }) => {
           acumulado = primera ? items : agregarPaginaVieja(acumulado, items);
           // Con algo ya en pantalla (lo de la última vez) se espera al final
@@ -239,35 +282,47 @@ function LeadsPanelInner() {
     } finally {
       if (gen === cargaRef.current) setCompletando(false);
     }
-  }, [claveLista, filtroNivel, filtroEstado, filtroOrigen]);
+    // `filtrosCrmClave` resume `filtros` (el objeto cambia en cada render de la URL).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveLista, filtroNivel, estadoServidor, filtrosCrmClave]);
 
   useEffect(() => {
     if (!listo) return;
     cargar();
   }, [listo, cargar]);
 
-  // Lo que pasa los filtros que el backend puede no aplicar.
-  const filtrados = useMemo(
-    () => leads.filter((l) => cumpleEstado(l, filtroEstado) && cumpleOrigen(l, filtroOrigen)),
-    [leads, filtroEstado, filtroOrigen],
-  );
+  /** Lo que se cambió con una acción rápida se ve al instante en la tarjeta. */
+  function actualizarLocal(id: string, cambios: Partial<Lead>) {
+    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...cambios } : l)));
+  }
 
   // LA MISMA REGLA QUE INICIO Y LA CAMPANA (2026-10-09): caliente y ni ganado
   // ni perdido. Era "caliente y nuevo", y los tres números no cuadraban.
   const calientes = useMemo(() => leads.filter(esCalienteSinAtender).length, [leads]);
+  const etiquetasDisponibles = useEtiquetasDisponibles(empresa === "-" ? null : empresa, leads);
+  const origenes = useMemo(() => origenesDeLista(leads), [leads]);
+  const conCamposCrm = useMemo(() => listaConCamposCrm(leads), [leads]);
 
-  // Filtro de búsqueda en cliente: por nombre, contacto o resumen de la IA.
-  // Nombre y teléfono con `coincideBusqueda` (sin tildes; "987 654" encuentra
-  // "51987654321").
+  // Lo que pasa los filtros que el backend puede no aplicar, en el orden
+  // elegido. La búsqueda va con lo que se está escribiendo (sin esperar al
+  // servidor): nombre, teléfono, etiquetas, nota, empresa, correo y lo que
+  // entendió la IA, sin tildes.
   const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    if (!q) return filtrados;
-    return filtrados.filter(
-      (l) => coincideBusqueda(l, busqueda) || (l.resumenIA ?? "").toLowerCase().includes(q),
+    const pasan = leads.filter((l) =>
+      cumpleEstado(l, filtroEstado)
+      && (!etapaElegida || etapaVisibleDe(l, etapas).id === etapaElegida.id)
+      && cumpleFiltrosCrm(l, { ...filtros, q: busqueda }, { miUsuarioId }),
     );
-  }, [filtrados, busqueda]);
+    return ordenarLista(pasan, filtros.orden);
+  }, [leads, filtroEstado, etapaElegida, etapas, filtros, busqueda, miUsuarioId]);
 
-  const hayFiltros = filtroNivel !== "todos" || filtroEstado !== "todos" || !!filtroOrigen || !!busqueda.trim();
+  const hayFiltros = filtroNivel !== "todos" || filtroEstado !== "todos" || !!filtroEtapa
+    || hayFiltrosCrm(filtros) || !!busqueda.trim();
+  // Un estado del motor que vino de un link viejo (`?estado=nutriendo`) y no
+  // es "Todos" ni "Sin cerrar": se muestra como chip para poder quitarlo.
+  const estadoSuelto = filtroEstado !== "todos" && filtroEstado !== ESTADO_ABIERTOS
+    ? FILTROS_ESTADO.find((f) => f.id === filtroEstado)?.label ?? filtroEstado
+    : null;
 
   async function crearNuevo() {
     if (creando || !nuevoNombre.trim() || nuevoContacto.trim().length < 3) return;
@@ -320,8 +375,9 @@ function LeadsPanelInner() {
         dibujo={<LeadsIlustracion />}
       />
 
-      {/* Búsqueda dentro de la bandeja — con su lupa de verdad, no un emoji
-          de placeholder (pasada UX 2026-09-06). */}
+      {/* Búsqueda EN EL SERVIDOR (CRM fase 2): por nombre, teléfono, etiqueta,
+          nota, empresa o correo, sin importar tildes. Lo escrito filtra al
+          instante lo que ya se ve y, al dejar de escribir, busca en todos. */}
       <label className="relative block sm:max-w-md">
         <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-frio">
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -333,7 +389,7 @@ function LeadsPanelInner() {
           type="search"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar por nombre, contacto o lo que dijo…"
+          placeholder="Buscar por nombre, teléfono, etiqueta, clínica o correo…"
           className="w-full rounded-chip bg-carta py-2.5 pl-10 pr-4 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40"
           aria-label="Buscar leads"
         />
@@ -342,7 +398,7 @@ function LeadsPanelInner() {
       {/* Card destacada: calientes sin atender */}
       {estado === "ok" && calientes > 0 && !(filtroNivel === "caliente" && filtroEstado === ESTADO_ABIERTOS) && (
         <button
-          onClick={() => { setFiltroNivel("caliente"); setFiltroEstado(ESTADO_ABIERTOS); escribirFiltros({ nivel: "caliente", estado: ESTADO_ABIERTOS }); }}
+          onClick={() => { setFiltroNivel("caliente"); setFiltroEstado(ESTADO_ABIERTOS); setFiltroEtapa(""); escribirFiltros({ nivel: "caliente", estado: ESTADO_ABIERTOS, etapa: "" }); }}
           className="flex w-full items-center gap-3 rounded-tarjeta bg-calor px-5 py-4 text-left text-carta shadow-[0_8px_24px_rgba(179,92,0,0.3)] transition active:scale-[0.99]"
         >
           <IconoRayo className="h-7 w-7 shrink-0" />
@@ -355,9 +411,8 @@ function LeadsPanelInner() {
         </button>
       )}
 
-      {/* LOS DOS EJES DE FILTRO, CON NOMBRE (pasada UX 2026-09-06): eran 10
-          chips sueltos en dos filas sin decir qué filtraba cada una — ahora
-          cada fila lleva su micro-etiqueta y el activo usa UNA convención. */}
+      {/* LOS EJES DE FILTRO, CON NOMBRE (pasada UX 2026-09-06): cada fila lleva
+          su micro-etiqueta y el activo usa UNA convención. */}
       <div className="space-y-2.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="w-24 shrink-0 text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
@@ -377,44 +432,60 @@ function LeadsPanelInner() {
             </button>
           ))}
         </div>
+        {/* LAS ETAPAS DEL NEGOCIO (CRM fase 2): "Agendó demo", "Demo hecha"…,
+            las mismas de Conversaciones y Seguimiento, en vez de los cinco
+            estados fijos del motor. */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="w-24 shrink-0 text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
             Etapa
           </span>
-          {FILTROS_ESTADO.map((f) => (
+          {([["todos", "Todos"], [ESTADO_ABIERTOS, "Sin cerrar"]] as const).map(([id, label]) => (
             <button
-              key={f.id}
-              onClick={() => elegirEstado(f.id)}
+              key={id}
+              onClick={() => elegirEstado(id)}
               className={`shrink-0 rounded-chip px-3.5 py-1.5 text-[0.82rem] font-semibold transition ${
-                filtroEstado === f.id
+                filtroEstado === id && !filtroEtapa
                   ? "bg-brasa text-sobre-brasa"
                   : "bg-carta text-frio ring-1 ring-linea hover:ring-brasa/40"
               }`}
             >
-              {f.label}
+              {label}
             </button>
           ))}
-        </div>
-        {/* DE DÓNDE VINO (2026-10-09): Reportes y Anuncios mandan acá "los
-            leads de este anuncio". El chip dice cuál y se quita con la ×. */}
-        {filtroOrigen && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-24 shrink-0 text-[0.72rem] font-semibold uppercase tracking-wide text-frio">
-              Origen
-            </span>
+          {etapas.map((et) => (
+            <button
+              key={et.id}
+              onClick={() => elegirEtapa(et.id)}
+              aria-pressed={filtroEtapa === et.id}
+              className={`flex shrink-0 items-center gap-1.5 rounded-chip px-3.5 py-1.5 text-[0.82rem] font-semibold transition ${
+                filtroEtapa === et.id
+                  ? "bg-brasa text-sobre-brasa"
+                  : "bg-carta text-frio ring-1 ring-linea hover:ring-brasa/40"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${PUNTO_ETAPA[et.color]}`} aria-hidden />
+              {et.nombre}
+            </button>
+          ))}
+          {estadoSuelto && !filtroEtapa && (
             <span className="inline-flex items-center gap-2 rounded-chip bg-brasa px-3.5 py-1.5 text-[0.82rem] font-semibold text-sobre-brasa">
-              {nombreDeOrigen(filtroOrigen, leads)}
-              <button
-                type="button"
-                onClick={() => { setFiltroOrigen(""); escribirFiltros({ origen: "" }); }}
-                aria-label="Quitar el filtro de origen"
-                className="text-[1rem] leading-none text-carta/80 hover:text-carta"
-              >
+              Solo: {estadoSuelto}
+              <button type="button" onClick={() => elegirEstado("todos")} aria-label="Quitar el filtro de etapa" className="text-[1rem] leading-none text-carta/80 hover:text-carta">
                 ×
               </button>
             </span>
-          </div>
-        )}
+          )}
+        </div>
+        {/* ETIQUETA, ASIGNADO, SIN RESPUESTA, ORIGEN, FECHA Y ORDEN (CRM fase 2). */}
+        <BarraFiltrosCrm
+          filtros={filtros}
+          cambiar={cambiarCrm}
+          etiquetas={etiquetasDisponibles}
+          miembros={miembros}
+          miUsuarioId={miUsuarioId}
+          origenes={origenes}
+          conEsperando={conCamposCrm}
+        />
       </div>
 
       {completando && estado === "ok" && (
@@ -468,7 +539,20 @@ function LeadsPanelInner() {
       {estado === "ok" && visibles.length > 0 && (
         <div className="grid gap-3 lg:grid-cols-2">
           {visibles.map((l) => (
-            <TarjetaLead key={l.id} lead={aTarjeta(l)} />
+            <TarjetaLead
+              key={l.id}
+              lead={aTarjeta(l, {
+                extra: <InfoFilaLead lead={l} asignado={nombreDe(l.asignadoA)} />,
+                pie: (
+                  <div className="flex items-center justify-between gap-2">
+                    <ListaEtiquetas etiquetas={etiquetasDe(l)} onElegir={filtrarEtiqueta} activas={filtros.etiquetas} />
+                    <span className="ml-auto">
+                      <AccionesRapidasLead lead={l} onCambio={(c) => actualizarLocal(l.id, c)} />
+                    </span>
+                  </div>
+                ),
+              })}
+            />
           ))}
         </div>
       )}

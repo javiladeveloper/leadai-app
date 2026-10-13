@@ -56,7 +56,7 @@ import { useEsEscritorio } from "@/lib/useEsEscritorio";
 import { useDatos } from "@/lib/useDatos";
 import { rutaPrevia, nombreDeRuta } from "@/lib/historial";
 import { diaLima, hoyLima, horaLima, nombreDelDia } from "@/lib/agenda";
-import { URL_CONECTAR_CANALES, telefonoDe } from "@/lib/enlaces";
+import { URL_CONECTAR_CANALES, coincideBusqueda, telefonoDe } from "@/lib/enlaces";
 import { ProximaCita } from "@/components/panel/ProximaCita";
 import { PUNTO_ETAPA } from "@/lib/etapas";
 
@@ -809,11 +809,8 @@ function ConversacionesInner() {
   const q = busqueda.trim().toLowerCase();
   const leadsVisibles = porBuzon
     .filter((l) => (filtroEtapa ? etapaVisibleDe(l, etapasBandeja).id === filtroEtapa : true))
-    .filter((l) =>
-      q
-        ? (l.nombre ?? "").toLowerCase().includes(q) || l.contactoExterno.toLowerCase().includes(q)
-        : true,
-    );
+    // Sin tildes y con el teléfono normalizado: "987 654" encuentra "51987654321".
+    .filter((l) => (q ? coincideBusqueda(l, q) : true));
   const nombreAsignado = filtroAsignado
     ? (() => {
         const m = miembros.find((x) => x.usuarioId === filtroAsignado);

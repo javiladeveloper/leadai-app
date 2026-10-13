@@ -17,7 +17,7 @@ import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
 import { guardarCache, leerCache } from "@/lib/cache-datos";
 import { useDatos } from "@/lib/useDatos";
 import {
-  ESTADO_ABIERTOS, URL_CONECTAR_CANALES, cumpleEstado, cumpleOrigen, esCalienteSinAtender,
+  ESTADO_ABIERTOS, URL_CONECTAR_CANALES, coincideBusqueda, cumpleEstado, cumpleOrigen, esCalienteSinAtender,
 } from "@/lib/enlaces";
 
 type Estado = "cargando" | "ok" | "error";
@@ -255,14 +255,13 @@ function LeadsPanelInner() {
   const calientes = useMemo(() => leads.filter(esCalienteSinAtender).length, [leads]);
 
   // Filtro de búsqueda en cliente: por nombre, contacto o resumen de la IA.
+  // Nombre y teléfono con `coincideBusqueda` (sin tildes; "987 654" encuentra
+  // "51987654321").
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     if (!q) return filtrados;
     return filtrados.filter(
-      (l) =>
-        (l.nombre ?? "").toLowerCase().includes(q) ||
-        l.contactoExterno.toLowerCase().includes(q) ||
-        (l.resumenIA ?? "").toLowerCase().includes(q),
+      (l) => coincideBusqueda(l, busqueda) || (l.resumenIA ?? "").toLowerCase().includes(q),
     );
   }, [filtrados, busqueda]);
 

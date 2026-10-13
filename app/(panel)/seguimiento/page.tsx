@@ -20,7 +20,7 @@ import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
 import { useDatos } from "@/lib/useDatos";
 import { guardarCache, leerCache } from "@/lib/cache-datos";
-import { URL_CONECTAR_CANALES } from "@/lib/enlaces";
+import { URL_CONECTAR_CANALES, coincideBusqueda } from "@/lib/enlaces";
 import { SkeletonLista } from "@/components/Skeletons";
 import { BadgeCanal } from "@/components/BadgeCanal";
 import { OrigenLead } from "@/components/panel/OrigenLead";
@@ -237,8 +237,8 @@ function SeguimientoInner() {
       .filter(
         (l) =>
           !q ||
-          (l.nombre ?? "").toLowerCase().includes(q) ||
-          l.contactoExterno.toLowerCase().includes(q) ||
+          // Nombre y teléfono normalizados: "987 654" encuentra "51987654321".
+          coincideBusqueda(l, busqueda) ||
           (l.resumenIA ?? "").toLowerCase().includes(q),
       );
     for (const l of visibles) mapa.get(etapaVisibleDe(l, etapas).id)?.push(l);

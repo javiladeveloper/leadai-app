@@ -19,7 +19,7 @@ import { SkeletonLista } from "@/components/Skeletons";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
 import { soles as solesFmt } from "@/lib/dinero";
-import { ESTADO_ABIERTOS, cumpleEstado, cumpleOrigen, esCalienteSinAtender } from "@/lib/enlaces";
+import { ESTADO_ABIERTOS, coincideBusqueda, cumpleEstado, cumpleOrigen, esCalienteSinAtender } from "@/lib/enlaces";
 
 type Estado = "cargando" | "ok" | "error";
 type FiltroNivel = "todos" | NivelInteres;
@@ -183,10 +183,7 @@ function GlobalPanelInner() {
     const q = busqueda.trim().toLowerCase();
     if (!q) return filtrados;
     return filtrados.filter(
-      (l) =>
-        (l.nombre ?? "").toLowerCase().includes(q) ||
-        l.contactoExterno.toLowerCase().includes(q) ||
-        (l.resumenIA ?? "").toLowerCase().includes(q),
+      (l) => coincideBusqueda(l, busqueda) || (l.resumenIA ?? "").toLowerCase().includes(q),
     );
   }, [filtrados, busqueda]);
 

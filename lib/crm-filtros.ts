@@ -401,6 +401,38 @@ export function listaConCamposCrm(leads: Lead[]): boolean {
   return leads.some((l) => l.ultimoDireccion !== undefined);
 }
 
+// ── Datos de contacto (la ficha) ──────────────────────────────────────────
+
+export type CampoContacto = "correo" | "empresa" | "ciudad" | "profesionales";
+
+/** Los mismos topes que valida el servidor (PATCH /leads/:id). */
+const LARGO_CAMPO: Record<Exclude<CampoContacto, "profesionales">, number> = { correo: 160, empresa: 120, ciudad: 80 };
+
+/**
+ * Lo escrito en un dato de contacto, listo para mandar: vacío = borrar
+ * (`null`), el correo en minúsculas, los profesionales como número entero
+ * de 1 a 999. Si no sirve, el motivo en palabras simples.
+ */
+export function validarDatoContacto(
+  campo: CampoContacto,
+  texto: string,
+): { ok: true; valor: string | number | null } | { ok: false; error: string } {
+  const t = texto.replace(/\s+/g, " ").trim();
+  if (!t) return { ok: true, valor: null };
+  if (campo === "profesionales") {
+    const n = Number(t);
+    if (!Number.isInteger(n) || n < 1 || n > 999) return { ok: false, error: "Escribe un número entre 1 y 999." };
+    return { ok: true, valor: n };
+  }
+  if (t.length > LARGO_CAMPO[campo]) return { ok: false, error: `Máximo ${LARGO_CAMPO[campo]} letras.` };
+  if (campo === "correo") {
+    const c = t.toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c)) return { ok: false, error: "Ese correo no parece válido (ej: nombre@clinica.com)." };
+    return { ok: true, valor: c };
+  }
+  return { ok: true, valor: t };
+}
+
 // ── Embudo ────────────────────────────────────────────────────────────────
 
 export interface Columna<T> {

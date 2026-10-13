@@ -187,6 +187,20 @@ test('los orígenes de la lista, con nombre y los que más trajeron primero', ()
   assert.equal(f.listaConCamposCrm([lead({ ultimoDireccion: null })]), true);
 });
 
+test('datos de contacto: vacío borra, correo en minúsculas, profesionales 1–999', () => {
+  igual(f.validarDatoContacto('correo', '  Ana@Clinica.PE '), { ok: true, valor: 'ana@clinica.pe' });
+  assert.equal(f.validarDatoContacto('correo', 'ana@').ok, false);
+  igual(f.validarDatoContacto('empresa', ''), { ok: true, valor: null });
+  igual(f.validarDatoContacto('empresa', 'Clínica   Sonrisas'), { ok: true, valor: 'Clínica Sonrisas' });
+  assert.equal(f.validarDatoContacto('empresa', 'x'.repeat(121)).ok, false);
+  assert.equal(f.validarDatoContacto('ciudad', 'y'.repeat(81)).ok, false);
+  igual(f.validarDatoContacto('profesionales', '3'), { ok: true, valor: 3 });
+  assert.equal(f.validarDatoContacto('profesionales', '0').ok, false);
+  assert.equal(f.validarDatoContacto('profesionales', '2.5').ok, false);
+  assert.equal(f.validarDatoContacto('profesionales', '1000').ok, false);
+  assert.match(f.validarDatoContacto('profesionales', 'tres').error, /número/);
+});
+
 test('el embudo: una columna por etapa, con su total y los calientes arriba', () => {
   const E = etapas.ETAPAS_DEFAULT;
   const cols = f.agruparPorColumna([

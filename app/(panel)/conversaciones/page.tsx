@@ -6,7 +6,19 @@ import { CierreLead } from "@/components/panel/CierreLead";
 import { NotaLead } from "@/components/panel/NotaLead";
 import { ProximoPaso } from "@/components/panel/ProximoPaso";
 import { HistorialLead } from "@/components/panel/HistorialLead";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { DatosContacto } from "@/components/panel/DatosContacto";
+import { EtiquetasLead } from "@/components/panel/EtiquetasLead";
+import { BarraFiltrosCrm } from "@/components/panel/BarraFiltrosCrm";
+import { InfoFilaLead } from "@/components/panel/InfoFilaLead";
+import { ListaEtiquetas } from "@/components/panel/ChipEtiqueta";
+import { AccionesRapidasLead } from "@/components/panel/AccionesRapidasLead";
+import { useBusquedaCrm, useEtiquetasDisponibles, useFiltrosCrm } from "@/lib/useFiltrosCrm";
+import {
+  alternarEtiqueta, claveFiltrosCrm, cumpleFiltrosCrm, etiquetasDe, hayFiltrosCrm, leerFiltrosCrm, listaConCamposCrm,
+  ordenarLista, origenesDeLista, paresServidor,
+} from "@/lib/crm-filtros";
+import { esTipoOportunidad, type TipoOportunidad } from "@/lib/oportunidades-dia";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,10 +28,9 @@ import {
 import { SkeletonLista, SkeletonChat } from "@/components/Skeletons";
 import {
   obtenerLead,
-  paginaLeads,
-  paginaBandejaGlobal,
+  paginaLeadsFiltrada,
+  paginaBandejaGlobalFiltrada,
   accionLead,
-  actualizarLead,
   reiniciarLead,
   obtenerEtapas,
   obtenerEquipo,
@@ -58,7 +69,7 @@ import { useEsEscritorio } from "@/lib/useEsEscritorio";
 import { useDatos } from "@/lib/useDatos";
 import { rutaPrevia, nombreDeRuta } from "@/lib/historial";
 import { diaLima, hoyLima, horaLima, nombreDelDia } from "@/lib/agenda";
-import { URL_CONECTAR_CANALES, coincideBusqueda, telefonoDe } from "@/lib/enlaces";
+import { URL_CONECTAR_CANALES, telefonoDe } from "@/lib/enlaces";
 import { ProximaCita } from "@/components/panel/ProximaCita";
 import { PUNTO_ETAPA } from "@/lib/etapas";
 
@@ -142,7 +153,6 @@ function aBurbuja(m: MensajeApi): MensajeUI {
 }
 
 type Buzon = "" | "mios" | "sin";
-const esBuzon = (v: string | null): v is Buzon => v === "" || v === "mios" || v === "sin";
 
 /** La palabra que hay que escribir para reiniciar el chat de un cliente REAL. */
 const PALABRA_BORRAR = "BORRAR";
@@ -231,10 +241,12 @@ function ConversacionesInner() {
     setFiltroNegocio(delLink ?? filtroInicialDeBandeja(negocios, ""));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [negocios]);
-  const [filtroBuzon, setFiltroBuzon] = useState<Buzon>(() => {
-    const b = params.get("buzon");
-    return esBuzon(b) ? b : "";
-  });
+  // LOS FILTROS DEL CRM, EN LA URL (fase 2, 2026-10-13): etiqueta, sin
+  // respuesta, origen, fecha, orden y la búsqueda (`?q=`, en el servidor), y
+  // el buzón: `?asignado=yo|sin|<usuarioId>` (los links viejos con
+  // `?buzon=mios|sin` siguen valiendo).
+  const { filtros, cambiar: cambiarCrm } = useFiltrosCrm("/conversaciones");
+  const filtroBuzon: Buzon = filtros.asignado === "yo" ? "mios" : filtros.asignado === "sin" ? "sin" : "";
   const [filtroEtapa, setFiltroEtapa] = useState(() => params.get("etapa") ?? "");
   // POR ESTADO DEL MOTOR (2026-10-13): "Para atender" de Inicio manda
   // `?estado=escalado`, que junta todas las etapas de ese estado (ver
@@ -245,15 +257,12 @@ function ConversacionesInner() {
   });
   // CONVERSACIONES DE UNA PERSONA DEL EQUIPO (2026-10-09): desde Equipo, "Ver
   // sus conversaciones" abre la bandeja filtrada por quién la tiene asignada.
-  const [filtroAsignado, setFiltroAsignado] = useState(() => params.get("asignado") ?? "");
+  const filtroAsignado = filtros.asignado && filtros.asignado !== "yo" && filtros.asignado !== "sin" ? filtros.asignado : "";
   // `?buscar=` (2026-10-09): el buscador del header manda acá cuando el
   // negocio no tiene lista de Leads (un restaurante). Si ya se está acá y se
-  // busca otra cosa, la URL cambia y la búsqueda la sigue.
-  const buscarParam = params.get("buscar");
-  const [busqueda, setBusqueda] = useState(() => buscarParam ?? "");
-  useEffect(() => {
-    if (buscarParam !== null) setBusqueda(buscarParam);
-  }, [buscarParam]);
+  // busca otra cosa, la URL cambia y la búsqueda la sigue. Desde el CRM fase
+  // 2 también busca EN EL SERVIDOR al dejar de escribir.
+  const [busqueda, setBusqueda] = useBusquedaCrm(filtros.q, (q) => cambiarCrm({ q }));
   // Etapas del negocio: las de la bandeja siguen al filtro de negocio (en
   // "Todos" del modo global se usan las default — cada negocio tiene las
   // suyas y no se pueden mezclar); las de la ficha siguen al lead elegido.
@@ -273,7 +282,6 @@ function ConversacionesInner() {
   // Tono del compositor (aplica al Asistente IA y a Corregir).
   const [tono, setTono] = useState<"" | "formal" | "cercano" | "directo" | "alegre">("");
   const [corrigiendo, setCorrigiendo] = useState(false);
-  const [etiquetaNueva, setEtiquetaNueva] = useState("");
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(leadParam);
   // Tenant del lead seleccionado (solo en modo global): viaja explícito en
   // obtenerLead/accionLead/calcularComision, SIN cambiar la empresa activa —
@@ -375,14 +383,22 @@ function ConversacionesInner() {
   // cada sondeo de 4 s.
   // Modo global: conversaciones de TODOS los negocios de captación con su
   // etiqueta. Modo empresa: solo la activa, como siempre.
+  //
+  // CON LOS FILTROS DEL CRM (fase 2): búsqueda, etiqueta, sin respuesta,
+  // origen, fecha y orden viajan al servidor; el buzón y la etapa no (se
+  // cuentan sobre la lista bajada: los números de cada uno tienen que cuadrar).
+  // Cambiar un filtro cambia `claveServidor` y la lista se vuelve a pedir.
+  const claveServidor = claveFiltrosCrm({ ...filtros, asignado: "" });
   const pedirPagina = useCallback(async (cursor: string | null, limite?: number) => {
+    const f = leerFiltrosCrm(new URLSearchParams(claveServidor));
+    const pedido = { origen: f.origen || undefined, crm: paresServidor(f, { incluirAsignado: false }) };
     if (esModoGlobal()) {
-      const r = await paginaBandejaGlobal(cursor, limite);
+      const r = await paginaBandejaGlobalFiltrada(pedido, cursor, limite);
       setNegocios(r.negocios);
       return r as { items: LeadLista[]; siguienteCursor: string | null };
     }
-    return (await paginaLeads(cursor, limite)) as { items: LeadLista[]; siguienteCursor: string | null };
-  }, []);
+    return (await paginaLeadsFiltrada(pedido, cursor, limite)) as { items: LeadLista[]; siguienteCursor: string | null };
+  }, [claveServidor]);
 
   // Una carga completa nueva cancela la anterior (p. ej. al volver a entrar).
   const cargaRef = useRef(0);
@@ -614,12 +630,7 @@ function ConversacionesInner() {
     escribirUrl({ etapa: id || null }, "replace");
   }
   function elegirBuzon(id: Buzon) {
-    setFiltroBuzon(id);
-    escribirUrl({ buzon: id || null }, "replace");
-  }
-  function quitarAsignado() {
-    setFiltroAsignado("");
-    escribirUrl({ asignado: null }, "replace");
+    cambiarCrm({ asignado: id === "mios" ? "yo" : id });
   }
   function quitarEstado() {
     setFiltroEstado("");
@@ -679,11 +690,19 @@ function ConversacionesInner() {
 
   // "Asistente IA" del compositor: pide un borrador al motor y lo deja en el
   // campo de texto para editar antes de enviar (gasta 1 respuesta de IA).
-  async function pedirSugerencia() {
+  //
+  // `motivo` (CRM fase 3): viene de una OPORTUNIDAD del día ("no llegó a la
+  // reunión", "le prometiste los videos"…) y le dice a la IA para qué es el
+  // mensaje. Se pide solo al abrir el chat desde "Hoy" (ver `?sugerir=`).
+  async function pedirSugerencia(motivo?: TipoOportunidad) {
     if (!seleccionadoId || sugiriendo) return;
     setSugiriendo(true);
     setAccionError(null);
-    const r = await accionLead(seleccionadoId, { tipo: "sugerir_respuesta", ...(tono ? { tono } : {}) }, tenantSel);
+    const r = await accionLead(
+      seleccionadoId,
+      { tipo: "sugerir_respuesta", ...(tono ? { tono } : {}), ...(motivo ? { motivo } : {}) },
+      tenantSel,
+    );
     if (r.ok && r.borrador) {
       editarBorrador(r.borrador);
     } else {
@@ -711,12 +730,24 @@ function ConversacionesInner() {
     setCorrigiendo(false);
   }
 
-  // Etiquetas del contacto (chips de la ficha).
-  async function guardarEtiquetas(nuevas: string[]) {
-    if (!seleccionadoId) return;
-    const r = await actualizarLead(seleccionadoId, { etiquetas: nuevas }, tenantSel);
-    if (r.ok) await cargarLead(seleccionadoId, tenantSel);
-    else setAccionError("No se pudieron guardar las etiquetas.");
+  /**
+   * Lo que cambió en la ficha (etiquetas, etiquetas de la IA, datos de
+   * contacto) o con una acción rápida de la lista, al instante: en el chat
+   * abierto y en su fila. El sondeo trae después lo que el servidor calcule.
+   */
+  function cambiarLeadLocal(id: string, cambios: Partial<Lead>) {
+    setLead((l) => {
+      if (!l || l.id !== id) return l;
+      const junto = { ...l, ...cambios };
+      guardarEnCache(id, junto);
+      return junto;
+    });
+    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...cambios } : l)));
+  }
+
+  /** Tocar una etiqueta (en la fila o en la ficha) filtra la lista por ella; tocarla de nuevo la quita. */
+  function filtrarEtiqueta(nombre: string) {
+    cambiarCrm({ etiquetas: alternarEtiqueta(filtros, nombre).etiquetas });
   }
 
   // Chatbot ON/OFF de ESTA conversación (optimista: el toggle cambia al toque).
@@ -791,6 +822,35 @@ function ConversacionesInner() {
 
   const leadAbierto = lead && lead.id === seleccionadoId ? lead : null;
   useChatAlFinal(seleccionadoId, leadAbierto?.mensajes.at(-1)?.id, finRef, chatRef);
+
+  /**
+   * EL MENSAJE SUGERIDO DE UNA OPORTUNIDAD (CRM fase 3, 2026-10-13). "Hoy"
+   * abre el chat con `?sugerir=<tipo>` ("no llegó a la reunión", "le
+   * prometiste los videos"…): apenas carga ese chat se pide el borrador con
+   * ese objetivo y queda en el compositor para revisarlo y mandarlo. Una sola
+   * vez: el parámetro se saca de la URL (un F5 no vuelve a gastar la IA).
+   */
+  const sugerirParam = params.get("sugerir");
+  const sugeridoPara = useRef<string | null>(null);
+  const idAbierto = leadAbierto?.id ?? null;
+  useEffect(() => {
+    if (!sugerirParam || !idAbierto || estadoLead !== "ok" || idAbierto !== leadParam) return;
+    const clave = `${idAbierto}:${sugerirParam}`;
+    if (sugeridoPara.current === clave) return;
+    sugeridoPara.current = clave;
+    escribirUrl({ sugerir: null }, "replace");
+    void pedirSugerencia(esTipoOportunidad(sugerirParam) ? sugerirParam : undefined);
+    // `pedirSugerencia` lee el chat abierto de este render; con el id alcanza.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sugerirParam, idAbierto, estadoLead, leadParam]);
+
+  // Lo que necesitan los filtros del CRM (ver `filtrosBandeja` más abajo).
+  const etiquetasDisponibles = useEtiquetasDisponibles(
+    filtroNegocio || (esModoGlobal() ? null : leerEmpresaActiva()),
+    leads,
+  );
+  const origenes = useMemo(() => origenesDeLista(leads), [leads]);
+  const conCamposCrm = useMemo(() => listaConCamposCrm(leads), [leads]);
   const tramo = leadAbierto ? tramoVisible(leadAbierto.mensajes, mostrar, leadAbierto.totalMensajes) : null;
   // La ventana de 24 h de WhatsApp (caso Edith): cerrada, el chat lo dice.
   const ventana = leadAbierto ? ventanaWhatsApp(leadAbierto, leadAbierto.ultimoEntranteEn) : null;
@@ -832,26 +892,56 @@ function ConversacionesInner() {
   const conteoEtapa = (id: string) =>
     porBuzon.filter((l) => etapaVisibleDe(l, etapasBandeja).id === id).length;
   const q = busqueda.trim().toLowerCase();
-  const leadsVisibles = porBuzon
-    .filter((l) => (filtroEstado ? l.estado === filtroEstado : true))
-    .filter((l) => (filtroEtapa ? etapaVisibleDe(l, etapasBandeja).id === filtroEtapa : true))
-    // Sin tildes y con el teléfono normalizado: "987 654" encuentra "51987654321".
-    .filter((l) => (q ? coincideBusqueda(l, q) : true));
+  // Los filtros del CRM (los mismos que ya filtró el servidor, sobre lo bajado:
+  // el cambio se ve al instante) y el orden elegido. La búsqueda, sin tildes y
+  // con el teléfono normalizado ("987 654" encuentra "51987654321"), mira
+  // también etiquetas, nota, clínica y correo.
+  const leadsVisibles = ordenarLista(
+    porBuzon
+      .filter((l) => (filtroEstado ? l.estado === filtroEstado : true))
+      .filter((l) => (filtroEtapa ? etapaVisibleDe(l, etapasBandeja).id === filtroEtapa : true))
+      .filter((l) => cumpleFiltrosCrm(l, { ...filtros, q: busqueda, asignado: "" }, { miUsuarioId })),
+    filtros.orden,
+  );
   const nombreAsignado = filtroAsignado
     ? (() => {
         const m = miembros.find((x) => x.usuarioId === filtroAsignado);
         return m ? (m.nombre ?? m.email) : "esa persona";
       })()
     : "";
-  const hayFiltros = !!(filtroEtapa || filtroEstado || filtroBuzon || filtroAsignado || q);
+  /** "Tú", el nombre de la persona del equipo, o nada si no está asignado. */
+  const nombreDe = (usuarioId: string | null | undefined): string | null => {
+    if (!usuarioId) return null;
+    if (usuarioId === miUsuarioId) return "Tú";
+    const m = miembros.find((x) => x.usuarioId === usuarioId);
+    return m ? (m.nombre ?? m.email) : null;
+  };
+  const hayFiltros = !!(filtroEtapa || filtroEstado || filtroBuzon || filtroAsignado || q || hayFiltrosCrm(filtros));
+  const cuantosFiltrosCrm = filtros.etiquetas.length + (filtros.sinRespuesta ? 1 : 0) + (filtros.fecha ? 1 : 0)
+    + (filtros.origen ? 1 : 0) + (filtros.orden !== "reciente" ? 1 : 0);
   function quitarFiltros() {
     setBusqueda("");
     setFiltroEtapa("");
     setFiltroEstado("");
-    setFiltroBuzon("");
-    setFiltroAsignado("");
-    escribirUrl({ etapa: null, estado: null, buzon: null, asignado: null }, "replace");
+    escribirUrl({
+      etapa: null, estado: null, buzon: null, asignado: null, q: null, buscar: null,
+      etiqueta: null, sinRespuesta: null, origen: null, fecha: null,
+    }, "replace");
   }
+
+  // Para los filtros: etiquetas para autocompletar (las del negocio que se
+  // mira, o de todos), de dónde vinieron y si la lista sabe quién escribió último.
+  const filtrosBandeja = (
+    <BarraFiltrosCrm
+      filtros={filtros}
+      cambiar={cambiarCrm}
+      etiquetas={etiquetasDisponibles}
+      origenes={origenes}
+      conAsignado={false}
+      conEsperando={conCamposCrm}
+      variante="columna"
+    />
+  );
 
   // Estado vacío de la lista: con "Conectar WhatsApp" SOLO si no hay canal.
   const vacioLista = (compacto: boolean) => (
@@ -905,7 +995,7 @@ function ConversacionesInner() {
   const chipAsignado = filtroAsignado ? (
     <div className="flex items-center justify-between gap-2 rounded-chip bg-brasa-suave px-3 py-1.5 text-[0.78rem] font-semibold text-brasa-texto">
       <span className="truncate">Asignadas a {nombreAsignado}</span>
-      <button type="button" onClick={quitarAsignado} aria-label="Quitar filtro de asignación" className="shrink-0 text-[1rem] leading-none">
+      <button type="button" onClick={() => cambiarCrm({ asignado: "" })} aria-label="Quitar filtro de asignación" className="shrink-0 text-[1rem] leading-none">
         ×
       </button>
     </div>
@@ -918,9 +1008,18 @@ function ConversacionesInner() {
       <input
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="Buscar por nombre o teléfono…"
+        placeholder="Buscar por nombre, teléfono o etiqueta…"
         className="w-full rounded-xl bg-carta px-3.5 py-2 text-[0.9rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
       />
+
+      {/* LOS FILTROS DEL CRM, PLEGADOS (fase 2): en el celular la lista es lo
+          primero; se abren cuando hacen falta y dicen cuántos hay puestos. */}
+      <details className="rounded-xl bg-carta px-3 py-2 ring-1 ring-linea" open={cuantosFiltrosCrm > 0 || undefined}>
+        <summary className="cursor-pointer text-[0.8rem] font-bold text-tinta-2">
+          Filtros{cuantosFiltrosCrm > 0 ? ` (${cuantosFiltrosCrm})` : ""}: etiqueta, sin respuesta, fecha…
+        </summary>
+        <div className="mt-2">{filtrosBandeja}</div>
+      </details>
 
       {/* Embudo con contadores: clic filtra por etapa (clic de nuevo = quitar) */}
       {caps?.tieneEmbudo && (
@@ -975,7 +1074,21 @@ function ConversacionesInner() {
               seleccionar(l);
             }}
           >
-            <TarjetaLead lead={aTarjeta(l, negocios.length > 1)} />
+            <TarjetaLead
+              lead={{
+                ...aTarjeta(l, negocios.length > 1),
+                // Lo que se lee sin abrir el chat (CRM fase 2). Las etiquetas
+                // acá solo se ven: toda la tarjeta abre el chat.
+                extra: (
+                  <>
+                    <InfoFilaLead lead={l} asignado={nombreDe(l.asignadoA)} />
+                    {etiquetasDe(l).length > 0 && (
+                      <span className="mt-1.5 block"><ListaEtiquetas etiquetas={etiquetasDe(l)} chico /></span>
+                    )}
+                  </>
+                ),
+              }}
+            />
           </div>
         ))}
     </>
@@ -1204,7 +1317,7 @@ function ConversacionesInner() {
               {caps?.redactaRespuestas && (
               <button
                 type="button"
-                onClick={pedirSugerencia}
+                onClick={() => void pedirSugerencia()}
                 disabled={sugiriendo}
                 title="La IA escribe un borrador con todo el contexto; lo editas antes de enviar"
                 className="flex h-8 shrink-0 items-center gap-1 rounded-full bg-tibio-suave px-3 text-[0.78rem] font-bold text-tibio ring-1 ring-tibio/30 transition hover:brightness-95 active:scale-[0.98] disabled:opacity-60"
@@ -1339,6 +1452,16 @@ function ConversacionesInner() {
         </div>
       </div>
 
+      {/* DATOS DE CONTACTO EDITABLES (CRM fase 2): clínica, cuántos
+          profesionales, ciudad y correo (la invitación de la reunión va a
+          ese correo). */}
+      <DatosContacto
+        key={`contacto-${leadAbierto.id}`}
+        lead={leadAbierto}
+        tenant={tenantSel}
+        onCambio={(c) => cambiarLeadLocal(leadAbierto.id, c)}
+      />
+
       {/* PRÓXIMO PASO (CRM fase 1, 2026-10-13): qué toca con este cliente y
           cuándo. Llega con el lead (`proximaTarea`); un backend que todavía
           no lo manda (`undefined`) no pinta la tarjeta. */}
@@ -1436,46 +1559,18 @@ function ConversacionesInner() {
         </div>
       </div>
 
-      {/* Etiquetas del contacto (chips, estilo Clinera) */}
-      <div className="rounded-tarjeta bg-carta p-3.5 shadow-[var(--sombra-tarjeta)] ring-1 ring-linea">
-        <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-frio">
-          Etiquetas
-        </p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {(leadAbierto.etiquetas ?? []).map((et) => (
-            <span
-              key={et}
-              className="flex items-center gap-1 rounded-chip bg-brasa/10 px-2 py-0.5 text-[0.75rem] font-bold text-brasa-texto"
-            >
-              {et}
-              <button
-                onClick={() => guardarEtiquetas((leadAbierto.etiquetas ?? []).filter((x) => x !== et))}
-                aria-label={`Quitar ${et}`}
-                className="text-brasa-texto/60 hover:text-brasa-texto"
-              >
-                ×
-              </button>
-            </span>
-          ))}
-          {(leadAbierto.etiquetas ?? []).length < 10 && (
-            <input
-              value={etiquetaNueva}
-              onChange={(e) => setEtiquetaNueva(e.target.value.slice(0, 20))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && etiquetaNueva.trim()) {
-                  const nueva = etiquetaNueva.trim();
-                  if (!(leadAbierto.etiquetas ?? []).includes(nueva)) {
-                    guardarEtiquetas([...(leadAbierto.etiquetas ?? []), nueva]);
-                  }
-                  setEtiquetaNueva("");
-                }
-              }}
-              placeholder="＋ agregar y Enter"
-              className="w-32 rounded-chip bg-arena px-2 py-0.5 text-[0.75rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
-            />
-          )}
-        </div>
-      </div>
+      {/* ETIQUETAS (chips, estilo Clinera), tocables para filtrar la lista,
+          y las que puso la IA (🤖) con "Fijar" y "Quitar" (CRM fases 2 y 3). */}
+      <EtiquetasLead
+        key={`etiquetas-${leadAbierto.id}`}
+        leadId={leadAbierto.id}
+        tenant={tenantSel}
+        etiquetas={leadAbierto.etiquetas ?? []}
+        etiquetasIA={leadAbierto.etiquetasIA ?? []}
+        activas={filtros.etiquetas}
+        onElegir={(nombre) => { filtrarEtiqueta(nombre); if (!esEscritorio) setFichaAbierta(false); }}
+        onCambio={(c) => cambiarLeadLocal(leadAbierto.id, c)}
+      />
 
       {/* Contexto IA, solo donde se REDACTA (2026-08-19): en pedidos
           las respuestas son determinísticas y nunca se genera un
@@ -1700,7 +1795,7 @@ function ConversacionesInner() {
           ] as const).map(([id, label, n]) => (
             <button
               key={id || "todos"}
-              onClick={() => { if (filtroAsignado) quitarAsignado(); elegirBuzon(id); }}
+              onClick={() => elegirBuzon(id)}
               className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[0.85rem] font-semibold transition ${
                 filtroBuzon === id && !filtroAsignado ? "bg-brasa/10 text-brasa-texto" : "text-tinta-2 hover:bg-arena"
               }`}
@@ -1735,6 +1830,11 @@ function ConversacionesInner() {
               <span className="text-[0.78rem] tabular-nums">{conteoEtapa(e.id)}</span>
             </button>
           ))}
+          {/* FILTROS DEL CRM (fase 2): sin respuesta, etiqueta, fecha, origen y orden. */}
+          <p className="px-2 pb-1 pt-3 text-[0.72rem] font-bold uppercase tracking-wide text-frio">
+            Filtros
+          </p>
+          <div className="px-1">{filtrosBandeja}</div>
         </div>
 
         {/* Columna 2: CONVERSACIONES — buscador + filas compactas */}
@@ -1743,7 +1843,7 @@ function ConversacionesInner() {
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar conversación…"
+              placeholder="Buscar por nombre, teléfono, etiqueta…"
               className="w-full rounded-xl bg-arena px-3 py-2 text-[0.85rem] text-tinta outline-none ring-1 ring-linea focus:ring-brasa"
             />
           </div>
@@ -1763,12 +1863,23 @@ function ConversacionesInner() {
                 const activo = l.id === seleccionadoId;
                 const inicial = (l.nombre ?? l.contactoExterno).trim().charAt(0).toUpperCase() || "?";
                 const et = etapaVisibleDe(l, etapasBandeja);
+                const etiquetasFila = etiquetasDe(l);
                 return (
-                  <button
+                  // Un <div> con rol de botón (no un <button>): adentro van
+                  // las etiquetas tocables y las acciones rápidas (CRM fase 2),
+                  // y un botón no puede llevar botones adentro.
+                  <div
                     key={l.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-current={activo ? "true" : undefined}
                     onClick={() => seleccionar(l)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); seleccionar(l); }
+                    }}
                     onMouseEnter={() => precargar(l)}
-                    className={`flex w-full items-start gap-2.5 border-b border-linea/60 px-3 py-2.5 text-left transition ${
+                    className={`group flex w-full cursor-pointer items-start gap-2.5 border-b border-linea/60 px-3 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brasa ${
                       activo ? "bg-brasa/10" : "hover:bg-arena/60"
                     }`}
                   >
@@ -1816,8 +1927,29 @@ function ConversacionesInner() {
                           <OrigenLead lead={l} compacto />
                         </span>
                       )}
+                      {/* LO QUE SE LEE SIN ABRIR EL CHAT (CRM fase 2): si
+                          espera respuesta, su último mensaje, la próxima
+                          reunión o paso y quién lo tiene. */}
+                      <InfoFilaLead lead={l} asignado={nombreDe(l.asignadoA)} compacto />
+                      {/* Etiquetas tocables (filtran la lista) y, al pasar el
+                          mouse, las acciones rápidas sin abrir la ficha. */}
+                      <span className="mt-1.5 flex items-center gap-1.5">
+                        <span className="min-w-0 flex-1">
+                          <ListaEtiquetas etiquetas={etiquetasFila} onElegir={filtrarEtiqueta} activas={filtros.etiquetas} max={3} chico />
+                        </span>
+                        <AccionesRapidasLead
+                          lead={l}
+                          alPasar
+                          conEtapas={!!caps?.tieneEmbudo}
+                          onCambio={(c) => cambiarLeadLocal(l.id, c)}
+                          onRecargar={() => {
+                            void cargarReciente();
+                            if (l.id === seleccionadoId) void cargarLead(l.id, tenantSel);
+                          }}
+                        />
+                      </span>
                     </span>
-                  </button>
+                  </div>
                 );
               })}
           </div>

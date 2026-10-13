@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import type { Lead } from "@/lib/api";
 import { solesDeCentavos } from "@/lib/dinero";
+import { urlGestionarAnuncio, urlLeadsDeAnuncio } from "@/lib/enlaces";
 
 /**
  * DE DÓNDE VINO ESTE LEAD Y CUÁNTO COSTÓ (2026-09-17, pedido de Jonathan:
@@ -16,6 +18,11 @@ import { solesDeCentavos } from "@/lib/dinero";
  * DOS TAMAÑOS porque son dos preguntas distintas: en la lista alcanza con
  * saber que vino de un anuncio (`compacto`), y en la ficha —donde uno decide
  * si le contesta rápido— importa cuánto costó.
+ *
+ * EL ANUNCIO SE PUEDE TOCAR (2026-10-13): en la ficha, si se sabe qué anuncio
+ * fue (`origen.adId`), "Leads de este anuncio" abre la lista filtrada por él
+ * (en el negocio del lead, `negocio`) y "Ver anuncio" lo abre en Marketing.
+ * Solo Meta se gestiona desde acá (Google y TikTok, en su plataforma).
  */
 
 const ICONO: Record<string, string> = {
@@ -50,8 +57,13 @@ export function ChipPlataforma({ plataforma }: { plataforma?: string }) {
 const soles = solesDeCentavos;
 
 export function OrigenLead({
-  lead, compacto = false,
-}: { lead: Pick<Lead, "origen" | "origenEtiqueta">; compacto?: boolean }) {
+  lead, compacto = false, negocio,
+}: {
+  lead: Pick<Lead, "origen" | "origenEtiqueta">;
+  compacto?: boolean;
+  /** El negocio del lead: la lista "Leads de este anuncio" se abre en ese. */
+  negocio?: string | null;
+}) {
   const o = lead.origen;
   // Sin el origen resuelto no se pinta nada: mostrar la etiqueta cruda de
   // vuelta sería reponer justamente el problema que esto resuelve.
@@ -84,6 +96,18 @@ export function OrigenLead({
       </p>
       {o.campania && (
         <p className="mt-0.5 truncate text-[0.76rem] text-frio">Campaña: {o.campania}</p>
+      )}
+      {o.adId && (
+        <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[0.78rem] font-semibold">
+          <Link href={urlLeadsDeAnuncio(o.adId, negocio)} className="text-brasa-texto hover:underline">
+            Leads de este anuncio ›
+          </Link>
+          {(!o.plataforma || o.plataforma === "meta") && (
+            <Link href={urlGestionarAnuncio(o.adId)} className="text-brasa-texto hover:underline">
+              Ver anuncio ›
+            </Link>
+          )}
+        </p>
       )}
 
       {/* EL COSTO ES EL REPARTIDO, no el gasto del anuncio. Se aclara con

@@ -1302,7 +1302,7 @@ function ConversacionesInner() {
             linea decia "vino de: ad:120255972775720311" -- el dato era
             correcto pero ilegible. */}
         <div className="mt-2">
-          <OrigenLead lead={leadAbierto} />
+          <OrigenLead lead={leadAbierto} negocio={tenantSel ?? leerEmpresaActiva()} />
         </div>
         {/* LA VENTA REAL (2026-10-07): "ganado" es "agendó la demo";
             esto es "pagó", y alimenta el costo por cliente del reporte. */}

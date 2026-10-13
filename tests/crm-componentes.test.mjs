@@ -174,3 +174,35 @@ test('Historial: sin la ruta no se pinta; con ítems los cuenta y "Ver más" pid
   assert.equal(r.nodos((n) => n.type === 'button' && texto(n).trim() === 'Ver más').length, 0);
   r.desmontar();
 });
+
+test('Oportunidades: ícono, "se cierra en", la acción de un toque y Descartar al instante', async () => {
+  const descartadas = [];
+  const op = (id, extra) => ({
+    id, leadId: `L-${id}`, tenantId: 'T1', negocio: 'Sania', nombre: `Cliente ${id}`, telefono: '51987654321',
+    titulo: `Título ${id}`, detalle: `Detalle ${id}`, prioridad: 50, ...extra,
+  });
+  const { r, guardados } = montarHoy({
+    reuniones: [], tareas: [], sinRespuesta: [], generadoEn: ahora.toISOString(),
+    oportunidades: [
+      op('v', { tipo: 'ventana_24h', accion: 'whatsapp', prioridad: 100, venceEn: new Date(ahora.getTime() + 5 * 3_600_000 + 60_000).toISOString() }),
+      op('c', { tipo: 'caliente_callado', accion: 'llamar' }),
+      op('r', { tipo: 'reunion_sin_resultado', accion: 'resultado', citaId: 'C1' }),
+    ],
+  }, { descartarOportunidad: async (id) => { descartadas.push(id); } });
+  const t = texto(r.arbol);
+  assert.match(t, /Oportunidades/);
+  assert.match(t, /3 oportunidades/);
+  assert.match(t, /se cierra en 5 h/);
+  assert.match(t, /⏳/);
+  // WhatsApp abre la ficha con el mensaje sugerido para ESE motivo.
+  const escribir = r.nodos((n) => n.type === 'a' && texto(n).trim() === 'Escribirle')[0];
+  assert.equal(escribir.props.href, '/conversaciones?lead=L-v&negocio=T1&sugerir=ventana_24h');
+  assert.equal(r.nodos((n) => n.type === 'a' && texto(n).trim() === 'Llamar')[0].props.href, 'tel:+51987654321');
+  assert.equal(r.nodos((n) => n.type === 'a' && texto(n).trim() === 'Anotar cómo le fue')[0].props.href, '/agenda?cita=C1');
+  // Descartar: sale de la caché antes de que responda el servidor.
+  r.nodos((n) => n.type === 'button' && texto(n).trim() === 'Descartar')[0].props.onClick();
+  await r.flush();
+  igual(guardados[0].valor.oportunidades.map((o) => o.id), ['c', 'r']);
+  igual(descartadas, ['v']);
+  r.desmontar();
+});

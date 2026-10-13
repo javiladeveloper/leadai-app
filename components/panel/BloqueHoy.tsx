@@ -2,17 +2,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { actualizarTarea, claveHoy, obtenerHoy, type Hoy, type ReunionHoy, type SinRespuestaHoy, type TareaHoy } from "@/lib/api";
+import {
+  actualizarTarea, claveHoy, descartarOportunidad, obtenerHoy,
+  type Hoy, type OportunidadDia, type ReunionHoy, type SinRespuestaHoy, type TareaHoy,
+} from "@/lib/api";
 import { guardarCache, invalidar } from "@/lib/cache-datos";
 import { useDatos } from "@/lib/useDatos";
+import { guardarEmpresaActiva } from "@/lib/auth";
 import { LinkLead } from "@/components/LinkLead";
 import { ErrorConReintento } from "@/components/ErrorConReintento";
-import { diaLima, horaLima } from "@/lib/agenda";
+import { AgendarReunion } from "@/components/agenda/AgendarReunion";
+import { diaLima, horaLima, hoyLima } from "@/lib/agenda";
 import { reunionUnible, telefonoDe, urlAgenda } from "@/lib/enlaces";
 import {
   ATAJOS_POSPONER, agruparHoy, conTareaMovida, cuandoTarea, esperandoTexto, nombreDia, pospuesta,
   sinTarea, tareaAtrasada, tipoTareaDe, tituloTarea, type Atajo,
 } from "@/lib/crm";
+import { accionDeOportunidad, cierraEn, iconoOportunidad, sinOportunidad } from "@/lib/oportunidades-dia";
 
 /**
  * "HOY": LO QUE TOCA HACER, ARRIBA DE TODO (CRM fase 1, 2026-10-13).
@@ -107,7 +113,31 @@ export function BloqueHoy({
     }
   }
 
+  /**
+   * DESCARTAR UNA OPORTUNIDAD (CRM fase 3): sale al instante; si el servidor
+   * dice que no, vuelve y se avisa. El servidor la esconde 7 días para esta
+   * persona.
+   */
+  async function descartar(o: OportunidadDia) {
+    const antes = datos!;
+    guardarCache(clave, sinOportunidad(antes, o.id));
+    try {
+      await descartarOportunidad(o.id);
+    } catch {
+      guardarCache(clave, antes);
+      mostrarAviso("No se pudo descartar. Intenta de nuevo.", true);
+    }
+  }
+
+  /** Agendó desde una oportunidad: sale de la lista y "Hoy" se vuelve a pedir (la reunión puede ser hoy). */
+  function agendadaDesde(o: OportunidadDia, inicio: string) {
+    guardarCache(clave, sinOportunidad(datos!, o.id));
+    invalidar("hoy@");
+    mostrarAviso(`Listo: reunión ${nombreDia(diaLima(inicio))} a las ${horaLima(inicio)}.`);
+  }
+
   const resumen = [
+    g.oportunidades.length ? `${g.oportunidades.length} ${g.oportunidades.length === 1 ? "oportunidad" : "oportunidades"}` : "",
     g.reuniones.length ? `${g.reuniones.length} ${g.reuniones.length === 1 ? "reunión" : "reuniones"}` : "",
     pasos.length ? `${pasos.length} ${pasos.length === 1 ? "pendiente" : "pendientes"}` : "",
     g.sinRespuesta.length ? `${g.sinRespuesta.length} sin respuesta` : "",
@@ -135,31 +165,17 @@ export function BloqueHoy({
         </p>
       )}
 
-      {/* Oportunidades (fase 3): llegan vacías hasta que el servidor las calcule. */}
+      {/* OPORTUNIDADES DEL DÍA (CRM fase 3): los clientes que se están por
+          perder, cada uno con su acción de un toque. Llegan vacías hasta que
+          el servidor las calcule, y entonces el grupo no aparece. */}
       {g.oportunidades.length > 0 && (
-        <Grupo titulo="Oportunidades" cuenta={g.oportunidades.length}>
-          {g.oportunidades.slice(0, 5).map((o) => {
-            const tel = telefonoDe("whatsapp", o.telefono);
-            return (
-              <Fila key={o.id}>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[0.9rem] font-semibold text-tinta">{o.titulo}</p>
-                  <p className="text-[0.8rem] text-tinta-2">
-                    <NombreLead id={o.leadId} tenant={o.tenantId} nombre={o.nombre} />
-                    {conNegocio && <ChipNegocio nombre={o.negocio} />}
-                    {o.detalle ? <span className="text-frio"> · {o.detalle}</span> : null}
-                  </p>
-                </div>
-                <Acciones>
-                  {tel && (o.accion === "whatsapp" || o.accion === "llamar") && (
-                    o.accion === "llamar" ? <BotonLlamar tel={tel} /> : <BotonWhatsApp tel={tel} />
-                  )}
-                  <BotonFicha id={o.leadId} tenant={o.tenantId} />
-                </Acciones>
-              </Fila>
-            );
-          })}
-        </Grupo>
+        <GrupoOportunidades
+          lista={g.oportunidades}
+          conNegocio={conNegocio}
+          ahora={ahora}
+          onDescartar={(o) => void descartar(o)}
+          onAgendada={agendadaDesde}
+        />
       )}
 
       {g.reuniones.length > 0 && (
@@ -384,6 +400,121 @@ function GrupoSinRespuesta({ lista, conNegocio }: { lista: SinRespuestaHoy[]; co
             {todos ? "Ver menos" : `Ver los ${lista.length}`}
           </button>
         </li>
+      )}
+    </Grupo>
+  );
+}
+
+/**
+ * OPORTUNIDADES DEL DÍA (CRM fase 3, 2026-10-13): el que no llegó a la
+ * reunión, el caliente que dejó de escribir, la ventana de WhatsApp que se
+ * cierra, lo que se le prometió… Cada una con su ícono, por qué importa y UNA
+ * acción de un toque:
+ *  · Escribirle → abre el chat con un mensaje sugerido para ESE motivo;
+ *  · Llamar → el marcador del teléfono;
+ *  · Agendar → el "Agendar reunión" de siempre, con el cliente ya elegido;
+ *  · Anotar cómo le fue → la Agenda en esa cita.
+ * "Descartar" la saca (el servidor no la vuelve a mostrar en 7 días).
+ */
+function GrupoOportunidades({
+  lista, conNegocio, ahora, onDescartar, onAgendada,
+}: {
+  lista: OportunidadDia[];
+  conNegocio: boolean;
+  ahora: Date;
+  onDescartar: (o: OportunidadDia) => void;
+  onAgendada: (o: OportunidadDia, inicio: string) => void;
+}) {
+  const [todas, setTodas] = useState(false);
+  const [agendando, setAgendando] = useState<OportunidadDia | null>(null);
+  const visibles = todas ? lista : lista.slice(0, 5);
+  const principal = `${BOTON} bg-brasa text-sobre-brasa hover:bg-brasa-hondo`;
+  return (
+    <Grupo titulo="Oportunidades" cuenta={lista.length}>
+      {visibles.map((o) => {
+        const accion = accionDeOportunidad(o);
+        const cierra = o.tipo === "ventana_24h" ? cierraEn(o.venceEn, ahora) : null;
+        return (
+          <Fila key={o.id}>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-arena text-[0.95rem]" aria-hidden>
+              {iconoOportunidad(o.tipo)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.9rem] font-semibold text-tinta">
+                {o.titulo}
+                {cierra && (
+                  <span className="ml-1.5 inline-block rounded-chip bg-calor-suave px-2 py-px align-middle text-[0.7rem] font-bold text-calor-hondo">
+                    {cierra}
+                  </span>
+                )}
+              </p>
+              <p className="text-[0.8rem] text-tinta-2">
+                <NombreLead id={o.leadId} tenant={o.tenantId} nombre={o.nombre} />
+                {conNegocio && <ChipNegocio nombre={o.negocio} />}
+              </p>
+              {o.detalle && <p className="line-clamp-2 text-[0.76rem] text-frio">{o.detalle}</p>}
+            </div>
+            <Acciones>
+              {accion.tipo === "whatsapp" && (
+                <Link
+                  href={accion.href}
+                  onClick={() => guardarEmpresaActiva(o.tenantId)}
+                  title="Abre el chat con un mensaje sugerido para revisar y enviar"
+                  className={principal}
+                >
+                  {accion.texto}
+                </Link>
+              )}
+              {accion.tipo === "llamar" && (
+                <a href={accion.href} className={`${BOTON} text-ok ring-1 ring-ok/30 hover:bg-ok/10`}>{accion.texto}</a>
+              )}
+              {accion.tipo === "agendar" && (
+                <button type="button" onClick={() => setAgendando(o)} className={principal}>{accion.texto}</button>
+              )}
+              {accion.tipo === "resultado" && (
+                <Link href={accion.href} className={principal}>{accion.texto}</Link>
+              )}
+              {accion.tipo === "ficha" && <BotonFicha id={o.leadId} tenant={o.tenantId} texto={accion.texto} />}
+              <button
+                type="button"
+                onClick={() => onDescartar(o)}
+                title="No mostrar esta oportunidad por 7 días"
+                className={`${BOTON} text-frio hover:text-alerta`}
+              >
+                Descartar
+              </button>
+            </Acciones>
+          </Fila>
+        );
+      })}
+      {lista.length > 5 && (
+        <li className="pt-2">
+          <button type="button" onClick={() => setTodas((v) => !v)} className="min-h-0 text-[0.8rem] font-bold text-brasa-texto hover:underline">
+            {todas ? "Ver menos" : `Ver las ${lista.length}`}
+          </button>
+        </li>
+      )}
+      {agendando && (
+        <AgendarReunion
+          dia={hoyLima()}
+          hora=""
+          variosNegocios={conNegocio}
+          colores={new Map()}
+          lead={{
+            id: agendando.leadId,
+            tenantId: agendando.tenantId,
+            negocio: agendando.negocio,
+            nombre: agendando.nombre,
+            telefono: telefonoDe("whatsapp", agendando.telefono),
+            canal: "whatsapp",
+          }}
+          onCerrar={() => setAgendando(null)}
+          onAgendada={(c) => {
+            const o = agendando;
+            setAgendando(null);
+            onAgendada(o, c.inicio);
+          }}
+        />
       )}
     </Grupo>
   );

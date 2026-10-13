@@ -2,11 +2,13 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { haySesion, filtroInicialDeBandeja } from "@/lib/auth";
+import { haySesion, filtroInicialDeBandeja, leerSesion } from "@/lib/auth";
 import {
   paginaBandejaGlobalFiltrada,
   cargarProgresivo,
   obtenerReporteGlobal,
+  obtenerEquipo,
+  type Lead,
   type LeadGlobal,
   type NegocioBandeja,
   type ReporteGlobal,
@@ -20,7 +22,17 @@ import { ErrorConReintento } from "@/components/ErrorConReintento";
 import { BloqueHoy } from "@/components/panel/BloqueHoy";
 import { agregarPaginaVieja } from "@/lib/bandeja-rapida";
 import { soles as solesFmt } from "@/lib/dinero";
-import { ESTADO_ABIERTOS, coincideBusqueda, cumpleEstado, cumpleOrigen, esCalienteSinAtender } from "@/lib/enlaces";
+import { ESTADO_ABIERTOS, cumpleEstado, esCalienteSinAtender } from "@/lib/enlaces";
+import { BarraFiltrosCrm } from "@/components/panel/BarraFiltrosCrm";
+import { InfoFilaLead } from "@/components/panel/InfoFilaLead";
+import { ListaEtiquetas } from "@/components/panel/ChipEtiqueta";
+import { AccionesRapidasLead } from "@/components/panel/AccionesRapidasLead";
+import { useDatos } from "@/lib/useDatos";
+import { useBusquedaCrm, useEtiquetasDisponibles, useFiltrosCrm } from "@/lib/useFiltrosCrm";
+import {
+  alternarEtiqueta, claveFiltrosCrm, cumpleFiltrosCrm, etiquetasDe, hayFiltrosCrm, listaConCamposCrm,
+  ordenarLista, origenesDeLista, paresServidor,
+} from "@/lib/crm-filtros";
 
 type Estado = "cargando" | "ok" | "error";
 type FiltroNivel = "todos" | NivelInteres;
@@ -54,8 +66,9 @@ function minutosDesde(iso: string): number {
 
 // En la vista global la etiqueta del negocio va SIEMPRE — es el dato que
 // distingue esta pantalla de la bandeja por empresa.
-function aTarjeta(lead: LeadGlobal, conEtiqueta: boolean): TarjetaLeadProps {
+function aTarjeta(lead: LeadGlobal, conEtiqueta: boolean, crm: Pick<TarjetaLeadProps, "extra" | "pie"> = {}): TarjetaLeadProps {
   return {
+    ...crm,
     id: lead.id,
     // La ficha abre con el negocio del lead (antes se fijaba con un
     // onClickCapture alrededor de la tarjeta).
@@ -107,8 +120,12 @@ function GlobalPanelInner() {
     const v = searchParams.get("estado");
     return FILTROS_ESTADO.some((f) => f.id === v) ? (v as FiltroEstado) : "todos";
   });
-  const [filtroOrigen, setFiltroOrigen] = useState(() => searchParams.get("origen") ?? "");
-  const [busqueda, setBusqueda] = useState("");
+  // CRM FASE 2 (2026-10-13): etiqueta, asignado, sin respuesta, origen,
+  // fecha, orden y la búsqueda EN EL SERVIDOR, todo en la URL (`?q=`; el
+  // `?buscar=` del header también vale).
+  const { filtros, cambiar: cambiarCrm } = useFiltrosCrm("/global");
+  const [busqueda, setBusqueda] = useBusquedaCrm(filtros.q, (q) => cambiarCrm({ q }));
+  const miUsuarioId = leerSesion()?.usuario?.id ?? null;
   const [completando, setCompletando] = useState(false);
 
   useEffect(() => {
@@ -119,29 +136,25 @@ function GlobalPanelInner() {
     setListo(true);
   }, [router]);
 
-  // Buscador del header (o /leads?buscar= redirigido acá): filtra en cliente.
-  useEffect(() => {
-    const q = searchParams.get("buscar");
-    if (q) setBusqueda(q);
-  }, [searchParams]);
-
   // LA PRIMERA PÁGINA AL INSTANTE (2026-10-09): antes se esperaban hasta 20
   // páginas en serie antes de pintar una tarjeta, y otra vez en cada chip.
+  const claveCrm = claveFiltrosCrm(filtros);
   const cargaRef = useRef(0);
   const cargar = useCallback(async () => {
     const gen = ++cargaRef.current;
     setEstado("cargando");
     setCompletando(true);
     void obtenerReporteGlobal().then((rep) => { if (gen === cargaRef.current) setReporte(rep); });
-    const filtros = {
+    const pedido = {
       nivel: filtroNivel === "todos" ? undefined : filtroNivel,
       estado: filtroEstado === "todos" || filtroEstado === ESTADO_ABIERTOS ? undefined : filtroEstado,
-      origen: filtroOrigen || undefined,
+      origen: filtros.origen || undefined,
       tenantId: filtroNegocio === "todos" ? undefined : filtroNegocio,
+      crm: paresServidor(filtros),
     };
     try {
       await cargarProgresivo<LeadGlobal, { negocios: NegocioBandeja[]; items: LeadGlobal[]; siguienteCursor: string | null }>(
-        (cursor) => paginaBandejaGlobalFiltrada(filtros, cursor),
+        (cursor) => paginaBandejaGlobalFiltrada(pedido, cursor),
         (items, { primera, respuesta }) => {
           setNegocios(respuesta.negocios);
           setLeads((prev) => (primera ? items : agregarPaginaVieja(prev, items)));
@@ -155,7 +168,9 @@ function GlobalPanelInner() {
     } finally {
       if (gen === cargaRef.current) setCompletando(false);
     }
-  }, [filtroNivel, filtroEstado, filtroOrigen, filtroNegocio]);
+    // `claveCrm` resume `filtros` (el objeto cambia con cada render de la URL).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroNivel, filtroEstado, claveCrm, filtroNegocio]);
 
   useEffect(() => {
     if (!listo) return;
@@ -166,29 +181,43 @@ function GlobalPanelInner() {
   // Inicio y la campana (2026-10-09).
   const calientes = useMemo(() => leads.filter(esCalienteSinAtender).length, [leads]);
 
-  // Lo que el backend puede no filtrar ("Sin cerrar", el origen) se filtra acá.
-  const filtrados = useMemo(
-    () => leads.filter((l) => cumpleEstado(l, filtroEstado) && cumpleOrigen(l, filtroOrigen)),
-    [leads, filtroEstado, filtroOrigen],
+  // Lo que el backend puede no filtrar ("Sin cerrar", el origen, lo que se
+  // está escribiendo) se filtra acá, en el orden elegido.
+  const visibles = useMemo(
+    () => ordenarLista(
+      leads.filter((l) => cumpleEstado(l, filtroEstado) && cumpleFiltrosCrm(l, { ...filtros, q: busqueda }, { miUsuarioId })),
+      filtros.orden,
+    ),
+    [leads, filtroEstado, filtros, busqueda, miUsuarioId],
   );
-  const hayFiltros = filtroNivel !== "todos" || filtroEstado !== "todos" || !!filtroOrigen || !!busqueda.trim();
+  const hayFiltros = filtroNivel !== "todos" || filtroEstado !== "todos" || hayFiltrosCrm(filtros) || !!busqueda.trim();
   function quitarFiltros() {
     setFiltroNivel("todos");
     setFiltroEstado("todos");
-    setFiltroOrigen("");
     setBusqueda("");
     router.replace("/global", { scroll: false });
   }
 
-  // Búsqueda en cliente: por nombre, contacto o resumen de la IA (mismo
-  // criterio que la vieja pantalla de Leads).
-  const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    if (!q) return filtrados;
-    return filtrados.filter(
-      (l) => coincideBusqueda(l, busqueda) || (l.resumenIA ?? "").toLowerCase().includes(q),
-    );
-  }, [filtrados, busqueda]);
+  // Etiquetas para autocompletar, orígenes y el equipo del negocio enfocado
+  // (con todos los negocios, "asignado" ofrece Míos / Sin asignar).
+  const negocioEnfocado = filtroNegocio === "todos" ? null : filtroNegocio;
+  const etiquetasDisponibles = useEtiquetasDisponibles(negocioEnfocado, leads);
+  const origenes = useMemo(() => origenesDeLista(leads), [leads]);
+  const conCamposCrm = useMemo(() => listaConCamposCrm(leads), [leads]);
+  const { datos: equipo } = useDatos(
+    listo && negocioEnfocado ? `equipo@${negocioEnfocado}` : null,
+    () => obtenerEquipo(negocioEnfocado ?? undefined),
+    { maxEdadMs: 60_000 },
+  );
+  function nombreDe(usuarioId: string | null | undefined): string | null {
+    if (!usuarioId) return null;
+    if (usuarioId === miUsuarioId) return "Tú";
+    const m = equipo?.miembros.find((x) => x.usuarioId === usuarioId);
+    return m ? (m.nombre ?? m.email) : null;
+  }
+  function actualizarLocal(id: string, cambios: Partial<Lead>) {
+    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...cambios } : l)));
+  }
 
   if (!listo) return null;
 
@@ -211,7 +240,7 @@ function GlobalPanelInner() {
         type="search"
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="🔍 Buscar por nombre, contacto o lo que dijo…"
+        placeholder="🔍 Buscar por nombre, teléfono, etiqueta, clínica o correo…"
         className="w-full rounded-chip bg-carta px-4 py-2.5 text-sm text-tinta outline-none ring-1 ring-linea placeholder:text-frio focus:ring-brasa/40 sm:max-w-md"
         aria-label="Buscar leads"
       />
@@ -303,16 +332,16 @@ function GlobalPanelInner() {
         ))}
       </div>
 
-      {filtroOrigen && (
-        <div className="flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-2 rounded-chip bg-tinta px-3.5 py-1.5 text-[0.82rem] font-semibold text-carta">
-            Origen: {leads.find((l) => cumpleOrigen(l, filtroOrigen) && l.origen?.etiqueta)?.origen?.etiqueta ?? (filtroOrigen === "directo" ? "Mensaje directo" : filtroOrigen === "comentario" ? "Comentarios" : "un anuncio")}
-            <button type="button" onClick={() => setFiltroOrigen("")} aria-label="Quitar el filtro de origen" className="text-[1rem] leading-none text-carta/80 hover:text-carta">
-              ×
-            </button>
-          </span>
-        </div>
-      )}
+      {/* ETIQUETA, ASIGNADO, SIN RESPUESTA, ORIGEN, FECHA Y ORDEN (CRM fase 2). */}
+      <BarraFiltrosCrm
+        filtros={filtros}
+        cambiar={cambiarCrm}
+        etiquetas={etiquetasDisponibles}
+        miembros={equipo?.miembros}
+        miUsuarioId={miUsuarioId}
+        origenes={origenes}
+        conEsperando={conCamposCrm}
+      />
 
       {completando && estado === "ok" && <p className="text-[0.78rem] text-frio" role="status">Cargando más leads…</p>}
 
@@ -348,7 +377,24 @@ function GlobalPanelInner() {
         <div className="grid gap-3 lg:grid-cols-2">
           {visibles.map((l) => (
             // TarjetaLead abre la ficha con el negocio del lead (LinkLead).
-            <TarjetaLead key={l.id} lead={aTarjeta(l, negocios.length > 1)} />
+            <TarjetaLead
+              key={l.id}
+              lead={aTarjeta(l, negocios.length > 1, {
+                extra: <InfoFilaLead lead={l} asignado={nombreDe(l.asignadoA)} />,
+                pie: (
+                  <div className="flex items-center justify-between gap-2">
+                    <ListaEtiquetas
+                      etiquetas={etiquetasDe(l)}
+                      onElegir={(e) => cambiarCrm({ etiquetas: alternarEtiqueta(filtros, e).etiquetas })}
+                      activas={filtros.etiquetas}
+                    />
+                    <span className="ml-auto">
+                      <AccionesRapidasLead lead={l} onCambio={(c) => actualizarLocal(l.id, c)} />
+                    </span>
+                  </div>
+                ),
+              })}
+            />
           ))}
         </div>
       )}

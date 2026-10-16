@@ -21,7 +21,7 @@ import { urlAgenda } from "@/lib/enlaces";
 const VENDEN: string[] = ["owner", "admin", "agente", "ventas"];
 
 const ROL_LABEL: Record<string, string> = {
-  owner: "Dueño", admin: "Administrador", agente: "Vendedor", mozo: "Mozo",
+  owner: "Dueño", admin: "Administrador", agente: "Encargado", mozo: "Mozo",
   ventas: "Ventas", marketing: "Marketing", cocina: "Cocina",
   operador: "Vendedora (negocio exportado)",
 };
@@ -38,7 +38,7 @@ const ROL_AYUDA: Record<string, string> = {
   ventas: "Atiende los mensajes, trabaja los leads, agenda citas y ve sus comisiones. No ve la configuración del bot ni cuánto factura el negocio.",
   marketing: "Publica contenido, maneja la publicidad y contesta comentarios. Ve la lista de leads para medir si su trabajo trajo gente, pero NO entra a las conversaciones.",
   admin: "Todo menos la facturación de la cuenta: configura el bot, invita gente y ve todos los reportes.",
-  agente: "El rol antiguo: ve todo el panel, incluidos los reportes de facturación del negocio.",
+  agente: "Ve todo el panel, incluidos los reportes de facturación y la caja. No cambia la configuración ni invita gente. Para una vendedora, elige Ventas.",
   mozo: "Toma pedidos en el local y los cobra. No ve reportes ni conversaciones.",
 };
 
@@ -198,12 +198,15 @@ function EquipoPanel() {
             {/* LOS PUESTOS REALES (2026-09-17, pedido de Jonathan: "agregar al
                 marketero un rol de marketing, otro de ventas").
                 "Ventas" y "Marketing" primero porque son los que se reparten
-                todos los dias; "Vendedor (todo)" queda por compatibilidad --
-                es el rol viejo, que ve tambien los reportes de plata. */}
+                todos los dias; "Encargado" es el rol viejo `agente`, que ve
+                tambien los reportes de plata. Hasta el 15-oct se llamaba
+                "Vendedor (acceso total)" y se confundia con Ventas: una
+                vendedora invitada asi veia cuanto factura el negocio. El
+                servidor ya le decia "Encargado" (leadia/src/core/puestos.ts). */}
             <option value="ventas">Ventas</option>
             <option value="marketing">Marketing</option>
             <option value="admin">Administrador</option>
-            <option value="agente">Vendedor (acceso total)</option>
+            <option value="agente">Encargado (ve reportes y caja)</option>
             {/* MOZO solo donde hay cocina (2026-08-21): en un negocio de
                 captación el rol existe pero no significa nada, y una opción
                 que no aplica solo genera preguntas. */}

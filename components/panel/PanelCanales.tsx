@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  listarCanales, obtenerUrlOAuth, actualizarCanal, eliminarCanal, liberarCanal,
+  listarCanales, obtenerUrlOAuth, actualizarCanal, eliminarCanal, liberarCanal, pausarCanal, reactivarCanal,
   cuentasPendientes, elegirCuenta,
   listarTiktokAds, urlTiktokAds, desconectarTiktokAds,
   type Canal, type TipoCanal, type CuentaPendiente, type CuentaTikTokAds,
@@ -243,27 +243,57 @@ export function PanelCanales() {
     if (!popup) window.open(url, "_blank");
   }
 
+  // ¿El bot está callado en este canal? `pausadoEn` es lo nuevo; `activo:
+  // false` es como quedaban los que se apagaban antes del 18-oct.
+  const estaPausado = (c: Canal) => Boolean(c.pausadoEn) || !c.activo;
+
+  /**
+   * PAUSAR / REACTIVAR (2026-10-18, caso Sania).
+   *
+   * Hasta hoy el chip "Activo / Apagado" ponía el canal inactivo, y el
+   * servidor DESCARTA lo que llega a un canal inactivo: las horas apagado se
+   * perdían. Y "Desconectar" en WhatsApp liberaba el número (desregistro +
+   * desuscripción + borrado): Jonathan lo tocó por error y Sania estuvo horas
+   * sin recibir nada, porque volver por el asistente de Meta fallaba.
+   *
+   * Ahora el chip PAUSA: los mensajes siguen entrando y se ven, el bot calla,
+   * y reactivar es un clic. Soltar el número de verdad es "Quitar", aparte.
+   */
   async function alternar(c: Canal) {
-    await actualizarCanal(c.id, { activo: !c.activo });
+    const nombre = c.nombre || c.cuentaExterna;
+    if (estaPausado(c)) {
+      const r = await reactivarCanal(c.id);
+      cargar();
+      if (!r.ok) window.alert("No se pudo reactivar. Intenta de nuevo.");
+      else if (r.aviso) window.alert(r.aviso);
+      return;
+    }
+    const seguro = window.confirm(
+      `¿Pausar ${nombre}?\n\n` +
+        "El bot deja de responder por aquí, pero los mensajes siguen llegando y los ves en " +
+        "Conversaciones (puedes contestar tú). Nada se pierde y lo reactivas con un clic.",
+    );
+    if (!seguro) return;
+    const r = await pausarCanal(c.id);
     cargar();
+    if (!r.ok) window.alert("No se pudo pausar. Intenta de nuevo.");
   }
 
-  // Desconecta la conexión con la red. Los leads y conversaciones quedan
-  // intactos: solo se quita el enlace.
+  // QUITAR la conexión (definitivo). Los leads y conversaciones quedan, pero
+  // lo que llegue después ya no entra a LeadAI. Para dejar de atender un rato
+  // está la pausa (el chip), que no pierde nada.
   //
-  // WHATSAPP VA POR OTRO CAMINO (2026-09-15). El DELETE de siempre desconecta
-  // el bot pero deja el número REGISTRADO en la API de Meta: desde ahí el
-  // dueño no puede usarlo en su app de WhatsApp Business ni llevarlo a otra
-  // plataforma. Para Instagram o Messenger da igual —se reconectan con un
-  // clic—, pero un número de teléfono queda atrapado, y el mensaje de acá le
-  // prometía justo lo contrario ("puedes volver a conectarla cuando quieras").
-  // Liberar además lo desregistra.
+  // WHATSAPP VA POR OTRO CAMINO (2026-09-15). Quitar sin más deja el número
+  // REGISTRADO en la API de Meta: desde ahí el dueño no puede usarlo en su app
+  // de WhatsApp Business ni llevarlo a otra plataforma. Liberar además lo
+  // desregistra.
   async function desconectar(c: Canal) {
     if (c.tipo === "whatsapp") return desconectarWhatsApp(c);
     const seguro = window.confirm(
-      `¿Desconectar ${c.nombre || c.cuentaExterna}?\n\n` +
-        "La cuenta deja de estar conectada a LeadAI (el bot ya no atenderá por aquí). " +
-        "Tus conversaciones y leads NO se borran, y puedes volver a conectarla cuando quieras.",
+      `¿Quitar ${c.nombre || c.cuentaExterna} de LeadAI?\n\n` +
+        "Los mensajes que lleguen después ya NO entrarán a LeadAI. Tus conversaciones y leads " +
+        "NO se borran. Para volver hay que conectarla otra vez.\n\n" +
+        "Si solo quieres que el bot deje de responder un rato, mejor usa \"Pausar\": no se pierde nada.",
     );
     if (!seguro) return;
     await eliminarCanal(c.id);
@@ -273,16 +303,19 @@ export function PanelCanales() {
   async function desconectarWhatsApp(c: Canal) {
     const compartidos = (c.compartirCon?.length ?? 0) + 1;
     const seguro = window.confirm(
-      `¿Desconectar ${c.nombre || c.cuentaExterna}?\n\n` +
-        "El bot deja de responder por este número y lo sueltas para usarlo en tu app de " +
-        "WhatsApp Business o conectarlo a otro lado.\n\n" +
+      `¿Quitar ${c.nombre || c.cuentaExterna} de LeadAI y soltar el número?\n\n` +
+        "Esto es para cuando el número se va de LeadAI (a tu app de WhatsApp Business o a " +
+        "otra plataforma). Desde ese momento los mensajes NO llegan a LeadAI, y volver a " +
+        "conectarlo aquí exige pasar otra vez por Meta.\n\n" +
         (compartidos > 1
           ? `OJO: este número atiende ${compartidos} negocios. Todos dejan de recibir mensajes.\n\n`
           : "") +
-        "Tus conversaciones y leads NO se borran. Para volver a conectarlo aquí hay que " +
-        "verificarlo de nuevo con Meta.",
+        "Si solo quieres que el bot deje de responder un rato, usa \"Pausar\": los mensajes " +
+        "siguen llegando y lo reactivas con un clic.",
     );
     if (!seguro) return;
+    // Segunda confirmación: es la acción que dejó a Sania sin mensajes.
+    if (!window.confirm("Último paso: ¿seguro que quitas el número de LeadAI?")) return;
     const r = await liberarCanal(c.id);
     cargar();
     // El detalle se MUESTRA. Meta no deja soltar por API los números de
@@ -391,18 +424,19 @@ export function PanelCanales() {
                         <div className="flex shrink-0 items-center gap-2">
                           <button
                             onClick={() => alternar(c)}
+                            title={estaPausado(c) ? "Reactivar: el bot vuelve a responder por aquí" : "Pausar: el bot deja de responder, pero los mensajes siguen llegando"}
                             className={`rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
-                              c.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
+                              !estaPausado(c) ? "bg-ok/12 text-ok" : "bg-calor/12 text-calor"
                             }`}
                           >
-                            {c.activo ? "Activo" : "Apagado"}
+                            {estaPausado(c) ? "Pausado · Reactivar" : "Activo"}
                           </button>
                           <button
                             onClick={() => desconectar(c)}
-                            title="Desconectar este número de LeadAI"
+                            title="Quitar este número de LeadAI (para pausar el bot usa el botón Activo)"
                             className="rounded-chip px-2 py-1 text-[0.72rem] font-semibold text-frio transition hover:bg-alerta/10 hover:text-alerta"
                           >
-                            Desconectar
+                            Quitar
                           </button>
                         </div>
                       </div>
@@ -554,18 +588,19 @@ export function PanelCanales() {
                       <div className="flex shrink-0 items-center gap-2">
                         <button
                           onClick={() => alternar(c)}
+                            title={estaPausado(c) ? "Reactivar: el bot vuelve a responder por aquí" : "Pausar: el bot deja de responder, pero los mensajes siguen llegando"}
                           className={`rounded-chip px-2.5 py-1 text-[0.72rem] font-bold ${
-                            c.activo ? "bg-ok/12 text-ok" : "bg-arena text-frio"
+                            !estaPausado(c) ? "bg-ok/12 text-ok" : "bg-calor/12 text-calor"
                           }`}
                         >
-                          {c.activo ? "Activo" : "Apagado"}
+                          {estaPausado(c) ? "Pausado · Reactivar" : "Activo"}
                         </button>
                         <button
                           onClick={() => desconectar(c)}
-                          title={`Desconectar esta cuenta de ${red.nombre}`}
+                          title={`Quitar esta cuenta de ${red.nombre} de LeadAI (para pausar el bot usa el botón Activo)`}
                           className="rounded-chip px-2 py-1 text-[0.72rem] font-semibold text-frio transition hover:bg-alerta/10 hover:text-alerta"
                         >
-                          Desconectar
+                          Quitar
                         </button>
                       </div>
                     </div>

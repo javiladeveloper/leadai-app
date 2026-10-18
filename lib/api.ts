@@ -1908,6 +1908,11 @@ export interface Canal {
   cuentaExterna: string;   // número / handle / id de la cuenta conectada
   nombre: string | null;
   activo: boolean;
+  /**
+   * PAUSADO (2026-10-18): los mensajes siguen entrando y se guardan, pero el
+   * bot no responde por aquí. null = funcionando. Ver pausarCanal.
+   */
+  pausadoEn?: string | null;
   creadoEn: string;
   // Canal COMPARTIDO: ids de otros negocios del dueño que atienden por este
   // mismo número (vacío = dedicado a este negocio).
@@ -2002,10 +2007,31 @@ export async function actualizarCanal(
   catch { return { ok: false }; }
 }
 
-// Desconectar (eliminar) un canal. Las conversaciones y leads NO se borran:
-// solo se quita la conexión con la red.
+/**
+ * PAUSAR / REACTIVAR (2026-10-18, caso Sania). Pausar no toca Meta ni borra
+ * nada: los mensajes siguen entrando y se ven en Conversaciones, pero el bot
+ * no responde por ese canal. Reactivar lo deja como estaba, en un clic y sin
+ * pasar por el asistente de Meta (que con un número del propio portafolio
+ * falla con #1690130 — así quedó Sania horas sin recibir nada).
+ */
+export async function pausarCanal(id: string): Promise<{ ok: boolean }> {
+  try { await api(`/canales/${id}/pausar`, { method: "POST" }); invalidar("canales@"); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
+export async function reactivarCanal(id: string): Promise<{ ok: boolean; aviso?: string }> {
+  try {
+    const r = await api<{ aviso?: string }>(`/canales/${id}/reactivar`, { method: "POST" });
+    invalidar("canales@");
+    return { ok: true, aviso: r?.aviso };
+  } catch { return { ok: false }; }
+}
+
+// QUITAR un canal de LeadAI (definitivo). Las conversaciones y leads NO se
+// borran, pero lo que llegue después ya no entra: para volver hay que conectar
+// de nuevo con la red. `?quitar=1` porque el DELETE sin más ahora PAUSA.
 export async function eliminarCanal(id: string): Promise<{ ok: boolean }> {
-  try { await api(`/canales/${id}`, { method: "DELETE" }); invalidar("canales@"); return { ok: true }; }
+  try { await api(`/canales/${id}?quitar=1`, { method: "DELETE" }); invalidar("canales@"); return { ok: true }; }
   catch { return { ok: false }; }
 }
 

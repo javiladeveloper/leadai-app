@@ -2401,8 +2401,51 @@ export async function negociosParaPlaca(
   } catch { return []; }
 }
 
+/** Lo que la pantalla de activación sabe de una placa (2026-11-04). */
+export interface EstadoPlaca {
+  estado: "libre" | "demo" | "activa" | "bloqueada" | "desconocida";
+  marca: string | null;
+  tipo: string | null;
+  /** La cuenta puede hacer demostraciones (vendedor de placas o super admin). */
+  puedeVender: boolean;
+  /** La demo en curso, solo para quien la hace. */
+  demo?: { negocio: string | null; placeId: string | null; desde: string | null; link: string };
+  /** El dueño llegó con el enlace del vendedor: el negocio ya viene elegido. */
+  reclamo?: { negocio: string | null; placeId: string };
+}
+
+export async function estadoPlaca(uid: string, codigo?: string): Promise<EstadoPlaca | null> {
+  const qs = codigo ? `?c=${encodeURIComponent(codigo)}` : "";
+  try { return await api<EstadoPlaca>(`/placas/${uid}/estado${qs}`, { conEmpresa: false }); }
+  catch { return null; }
+}
+
+/** El vendedor muestra la placa con el negocio del cliente (sin PIN). */
+export async function iniciarDemoPlaca(
+  uid: string, input: { placeId: string; negocio: string },
+): Promise<{ ok: boolean; link?: string; reviewUrl?: string; error?: string }> {
+  try {
+    const r = await api<{ link: string; reviewUrl: string }>(`/placas/${uid}/demo`, {
+      method: "POST", body: input, conEmpresa: false, conCookies: true,
+    });
+    return { ok: true, link: r.link, reviewUrl: r.reviewUrl };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo iniciar la demostración" };
+  }
+}
+
+export async function terminarDemoPlaca(uid: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api(`/placas/${uid}/terminar-demo`, { method: "POST", body: {}, conEmpresa: false });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo terminar la demostración" };
+  }
+}
+
 export async function activarPlaca(
-  input: { uid: string; pin: string; placeId: string }, tenant?: string,
+  // `pin` del empaque, o `codigo` del enlace del vendedor (placa en demo).
+  input: { uid: string; pin?: string; codigo?: string; placeId: string }, tenant?: string,
 ): Promise<{ ok: boolean; reviewUrl?: string; marca?: string | null; error?: string }> {
   try {
     const r = await api<{ reviewUrl: string; marca?: string | null }>("/placas/activar", {
@@ -2425,6 +2468,30 @@ export interface PlacaAdmin {
   activadaEn: string | null;
   creadoEn: string;
   tenant: { nombre: string } | null;
+  // Demostración y venta (2026-11-04)
+  demoNegocio?: string | null;
+  demoDesde?: string | null;
+  vendidaEn?: string | null;
+  demoPor?: { nombre: string | null; email: string } | null;
+  vendidaPor?: { nombre: string | null; email: string } | null;
+}
+
+/** Quien vende placas y cuánto (base de la comisión). */
+export interface VendedorPlacas {
+  id: string;
+  nombre: string | null;
+  email: string;
+  vendedorPlacas: boolean;
+  vendidasTotal: number;
+  vendidasMes: number;
+  demosEnCurso: number;
+}
+
+export async function adminMarcarVendedorPlacas(email: string, activo: boolean): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api("/admin/placas/vendedores", { method: "PUT", body: { email, activo }, conEmpresa: false });
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "No se pudo" }; }
 }
 
 // Torre de control Norac (super admin): MRR real, cuentas, placas por marca
@@ -2450,7 +2517,8 @@ export async function adminResumenNorac(): Promise<ResumenNorac | null> {
 }
 
 export async function adminResumenPlacas(): Promise<{
-  total: number; libres: number; activas: number; bloqueadas: number; placas: PlacaAdmin[];
+  total: number; libres: number; activas: number; bloqueadas: number; enDemo?: number;
+  placas: PlacaAdmin[]; vendedores?: VendedorPlacas[];
 } | null> {
   try { return await api("/admin/placas", { conEmpresa: false }); }
   catch { return null; }

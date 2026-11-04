@@ -3,9 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   adminResumenPlacas, adminAltaLotePlacas, adminResetPinPlaca, adminLiberarPlaca,
-  adminAsignarPlaca,
+  adminAsignarPlaca, adminMarcarVendedorPlacas,
   type PlacaAdmin,
 } from "@/lib/api";
+
+/** Días desde una fecha, para ver qué demo se quedó olvidada. */
+function diasDesde(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+}
 
 // SKUs de placa: mismo chip, distinto destino del toque.
 type TipoPlaca = "resenas" | "cobro" | "fidelidad" | "carta" | "acceso";
@@ -98,7 +104,24 @@ export default function AdminPlacas() {
     cargar();
   }
 
-  const ESTADO: Record<string, string> = { libre: "🟡 Libre", activa: "🟢 Activa", bloqueada: "⚫ De baja" };
+  // Vendedores (2026-11-04): quién puede mostrar placas sin PIN.
+  const [emailVendedor, setEmailVendedor] = useState("");
+  const [guardandoVendedor, setGuardandoVendedor] = useState(false);
+
+  async function marcarVendedor(email: string, activo: boolean) {
+    if (!email.trim() || guardandoVendedor) return;
+    setGuardandoVendedor(true);
+    const r = await adminMarcarVendedorPlacas(email.trim(), activo);
+    setGuardandoVendedor(false);
+    setMsg(r.ok
+      ? (activo ? `✅ ${email.trim()} ya puede mostrar y vender placas.` : `${email.trim()} ya no puede mostrar placas.`)
+      : `✕ ${r.error}`);
+    if (r.ok) { setEmailVendedor(""); cargar(); }
+  }
+
+  const ESTADO: Record<string, string> = {
+    libre: "🟡 Libre", demo: "🔵 En demostración", activa: "🟢 Activa", bloqueada: "⚫ De baja",
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-5 py-6">
@@ -238,13 +261,79 @@ export default function AdminPlacas() {
         </div>
       </section>
 
+      {/* ── Vendedores ── */}
+      <section className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea print:hidden">
+        <h2 className="text-[1.05rem] font-bold text-tinta">Vendedores</h2>
+        <p className="mt-1 text-[0.84rem] text-frio">
+          Quien tiene permiso toca una placa libre, la muestra con el negocio del cliente y, si la compra,
+          le pasa un enlace para activarla sin PIN. La venta queda a su nombre. Tiene que haber entrado
+          una vez a LeadAI con ese correo.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <input
+            value={emailVendedor}
+            onChange={(e) => setEmailVendedor(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") marcarVendedor(emailVendedor, true); }}
+            type="email"
+            placeholder="correo@de-la-vendedora.com"
+            className="w-full flex-1 sm:w-auto sm:min-w-[260px] rounded-tarjeta bg-arena/60 px-3 py-2 text-[0.88rem] text-tinta ring-1 ring-linea focus:ring-brasa/40"
+          />
+          <button
+            onClick={() => marcarVendedor(emailVendedor, true)}
+            disabled={guardandoVendedor || !emailVendedor.trim()}
+            className="rounded-chip bg-brasa px-5 py-2 text-[0.9rem] font-semibold text-sobre-brasa disabled:opacity-50"
+          >
+            Dar permiso
+          </button>
+        </div>
+        {resumen?.vendedores && resumen.vendedores.length > 0 && (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[620px] text-left text-[0.84rem]">
+              <thead>
+                <tr className="border-b border-linea text-[0.72rem] uppercase tracking-wide text-frio">
+                  <th className="py-2 pr-3">Vendedor</th>
+                  <th className="py-2 pr-3">Mostrando ahora</th>
+                  <th className="py-2 pr-3">Vendidas este mes</th>
+                  <th className="py-2 pr-3">Vendidas en total</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {resumen.vendedores.map((v) => (
+                  <tr key={v.id} className="border-b border-linea/60">
+                    <td className="py-2 pr-3">
+                      <p className="font-semibold text-tinta">{v.nombre ?? v.email}</p>
+                      {v.nombre && <p className="text-[0.76rem] text-frio">{v.email}</p>}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">{v.demosEnCurso}</td>
+                    <td className="py-2 pr-3 font-bold tabular-nums text-tinta">{v.vendidasMes}</td>
+                    <td className="py-2 pr-3 tabular-nums">{v.vendidasTotal}</td>
+                    <td className="py-2 text-right">
+                      {v.vendedorPlacas ? (
+                        <button onClick={() => marcarVendedor(v.email, false)} className="font-semibold text-frio hover:text-alerta">
+                          Quitar permiso
+                        </button>
+                      ) : (
+                        <button onClick={() => marcarVendedor(v.email, true)} className="font-semibold text-brasa-texto hover:underline">
+                          Devolver permiso
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* ── Inventario ── */}
       <section className="rounded-tarjeta bg-carta p-5 ring-1 ring-linea print:hidden">
         <div className="flex items-center justify-between">
           <h2 className="text-[1.05rem] font-bold text-tinta">Inventario</h2>
           {resumen && (
             <p className="text-[0.84rem] text-frio">
-              {resumen.total} placas · <b className="text-tinta">{resumen.activas} activas</b> · {resumen.libres} libres · {resumen.bloqueadas} de baja
+              {resumen.total} placas · <b className="text-tinta">{resumen.activas} activas</b> · {resumen.enDemo ?? 0} en demostración · {resumen.libres} libres · {resumen.bloqueadas} de baja
             </p>
           )}
         </div>
@@ -260,6 +349,7 @@ export default function AdminPlacas() {
                   <th className="py-2 pr-3">Lote</th>
                   <th className="py-2 pr-3">Estado</th>
                   <th className="py-2 pr-3">Negocio</th>
+                  <th className="py-2 pr-3">Vendedor</th>
                   <th className="py-2 pr-3">Toques</th>
                   <th className="py-2 pr-3">Activada</th>
                   <th className="py-2" />
@@ -273,7 +363,21 @@ export default function AdminPlacas() {
                     <td className="py-2 pr-3">{p.marca ?? "—"}</td>
                     <td className="py-2 pr-3">{p.lote ?? "—"}</td>
                     <td className="py-2 pr-3">{ESTADO[p.estado] ?? p.estado}</td>
-                    <td className="py-2 pr-3">{p.tenant?.nombre ?? "—"}</td>
+                    <td className="py-2 pr-3">
+                      {p.estado === "demo" ? (p.demoNegocio ?? "—") : (p.tenant?.nombre ?? "—")}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {p.estado === "demo" && p.demoPor ? (
+                        <>
+                          {p.demoPor.nombre ?? p.demoPor.email}
+                          <span className={`block text-[0.74rem] ${(diasDesde(p.demoDesde) ?? 0) >= 7 ? "font-semibold text-alerta" : "text-frio"}`}>
+                            mostrando hace {diasDesde(p.demoDesde)} d
+                          </span>
+                        </>
+                      ) : p.vendidaPor ? (
+                        p.vendidaPor.nombre ?? p.vendidaPor.email
+                      ) : "—"}
+                    </td>
                     <td className="py-2 pr-3">{p.escaneos}</td>
                     <td className="py-2 pr-3">
                       {p.activadaEn ? new Date(p.activadaEn).toLocaleDateString("es-PE") : "—"}

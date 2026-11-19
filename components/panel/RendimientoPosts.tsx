@@ -30,7 +30,7 @@ import { puedeAbrirConversacion } from "@/lib/auth";
 
 type Filtro = "todas" | RedPost;
 
-const RED: Record<RedPost, string> = { instagram: "Instagram", messenger: "Facebook" };
+const RED: Record<RedPost, string> = { instagram: "Instagram", messenger: "Facebook", tiktok: "TikTok" };
 const TIPO: Record<string, string> = {
   imagen: "foto", video: "video", reel: "reel", carrusel: "carrusel", texto: "texto", enlace: "enlace",
 };
@@ -138,7 +138,7 @@ export function RendimientoPosts({ tenant }: { tenant?: string } = {}) {
 
       {redes.size > 1 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {(["todas", "instagram", "messenger"] as Filtro[]).map((f) => (
+          {(["todas", "instagram", "messenger", ...(m.posts.some((p) => p.canal === "tiktok") ? ["tiktok"] : [])] as Filtro[]).map((f) => (
             <button
               key={f}
               type="button"

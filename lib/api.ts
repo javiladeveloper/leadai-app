@@ -3505,7 +3505,8 @@ export { API_URL };
 // ── QUÉ POST TRAE GENTE (2026-09-18) ─────────────────────────────────────────
 // Los posts recientes de Instagram y de la página de Facebook —publicados
 // desde donde sea— con los números de Meta y lo que pasó después en LeadAI.
-export type RedPost = "instagram" | "messenger";
+/** `tiktok` desde 2026-11-18: videos de la cuenta de empresa conectada (LeadAI core/posts-tiktok.ts). */
+export type RedPost = "instagram" | "messenger" | "tiktok";
 
 export interface PostConResultados {
   canal: RedPost;

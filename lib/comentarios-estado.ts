@@ -11,7 +11,7 @@ export interface CanalMinimo {
   activo: boolean;
 }
 
-const NOMBRE: Record<string, string> = { instagram: "Instagram", messenger: "Facebook" };
+const NOMBRE: Record<string, string> = { instagram: "Instagram", messenger: "Facebook", tiktok: "TikTok" };
 const ORDEN = ["Instagram", "Facebook"];
 
 /** Las redes de comentarios conectadas y activas, en orden fijo. */

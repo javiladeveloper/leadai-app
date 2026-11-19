@@ -430,7 +430,7 @@ export default function ComentariosPanel() {
 }
 
 /** Qué red es, en palabras del dueño: en el modelo, Facebook es "messenger". */
-const RED: Record<string, string> = { instagram: "Instagram", messenger: "Facebook" };
+const RED: Record<string, string> = { instagram: "Instagram", messenger: "Facebook", tiktok: "TikTok" };
 
 /**
  * UN COMENTARIO CAPTADO, CON RESPUESTA A MANO (2026-09-29). La IA solo contesta
@@ -451,7 +451,8 @@ function ComentarioCaptado({
   const red = RED[c.canal] ?? c.canal;
   const envio = describirEnvio({ ...c, esPrueba: !!esSimulacion });
   const puedePublica = !c.respondido && ["pendiente", "omitido", "fallido"].includes(c.estadoPublico ?? "omitido");
-  const puedePrivada = !c.dmAbierto && ["pendiente", "omitido", "fallido"].includes(c.estadoPrivado ?? "omitido");
+  // TikTok no tiene privado (sus mensajes directos no están habilitados, 2026-11-18).
+  const puedePrivada = c.canal !== "tiktok" && !c.dmAbierto && ["pendiente", "omitido", "fallido"].includes(c.estadoPrivado ?? "omitido");
   const [abierto, setAbierto] = useState(false);
   const [respuesta, setRespuesta] = useState("");
   const [privado, setPrivado] = useState(false);
